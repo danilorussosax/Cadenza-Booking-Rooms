@@ -111,6 +111,23 @@ async function start() {
           console.error('[backup] start failed:', e.message);
         });
     });
+
+    // Errori di listen (EADDRINUSE, EACCES, …) → messaggio chiaro invece di
+    // stacktrace pg-protocol fuorviante.
+    httpServer.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`\n✗ Porta ${PORT} già occupata da un altro processo.`);
+        console.error(`  Identifica il processo:  lsof -i :${PORT} -sTCP:LISTEN`);
+        console.error(`  Termina e riavvia:       lsof -ti:${PORT} | xargs kill`);
+        console.error(`  Oppure cambia porta:     PORT=3001 npm start\n`);
+      } else if (err.code === 'EACCES') {
+        console.error(`\n✗ Permesso negato per la porta ${PORT}.`);
+        console.error(`  Le porte < 1024 richiedono sudo; usa una porta ≥ 1024.\n`);
+      } else {
+        console.error('\n✗ Errore avvio server:', err.message);
+      }
+      void safeShutdown(1);
+    });
   } catch (err) {
     console.error('✗ Errore avvio server:', err);
     await safeShutdown(1);
