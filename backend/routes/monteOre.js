@@ -456,6 +456,15 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
         );
         if (decided === 'auto_approved') {
           await slotService.toggleSlot(s.id, { force: true, transaction: t });
+          // Sync booking↔slot solo se la proposta è 'generated' (i booking
+          // sono già stati materializzati). In 'approved' lo slot toggle
+          // basta — il generator userà il nuovo isActive al prossimo run.
+          if (p.status === 'generated') {
+            await slotService.syncBookingForSlot(s.id, {
+              actorUser: { id: req.user.id, role: 'admin' },
+              transaction: t,
+            });
+          }
           await p.increment('amendmentCount', { by: 1, transaction: t });
         }
         await s.reload({ transaction: t });
@@ -1053,6 +1062,14 @@ adminRouter.post(
               if (a.payload.startTime) upd.startTime = String(a.payload.startTime).slice(0, 5);
               if (a.payload.endTime) upd.endTime = String(a.payload.endTime).slice(0, 5);
               await slot.update(upd, { transaction: t });
+            }
+            // Sync booking↔slot in stato 'generated': cancella o ricrea il
+            // Booking corrispondente in coerenza con la decisione admin.
+            if (proposal.status === 'generated') {
+              await slotService.syncBookingForSlot(a.slotId, {
+                actorUser: { id: req.user.id, role: 'admin' },
+                transaction: t,
+              });
             }
           }
         }

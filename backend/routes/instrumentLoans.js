@@ -169,62 +169,78 @@ router.post(
       }
     }
 
-    // Conflitti: c'è già un prestito attivo/richiesto che si sovrappone all'intervallo
-    const conflict = await InstrumentLoan.findOne({
-      where: {
-        instrumentId,
-        status: { [Op.in]: ['requested', 'active', 'overdue'] },
-        // overlap: not (existing.to < newFrom OR existing.from > newTo)
-        [Op.and]: [
-          { fromDate: { [Op.lte]: end.format('YYYY-MM-DD') } },
-          { toDate: { [Op.gte]: start.format('YYYY-MM-DD') } },
-        ],
-      },
-    });
-    if (conflict) {
-      return res.status(409).json({
-        error: 'Lo strumento è già impegnato nel periodo richiesto',
-        code: 'LOAN_CONFLICT',
-      });
-    }
-
-    // Quote prestiti per ruolo (vedi services/loanQuotaValidator.js).
-    // Gli admin sono esclusi a priori dal validatore.
-    if (req.user.role !== 'admin') {
-      const { checkLoanQuotas } = require('../services/loanQuotaValidator');
-      const quotaIssues = await checkLoanQuotas({
-        user: req.user,
-        instrument,
-        fromDate: start.format('YYYY-MM-DD'),
-        toDate: end.format('YYYY-MM-DD'),
-      });
-      if (quotaIssues.length > 0) {
-        // Mostra il primo come errore principale + tutti come details.
-        const first = quotaIssues[0];
-        return res.status(409).json({
-          error: first.message,
-          code: first.code,
-          details: quotaIssues.map((i) => ({ message: i.message, code: i.code })),
-        });
-      }
-    }
-
+    // Conflict check + create in transazione SERIALIZABLE (Postgres) o
+    // default (SQLite/MySQL): senza tx due request concorrenti sullo stesso
+    // strumento nello stesso intervallo passavano entrambe la check di
+    // sovrapposizione e creavano DUE loan attivi sullo stesso item.
     try {
-      const loan = await InstrumentLoan.create({
-        instrumentId,
-        userId: req.user.id,
-        fromDate: start.format('YYYY-MM-DD'),
-        toDate: end.format('YYYY-MM-DD'),
-        notes: notes || null,
-        status: 'requested',
+      const txOpts =
+        sequelize.getDialect() === 'postgres'
+          ? { isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+          : {};
+      const loan = await sequelize.transaction(txOpts, async (t) => {
+        const conflict = await InstrumentLoan.findOne({
+          where: {
+            instrumentId,
+            status: { [Op.in]: ['requested', 'active', 'overdue'] },
+            // overlap: not (existing.to < newFrom OR existing.from > newTo)
+            [Op.and]: [
+              { fromDate: { [Op.lte]: end.format('YYYY-MM-DD') } },
+              { toDate: { [Op.gte]: start.format('YYYY-MM-DD') } },
+            ],
+          },
+          transaction: t,
+        });
+        if (conflict) {
+          const e = new Error('Lo strumento è già impegnato nel periodo richiesto');
+          e.status = 409;
+          e.code = 'LOAN_CONFLICT';
+          throw e;
+        }
+
+        // Quote prestiti per ruolo (vedi services/loanQuotaValidator.js).
+        // Eseguito DENTRO la stessa tx per coerenza con la conflict check.
+        if (req.user.role !== 'admin') {
+          const { checkLoanQuotas } = require('../services/loanQuotaValidator');
+          const quotaIssues = await checkLoanQuotas({
+            user: req.user,
+            instrument,
+            fromDate: start.format('YYYY-MM-DD'),
+            toDate: end.format('YYYY-MM-DD'),
+          });
+          if (quotaIssues.length > 0) {
+            const first = quotaIssues[0];
+            const e = new Error(first.message);
+            e.status = 409;
+            e.code = first.code;
+            e.details = quotaIssues.map((i) => ({ message: i.message, code: i.code }));
+            throw e;
+          }
+        }
+
+        return InstrumentLoan.create(
+          {
+            instrumentId,
+            userId: req.user.id,
+            fromDate: start.format('YYYY-MM-DD'),
+            toDate: end.format('YYYY-MM-DD'),
+            notes: notes || null,
+            status: 'requested',
+          },
+          { transaction: t },
+        );
       });
       const full = await findLoanFull(loan.id);
-      // notifica utente: richiesta ricevuta
       sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_requested' }).catch(
         () => {},
       );
       res.status(201).json({ loan: annotateStatus(full) });
     } catch (err) {
+      if (err.status) {
+        const body = { error: err.message, code: err.code };
+        if (err.details) body.details = err.details;
+        return res.status(err.status).json(body);
+      }
       next(err);
     }
   },
@@ -235,37 +251,37 @@ router.post(
 // =========================================================
 
 router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res) => {
-  const loan = await findLoanFull(req.params.id);
-  if (!loan) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
-  if (loan.status !== 'requested') {
+  // UPDATE atomico: solo se status='requested' (uno solo dei 2 admin che
+  // cliccano simultaneamente passa).
+  const [affected] = await InstrumentLoan.update(
+    { status: 'active', approvedBy: req.user.id, approvedAt: new Date() },
+    { where: { id: req.params.id, status: 'requested' } },
+  );
+  if (affected === 0) {
+    const exists = await InstrumentLoan.findByPk(req.params.id);
+    if (!exists) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
     return res
       .status(400)
       .json({ error: "Stato non valido per l'approvazione", code: 'LOAN_INVALID_STATE' });
   }
-  await loan.update({
-    status: 'active',
-    approvedBy: req.user.id,
-    approvedAt: new Date(),
-  });
-  const full = await findLoanFull(loan.id);
+  const full = await findLoanFull(req.params.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_approved' }).catch(() => {});
   res.json({ loan: annotateStatus(full) });
 });
 
 router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) => {
-  const loan = await findLoanFull(req.params.id);
-  if (!loan) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
-  if (loan.status !== 'requested') {
+  const [affected] = await InstrumentLoan.update(
+    { status: 'rejected', approvedBy: req.user.id, approvedAt: new Date() },
+    { where: { id: req.params.id, status: 'requested' } },
+  );
+  if (affected === 0) {
+    const exists = await InstrumentLoan.findByPk(req.params.id);
+    if (!exists) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
     return res
       .status(400)
       .json({ error: 'Stato non valido per il rifiuto', code: 'LOAN_INVALID_STATE' });
   }
-  await loan.update({
-    status: 'rejected',
-    approvedBy: req.user.id,
-    approvedAt: new Date(),
-  });
-  const full = await findLoanFull(loan.id);
+  const full = await findLoanFull(req.params.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_rejected' }).catch(() => {});
   res.json({ loan: annotateStatus(full) });
 });
@@ -280,17 +296,30 @@ router.post('/:id/return', authenticate, async (req, res) => {
   if (loan.userId !== req.user.id && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
   }
-  if (loan.status === 'returned') {
-    return res
-      .status(400)
-      .json({ error: 'Prestito già restituito', code: 'LOAN_ALREADY_RETURNED' });
-  }
-  if (loan.status !== 'active' && loan.status !== 'overdue') {
+  // UPDATE atomico con WHERE status IN (active, overdue): se due richieste
+  // concorrenti tentano il return, una sola restituisce affectedRows=1.
+  // L'altra vede affectedRows=0 → "già restituito" senza dover ricaricare.
+  const [affected] = await InstrumentLoan.update(
+    { status: 'returned', returnedAt: new Date() },
+    {
+      where: {
+        id: loan.id,
+        status: { [Op.in]: ['active', 'overdue'] },
+      },
+    },
+  );
+  if (affected === 0) {
+    // Diagnosi: ricarica per dare messaggio specifico
+    const fresh = await InstrumentLoan.findByPk(loan.id);
+    if (fresh?.status === 'returned') {
+      return res
+        .status(400)
+        .json({ error: 'Prestito già restituito', code: 'LOAN_ALREADY_RETURNED' });
+    }
     return res
       .status(400)
       .json({ error: 'Stato non valido per la restituzione', code: 'LOAN_INVALID_STATE' });
   }
-  await loan.update({ status: 'returned', returnedAt: new Date() });
   const full = await findLoanFull(loan.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_returned' }).catch(() => {});
   res.json({ loan: annotateStatus(full) });

@@ -144,6 +144,122 @@ async function toggleSlot(slotId, { force = false, transaction = null } = {}) {
 }
 
 /**
+ * Sincronizza il Booking corrispondente quando uno slot viene toggle-ato
+ * in stato 'generated'. Logica:
+ *   - se isActive passa da true a false: cancella il Booking ricorrente
+ *     (status='cancelled', preserva l'id in generatedBookingIds per il
+ *     re-link futuro)
+ *   - se isActive passa da false a true: ricrea il Booking via
+ *     validateBooking + Booking.create (riusando i bypass admin del
+ *     generator monte ore)
+ *
+ * Lo slot deve essere già stato aggiornato (isActive nuovo) prima della
+ * chiamata; questo helper guarda all'isActive corrente per decidere.
+ *
+ * Ritorna { affectedBookingId, action: 'cancelled'|'created'|'noop' }.
+ */
+async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}) {
+  const tx = transaction ? { transaction } : {};
+  const { Booking, MonteOreSchedule, Room } = require('../models');
+  const { validateBooking } = require('./bookingValidator');
+
+  const slot = await MonteOreSlot.findByPk(slotId, { ...tx });
+  if (!slot) return { action: 'noop', reason: 'slot_not_found' };
+  const proposal = await MonteOreProposal.findByPk(slot.proposalId, { ...tx });
+  if (!proposal || proposal.status !== 'generated') {
+    return { action: 'noop', reason: 'proposal_not_generated' };
+  }
+  const schedule = await MonteOreSchedule.findByPk(slot.scheduleId, { ...tx });
+  if (!schedule) return { action: 'noop', reason: 'schedule_not_found' };
+
+  // Costruisco gli istanti come fa il generator
+  const dayjs = require('dayjs');
+  const [sh, sm] = schedule.startTime.split(':').map(Number);
+  const [eh, em] = schedule.endTime.split(':').map(Number);
+  const startTime = dayjs(slot.date).hour(sh).minute(sm).second(0).millisecond(0).toDate();
+  const endTime = dayjs(slot.date).hour(eh).minute(em).second(0).millisecond(0).toDate();
+
+  if (slot.isActive) {
+    // Caso "toggle_on" → ricrea il Booking se non esiste già
+    // Cerca booking esistente attivo che combaci (potrebbe essere un orfano)
+    const existing = await Booking.findOne({
+      where: {
+        userId: proposal.userId,
+        roomId: schedule.roomId,
+        startTime,
+        status: 'confirmed',
+      },
+      ...tx,
+    });
+    if (existing)
+      return { action: 'noop', reason: 'already_exists', affectedBookingId: existing.id };
+    const validation = await validateBooking({
+      user: await require('../models').User.findByPk(proposal.userId, { ...tx }),
+      roomId: schedule.roomId,
+      startTime,
+      endTime,
+      type: schedule.bookingType,
+      bypassQuotas: !!actorUser && actorUser.role === 'admin',
+      bypassAdvance: !!actorUser && actorUser.role === 'admin',
+      bypassDuration: !!actorUser && actorUser.role === 'admin',
+      // bypassPastDates: false — se il docente vuole riattivare uno slot
+      // passato, deve farlo via amendment + admin (che decide se
+      // materializzarlo come booking storico)
+      transaction,
+    });
+    if (!validation.valid) {
+      return { action: 'noop', reason: 'validation_failed', errors: validation.errors };
+    }
+    const b = await Booking.create(
+      {
+        userId: proposal.userId,
+        roomId: schedule.roomId,
+        startTime,
+        endTime,
+        type: schedule.bookingType,
+        purpose: schedule.purpose || null,
+        notes: schedule.notes || null,
+        status: 'confirmed',
+      },
+      { transaction },
+    );
+    // Aggiorna generatedBookingIds della schedule (append)
+    const ids = Array.isArray(schedule.generatedBookingIds) ? schedule.generatedBookingIds : [];
+    if (!ids.includes(b.id)) {
+      await schedule.update({ generatedBookingIds: [...ids, b.id] }, { transaction });
+    }
+    return { action: 'created', affectedBookingId: b.id };
+  }
+  // Caso "toggle_off" → cancella il Booking se esiste e non è checked-in/passato
+  const now = new Date();
+  const target = await Booking.findOne({
+    where: {
+      userId: proposal.userId,
+      roomId: schedule.roomId,
+      startTime,
+      status: 'confirmed',
+    },
+    ...tx,
+  });
+  if (!target) return { action: 'noop', reason: 'booking_not_found' };
+  if (target.checkedInAt) {
+    return { action: 'noop', reason: 'already_checked_in', affectedBookingId: target.id };
+  }
+  if (new Date(target.startTime) < now) {
+    return { action: 'noop', reason: 'past_booking', affectedBookingId: target.id };
+  }
+  await target.update(
+    {
+      status: 'cancelled',
+      cancelledAt: now,
+      cancelReason: 'Variazione monte ore (slot disattivato)',
+    },
+    { transaction },
+  );
+  return { action: 'cancelled', affectedBookingId: target.id };
+}
+
+/**
  * Snapshot del valore `isActive` corrente come `originalActive`.
  * Da chiamare al momento dell'approvazione admin per congelare lo stato.
  */
@@ -182,6 +298,7 @@ module.exports = {
   regenerateSlotsFromPattern,
   recomputeTotals,
   toggleSlot,
+  syncBookingForSlot,
   snapshotOriginalActive,
   classifyAmendment,
   getActiveSettings,

@@ -346,18 +346,34 @@ async function runPreSyncMigrations() {
   // Sistema check-in / anti ghost-booking
   if (await ensureNullableStringColumn('bookings', 'checkInToken', 64)) {
     console.log('  ✓ Colonna bookings.checkInToken aggiunta');
-    // Backfill token per le prenotazioni esistenti (solo quelle senza)
+  }
+  // Backfill SEPARATO dalla creazione colonna: idempotente per design.
+  // Se l'app crasha tra create-column e backfill, al restart la check
+  // `desc[name]` ritorna true (colonna esistente) ma le righe NULL restano.
+  // Eseguendo qui sempre, scopriamo le righe non backfillate e le sistemiamo.
+  // Sicuro perché filtra `checkInToken: null` → ricarica solo se serve.
+  try {
     const crypto = require('crypto');
     const { Booking } = require('../models');
-    const rows = await Booking.findAll({ where: { checkInToken: null }, attributes: ['id'] });
-    for (const row of rows) {
-      await Booking.update(
-        { checkInToken: crypto.randomBytes(24).toString('hex') },
-        { where: { id: row.id } },
-      );
-    }
-    if (rows.length)
+    const rows = await Booking.findAll({
+      where: { checkInToken: null },
+      attributes: ['id'],
+      paranoid: false,
+    });
+    if (rows.length > 0) {
+      for (const row of rows) {
+        await Booking.update(
+          { checkInToken: crypto.randomBytes(24).toString('hex') },
+          { where: { id: row.id }, paranoid: false },
+        );
+      }
       console.log(`  ✓ Backfill checkInToken per ${rows.length} prenotazioni esistenti`);
+    }
+  } catch (err) {
+    // Best effort: se la tabella non c'è ancora (primo boot pre-sync) saltiamo.
+    if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
+      console.warn(`  ⚠ Backfill checkInToken fallito: ${err.message}`);
+    }
   }
   if (await ensureNullableDateColumn('bookings', 'checkedInAt')) {
     console.log('  ✓ Colonna bookings.checkedInAt aggiunta');
@@ -396,24 +412,39 @@ async function runPreSyncMigrations() {
   // già impostati direttamente sullo strumento.
   if (await ensureJsonArrayColumn('instruments', 'allowedCourseIds')) {
     console.log('  ✓ Colonna instruments.allowedCourseIds aggiunta (default [])');
-    try {
-      const { Instrument, InstrumentLoanRule } = require('../models');
-      const legacyRules = await InstrumentLoanRule.findAll().catch(() => []);
-      let migrated = 0;
-      for (const rule of legacyRules) {
-        const ids = Array.isArray(rule.allowedCourseIds) ? rule.allowedCourseIds : [];
-        if (ids.length === 0) continue;
-        const [count] = await Instrument.update(
-          { allowedCourseIds: ids },
-          { where: { family: rule.family } },
-        );
-        migrated += count;
+  }
+  // Backfill idempotente delle allowedCourseIds dagli InstrumentLoanRule
+  // legacy. Riguarda SOLO gli strumenti con allowedCourseIds vuoto (default
+  // della colonna): se gli admin hanno già configurato esplicitamente, il
+  // valore viene preservato.
+  try {
+    const { Instrument, InstrumentLoanRule } = require('../models');
+    const legacyRules = await InstrumentLoanRule.findAll().catch(() => []);
+    let migrated = 0;
+    for (const rule of legacyRules) {
+      const ids = Array.isArray(rule.allowedCourseIds) ? rule.allowedCourseIds : [];
+      if (ids.length === 0) continue;
+      // Idempotente: aggiorna solo gli strumenti che hanno allowedCourseIds
+      // vuoto (== JSON di array vuoto, oppure NULL). Gli admin che avessero
+      // già personalizzato lo strumento non vengono toccati.
+      const Sequelize = sequelize.Sequelize || sequelize.constructor;
+      const allInstruments = await Instrument.findAll({
+        where: { family: rule.family },
+        attributes: ['id', 'allowedCourseIds'],
+      });
+      for (const instr of allInstruments) {
+        const current = Array.isArray(instr.allowedCourseIds) ? instr.allowedCourseIds : [];
+        if (current.length > 0) continue; // già personalizzato
+        await Instrument.update({ allowedCourseIds: ids }, { where: { id: instr.id } });
+        migrated += 1;
       }
-      if (migrated > 0) {
-        console.log(`  ✓ Migrate regole prestito legacy → ${migrated} strumenti aggiornati`);
-      }
-    } catch (err) {
-      // Non blocca lo startup: la migration legacy è best-effort.
+    }
+    if (migrated > 0) {
+      console.log(`  ✓ Migrate regole prestito legacy → ${migrated} strumenti aggiornati`);
+    }
+  } catch (err) {
+    // Non blocca lo startup: la migration legacy è best-effort.
+    if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
       console.warn(`  ⚠ Migrazione regole prestito legacy fallita: ${err.message}`);
     }
   }

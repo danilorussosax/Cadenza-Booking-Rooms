@@ -27,14 +27,22 @@ const { sequelize } = require('../models');
  * `dbErrors.js` lo riceve nella sua forma originale.
  */
 async function withTransaction(fn, opts = {}) {
-  const isolation = opts.isolation || Transaction.ISOLATION_LEVELS.SERIALIZABLE;
+  // SERIALIZABLE solo su DB che lo supportano nativamente. Su SQLite alcune
+  // versioni di Sequelize emettono `PRAGMA` non riconosciute che fallisce
+  // l'apertura della transazione. Default più sicuro: SERIALIZABLE su
+  // Postgres, default del dialect altrove.
+  const dialect = sequelize.getDialect();
+  const supportsIsolation = dialect === 'postgres' || dialect === 'mariadb';
+  const isolation =
+    opts.isolation ?? (supportsIsolation ? Transaction.ISOLATION_LEVELS.SERIALIZABLE : null);
   const retries = Number.isInteger(opts.retries) ? opts.retries : 2;
   const baseDelayMs = opts.baseDelayMs || 50;
+  const txOpts = isolation ? { isolationLevel: isolation } : {};
 
   let attempt = 0;
   for (;;) {
     try {
-      return await sequelize.transaction({ isolationLevel: isolation }, fn);
+      return await sequelize.transaction(txOpts, fn);
     } catch (err) {
       const pgCode = err?.parent?.code || err?.original?.code;
       // 40001 → un'altra transazione ha "vinto"; back-off lineare e ritenta.

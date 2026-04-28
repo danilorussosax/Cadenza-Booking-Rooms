@@ -329,6 +329,25 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
   const updates = {};
   for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
 
+  // Whitelist enum: previene mass-assignment di valori arbitrari (es.
+  // role='superadmin' o status='god'). Il DB constraint scatterebbe comunque,
+  // ma con errore 500 generico — qui restituiamo 400 con messaggio chiaro.
+  if (updates.role !== undefined && !VALID_ROLES.includes(updates.role)) {
+    return res.status(400).json({
+      error: `Ruolo "${updates.role}" non valido. Ammessi: ${VALID_ROLES.join(', ')}`,
+      code: 'INVALID_ROLE',
+    });
+  }
+  if (updates.status !== undefined && !VALID_STATUSES.includes(updates.status)) {
+    return res.status(400).json({
+      error: `Stato "${updates.status}" non valido. Ammessi: ${VALID_STATUSES.join(', ')}`,
+      code: 'INVALID_STATUS',
+    });
+  }
+  if (updates.isActive !== undefined && typeof updates.isActive !== 'boolean') {
+    return res.status(400).json({ error: 'isActive deve essere boolean', code: 'INVALID_FIELD' });
+  }
+
   // Se viene resettata la password
   if (req.body.newPassword && req.body.newPassword.length >= 8) {
     updates.passwordHash = req.body.newPassword;

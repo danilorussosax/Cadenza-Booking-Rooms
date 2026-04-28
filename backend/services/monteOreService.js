@@ -32,10 +32,9 @@ const isoWeek = require('dayjs/plugin/isoWeek');
 const { Op } = require('sequelize');
 const { sequelize, Booking, MonteOreProposal, MonteOreSchedule, User, Room } = require('../models');
 const { validateBooking } = require('./bookingValidator');
+const { withTransaction } = require('../lib/withTransaction');
 
 dayjs.extend(isoWeek);
-
-const WRITE_ISOLATION = sequelize.Transaction?.ISOLATION_LEVELS?.SERIALIZABLE || undefined;
 
 // Helper: combina YYYY-MM-DD + HH:MM → Date locale
 function combine(dateOnly, hhmm) {
@@ -159,10 +158,16 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
   const errors = [];
   const bookingIdsByScheduleId = new Map();
 
-  // Eseguiamo in transazione SERIALIZABLE per coerenza (alcuni DB potrebbero
-  // non supportarla → fallback al default).
-  const txOpts = WRITE_ISOLATION ? { isolationLevel: WRITE_ISOLATION } : {};
-  await sequelize.transaction(txOpts, async (t) => {
+  // Eseguiamo in transazione SERIALIZABLE con retry automatico su 40001
+  // (Postgres serialization_failure): se un altro utente prenota
+  // simultaneamente nello stesso slot, riproviamo invece di buttare via
+  // 100+ booking già processati. Su SQLite il retry è no-op.
+  await withTransaction(async (t) => {
+    // Reset accumulatori (in caso di retry, ripartiamo da capo)
+    created.length = 0;
+    skipped.length = 0;
+    errors.length = 0;
+    bookingIdsByScheduleId.clear();
     // Se la proposta è già 'generated' e stiamo rigenerando, prima cancella
     // i booking precedenti.
     if (proposal.status === 'generated') {
