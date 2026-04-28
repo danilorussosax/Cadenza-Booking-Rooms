@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Autenticazione…</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="display:grid;place-items:center;min-height:100vh;">
+  <div style="text-align:center;">
+    <div class="loader" style="width:48px;height:48px;border-width:3px;"></div>
+    <p style="margin-top:20px;color:var(--text-3);font-size:0.9rem;font-weight:500;">
+      Completamento accesso…
+    </p>
+  </div>
+  <script src="/js/api.js"></script>
+  <script>
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const needsProfile = params.get('needsProfile') === 'true';
+      if (!token) { window.location.href = '/login.html?error=oauth_failed'; return; }
+
+      Auth.setToken(token);
+      try {
+        const data = await api('/auth/me');
+        Auth.setUser(data.user);
+        if (needsProfile || (data.user.role !== 'admin' && (!data.user.matricola || !data.user.courseId))) {
+          window.location.href = '/complete-profile.html';
+        } else {
+          window.location.href = '/dashboard.html';
+        }
+      } catch (err) {
+        Auth.clear();
+        window.location.href = '/login.html?error=oauth_failed';
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+'use strict';
+
+const { DataTypes } = require('sequelize');
+
+/**
+ * Monte Ore — richiesta di variazione del piano dopo l'approvazione.
+ *
+ * Logica di approvazione (richiesta dalla spec):
+ *   - Se la modifica ricade in una giornata già APPROVATA nel piano
+ *     originale (es. "lun 17 nov" che era già attivo): viene applicata
+ *     subito e marcata `status='auto_approved'`.
+ *   - Se la modifica interessa una NUOVA giornata lavorativa: lo stato è
+ *     `pending` finché l'admin non clicca "Approva" o "Rifiuta".
+ *
+ * Limite annuale: il numero massimo di amendments è in
+ * MonteOreSettings.maxAmendmentsPerYear; la POST controlla
+ * proposal.amendmentCount < settings.maxAmendmentsPerYear.
+ *
+ * `payload` contiene il delta:
+ *   { slotId, newDate?, newStartTime?, newEndTime?, isActive }
+ * Quando approvato, il payload viene applicato allo `MonteOreSlot`
+ * referenziato e (se la proposta è in stato 'generated') il Booking
+ * collegato viene aggiornato/cancellato.
+ */
+module.exports = (sequelize) => {
+  const MonteOreAmendment = sequelize.define(
+    'MonteOreAmendment',
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      proposalId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      requesterId: {
+        // Tipicamente il docente proprietario della proposta, ma teoricamente
+        // un admin potrebbe creare un amendment per conto del docente.
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      slotId: {
+        // Slot bersaglio dell'amendment (NULL per amendment "additivi", es.
+        // aggiunta di un giorno completamente nuovo che non esisteva).
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      kind: {
+        type: DataTypes.ENUM('toggle_off', 'toggle_on', 'change_time', 'add_new_day'),
+        allowNull: false,
+      },
+      payload: {
+        // Dettagli della modifica. Schema dipende da `kind`.
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: {},
+      },
+      status: {
+        type: DataTypes.ENUM('pending', 'auto_approved', 'approved', 'rejected'),
+        allowNull: false,
+        defaultValue: 'pending',
+      },
+      requestNotes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      rejectionReason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      decidedAt: { type: DataTypes.DATE, allowNull: true },
+      decidedBy: { type: DataTypes.INTEGER, allowNull: true },
+    },
+    {
+      tableName: 'monte_ore_amendments',
+      paranoid: false,
+      indexes: [{ fields: ['proposalId'] }, { fields: ['status'] }, { fields: ['requesterId'] }],
+    },
+  );
+
+  return MonteOreAmendment;
+};

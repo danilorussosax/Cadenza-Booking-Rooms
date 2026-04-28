@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regole di prenotazione — Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · admin</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Admin · Regole di prenotazione</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Regole di <em style="color:var(--gold-1);font-weight:600;">prenotazione</em></h1>
+          <div class="subtitle">Configura limiti per ciascun ruolo: studenti, docenti, admin</div>
+        </div>
+      </div>
+
+      <div class="alert info">
+        Le regole sono applicate automaticamente quando un utente cerca di creare una prenotazione.
+        Gli <strong>admin</strong> bypassano i limiti quantitativi (numero prenotazioni, ore) ma rispettano comunque la disponibilità delle aule.
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-role="studente">Studenti</button>
+        <button class="tab" data-role="docente">Docenti</button>
+        <button class="tab" data-role="admin">Admin</button>
+      </div>
+
+      <form id="rule-form" class="card"></form>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated() || !Auth.isAdmin()) window.location.href = '/dashboard.html';
+    renderShell('rules');
+
+    let currentRole = 'studente';
+    let currentRule = null;
+
+    const fields = [
+      { key: 'maxActiveBookings', label: 'Numero massimo prenotazioni attive', type: 'number', min: 0,
+        help: "Quante prenotazioni può avere l'utente contemporaneamente attive (non ancora concluse)." },
+      { key: 'maxHoursPerWeek', label: 'Ore massime prenotabili per settimana', type: 'number', min: 0,
+        help: 'Totale ore prenotabili in una settimana (lun→dom).' },
+      { key: 'maxHoursPerDay', label: 'Ore massime prenotabili per giorno', type: 'number', min: 0,
+        help: 'Limite di ore in un singolo giorno solare.' },
+      { key: 'maxBookingDurationMinutes', label: 'Durata massima singola prenotazione (minuti)', type: 'number', min: 15,
+        help: 'Durata massima per una singola prenotazione.' },
+      { key: 'minBookingDurationMinutes', label: 'Durata minima singola prenotazione (minuti)', type: 'number', min: 15,
+        help: 'Durata minima accettata per una prenotazione.' },
+      { key: 'maxAdvanceDays', label: 'Giorni di anticipo massimo', type: 'number', min: 0,
+        help: 'Quanti giorni prima si può prenotare (es. 14 = max 2 settimane prima).' },
+      { key: 'minAdvanceHours', label: 'Ore di anticipo minimo', type: 'number', min: 0,
+        help: 'Per evitare prenotazioni dell\'ultimo minuto. 0 = consentito istantaneamente.' },
+      { key: 'cancellationDeadlineHours', label: 'Cancellazione: ore minime di preavviso', type: 'number', min: 0,
+        help: 'Entro quante ore dall\'inizio si può annullare. 0 = sempre.' },
+      { key: 'allowedStartTime', label: 'Orario inizio consentito (HH:MM)', type: 'time',
+        help: 'Prima di questo orario non si possono fare prenotazioni.' },
+      { key: 'allowedEndTime', label: 'Orario fine consentito (HH:MM)', type: 'time',
+        help: 'Dopo questo orario non si possono fare prenotazioni.' },
+      { key: 'allowRecurring', label: 'Permetti prenotazioni ricorrenti', type: 'boolean',
+        help: 'Funzionalità per ricorrenza periodica (futura espansione).' },
+      { key: 'allowNightHours', label: 'Permetti orari notturni', type: 'boolean',
+        help: 'Override del controllo orario per ore notturne.' }
+    ];
+
+    async function loadRule() {
+      const form = document.getElementById('rule-form');
+      form.innerHTML = '<div class="empty"><span class="loader"></span></div>';
+      try {
+        const data = await api(`/rules/${currentRole}`);
+        currentRule = data.rule;
+        renderForm();
+      } catch (err) {
+        if (err.status === 404) {
+          currentRule = { role: currentRole };
+          renderForm();
+        } else { showError(err); }
+      }
+    }
+
+    function renderForm() {
+      const form = document.getElementById('rule-form');
+      form.innerHTML = `
+        <h3>Regole per ruolo: <span class="badge ${currentRole}">${currentRole}</span></h3>
+        <p class="card-subtitle">
+          ${currentRole === 'admin'
+            ? 'Gli admin di solito hanno limiti molto larghi. Modifica solo se necessario.'
+            : `Definisci i limiti per gli utenti con ruolo ${currentRole}.`}
+        </p>
+        <div class="grid grid-2" style="margin-top:16px;">
+          ${fields.map(f => `
+            <div class="form-group">
+              <label for="f-${f.key}">${escapeHtml(f.label)}</label>
+              ${f.type === 'boolean'
+                ? `<label class="checkbox-row" style="margin-top:6px;">
+                    <input type="checkbox" id="f-${f.key}" ${currentRule[f.key] ? 'checked' : ''}>
+                    <span>${currentRule[f.key] ? 'Sì' : 'No'}</span>
+                   </label>`
+                : `<input type="${f.type}" id="f-${f.key}" ${f.min !== undefined ? `min="${f.min}"` : ''} value="${escapeHtml(currentRule[f.key] ?? '')}">`}
+              <small class="text-muted" style="display:block;margin-top:6px;font-size:0.78rem;">${escapeHtml(f.help)}</small>
+            </div>
+          `).join('')}
+        </div>
+        <div class="flex flex-end gap-3" style="margin-top:24px;border-top:1px solid var(--line-soft);padding-top:20px;">
+          <button class="btn btn-ghost" type="button" id="reset-btn">Ripristina</button>
+          <button class="btn btn-primary" type="button" id="save-btn">Salva regole</button>
+        </div>
+      `;
+
+      document.getElementById('reset-btn').addEventListener('click', loadRule);
+      document.getElementById('save-btn').addEventListener('click', saveRule);
+    }
+
+    async function saveRule() {
+      const body = { role: currentRole };
+      for (const f of fields) {
+        const inp = document.getElementById(`f-${f.key}`);
+        if (f.type === 'boolean') body[f.key] = inp.checked;
+        else if (f.type === 'number') body[f.key] = parseInt(inp.value, 10) || 0;
+        else body[f.key] = inp.value;
+      }
+      try {
+        await api(`/rules/${currentRole}`, { method: 'PUT', body });
+        toast(`Regole per ${currentRole} aggiornate`, 'success');
+        loadRule();
+      } catch (err) { showError(err); }
+    }
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        currentRole = t.dataset.role;
+        loadRule();
+      });
+    });
+
+    loadRule();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1849 @@
+{
+  "app": {
+    "name": "Aula Book",
+    "subtitle": "Reserva de aulas",
+    "institute_default": "Conservatorio"
+  },
+  "common": {
+    "save": "Guardar",
+    "save_continue": "Guardar y continuar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "add": "Añadir",
+    "remove": "Quitar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "confirm": "Confirmar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "loading": "Cargando…",
+    "saving": "Guardando…",
+    "all": "Todos",
+    "none": "Ninguno",
+    "yes": "Sí",
+    "no": "No",
+    "enabled": "Activo",
+    "disabled": "Deshabilitado",
+    "or": "o",
+    "optional": "opcional",
+    "required": "obligatorio",
+    "actions": "Acciones",
+    "status": "Estado",
+    "name": "Nombre",
+    "code": "Código",
+    "description": "Descripción",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "logout": "Salir",
+    "settings": "Ajustes",
+    "administration": "Administración",
+    "open": "Abrir",
+    "view": "Ver",
+    "details": "Detalles",
+    "from": "Desde",
+    "to": "Hasta",
+    "select": "Seleccionar",
+    "select_placeholder": "Selecciona…",
+    "no_results": "Sin resultados",
+    "logout_switch_account": "Cerrar sesión y usar otra cuenta",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "tomorrow": "Mañana",
+    "and": "y",
+    "of": "de",
+    "verify": "Comprobar",
+    "regenerate": "Regenerar",
+    "import": "Importar",
+    "export": "Exportar",
+    "download": "Descargar",
+    "upload": "Subir",
+    "rename": "Renombrar",
+    "send": "Enviar",
+    "preview": "Vista previa",
+    "reset": "Restablecer",
+    "active": "Activo",
+    "inactive": "Desactivado",
+    "irreversible": "La operación no se puede deshacer."
+  },
+  "language": {
+    "label": "Idioma",
+    "italian": "Italiano",
+    "english": "English",
+    "spanish": "Español",
+    "select": "Seleccionar idioma"
+  },
+  "theme": {
+    "light": "Tema claro",
+    "dark": "Tema oscuro",
+    "system": "Tema del sistema"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "docente": "Docente",
+    "studente": "Estudiante",
+    "admin_short": "Admin",
+    "docente_short": "Docente",
+    "studente_short": "Estudiante"
+  },
+  "user_status": {
+    "pending": "Pendiente",
+    "approved": "Aprobado",
+    "rejected": "Rechazado"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "booking": "Reservar",
+    "my_bookings": "Mis reservas",
+    "rooms": "Aulas",
+    "profile": "Perfil",
+    "instruments": "Instrumentos",
+    "my_loans": "Mis préstamos",
+    "admin_users": "Usuarios",
+    "admin_structure": "Estructura",
+    "admin_courses": "Cursos",
+    "admin_rules": "Reglas de reservas",
+    "admin_mail": "Servicio de correo",
+    "admin_messaging": "Bot messaging",
+    "admin_backups": "Copias de seguridad",
+    "admin_audit_log": "Registro de actividad",
+    "admin_analytics": "Estadísticas",
+    "admin_announcements": "Anuncios",
+    "admin_approvals": "Aprobaciones",
+    "admin_bookings": "Reservas",
+    "admin_instruments": "Inventario de instrumentos",
+    "admin_display": "Infopoint",
+    "admin_integrations_isidata": "Import Isidata",
+    "admin_server_settings": "Ajustes del servidor",
+    "monte_ore": "Horas didácticas",
+    "admin_monte_ore": "Gestión horas didácticas"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenido",
+      "subtitle": "Inicia sesión con email y contraseña.",
+      "title_choices": "Acceso requerido",
+      "subtitle_choices": "Debes iniciar sesión para usar Aula Book. Si aún no tienes una cuenta, puedes solicitar una.",
+      "submit": "Entrar",
+      "use_email": "Acceder con email",
+      "register": "Registrarse",
+      "no_account": "¿No tienes cuenta?",
+      "back_to_options": "Volver a las opciones",
+      "continue_google": "Continuar con Google",
+      "continue_microsoft": "Continuar con Microsoft"
+    },
+    "register": {
+      "title": "Crea tu cuenta",
+      "subtitle": "Bastan unos pocos datos para empezar a reservar aulas.",
+      "submit": "Crear cuenta",
+      "have_account": "¿Ya tienes una cuenta?",
+      "login": "Acceder",
+      "matricola_hint": "opcional ahora",
+      "complete_later": "Podrás completar matrícula y curso también después del registro."
+    },
+    "complete_profile": {
+      "title": "Completa tu perfil",
+      "subtitle": "Confirma tu rol y los datos básicos para acceder a la aplicación.",
+      "role_question": "¿Eres estudiante o docente?",
+      "teacher_warning": "Las cuentas de docente deben ser aprobadas por un administrador antes de la activación."
+    },
+    "pending": {
+      "title": "Pendiente de aprobación",
+      "subtitle": "Tu cuenta de docente ha sido registrada correctamente. Un administrador la revisará en breve: tendrás acceso completo en cuanto sea aprobada.",
+      "rejected_title": "Cuenta rechazada",
+      "rejected_subtitle": "El administrador ha rechazado tu solicitud de registro. Para más información contacta con la secretaría.",
+      "verify_status": "Comprobar estado",
+      "quote": "La paciencia es un árbol de raíces amargas pero de frutos dulcísimos.",
+      "quote_attribution": "Proverbio antiguo"
+    },
+    "oauth_callback": {
+      "title": "Iniciando sesión",
+      "subtitle": "Verificando credenciales del proveedor…",
+      "error_title": "Acceso fallido",
+      "missing_token": "Falta el token de acceso. Inténtalo de nuevo.",
+      "back_to_login": "Volver al acceso"
+    },
+    "fields": {
+      "first_name": "Nombre",
+      "last_name": "Apellidos",
+      "email": "Email",
+      "email_institutional": "Email institucional",
+      "email_placeholder": "nombre.apellido@conservatorio.es",
+      "password": "Contraseña",
+      "password_placeholder_min": "Al menos 8 caracteres",
+      "role": "Rol",
+      "matricola": "Matrícula",
+      "matricola_placeholder": "ej. 12345",
+      "course": "Curso",
+      "course_placeholder": "Selecciona un curso",
+      "course_placeholder_optional": "Selecciona (opcional)",
+      "course_loading": "Cargando cursos…"
+    },
+    "validation": {
+      "email_invalid": "Email no válido",
+      "email_required": "Introduce un email válido",
+      "password_required": "La contraseña es obligatoria",
+      "password_min": "La contraseña debe tener al menos 8 caracteres",
+      "first_name_required": "Introduce el nombre",
+      "last_name_required": "Introduce los apellidos",
+      "matricola_required_student": "La matrícula es obligatoria para los estudiantes",
+      "course_required": "Selecciona tu curso",
+      "passwords_mismatch": "Las contraseñas no coinciden",
+      "confirm_password_required": "Confirma la nueva contraseña"
+    },
+    "auth_layout": {
+      "tagline": "Estudia, ensaya, actúa.",
+      "tagline2": "Una sala para cada nota.",
+      "quote": "El silencio es el sólido fondo sobre el que se destaca la nota.",
+      "quote_attribution": "Ferruccio Busoni",
+      "complete_quote": "Cada detalle es una nota: juntos componen tu música.",
+      "complete_attribution": "Equipo del Conservatorio"
+    },
+    "twofa": {
+      "title": "Verificación en dos pasos",
+      "subtitle_email": "Hemos enviado un código de 6 dígitos a {{email}}. Caduca en {{minutes}} minutos.",
+      "subtitle_recovery": "Introduce uno de tus códigos de recuperación (uso único).",
+      "code_label": "Código recibido por email",
+      "recovery_label": "Código de recuperación",
+      "use_recovery": "Usar un código de recuperación",
+      "use_email": "Enviar un nuevo código por email",
+      "resend": "¿No has recibido el correo? Enviar un nuevo código",
+      "resending": "Enviando…",
+      "verify": "Verificar y entrar"
+    }
+  },
+  "dashboard": {
+    "title": "Hola, {{name}}",
+    "subtitle": "Aquí tienes una vista general de tus reservas.",
+    "greeting_morning": "Buenos días",
+    "greeting_afternoon": "Buenas tardes",
+    "greeting_evening": "Buenas noches",
+    "greeting_night": "Buenas noches",
+    "hero_question": "¿Listo para estudiar hoy?",
+    "today_welcome": "{{date}} · bienvenido al sistema de reserva del Conservatorio.",
+    "calendar_title": "Calendario de aulas (semanal)",
+    "calendar_help": "Primera columna: aula · Primera fila: Lun–Sáb · Bloques de 30 min (08:00–20:00). Haz clic en una franja libre para reservar.",
+    "prev_day": "Día anterior",
+    "next_day": "Día siguiente",
+    "prev_week": "Semana anterior",
+    "next_week": "Semana siguiente",
+    "this_week": "Esta semana",
+    "export_weekly_pdf": "Exportar PDF semanal",
+    "no_bookings_yet": "Sin reservas en agenda",
+    "no_bookings_yet_subtitle": "Empieza reservando un aula para tus ensayos o clases.",
+    "stats": {
+      "active_bookings": "Reservas activas",
+      "active_bookings_hint": "Confirmadas a partir de ahora",
+      "weekly_remaining_hours": "Horas restantes semana",
+      "weekly_remaining_unlimited": "{{used}}h reservadas · sin límite",
+      "weekly_remaining_hint": "Sobre {{max}}h · {{used}}h ya reservadas",
+      "available_rooms": "Aulas disponibles",
+      "available_rooms_hint": "Con reserva activa",
+      "next_session": "Próxima sesión",
+      "next_session_none": "Nada en agenda",
+      "active_loans": "Préstamos activos",
+      "active_loans_hint": "{{pending}} en espera de aprobación"
+    },
+    "kpi": {
+      "next_booking": "Próxima reserva",
+      "next_booking_none": "Sin reservas próximas",
+      "weekly_used": "Horas reservadas (semana)",
+      "weekly_remaining": "Horas restantes esta semana",
+      "daily_remaining": "Horas restantes hoy",
+      "unlimited": "Ilimitadas"
+    },
+    "next_bookings": {
+      "title": "Próximas reservas",
+      "see_all": "Ver todas",
+      "empty": "No tienes reservas próximas. ¡Empieza ya!",
+      "create": "Reservar un aula"
+    },
+    "loans": {
+      "title": "Mis préstamos",
+      "see_all": "Ver todos"
+    },
+    "quick_actions": {
+      "title": "Acciones rápidas",
+      "new_booking": "Nueva reserva",
+      "view_rooms": "Explorar aulas",
+      "my_bookings": "Mis reservas"
+    },
+    "pending_approvals": {
+      "title": "Reservas en espera de aprobación",
+      "subtitle": "{{count}} solicitudes en espera del administrador.",
+      "subtitle_one": "{{count}} solicitud en espera del administrador.",
+      "see_all": "Ver todas"
+    }
+  },
+  "my_bookings": {
+    "title": "Mis reservas",
+    "subtitle": "Gestiona todas tus reservas pasadas, futuras y canceladas.",
+    "new_booking": "Nueva reserva",
+    "export_ical": "Exportar iCal",
+    "export_ical_title": "Descarga las reservas de los próximos 90 días en formato iCalendar (.ics)",
+    "tabs": {
+      "future": "Próximas",
+      "past": "Pasadas",
+      "cancelled": "Canceladas",
+      "all": "Todas"
+    },
+    "empty": {
+      "future_title": "Sin reservas próximas",
+      "future_subtitle": "Empieza reservando un aula para tus ensayos o clases.",
+      "past_title": "Sin reservas pasadas",
+      "past_subtitle": "Las sesiones completadas aparecerán aquí.",
+      "cancelled_title": "Sin reservas canceladas",
+      "cancelled_subtitle": "Las reservas que canceles aparecerán aquí.",
+      "all_title": "Sin reservas",
+      "all_subtitle": "Tu primera reserva aparecerá aquí.",
+      "create": "Reservar un aula"
+    },
+    "toast": {
+      "ical_downloaded": "Archivo iCal descargado",
+      "session_expired": "Sesión expirada — vuelve a iniciar sesión.",
+      "export_failed": "Exportación fallida"
+    }
+  },
+  "calendar_subscription": {
+    "title": "Suscribir calendario",
+    "description": "Añade tus reservas al calendario del sistema (Google Calendar, Apple Calendar, Outlook…). El calendario se actualiza automáticamente con las reservas de los próximos 90 días — no hace falta añadir manualmente cada evento.",
+    "loading": "Cargando enlace…",
+    "webcal_label": "Enlace de suscripción (webcal://)",
+    "https_label": "Enlace directo (https://)",
+    "show_token": "Mostrar token",
+    "hide_token": "Ocultar token",
+    "copy_link": "Copiar enlace",
+    "webcal_help": "Abre el enlace en un dispositivo con un calendario instalado — te pedirá añadir el calendario en modo lectura. En Google Calendar usa \"Otros calendarios → Desde URL\" y pega la versión https:// de abajo.",
+    "warning": "El enlace contiene un token secreto de solo lectura. No lo compartas: cualquiera con él podrá ver tu calendario de reservas. Si lo pierdes o sospechas que se filtró, regenéralo.",
+    "regenerate": "Regenerar token",
+    "regenerate_confirm": "Al regenerar el token, el enlace anterior dejará de funcionar. ¿Continuar?",
+    "regenerated": "Enlace regenerado — el anterior ya no funciona",
+    "copied": "{{label}} copiado",
+    "copy_failed": "No se pudo copiar automáticamente — selecciona y copia manualmente",
+    "label_webcal": "Enlace webcal",
+    "label_https": "Enlace https"
+  },
+  "booking": {
+    "title": "Reservar un aula",
+    "subtitle": "Elige un aula y una fecha: haz clic en una franja libre para reservarla.",
+    "select_room_first": "Selecciona un aula para ver la disponibilidad.",
+    "click_help": "Haz clic en una franja libre · Haz clic en tu reserva para cancelarla",
+    "form_validation": {
+      "room_required": "Selecciona un aula",
+      "start_required": "Establece la hora de inicio",
+      "end_required": "Establece la hora de fin",
+      "end_after_start": "La hora de fin debe ser posterior a la hora de inicio.",
+      "studio_min_duration": "El estudio individual debe durar al menos 1 hora."
+    },
+    "form": {
+      "title_new": "Nueva reserva",
+      "title_edit": "Editar reserva",
+      "title_description": "Comprueba la disponibilidad y confirma para reservar el aula.",
+      "purpose_title": "Título (opcional)",
+      "purpose_placeholder_short": "ej. Estudio del repertorio de Bach",
+      "notes": "Notas (opcional)",
+      "notes_placeholder": "Posibles requisitos o anotaciones",
+      "type_activity": "Tipo de actividad",
+      "submit_book": "Reservar",
+      "weeks": "semanas (mismo día y horario)",
+      "weeks_per": "durante",
+      "skip_conflicts": "Las ocurrencias en conflicto se omitirán automáticamente.",
+      "recurring_created_some_skipped": "{{created}} reservas creadas · {{skipped}} omitidas por conflictos",
+      "recurring_created": "{{count}} reservas recurrentes creadas",
+      "created_success": "Reserva creada con éxito",
+      "start": "Inicio",
+      "end": "Fin",
+      "room": "Aula",
+      "room_loading": "Cargando aulas…",
+      "date": "Fecha",
+      "start_time": "Hora de inicio",
+      "end_time": "Hora de fin",
+      "purpose": "Motivo / Notas",
+      "purpose_placeholder": "Ej. Estudio individual, clase de piano, ensayo de conjunto…",
+      "type": "Tipo",
+      "type_studio_individuale": "Estudio individual",
+      "type_lezione": "Clase",
+      "type_prova": "Ensayo",
+      "type_concerto": "Concierto",
+      "type_altro": "Otro",
+      "recurring": "Repetir semanalmente",
+      "recurring_label": "Crear reserva recurrente",
+      "recurring_until": "Hasta",
+      "recurring_help": "Se creará una reserva semanal por cada repetición.",
+      "submit_create": "Confirmar reserva",
+      "submit_update": "Guardar cambios",
+      "save_as_template": "Guardar como plantilla",
+      "on_behalf_of": "Reservar a nombre de",
+      "on_behalf_self": "Yo mismo",
+      "updated_success": "Reserva actualizada"
+    },
+    "template": {
+      "save_dialog_title": "Guardar como plantilla",
+      "save_dialog_description": "Almacena la combinación actual (aula, día de la semana, hora, tipo, motivo) para reutilizarla con un clic desde el panel.",
+      "name_label": "Nombre de la plantilla",
+      "name_placeholder": "ej. Estudio violín lun mañana",
+      "favorite_label": "Mostrar en \"Reserva rápida\" del panel",
+      "favorite_hint": "Máximo 3 plantillas favoritas a la vez.",
+      "save_button": "Guardar plantilla",
+      "saved_toast": "Plantilla \"{{name}}\" guardada",
+      "quick_book_title": "Reserva rápida",
+      "quick_book_help": "Un clic reserva la próxima ocurrencia del día elegido.",
+      "quick_book_action_title": "Reservar desde plantilla: {{name}}",
+      "quick_booked_toast": "Reserva creada para {{when}}"
+    },
+    "type_label": "Tipo",
+    "status": {
+      "confirmed": "Confirmada",
+      "cancelled": "Cancelada",
+      "completed": "Completada",
+      "no_show": "No asistió"
+    },
+    "cancel": {
+      "title": "¿Cancelar reserva?",
+      "description": "El aula quedará liberada y otros usuarios podrán reservarla.",
+      "reason": "Motivo (opcional)",
+      "reason_placeholder": "Ej. Cambio de programa",
+      "confirm": "Cancelar reserva",
+      "deadline_warning": "La cancelación requiere {{hours}} horas de antelación."
+    },
+    "actions": {
+      "edit": "Editar",
+      "cancel": "Cancelar",
+      "view": "Ver"
+    },
+    "list_item": {
+      "duration": "Duración",
+      "starts_in": "Empieza en {{when}}"
+    },
+    "toast": {
+      "created": "Reserva creada",
+      "updated": "Reserva actualizada",
+      "cancelled": "Reserva cancelada"
+    }
+  },
+  "rooms": {
+    "title": "Aulas del Conservatorio",
+    "subtitle": "Explora los espacios disponibles y reserva directamente desde aquí.",
+    "search_placeholder": "Buscar por nombre, edificio, equipamiento…",
+    "filter_type": "Tipo",
+    "filter_building": "Edificio",
+    "all_types": "Todos los tipos",
+    "all_buildings": "Todos los edificios",
+    "capacity": "{{count}} plazas",
+    "capacity_one": "1 plaza",
+    "floor": "Piso {{floor}}",
+    "no_rooms": "No se han encontrado aulas",
+    "no_rooms_filtered_title": "Ningún aula coincide con los filtros",
+    "no_rooms_filtered_subtitle": "Prueba a cambiar el término de búsqueda o el edificio seleccionado.",
+    "book_room": "Reservar",
+    "type_label": "Tipo de aula",
+    "equipment_label": "Equipamiento",
+    "equipment_more": "+{{count}} más",
+    "advanced_filters": "Filtros avanzados",
+    "advanced_filters_help": "Busca aulas por tipo, capacidad, equipamiento necesario y disponibilidad en un rango horario.",
+    "filter": {
+      "type": "Tipo de aula",
+      "type_any": "Cualquiera",
+      "min_capacity": "Capacidad mínima",
+      "min_capacity_any": "Cualquiera",
+      "availability": "Disponibilidad",
+      "availability_help": "Excluye las aulas con reservas confirmadas que se solapan con el rango elegido.",
+      "from": "Inicio",
+      "to": "Fin",
+      "preset_now": "Ahora (+2h)",
+      "equipment": "Equipamiento necesario",
+      "equipment_help": "El aula debe tener TODOS los equipamientos seleccionados.",
+      "apply": "Aplicar",
+      "reset": "Reiniciar filtros",
+      "reset_all": "Borrar todo"
+    }
+  },
+  "room_types": {
+    "studio": "Estudio",
+    "sala_prove": "Sala de ensayo",
+    "aula_concerti": "Sala de conciertos",
+    "classe": "Aula",
+    "aula_didattica": "Aula didáctica",
+    "altro": "Otro"
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Gestiona tus datos personales, contraseña y consulta la información de la cuenta.",
+    "personal": {
+      "title": "Datos personales",
+      "first_name": "Nombre",
+      "last_name": "Apellidos",
+      "matricola": "Matrícula",
+      "course": "Curso",
+      "save": "Guardar cambios",
+      "saved": "Perfil actualizado"
+    },
+    "notifications": {
+      "title": "Notificaciones por email",
+      "description": "Elige qué emails automáticos quieres recibir para tus reservas.",
+      "enabled": "Notificaciones activas",
+      "master_title": "Recibe emails para tus reservas",
+      "master_help": "Si lo desactivas no recibirás ningún email automático.",
+      "confirmation_title": "Confirmación al crear",
+      "confirmation_help": "Email inmediato al crear una reserva.",
+      "reminder_title": "Recordatorio 1 hora antes",
+      "reminder_help": "Email enviado aproximadamente una hora antes del inicio.",
+      "cancellation_title": "Aviso de cancelación",
+      "cancellation_help": "Email cuando se cancela una de tus reservas.",
+      "saved_on": "Notificación activada",
+      "saved_off": "Notificación desactivada"
+    },
+    "password": {
+      "title": "Contraseña",
+      "current": "Contraseña actual",
+      "new": "Nueva contraseña",
+      "confirm": "Confirmar contraseña",
+      "submit": "Actualizar contraseña",
+      "updated": "Contraseña actualizada",
+      "oauth_only": "Esta cuenta está vinculada solo mediante OAuth: la contraseña no se establece aquí."
+    },
+    "photo": {
+      "title": "Foto de perfil",
+      "upload": "Subir foto",
+      "remove": "Quitar foto",
+      "remove_confirm": "¿Quitar la foto de perfil?",
+      "uploaded": "Foto actualizada",
+      "removed": "Foto eliminada",
+      "format_hint": "PNG, JPG o WEBP — máx 2 MB"
+    },
+    "account": {
+      "title": "Cuenta",
+      "email": "Email",
+      "role": "Rol",
+      "active": "Estado",
+      "matricola": "Matrícula",
+      "last_login": "Último acceso",
+      "registered": "Registrado",
+      "providers": "Proveedores vinculados"
+    },
+    "copyright": {
+      "title": "Copyright del instituto",
+      "description": "Texto de copyright mostrado en el pie de página.",
+      "field": "Texto de copyright",
+      "saved": "Copyright actualizado"
+    },
+    "bot_bindings": {
+      "title": "Bot messaging",
+      "subtitle": "Vincula tu cuenta a un bot (Telegram, WhatsApp, Signal, Email) para reservar aulas por mensaje.",
+      "generate_code": "Generar código",
+      "empty": "Ningún bot vinculado. Genera un código aquí arriba y envíalo al bot escribiendo «bind XXXXXX».",
+      "bound_at": "Vinculado el {{date}}",
+      "last_seen": "último acceso {{date}}",
+      "otp_title": "Código generado — válido {{minutes}} minutos",
+      "otp_help": "Abre el chat del bot (Telegram/WhatsApp/Signal) y envía exactamente:",
+      "otp_send_hint": "Una vez enviado, el bot responderá confirmando el vínculo.",
+      "guide_text": "Consulta docs/BOT-MESSAGING.md para la lista de bots oficiales del Conservatorio.",
+      "toast": {
+        "otp_generated": "Código generado",
+        "copied": "Comando copiado",
+        "copy_failed": "Copia fallida",
+        "revoked": "Vínculo revocado"
+      }
+    },
+    "twofa": {
+      "title": "Seguridad · Verificación en dos pasos (email)",
+      "subtitle_email": "Añade un segundo factor a tu contraseña: cada acceso enviará un código de 6 dígitos a {{email}}.",
+      "toggle_aria": "Activar/desactivar 2FA por email",
+      "admin_required": "Los administradores deben activar la verificación en dos pasos dentro de los 7 días desde la creación de la cuenta.",
+      "activated_at": "Activado el",
+      "badge": {
+        "enabled": "Activo"
+      },
+      "setup": {
+        "sent_title": "Código enviado a {{email}}",
+        "sent_help": "Introdúcelo aquí abajo dentro de {{minutes}} minutos para activar la verificación en dos pasos.",
+        "code_label": "Código recibido por email",
+        "confirm": "Confirmar y activar",
+        "resend": "Reenviar código",
+        "resending": "Enviando…"
+      },
+      "recovery": {
+        "title": "Guarda tus 10 códigos de recuperación",
+        "help": "Se muestran SOLO una vez. Úsalos si pierdes el acceso a tu buzón. Cada código es de un solo uso.",
+        "remaining": "Códigos de recuperación restantes",
+        "regenerate": "Regenerar códigos",
+        "regenerate_help": "Te enviaremos un código por email para confirmar. Todos los códigos anteriores serán invalidados.",
+        "copy": "Copiar todos",
+        "copied": "Copiados",
+        "copy_failed": "Copia fallida",
+        "print": "Imprimir",
+        "saved": "He guardado los códigos"
+      },
+      "disable": {
+        "title": "¿Desactivar la verificación en dos pasos?",
+        "help": "Te enviaremos un código por email para confirmar. Sin 2FA tu cuenta solo está protegida por la contraseña.",
+        "confirm": "Desactivar 2FA"
+      },
+      "toast": {
+        "code_sent": "Código enviado a {{email}}",
+        "code_resent": "Nuevo código enviado",
+        "enabled": "2FA activado. Recuerda guardar los códigos de recuperación.",
+        "disabled": "2FA desactivado",
+        "recovery_regenerated": "Nuevos códigos de recuperación generados"
+      }
+    }
+  },
+  "admin": {
+    "server_settings": {
+      "title": "Ajustes del servidor",
+      "subtitle": "Configuración operativa del servidor: correo, canales de mensajería, registro de actividad y copias de seguridad.",
+      "tabs": {
+        "mail_description": "Configuración SMTP, remitente y plantillas de correos transaccionales.",
+        "qrcodes": "Código QR",
+        "qrcodes_description": "Gestión de códigos QR de check-in por aula (regenerar/descargar) y política de restricción a la red del instituto.",
+        "messaging_description": "Canales de mensajería (Telegram, WhatsApp, Signal, IMAP) para notificaciones y comandos del bot.",
+        "display_description": "Configura el Infopoint público para la visualización semanal de aulas en rotación.",
+        "audit_log_description": "Registro append-only de las acciones administrativas y gestión de reservas confirmadas.",
+        "backups_description": "Copias de seguridad programadas de la base de datos y restauración desde snapshot."
+      }
+    },
+    "users": {
+      "title": "Usuarios",
+      "subtitle": "Gestiona cuentas, roles y acceso al sistema.",
+      "new_user": "Nuevo usuario",
+      "search_placeholder": "Buscar por nombre, email, matrícula, curso…",
+      "filter_role": "Rol",
+      "filter_status": "Aprobación",
+      "filter_active": "Estado",
+      "all_roles": "Todos los roles",
+      "all_statuses": "Todas las aprobaciones",
+      "all_active": "Todos los estados",
+      "active_yes": "Activos",
+      "active_no": "Desactivados",
+      "table": {
+        "user": "Usuario",
+        "role": "Rol",
+        "matricola": "Matrícula",
+        "course": "Curso",
+        "approval": "Aprobación",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "you_label": "tú",
+      "empty": {
+        "title": "No se han encontrado usuarios",
+        "subtitle": "Ajusta los filtros o añade un nuevo usuario."
+      },
+      "approve": "Aprobar",
+      "reject": "Rechazar",
+      "approved_toast": "Usuario aprobado",
+      "rejected_toast": "Usuario rechazado",
+      "deleted_toast": "Usuario eliminado",
+      "delete_title": "¿Eliminar a {{name}}?",
+      "delete_description": "El usuario perderá el acceso y sus reservas se conservarán en el histórico. La operación es irreversible.",
+      "bulk": {
+        "selected_count": "{{count}} seleccionados ({{pending}} pendientes)",
+        "clear": "Deseleccionar",
+        "approve": "Aprobar seleccionados",
+        "reject": "Rechazar seleccionados",
+        "delete": "Eliminar seleccionados",
+        "approved_toast": "{{count}} usuarios aprobados ({{skipped}} ignorados)",
+        "rejected_toast": "{{count}} usuarios rechazados ({{skipped}} ignorados)",
+        "deleted_toast": "{{count}} usuarios eliminados ({{removedBookings}} reservas eliminadas)",
+        "confirm": {
+          "approve_title": "¿Aprobar los usuarios seleccionados?",
+          "reject_title": "¿Rechazar los usuarios seleccionados?",
+          "delete_title": "¿Eliminar {{count}} usuarios?",
+          "approve_reject_description": "Se actualizarán {{count}} usuarios pendientes. Se omitirán {{skipped}} ya aprobados o rechazados.",
+          "delete_description": "Estás a punto de eliminar {{count}} usuarios y todas sus reservas. La operación es irreversible."
+        }
+      },
+      "form": {
+        "title_new": "Nuevo usuario",
+        "title_edit": "Editar usuario",
+        "first_name": "Nombre",
+        "last_name": "Apellidos",
+        "email": "Email",
+        "role": "Rol",
+        "matricola": "Matrícula",
+        "course": "Curso",
+        "password": "Contraseña",
+        "new_password": "Nueva contraseña",
+        "active": "Cuenta activa",
+        "submit_create": "Crear usuario",
+        "submit_update": "Guardar cambios"
+      }
+    },
+    "messaging": {
+      "title": "Bot messaging",
+      "subtitle": "Configura los canales bot (Telegram, WhatsApp Cloud, Signal, Email-IMAP) por los cuales los usuarios pueden reservar aulas por mensaje.",
+      "secret_configured": "•••••••• (configurado)",
+      "secret_enter": "Introduce el valor",
+      "test_button": "Probar conexión",
+      "toggle_aria": "Habilitar {{channel}}",
+      "badge": { "enabled": "Activo" },
+      "test": {
+        "ok": "Conexión OK · {{info}}",
+        "error": "Error: {{error}}"
+      },
+      "toast": { "saved": "Ajustes guardados" },
+      "telegram": {
+        "help": "Bot conversacional gratuito. Configuración rápida vía @BotFather.",
+        "bot_token": "Bot token (BotFather)",
+        "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
+        "setup_guide": "1) Abre @BotFather en Telegram → /newbot → obtén el token.\n2) Genera un secreto aleatorio: openssl rand -hex 32\n3) Guarda token + secret aquí, luego activa el toggle.\n4) Registra el webhook (sustituye TOKEN/SECRET):\n   curl -F \"url=https://aulabook.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+      },
+      "whatsapp": {
+        "help": "WhatsApp Business Cloud API (Meta directa). Requiere cuenta Meta Business verificada.",
+        "access_token": "Access token (Bearer)",
+        "phone_id": "Phone Number ID",
+        "verify_token": "Verify token (handshake)",
+        "app_secret": "App secret (HMAC SHA256)",
+        "setup_guide": "1) Crea una Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copia: Phone Number ID, System User access token (long-lived), App Secret.\n3) Elige un Verify Token aleatorio y guárdalo aquí.\n4) Configura callback URL: https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook\n   con el mismo Verify Token y suscríbete a 'messages'."
+      },
+      "signal": {
+        "help": "Signal vía signal-cli (community). Requiere host con signal-cli y un número dedicado registrado.",
+        "phone_number": "Número registrado (E.164)",
+        "daemon_url": "URL daemon signal-cli",
+        "webhook_secret": "Webhook secret (X-Signal-Webhook-Secret)",
+        "setup_guide": "1) Instala signal-cli (https://github.com/AsamK/signal-cli) en un host accesible.\n2) Registra un número dedicado y ejecuta:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configura un forwarder que reenvíe los mensajes entrantes al webhook Aula Book con header X-Signal-Webhook-Secret."
+      },
+      "email": {
+        "help": "Fallback always-on vía buzón dedicado. Stub: el poller IMAP llegará en un sprint futuro.",
+        "host": "Host IMAP",
+        "port": "Puerto",
+        "user": "Usuario",
+        "password": "Contraseña IMAP",
+        "setup_guide": "1) Crea un buzón dedicado (p.ej. book@conservatorio.it).\n2) Configura host/puerto/credenciales aquí.\n3) El poller IMAP aún no está activo: este canal es un stub que no recibe mensajes (ver roadmap)."
+      }
+    },
+    "oauth": {
+      "google_title": "Google OAuth",
+      "microsoft_title": "Microsoft OAuth",
+      "client_id": "Client ID",
+      "client_secret": "Client Secret",
+      "callback_url": "Callback URL",
+      "tenant": "Tenant",
+      "enable": "Habilitar {{provider}} OAuth",
+      "saved": "Configuración OAuth guardada",
+      "restart_hint": "Reinicia el backend para aplicar la nueva configuración OAuth.",
+      "secret_configured": "•••••••• (configurado — déjalo vacío para no cambiarlo)",
+      "secret_placeholder": "Introduce el Client Secret"
+    },
+    "backups": {
+      "title": "Copias de seguridad y restauración",
+      "subtitle": "Snapshots automáticos diarios de la base de datos y de las fotos. La restauración requiere confirmación explícita y crea un snapshot de seguridad pre-restauración.",
+      "create_now": "Crear copia ahora",
+      "upload": "Subir copia externa",
+      "scheduler": {
+        "title": "Copia de seguridad automática",
+        "status": "Estado",
+        "enabled": "Activa",
+        "disabled": "Deshabilitada",
+        "scheduled": "Hora programada",
+        "daily": "cada día",
+        "next_run": "Próxima ejecución",
+        "last_ok": "✓ Última copia: {{file}} ({{size}}) · {{when}}",
+        "last_error": "✗ Última ejecución fallida ({{when}}): {{error}}",
+        "config_title": "Configuración activa",
+        "edit_button": "Editar",
+        "edit_title": "Editar configuración",
+        "save_button": "Guardar configuración",
+        "saved_toast": "Configuración guardada",
+        "source_db": "La configuración se guarda en la base de datos y se aplica de inmediato.",
+        "source_env": "Usando valores por defecto desde variables de entorno. Edita para guardar en BD.",
+        "f_auto_enabled": "Copia de seguridad automática",
+        "f_auto_enabled_help": "Ejecuta un snapshot a la hora programada.",
+        "f_tick_time": "Hora del tick",
+        "f_hour": "Hora (0–23)",
+        "f_minute": "Minuto (0–59)",
+        "f_keep_daily": "Copias diarias",
+        "f_keep_weekly": "Copias semanales",
+        "f_keep_monthly": "Copias mensuales",
+        "f_auto_restart": "Reinicio del backend habilitado",
+        "f_auto_restart_help": "Habilita el botón \"Reiniciar\" en la tarjeta post-restauración (requiere process manager).",
+        "f_dir": "Carpeta de copias"
+      },
+      "list": {
+        "title": "Copias disponibles",
+        "empty": "Aún no hay copias. Pulsa \"Crear copia ahora\" para crear una o espera la ejecución automática.",
+        "col_file": "Archivo",
+        "col_when": "Creado",
+        "col_size": "Tamaño",
+        "col_actions": "Acciones",
+        "download": "Descargar",
+        "restore": "Restaurar"
+      },
+      "restore_dialog": {
+        "title": "¿Restaurar {{file}}?",
+        "description": "Se creará un snapshot de seguridad pre-restauración y, a continuación, la base de datos y las fotos serán reemplazadas por el contenido de la copia. La operación es irreversible salvo que se reutilice el snapshot pre-restauración.",
+        "confirm": "Sí, restaurar ahora"
+      },
+      "delete_dialog": {
+        "title": "¿Eliminar la copia {{file}}?",
+        "description": "El archivo se eliminará definitivamente del disco."
+      },
+      "restore_success": {
+        "title": "Restauración completada: {{file}}",
+        "pre_snapshot": "Snapshot pre-restauración creado: {{file}}. Úsalo para hacer rollback si es necesario.",
+        "help": "Para aplicar el esquema actual y recargar el pool de la base de datos, reinicia el backend."
+      },
+      "restart": {
+        "button": "Reiniciar el backend",
+        "confirm_title": "¿Reiniciar el backend?",
+        "confirm_description": "El proceso será terminado; el process manager (systemd / pm2) lo reiniciará automáticamente.",
+        "warning": "Si no tienes un process manager configurado, el servidor permanecerá apagado. Úsalo solo si sabes lo que haces.",
+        "reload_hint": "La página se recargará automáticamente en unos segundos."
+      },
+      "toast": {
+        "created": "Copia creada: {{file}}",
+        "deleted": "Copia eliminada",
+        "uploaded": "Copia subida: {{file}}",
+        "restored": "Restauración completada"
+      }
+    },
+    "structure": {
+      "title": "Estructura del Conservatorio",
+      "subtitle": "Gestiona institutos, edificios, aulas y el catálogo de equipamiento.",
+      "tab_sedi": "Sedes",
+      "tab_dotazioni": "Equipamiento",
+      "new_institute": "Nuevo instituto",
+      "import_csv": "Importar CSV",
+      "export_csv": "Exportar CSV",
+      "new_building": "Edificio",
+      "new_room": "Aula",
+      "edit_building": "Editar edificio",
+      "delete_building": "Eliminar edificio",
+      "no_institutes_title": "Ningún instituto configurado",
+      "no_institutes_subtitle": "Empieza creando el primer instituto.",
+      "create_institute": "Crear instituto",
+      "buildings_count_one": "{{count}} edificio",
+      "buildings_count_other": "{{count}} edificios",
+      "rooms_count_one": "{{count}} aula",
+      "rooms_count_other": "{{count}} aulas",
+      "no_buildings": "Ningún edificio. Añade uno para empezar.",
+      "no_rooms_in_building": "Ninguna aula en este edificio.",
+      "select_all_rooms": "Seleccionar todas las aulas de {{building}}",
+      "rooms_selected_one": "{{count}} aula seleccionada",
+      "rooms_selected_other": "{{count}} aulas seleccionadas",
+      "select_building_aria": "Seleccionar el edificio {{name}}",
+      "buildings_selected_one": "{{count}} edificio seleccionado",
+      "buildings_selected_other": "{{count}} edificios seleccionados",
+      "delete_buildings_selected": "Eliminar edificios",
+      "delete_buildings_title_one": "¿Eliminar {{count}} edificio?",
+      "delete_buildings_title_other": "¿Eliminar {{count}} edificios?",
+      "delete_buildings_description": "Estás a punto de eliminar {{count}} edificios, incluidas {{rooms}} aulas que contienen y todas sus reservas. La operación es irreversible.",
+      "buildings_deleted_toast": "{{count}} edificios eliminados ({{removedRooms}} aulas, {{removedBookings}} reservas)",
+      "deselect": "Deseleccionar",
+      "delete_selected": "Eliminar seleccionadas",
+      "no_code": "Sin código",
+      "delete_dialog_default_title": "¿Confirmas la eliminación?",
+      "delete_dialog_description": "También se eliminarán todos los elementos hijos. La operación es irreversible.",
+      "delete_institute_title": "¿Eliminar el instituto \"{{name}}\"?",
+      "delete_building_title": "¿Eliminar el edificio \"{{name}}\"?",
+      "delete_room_title": "¿Eliminar el aula \"{{name}}\"?",
+      "delete_equipment_title": "¿Eliminar el equipamiento \"{{name}}\"?",
+      "delete_rooms_title_one": "¿Eliminar {{count}} aula?",
+      "delete_rooms_title_other": "¿Eliminar {{count}} aulas?",
+      "delete_rooms_description": "También se eliminará todo el equipamiento contenido. La operación es irreversible.",
+      "delete_label": "Eliminar {{count}}",
+      "delete_completed": "Eliminación completada",
+      "rooms_deleted_one": "{{count}} aula eliminada",
+      "rooms_deleted_other": "{{count}} aulas eliminadas",
+      "no_equipment": "Sin equipamiento",
+      "bookable": "Reservable",
+      "not_bookable": "No reservable",
+      "seats_one": "{{count}} plaza",
+      "seats_other": "{{count}} plazas",
+      "select_room_aria": "Seleccionar {{name}}",
+      "room_photo": "Foto del aula",
+      "room_photo_help": "PNG, JPG o WEBP — se redimensionará en 16:9 (1200×675).",
+      "room_photo_upload": "Subir foto",
+      "room_photo_replace": "Reemplazar",
+      "room_photo_remove": "Quitar foto",
+      "room_photo_remove_confirm": "¿Quitar la foto del aula?",
+      "room_photo_uploaded": "Foto del aula actualizada",
+      "room_photo_removed": "Foto del aula eliminada",
+      "room_photo_save_first": "Guarda primero el aula para subir la foto.",
+      "require_checkin": "Check-in QR requerido",
+      "require_checkin_help": "Si está activo, los usuarios deben hacer check-in vía QR a la hora de inicio para evitar la auto-cancelación (ghost booking).",
+      "requires_approval": "Requiere aprobación",
+      "requires_approval_help": "Las reservas de esta aula por parte de no-admin nacen pendientes de aprobación. Típico para salas de conciertos, auditorios, salas oficiales."
+    },
+    "courses": {
+      "title": "Cursos",
+      "subtitle": "Gestiona el catálogo de cursos.",
+      "new_course": "Nuevo curso",
+      "import_csv": "Importar CSV",
+      "search_placeholder": "Buscar por código o nombre…",
+      "table": {
+        "code": "Código",
+        "name": "Nombre",
+        "department": "Departamento",
+        "levels": "Niveles",
+        "active": "Activo",
+        "actions": "Acciones"
+      },
+      "no_courses": "No se han encontrado cursos",
+      "form": {
+        "title_new": "Nuevo curso",
+        "title_edit": "Editar curso",
+        "code": "Código",
+        "name": "Nombre",
+        "department": "Departamento",
+        "description": "Descripción",
+        "levels": "Niveles",
+        "active": "Curso activo"
+      },
+      "saved": "Curso guardado",
+      "deleted": "Curso eliminado",
+      "delete_title": "¿Eliminar el curso \"{{name}}\"?",
+      "delete_description": "Los usuarios vinculados serán desasignados del curso (matrícula conservada). La operación es irreversible."
+    },
+    "rules": {
+      "tabs": {
+        "by_role": "Por rol",
+        "by_role_description": "Límites aplicados a todos los usuarios del rol: volúmenes, duración, antelación, franjas horarias.",
+        "quotas": "Cuotas aulas",
+        "quotas_description": "Límites dinámicos por tipo de aula o equipamiento: se aplican además de las reglas por rol.",
+        "loan_quotas": "Cuotas préstamos",
+        "loan_quotas_description": "Límites de instrumentos simultáneos y días totales de préstamo por año, por familia o instrumento individual.",
+        "exceptions": "Excepciones por fecha",
+        "exceptions_description": "Bloqueos y ventanas horarias para días o periodos específicos (p. ej. festivos, exámenes)."
+      },
+      "preview": {
+        "title": "Simular reserva",
+        "subtitle": "Comprueba si una solicitud-tipo pasaría las reglas actuales, sin crear la reserva.",
+        "role": "Rol simulado",
+        "course": "Curso (opcional)",
+        "no_course": "Ninguno",
+        "room": "Aula",
+        "date": "Fecha",
+        "time_from": "Inicio",
+        "time_to": "Fin",
+        "simulate": "Simular",
+        "result_ok": "La reserva pasaría las reglas",
+        "result_ko": "La reserva sería rechazada",
+        "disclaimer": "Las cuotas horarias individuales (p. ej. \"ya has usado 8h esta semana\") no se evalúan: usa un usuario real para esa prueba."
+      }
+    },
+    "mail": {
+      "title": "Servicio de correo",
+      "subtitle": "Configuración SMTP y plantillas de correo transaccional.",
+      "tab_settings": "Configuración",
+      "tab_templates": "Plantillas",
+      "settings": {
+        "host": "Host SMTP",
+        "port": "Puerto",
+        "secure": "TLS",
+        "username": "Usuario",
+        "password": "Contraseña",
+        "from_address": "Remitente",
+        "from_name": "Nombre remitente",
+        "reply_to": "Reply-To",
+        "test_address": "Dirección de prueba",
+        "send_test": "Enviar email de prueba",
+        "test_sent": "Email de prueba enviado",
+        "saved": "Configuración guardada",
+        "enable": "Habilitar envío de correo"
+      },
+      "templates": {
+        "subject": "Asunto",
+        "body": "Cuerpo",
+        "preview": "Vista previa",
+        "reset": "Restablecer predeterminado",
+        "saved": "Plantilla actualizada",
+        "type": "Plantilla",
+        "variables": "Variables disponibles"
+      }
+    },
+    "csv_import": {
+      "title": "Importar desde CSV",
+      "description": "Sube un archivo CSV con la estructura indicada.",
+      "drag_drop": "Arrastra el archivo aquí o haz clic para seleccionarlo",
+      "submit": "Importar",
+      "imported": "{{count}} elementos importados",
+      "errors_count": "{{count}} filas con errores",
+      "download_template": "Descargar plantilla"
+    },
+    "equipment_templates": {
+      "title": "Plantillas de equipamiento",
+      "subtitle": "Catálogo reutilizable para el equipamiento de las aulas.",
+      "new": "Nueva plantilla",
+      "type": "Tipo",
+      "delete_title": "¿Eliminar la plantilla \"{{name}}\"?"
+    },
+    "course_levels": {
+      "title": "Niveles de estudio",
+      "subtitle": "Categorías de itinerario (ej. Grado, Máster).",
+      "new": "Nuevo nivel",
+      "code": "Código",
+      "name": "Nombre",
+      "sort_order": "Orden",
+      "saved": "Niveles guardados"
+    },
+    "display": {
+      "title": "Infopoint",
+      "subtitle": "Elige qué edificios se muestran en rotación en el Infopoint público (/display) y durante cuánto tiempo permanece cada uno antes de pasar al siguiente.",
+      "table": {
+        "building": "Edificio",
+        "rooms_count": "Aulas",
+        "enabled": "En rotación",
+        "interval": "Duración (segundos)",
+        "actions": "Acciones"
+      },
+      "concerts_on": "Activos",
+      "concerts_off": "Desactivados",
+      "bookings_card": {
+        "title": "Rotación de reservas",
+        "subtitle": "Muestra las reservas de cada edificio como diapositivas de la rotación del Infopoint. Desactiva para ocultar las tablas de reservas y mantener solo conciertos y anuncios."
+      },
+      "concerts_card": {
+        "title": "Rotación de conciertos",
+        "subtitle": "Muestra los próximos conciertos como diapositivas adicionales en el Infopoint, intercaladas con la rotación de edificios.",
+        "days_label": "Anticipo (días)",
+        "days_help": "Muestra los conciertos desde hoy hasta N días por adelantado (0–365). Pon 0 para desactivar el anticipo.",
+        "count_label": "Máx. próximos eventos",
+        "count_help": "Límite de conciertos mostrados, empezando por el más inminente (0 = sin límite, solo aplica la ventana de días).",
+        "interval_label": "Duración de la diapositiva (s)",
+        "interval_help": "Segundos que cada concierto permanece en pantalla antes de pasar al siguiente (5–600)."
+      },
+      "announcements_card": {
+        "title": "Rotación de anuncios",
+        "subtitle": "Inserta los anuncios activos como diapositivas adicionales del Infopoint público, tras edificios y conciertos.",
+        "count_label": "Anuncios máximos",
+        "count_help": "Límite de anuncios mostrados por ciclo (0 = sin límite, hasta 30).",
+        "interval_label": "Duración de la diapositiva (s)",
+        "interval_help": "Segundos que cada anuncio permanece en pantalla antes de pasar al siguiente (5–600).",
+        "pinned_only_label": "Solo anuncios destacados",
+        "pinned_only_help": "Muestra solo los anuncios marcados como destacados."
+      },
+      "interval_help": "Duración por edificio en el Infopoint: entre 5 y 600 segundos.",
+      "no_buildings": "Ningún edificio configurado. Añade un edificio en Estructura para poblar el Infopoint.",
+      "save": "Guardar",
+      "saved": "Configuración del Infopoint actualizada",
+      "open_display": "Abrir Infopoint",
+      "preview_help": "Abre /display en una pestaña nueva para verificar la rotación del Infopoint."
+    },
+    "quotas": {
+      "title": "Cuotas dinámicas por recurso",
+      "help": "Establece límites horarios por tipo de aula o equipamiento, además del tope global por rol. Ejemplo: «estudiantes, máx. 2h/sem. en aula concierto».",
+      "new": "Nueva cuota",
+      "new_title": "Nueva cuota por recurso",
+      "edit_title": "Editar cuota",
+      "dialog_help": "La cuota se aplica además de las reglas base del rol. Al menos un tope (semanal o diario) debe ser mayor que 0.",
+      "empty_title": "Ninguna cuota configurada",
+      "empty_subtitle": "Añade una cuota para limitar el uso de un tipo de aula o equipamiento.",
+      "active": "Activa",
+      "inactive": "Desactivada",
+      "created": "Cuota creada",
+      "updated": "Cuota actualizada",
+      "deleted": "Cuota eliminada",
+      "delete_title": "¿Eliminar la cuota?",
+      "delete_description": "La eliminación es soft (recuperable por el admin de DB). Los límites dejan de aplicarse de inmediato.",
+      "scope_global_target": "Todas las aulas",
+      "col_role": "Rol",
+      "col_scope": "Ámbito",
+      "col_target": "Recurso",
+      "col_max_week": "Máx. h/sem.",
+      "col_max_day": "Máx. h/día",
+      "col_active": "Estado",
+      "col_actions": "Acciones",
+      "role": {
+        "admin": "Administrador",
+        "docente": "Docente",
+        "studente": "Estudiante"
+      },
+      "scope": {
+        "global": "Global",
+        "roomType": "Tipo de aula",
+        "equipmentType": "Equipamiento",
+        "room": "Aula específica",
+        "building": "Edificio"
+      },
+      "field": {
+        "role": "Rol",
+        "scope": "Ámbito",
+        "target": "Recurso",
+        "max_week": "Máx. horas / semana",
+        "max_day": "Máx. horas / día",
+        "max_month": "Máx. horas / mes",
+        "max_bookings": "Máx. reservas / semana",
+        "max_bookings_help": "Tope sobre el número de reservas en la semana ISO. 0 = desactivado.",
+        "days_of_week": "Días activos",
+        "days_of_week_help": "Si no se selecciona ningún día la cuota se aplica todos los días.",
+        "time_from": "Inicio franja (HH:mm)",
+        "time_to": "Fin franja (HH:mm)",
+        "time_help": "Si ambos están vacíos la cuota está siempre activa. Si se valorizan, la cuota se aplica solo a las reservas que se cruzan con la franja.",
+        "zero_disables": "0 = tope desactivado",
+        "active": "Cuota activa",
+        "active_help": "Desactivar la cuota detiene los límites sin eliminarla."
+      },
+      "errors": {
+        "cap_required": "Al menos uno entre horas/semana, día, mes o número de reservas debe ser mayor que 0",
+        "scope_required": "Selecciona el recurso para este ámbito",
+        "time_pair": "Rellena ambos horarios (inicio y fin) o deja ambos vacíos",
+        "time_order": "El inicio debe preceder al fin",
+        "time_format": "Formato de hora no válido (HH:mm)"
+      },
+      "active_count": "activas",
+      "filter": {
+        "only_active": "Solo activas",
+        "show_all": "Mostrar todas"
+      }
+    },
+    "loan_quotas": {
+      "title": "Cuotas de préstamo de instrumentos",
+      "help": "Establece límites de instrumentos simultáneos y días totales de préstamo en una ventana móvil de 365 días por rol. Se aplican además de las reglas de préstamo existentes.",
+      "new": "Nueva cuota préstamo",
+      "new_title": "Nueva cuota préstamo",
+      "edit_title": "Modificar cuota préstamo",
+      "dialog_help": "Al menos uno entre máx. simultáneos y máx. días/año debe ser mayor que 0.",
+      "empty_title": "Ninguna cuota de préstamo configurada",
+      "empty_subtitle": "Añade una cuota para limitar el préstamo de una familia o de un instrumento individual.",
+      "created": "Cuota creada",
+      "updated": "Cuota actualizada",
+      "deleted": "Cuota eliminada",
+      "delete_title": "¿Eliminar la cuota de préstamo?",
+      "delete_description": "Eliminación soft (recuperable). Los límites dejan de aplicarse inmediatamente.",
+      "scope_global_target": "Todos los instrumentos",
+      "col_max_concurrent": "Máx. simultáneos",
+      "col_max_days_year": "Máx. días / año",
+      "scope": {
+        "global": "Global",
+        "family": "Familia",
+        "instrument": "Instrumento"
+      },
+      "field": {
+        "scope": "Ámbito",
+        "target": "Recurso",
+        "max_concurrent": "Máx. instrumentos simultáneos",
+        "max_days_year": "Máx. días / año (ventana móvil 365 días)"
+      },
+      "errors": {
+        "cap_required": "Al menos uno entre máx. simultáneos y máx. días/año debe ser mayor que 0"
+      }
+    },
+    "loan_rules": {
+      "title": "Reglas de préstamo de instrumentos",
+      "subtitle": "Para cada familia de instrumentos elige qué cursos (códigos SAD) están autorizados a solicitar un préstamo. La regla se aplica a estudiantes y docentes; los admin siempre están autorizados.",
+      "default_help": "Si no se configura ningún curso para una familia, la regla es permisiva (por defecto): cualquiera puede solicitar el préstamo.",
+      "configured_badge": "Configurada",
+      "default_badge": "Por defecto (permisiva)",
+      "courses_count_one": "{{count}} curso habilitado",
+      "courses_count_other": "{{count}} cursos habilitados",
+      "no_courses_warning": "Ningún curso habilitado → todos los usuarios no admin estarán bloqueados.",
+      "search_courses": "Buscar cursos…",
+      "select_all": "Seleccionar todos",
+      "deselect_all": "Deseleccionar todos",
+      "save": "Guardar regla",
+      "reset": "Restablecer por defecto",
+      "reset_confirm": "¿Restablecer esta familia al valor por defecto permisivo (cualquiera puede solicitar el préstamo)?",
+      "saved": "Regla guardada",
+      "reset_done": "Regla restablecida al valor por defecto",
+      "notes": "Notas (opcional)",
+      "notes_placeholder": "Ej. Solo estudiantes del curso de Piano"
+    },
+    "instruments": {
+      "title": "Inventario de instrumentos",
+      "subtitle": "Gestiona instrumentos, solicitudes de préstamo y vencidos.",
+      "tabs": {
+        "inventory": "Inventario",
+        "all_loans": "Todos los préstamos",
+        "overdue": "Vencidos",
+        "expiring": "Próximos a vencer (2 días)",
+        "rules": "Reglas de préstamo"
+      },
+      "new_instrument": "Nuevo instrumento",
+      "search_placeholder": "Buscar por nombre, código, marca, modelo…",
+      "filter_family": "Familia",
+      "filter_condition": "Condición",
+      "filter_loanable": "Estado de préstamo",
+      "all_families": "Todas las familias",
+      "all_conditions": "Todas las condiciones",
+      "loanable_yes": "Solo prestables",
+      "loanable_no": "No prestables",
+      "loanable_all": "Todos",
+      "table": {
+        "instrument": "Instrumento",
+        "family": "Familia",
+        "condition": "Condición",
+        "code": "Código",
+        "loanable": "Prestable",
+        "loan_status": "Préstamo",
+        "actions": "Acciones"
+      },
+      "empty": {
+        "title": "No se han encontrado instrumentos",
+        "subtitle": "Añade un nuevo instrumento o cambia los filtros."
+      },
+      "form": {
+        "title_new": "Nuevo instrumento",
+        "title_edit": "Editar instrumento",
+        "name": "Nombre",
+        "code": "Código (único)",
+        "family": "Familia",
+        "brand": "Marca",
+        "model": "Modelo",
+        "serial_number": "Número de serie",
+        "condition": "Condición",
+        "is_loanable": "Disponible para préstamo",
+        "is_loanable_help": "Desactiva para ocultar este instrumento del catálogo de préstamos.",
+        "notes": "Notas",
+        "submit_create": "Crear instrumento",
+        "submit_update": "Guardar cambios"
+      },
+      "photo": {
+        "label": "Foto del instrumento",
+        "help": "PNG, JPG o WEBP — se redimensionará en 16:9 (1200×675).",
+        "upload": "Subir foto",
+        "replace": "Reemplazar",
+        "remove": "Quitar foto",
+        "remove_confirm": "¿Quitar la foto del instrumento?",
+        "uploaded": "Foto del instrumento actualizada",
+        "removed": "Foto del instrumento eliminada",
+        "save_first": "Guarda primero el instrumento para subir la foto."
+      },
+      "loans_table": {
+        "user": "Usuario",
+        "instrument": "Instrumento",
+        "period": "Periodo",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "loan_actions": {
+        "approve": "Aprobar",
+        "reject": "Rechazar",
+        "force_return": "Marcar devuelto",
+        "print_delivery": "Hoja de entrega",
+        "print_return": "Hoja de devolución"
+      },
+      "toast": {
+        "saved": "Instrumento guardado",
+        "deleted": "Instrumento eliminado",
+        "approved": "Préstamo aprobado",
+        "rejected": "Préstamo rechazado",
+        "returned": "Préstamo marcado como devuelto"
+      },
+      "delete_title": "¿Eliminar el instrumento \"{{name}}\"?",
+      "delete_description": "Se eliminarán también los préstamos asociados. La operación es irreversible.",
+      "bulk": {
+        "selected_count": "{{count}} instrumentos seleccionados",
+        "clear": "Deseleccionar",
+        "enable_loanable": "Marcar como prestables",
+        "disable_loanable": "Marcar como no prestables",
+        "delete": "Eliminar seleccionados",
+        "enabled_toast": "{{count}} instrumentos marcados como prestables",
+        "disabled_toast": "{{count}} instrumentos marcados como no prestables",
+        "deleted_toast": "{{count}} instrumentos eliminados ({{removedLoans}} préstamos eliminados)",
+        "confirm": {
+          "delete_title": "¿Eliminar los instrumentos seleccionados?",
+          "enable_title": "¿Marcar como prestables los instrumentos seleccionados?",
+          "disable_title": "¿Marcar como no prestables los instrumentos seleccionados?",
+          "description": "La acción afectará a {{count}} instrumentos."
+        }
+      },
+      "import_csv": "Importar CSV",
+      "export_csv": "Exportar CSV",
+      "import_dialog": {
+        "title": "Importar inventario de instrumentos",
+        "description": "Sube un archivo CSV para poblar o actualizar los instrumentos. La operación es idempotente: coincide por código o (nombre + marca + modelo + n.º serie).",
+        "select_file": "Selecciona archivo…",
+        "change_file": "Cambiar archivo",
+        "preview_label": "Vista previa (primeras filas):",
+        "supported_columns": "Columnas admitidas: code, name, family, brand, model, serialNumber, condition, isLoanable, notes. Solo \"name\" es obligatoria.",
+        "download_template": "Descargar plantilla",
+        "submit": "Importar",
+        "close": "Cerrar",
+        "result_title": "Importación completada",
+        "row_total": "Filas totales",
+        "created": "Creados",
+        "updated": "Actualizados",
+        "skipped": "Omitidos",
+        "errors_label": "Filas con errores:"
+      },
+      "export_failed": "Exportación fallida",
+      "exported": "Inventario exportado"
+    },
+    "instrument_rules": {
+      "help": "Para cada instrumento selecciona los códigos SAD de los cursos autorizados a solicitar el préstamo. Déjalo vacío para permitir a cualquier usuario (con curso y perfil completo) solicitarlo. Los admin siempre están autorizados.",
+      "search_placeholder": "Busca por nombre, código, marca…",
+      "count_one": "{{count}} instrumento",
+      "count_other": "{{count}} instrumentos",
+      "empty_title": "Ningún instrumento en inventario",
+      "empty_subtitle": "Crea un instrumento desde la pestaña Inventario para configurar sus reglas.",
+      "col_instrument": "Instrumento",
+      "col_family": "Familia",
+      "col_courses": "Cursos autorizados",
+      "col_actions": "Acciones",
+      "all_allowed": "Todos los cursos",
+      "courses_count_one": "{{count}} curso",
+      "courses_count_other": "{{count}} cursos",
+      "edit": "Editar cursos",
+      "dialog_title": "Cursos autorizados al préstamo",
+      "dialog_help_empty": "Ningún curso seleccionado → permisivo: cualquier usuario (no admin) con un curso válido puede solicitar el préstamo.",
+      "dialog_help_filtered": "{{count}} cursos seleccionados. Solo los usuarios de estos cursos podrán solicitar el préstamo.",
+      "search_courses": "Buscar cursos…",
+      "select_all": "Seleccionar todos",
+      "deselect_all": "Deseleccionar todos",
+      "loading_courses": "Cargando cursos…",
+      "no_courses_found": "Ningún curso coincide con la búsqueda",
+      "saved": "Reglas de préstamo guardadas"
+    },
+    "activity": {
+      "title": "Registro de actividad",
+      "subtitle": "Aprobaciones y cancelaciones masivas de reservas confirmadas, y trazabilidad de las acciones administrativas.",
+      "tab_approvals": "Aprobaciones",
+      "tab_approvals_description": "Visualiza y cancela en masa las reservas confirmadas futuras. Las notificaciones de cancelación se envían por correo a los usuarios afectados.",
+      "tab_log": "Registro de actividad",
+      "tab_log_description": "Trazabilidad append-only de todas las acciones administrativas. Las entradas son inmutables y se usan para auditoría y compliance."
+    },
+    "audit_log": {
+      "title": "Registro de actividad",
+      "subtitle": "Trazabilidad append-only de las acciones administrativas sobre usuarios, estructura y configuración. Las entradas no son modificables.",
+      "empty_title": "Sin actividad registrada",
+      "empty_subtitle": "Las acciones POST/PUT/DELETE en rutas admin aparecerán aquí.",
+      "filter": {
+        "action": "Acción",
+        "target_type": "Entidad",
+        "actor_id": "ID usuario",
+        "actor_id_placeholder": "ej. 1",
+        "date_from": "Desde",
+        "date_to": "Hasta",
+        "path_search": "Path",
+        "path_placeholder": "ej. /api/structure/rooms",
+        "apply": "Aplicar",
+        "reset": "Reiniciar"
+      },
+      "col_when": "Cuándo",
+      "col_actor": "Usuario",
+      "col_action": "Acción",
+      "col_target": "Entidad",
+      "col_path": "Path",
+      "col_status": "Estado",
+      "pagination_summary": "{{from}}-{{to}} de {{total}}"
+    },
+    "analytics": {
+      "title": "Estadísticas de uso",
+      "subtitle": "Heatmap de ocupación, top aulas y usuarios, tasa de no-show, tendencia semanal.",
+      "no_data": "Sin datos en el rango seleccionado",
+      "export_csv": "Exportar CSV",
+      "export_pdf": "Exportar PDF",
+      "filter": {
+        "date_from": "Fecha inicio",
+        "date_to": "Fecha fin",
+        "apply": "Actualizar"
+      },
+      "kpi": {
+        "confirmed": "Reservas confirmadas",
+        "ghosted": "Auto-canceladas (no-show)",
+        "no_show_rate": "Tasa de no-show",
+        "total_created": "Total creadas"
+      },
+      "heatmap": {
+        "title": "Ocupación por franja horaria",
+        "help": "Recuento de reservas por día de la semana × hora de inicio. Celda más oscura = más reservas.",
+        "day": {
+          "mon": "Lun",
+          "tue": "Mar",
+          "wed": "Mié",
+          "thu": "Jue",
+          "fri": "Vie",
+          "sat": "Sáb",
+          "sun": "Dom"
+        }
+      },
+      "trend": {
+        "title": "Tendencia últimas 8 semanas",
+        "help": "Horas reservadas por semana ISO."
+      },
+      "top_rooms": {
+        "title": "Top 10 aulas por horas"
+      },
+      "top_users": {
+        "title": "Top 10 usuarios por horas",
+        "privacy": "Datos solo para administradores — no compartir fuera.",
+        "bookings_count_one": "{{count}} reserva",
+        "bookings_count_other": "{{count}} reservas"
+      }
+    },
+    "announcements": {
+      "title": "Anuncios",
+      "subtitle": "Publica comunicaciones dirigidas a roles, cursos o edificios. Los correos opcionales llegan solo al público seleccionado.",
+      "new": "Nuevo anuncio",
+      "new_title": "Nuevo anuncio",
+      "edit_title": "Editar anuncio",
+      "empty_title": "Sin anuncios publicados",
+      "empty_subtitle": "Crea el primer anuncio para comunicarte con usuarios, cursos o sedes.",
+      "delete_title": "¿Eliminar el anuncio?",
+      "delete_description": "El anuncio se eliminará definitivamente. Los correos ya enviados no se retiran.",
+      "deleted": "Anuncio eliminado",
+      "created": "Anuncio creado",
+      "updated": "Anuncio actualizado",
+      "broadcast_sent": "Correo enviado a {{count}} destinatarios",
+      "dialog_help": "Completa título y cuerpo, elige público y fechas. El envío por correo es opcional.",
+      "edit_email_disclaimer": "Los correos se envían solo al crear: en edición la opción está deshabilitada.",
+      "email_sent": "Correo enviado",
+      "expired": "Caducado",
+      "expires": "caduca el",
+      "inactive": "Inactivo",
+      "pinned": "Destacado",
+      "resend": "Reenviar correo",
+      "errors": {
+        "title_required": "El título es obligatorio",
+        "body_required": "El cuerpo es obligatorio"
+      },
+      "field": {
+        "active": "Activo",
+        "active_help": "Desactiva para ocultar sin eliminar",
+        "audience": "Público",
+        "audience_target": "Destinatario",
+        "body": "Cuerpo",
+        "body_help": "Texto libre. Los saltos de línea se conservan.",
+        "expires_at": "Caduca el",
+        "expires_at_help": "Deja vacío para no caducar nunca",
+        "pinned": "Destacado",
+        "pinned_help": "Mostrar arriba de la lista",
+        "published_at": "Publicado el",
+        "published_at_help": "Deja vacío para publicar ahora",
+        "send_email": "Enviar correo",
+        "send_email_help": "Notifica por correo al público seleccionado",
+        "title": "Título"
+      },
+      "audience": {
+        "all": "Todos",
+        "role": "Rol",
+        "course": "Curso",
+        "building": "Edificio"
+      }
+    },
+    "approvals": {
+      "title": "Aprobaciones pendientes",
+      "subtitle": "Solicitudes de reserva para aulas que requieren aprobación (salas de conciertos, auditorios…). Aprueba o rechaza desde las acciones a la derecha.",
+      "empty_title": "Sin solicitudes pendientes",
+      "empty_subtitle": "Cuando un usuario reserve un aula que requiera aprobación, la solicitud aparecerá aquí.",
+      "action": {
+        "approve": "Aprobar",
+        "reject": "Rechazar"
+      },
+      "toast": {
+        "approved": "Reserva aprobada",
+        "rejected": "Solicitud rechazada"
+      },
+      "reject_dialog": {
+        "title": "Rechazar la solicitud",
+        "description": "Indica un motivo (opcional): se incluirá en el correo al usuario.",
+        "reason_label": "Motivo",
+        "reason_placeholder": "Ej. sala ya reservada para otro evento institucional"
+      }
+    },
+    "bookings": {
+      "title": "Reservas confirmadas",
+      "subtitle": "Cancelación masiva de reservas confirmadas futuras con notificación por correo a los usuarios afectados.",
+      "search_placeholder": "Busca por usuario, aula, motivo…",
+      "count": "{{count}} reservas",
+      "select_all": "Seleccionar todo",
+      "selected_count": "{{count}} reservas seleccionadas",
+      "clear_selection": "Deseleccionar",
+      "bulk_cancel": "Cancelar seleccionadas",
+      "table": {
+        "user": "Usuario",
+        "room": "Aula",
+        "when": "Cuándo",
+        "type": "Tipo"
+      },
+      "empty": {
+        "title": "Sin reservas confirmadas",
+        "subtitle": "No hay reservas confirmadas futuras para gestionar."
+      },
+      "confirm": {
+        "title": "¿Cancelar las reservas seleccionadas?",
+        "description": "Estás a punto de cancelar {{count}} reservas de {{users}} usuarios. Recibirán un correo con el motivo. La operación es irreversible.",
+        "reason_label": "Motivo (incluido en el correo)",
+        "reason_placeholder": "Ej. cierre extraordinario de la sede por evento institucional",
+        "reason_help": "Si lo dejas vacío, se enviará un mensaje genérico de cancelación administrativa."
+      },
+      "toast": {
+        "cancelled": "{{count}} reservas canceladas ({{skipped}} ignoradas)"
+      }
+    }
+  },
+  "waitlist": {
+    "dashboard_title": "Estás en lista de espera",
+    "dashboard_subtitle_one": "Tienes 1 inscripción activa.",
+    "dashboard_subtitle_other": "Tienes {{count}} inscripciones activas.",
+    "your_turn": "Es tu turno",
+    "expires_in_one": "vence en 1 minuto",
+    "expires_in_other": "vence en {{count}} minutos",
+    "position": "Posición {{n}}",
+    "claim": "Confirmar",
+    "claim_success": "Espera reclamada: reserva confirmada",
+    "cancel": "Salir de la cola",
+    "cancel_success": "Inscripción cancelada",
+    "joined": "Inscripción registrada. Estás en la posición {{position}}.",
+    "offer": "El espacio ya está reservado. ¿Quieres unirte a la cola? Recibirás un correo si se libera.",
+    "join_action": "Unirse a la lista de espera",
+    "offer_dialog_title": "Aula ya reservada",
+    "offer_dialog_description": "El espacio elegido ya está ocupado. ¿Quieres unirte a la lista de espera? Recibirás un correo si la reserva existente se cancela.",
+    "offer_dialog_decline": "No, elijo otro horario",
+    "offer_dialog_confirm": "Sí, ponme en cola"
+  },
+  "check_in": {
+    "title": "Confirmación de presencia",
+    "subtitle_with_room": "Estás haciendo check-in en {{room}}.",
+    "subtitle_no_bookings": "No tienes reservas en esta aula en las próximas horas.",
+    "no_bookings_help": "Comprueba que has reservado el aula e inténtalo en el momento de tu turno.",
+    "confirm_button": "Confirmar presencia",
+    "confirmed_at": "Confirmado a las {{time}}",
+    "already_confirmed": "Ya has confirmado la presencia para esta reserva.",
+    "open_at": "El check-in se abre a las {{time}}",
+    "closed_at": "El check-in se cerró a las {{time}}",
+    "window_help": "El check-in se abre {{early}} minutos antes y se cierra {{grace}} minutos después del inicio.",
+    "auto_cancel_warning": "Si no confirmas dentro de {{grace}} minutos desde el inicio, la reserva se cancela automáticamente y el aula queda disponible.",
+    "now": "Ahora: {{time}}",
+    "starts_at": "Inicio: {{time}}",
+    "ends_at": "Fin: {{time}}",
+    "back_to_dashboard": "Volver al panel",
+    "loading": "Cargando reservas…",
+    "checkin_success": "Check-in registrado",
+    "go_to_my_bookings": "Ir a Mis reservas",
+    "dashboard_card_title": "Check-in requerido",
+    "dashboard_card_help_one": "Tienes una reserva próxima pendiente de check-in.",
+    "dashboard_card_help_other": "Tienes {{count}} reservas próximas pendientes de check-in.",
+    "dashboard_card_action": "Confirmar ahora",
+    "missed_checkin_badge": "Sin check-in",
+    "missed_checkin_help": "No se ha registrado el check-in para esta reserva."
+  },
+  "admin_structure_qr": {
+    "print_qr": "Imprimir QR del aula",
+    "qr_help": "Descarga el QR para colocarlo en la entrada del aula. El estudiante lo escanea desde su teléfono para confirmar la presencia.",
+    "qr_failed": "No se pudo descargar el QR"
+  },
+  "display": {
+    "title_default": "Sistema de reserva de aulas",
+    "no_bookings": "Sin reservas hoy",
+    "now": "ahora",
+    "next": "siguiente",
+    "live": "En vivo",
+    "reconnecting": "Reconectando…",
+    "loading_agenda": "Cargando agenda…",
+    "no_rooms_configured": "Ningún aula configurada",
+    "hour_label": "Hora",
+    "busy_until": "Ocupada · hasta {{time}}",
+    "free_now": "Libre ahora",
+    "now_indicator": "Ahora ({{time}})",
+    "exit_fullscreen": "Pulsa ESC para salir de pantalla completa",
+    "default_copyright": "Copyright © 2026 by Danilo Russo",
+    "footer_auto_update": "Actualización automática cada 30s",
+    "footer_last_update": "última actualización {{time}}",
+    "rooms_count_one": "{{count}} aula",
+    "rooms_count_other": "{{count}} aulas",
+    "bookings_today_one": "{{count}} reserva hoy",
+    "bookings_today_other": "{{count}} reservas hoy",
+    "bookings_week_one": "{{count}} reserva",
+    "bookings_week_other": "{{count}} reservas",
+    "offline_banner": "Conexión perdida · última actualización {{time}}",
+    "legend": {
+      "cell_30min": "Cada celda corresponde a 30 minutos"
+    },
+    "kpi": {
+      "in_use": "En uso ahora",
+      "in_use_subtitle": "{{pct}}% de ocupación",
+      "bookings_today": "Reservas hoy",
+      "bookings_today_subtitle": "{{hours}}h en total",
+      "week": "Esta semana",
+      "week_subtitle": "{{hours}}h reservadas",
+      "active_rooms": "Aulas activas",
+      "active_rooms_subtitle": "Disponibles en el sistema"
+    },
+    "concert": {
+      "upcoming_label": "Próximo concierto",
+      "performers": "Intérpretes",
+      "program": "Programa"
+    },
+    "announcement": {
+      "label": "Comunicación",
+      "pinned_label": "Destacado"
+    }
+  },
+  "concert": {
+    "action_open": "Ficha concierto",
+    "dialog_title": "Ficha del concierto",
+    "dialog_description": "Añade los datos que aparecerán en la rotación del Infopoint: título, intérpretes, programa y cartel.",
+    "saved": "Ficha del concierto guardada",
+    "save_first": "Guarda primero la ficha para poder subir el cartel.",
+    "poster": "Cartel",
+    "poster_help": "PNG, JPG o WEBP — vertical 3:4 (máx. 1200×1600). Si no se carga, se usa un cartel por defecto.",
+    "poster_upload": "Subir cartel",
+    "poster_replace": "Sustituir cartel",
+    "poster_remove": "Quitar cartel",
+    "poster_remove_confirm": "¿Quitar el cartel cargado?",
+    "poster_uploaded": "Cartel actualizado",
+    "poster_removed": "Cartel eliminado",
+    "field": {
+      "title": "Título",
+      "title_placeholder": "Ej. Concierto de primavera",
+      "performers": "Intérpretes e instrumentos",
+      "performers_placeholder": "Una línea por intérprete (ej. \"Maria Rossi · violín\")",
+      "performers_help": "Una línea por intérprete — se muestran en lista en el Infopoint.",
+      "program": "Autores y programa",
+      "program_placeholder": "Una línea por obra (ej. \"J. S. Bach · Partita n.º 2\")",
+      "program_help": "Una línea por obra/autor — se muestran en lista en el Infopoint."
+    },
+    "errors": {
+      "title_required": "Introduce un título"
+    }
+  },
+  "not_found": {
+    "title": "Página no encontrada",
+    "subtitle": "La página que buscas no existe o ha sido movida.",
+    "back": "Volver al panel"
+  },
+  "instrument_families": {
+    "archi": "Arcos",
+    "fiati_legni": "Vientos - madera",
+    "fiati_ottoni": "Vientos - metal",
+    "tastiere": "Teclados",
+    "percussioni": "Percusión",
+    "corde": "Cuerdas pulsadas",
+    "voce": "Voz",
+    "elettronica": "Electrónica",
+    "altro": "Otros"
+  },
+  "instrument_conditions": {
+    "ottimo": "Excelente",
+    "buono": "Bueno",
+    "discreto": "Aceptable",
+    "da_riparare": "Para reparar",
+    "fuori_uso": "Fuera de uso"
+  },
+  "loans": {
+    "status": {
+      "requested": "Pendiente",
+      "active": "Activo",
+      "returned": "Devuelto",
+      "overdue": "Vencido",
+      "rejected": "Rechazado"
+    }
+  },
+  "instruments": {
+    "title": "Instrumentos del Conservatorio",
+    "subtitle": "Explora los instrumentos disponibles y solicita un préstamo.",
+    "search_placeholder": "Buscar por nombre, código, marca o modelo…",
+    "filter_family": "Familia",
+    "filter_loanable": "Solo prestables",
+    "all_families": "Todas las familias",
+    "no_results_title": "Ningún instrumento coincide con los filtros",
+    "no_results_subtitle": "Modifica los criterios o quita los filtros.",
+    "request_loan": "Solicitar préstamo",
+    "available": "Disponible",
+    "borrowed_until": "En préstamo hasta el {{date}}",
+    "not_loanable": "No prestable",
+    "course_not_allowed": "Tu curso no está autorizado",
+    "course_not_allowed_help": "Tu curso no está en la lista autorizada a solicitar préstamos de esta familia de instrumentos. Contacta con la secretaría para más información.",
+    "request_dialog": {
+      "title": "Solicitar préstamo · {{name}}",
+      "description": "Indica las fechas de inicio y de devolución prevista. La solicitud será evaluada por un administrador.",
+      "from_date": "Fecha de inicio",
+      "to_date": "Fecha de devolución",
+      "notes": "Notas (opcional)",
+      "notes_placeholder": "Ej. para el concierto del…",
+      "submit": "Enviar solicitud",
+      "submitted": "Solicitud enviada"
+    }
+  },
+  "my_loans": {
+    "title": "Mis préstamos",
+    "subtitle": "Gestiona tus préstamos activos, pendientes y el histórico.",
+    "tabs": {
+      "active": "Activos",
+      "requested": "Pendientes",
+      "history": "Histórico"
+    },
+    "empty": {
+      "active_title": "Sin préstamos activos",
+      "active_subtitle": "Ve al catálogo de instrumentos para solicitar un préstamo.",
+      "requested_title": "Sin solicitudes pendientes",
+      "requested_subtitle": "Todas tus solicitudes han sido procesadas.",
+      "history_title": "Sin histórico de préstamos",
+      "history_subtitle": "Tu histórico aparecerá aquí tras la primera devolución.",
+      "browse": "Ir al catálogo"
+    },
+    "period": "Del {{from}} al {{to}}",
+    "actions": {
+      "return": "Marcar como devuelto",
+      "cancel_request": "Cancelar solicitud",
+      "print_delivery": "Hoja de entrega",
+      "print_return": "Hoja de devolución"
+    },
+    "toast": {
+      "returned": "Préstamo marcado como devuelto",
+      "cancelled": "Solicitud cancelada",
+      "pdf_failed": "No se ha podido generar el PDF"
+    }
+  },
+  "errors": {
+    "generic": "Se ha producido un error inesperado.",
+    "network": "Error de conexión: inténtalo de nuevo.",
+    "session_expired": "Sesión expirada — vuelve a iniciar sesión.",
+    "validation_failed": "Validación fallida",
+    "unauthorized": "No estás autorizado para esta acción.",
+    "forbidden": "Permiso denegado.",
+    "not_found": "Recurso no encontrado.",
+    "code": {
+      "INVALID_CREDENTIALS": "Credenciales no válidas",
+      "ACCOUNT_DISABLED": "Cuenta desactivada",
+      "ACCOUNT_PENDING": "Cuenta pendiente de aprobación",
+      "ACCOUNT_REJECTED": "Tu cuenta ha sido rechazada por el administrador",
+      "OAUTH_ONLY": "Esta cuenta está vinculada solo a OAuth. Usa Google/Microsoft.",
+      "EMAIL_ALREADY_REGISTERED": "Email ya registrado",
+      "MATRICOLA_ALREADY_USED": "Matrícula ya registrada",
+      "MATRICOLA_REQUIRED": "La matrícula es obligatoria para los estudiantes",
+      "COURSE_REQUIRED": "El curso es obligatorio",
+      "COURSE_INVALID": "Curso no válido",
+      "INCOMPLETE_PROFILE": "Perfil incompleto: completa los datos antes de continuar",
+      "WRONG_PASSWORD": "Contraseña actual incorrecta",
+      "PASSWORD_TOO_SHORT": "Contraseña demasiado corta",
+      "BOOKING_CONFLICT": "Ya existe una reserva para esa aula en ese horario",
+      "BOOKING_INVALID_TIME": "Horario no válido",
+      "BOOKING_OUT_OF_WINDOW": "Horario fuera de la ventana permitida",
+      "BOOKING_TOO_SHORT": "Duración inferior al mínimo permitido",
+      "BOOKING_TOO_LONG": "Duración superior al máximo permitido",
+      "BOOKING_TOO_FAR": "Antelación superior al máximo permitido",
+      "BOOKING_TOO_SOON": "Antelación inferior al mínimo permitido",
+      "BOOKING_LIMIT_REACHED": "Has alcanzado el límite de reservas",
+      "BOOKING_HOURS_EXCEEDED": "Has alcanzado el límite de horas",
+      "BOOKING_CANCEL_DEADLINE": "Plazo de cancelación superado",
+      "ROOM_NOT_BOOKABLE": "Aula no reservable",
+      "ROOM_FORBIDDEN_FOR_ROLE": "No estás autorizado a reservar esta aula",
+      "RECURRING_NOT_ALLOWED": "Las reservas recurrentes no están permitidas para tu rol",
+      "FILE_TOO_LARGE": "Archivo demasiado grande",
+      "FILE_FORMAT_UNSUPPORTED": "Formato de archivo no admitido",
+      "OAUTH_NOT_CONFIGURED": "Proveedor OAuth no configurado en el servidor",
+      "INVALID_TOKEN": "Token no válido o caducado",
+      "USER_NOT_FOUND": "Usuario no encontrado",
+      "CANNOT_DELETE_SELF": "No puedes eliminarte a ti mismo",
+      "FK_CONSTRAINT": "No se puede eliminar: el recurso aún está referenciado por otros datos",
+      "UNIQUE_VIOLATION": "Ya existe un registro con estos valores",
+      "EXCLUSION_VIOLATION": "Operación en conflicto con un registro existente (solapamiento no permitido)",
+      "FK_VIOLATION": "Operación bloqueada: el registro aún está referenciado por otros datos",
+      "CHECK_VIOLATION": "Datos no válidos para las restricciones aplicadas",
+      "LOAN_CONFLICT": "El instrumento ya está reservado en el periodo solicitado",
+      "LOAN_INVALID_DATE": "Fechas de préstamo no válidas",
+      "LOAN_INVALID_STATE": "Operación no válida en el estado actual del préstamo",
+      "LOAN_ALREADY_RETURNED": "Préstamo ya devuelto",
+      "INSTRUMENT_NOT_LOANABLE": "Instrumento no disponible para préstamo",
+      "INSTRUMENT_CODE_DUPLICATE": "Código de instrumento ya en uso",
+      "INSTRUMENT_FAMILY_NOT_ALLOWED": "Tu curso no está autorizado a solicitar préstamos de esta familia de instrumentos",
+      "CHECKIN_TOO_EARLY": "Demasiado pronto para hacer check-in",
+      "CHECKIN_TOO_LATE": "La ventana de check-in se ha cerrado: la reserva puede haber sido cancelada",
+      "CHECKIN_INVALID_STATUS": "La reserva no está confirmada",
+      "ALREADY_CHECKED_IN": "Ya has hecho check-in",
+      "CONCERT_INVALID_TYPE": "Esta reserva no es de tipo concierto",
+      "CONCERT_NOT_FOUND": "Ficha del concierto aún no creada",
+      "CONCERT_TITLE_REQUIRED": "Introduce un título para la ficha del concierto",
+      "BOOKING_INVALID": "Reserva no válida",
+      "QUOTA_EXCEEDED_GLOBAL": "Cuota personal superada: has agotado tus horas disponibles",
+      "QUOTA_EXCEEDED_ROOM_TYPE": "Cuota superada para el tipo de aula solicitado",
+      "QUOTA_EXCEEDED_EQUIPMENT_TYPE": "Cuota superada para el equipamiento disponible en esta aula",
+      "WAITLIST_NOT_NEEDED": "El espacio está disponible, reserva directamente",
+      "WAITLIST_PAST": "El espacio está en el pasado",
+      "WAITLIST_ALREADY_CLAIMED": "Lista de espera ya reclamada",
+      "WAITLIST_CANCELLED": "Lista de espera cancelada",
+      "WAITLIST_NOT_YOUR_TURN": "Aún no eres el siguiente en la cola",
+      "WAITLIST_EXPIRED": "El plazo para reclamar ha vencido",
+      "RATE_LIMITED": "Demasiadas solicitudes — vuelve a intentarlo dentro de unos minutos",
+      "BOOKING_INVALID_STATE": "La reserva no está en un estado válido para esta acción."
+    }
+  },
+  "footer": {
+    "copyright_default": "© {{year}} {{name}}"
+  },
+  "delete_confirm": {
+    "title": "¿Confirmas la eliminación?",
+    "description": "La operación es irreversible.",
+    "confirm": "Eliminar",
+    "cancel": "Cancelar"
+  },
+  "bookings": {
+    "status": {
+      "pending_approval": "En espera de aprobación"
+    }
+  },
+  "weekly_timetable": {
+    "room_header": "Aula",
+    "hour_header": "Horas",
+    "book_aria": "Reservar {{room}} el {{day}}"
+  },
+  "pwa": {
+    "install": {
+      "title": "Instalar Aula Book",
+      "subtitle": "Añade la app a la pantalla principal: arranque inmediato y modo reducido sin conexión.",
+      "subtitle_ios": "Abre el menú Compartir de Safari y toca \"Añadir a la pantalla de inicio\".",
+      "cta": "Instalar",
+      "dismiss": "Ahora no"
+    },
+    "update": {
+      "title": "Actualización disponible",
+      "subtitle": "Recarga para aplicar la nueva versión.",
+      "reload": "Recargar"
+    }
+  },
+  "integrations": {
+    "isidata": {
+      "title": "Importación de usuarios desde Isidata",
+      "subtitle": "Sube un archivo XLSX/CSV exportado desde Isidata: Aula Book compara los datos y muestra los cambios antes de aplicarlos.",
+      "step1_title": "1. Subir archivo",
+      "step2_title": "2. Revisar cambios",
+      "dropzone_label": "Arrastra aquí el archivo XLSX de Isidata, o haz clic para elegir",
+      "dropzone_hint": "Formatos soportados: .xlsx, .xls, .csv. Máx 10 MB, hasta 5000 registros.",
+      "overrides_title": "Mapeo de campos (avanzado)",
+      "overrides_hint_short": "Sobrescribe los encabezados",
+      "overrides_help": "Solo si los encabezados no se reconocen automáticamente. Proporciona un objeto JSON que asigne campos a encabezados del archivo. Ejemplo: {\"externalId\": \"NumeroMatricula\", \"email\": \"EmailInstitucional\"}.",
+      "overrides_label": "JSON de sobrescritura",
+      "overrides_invalid": "JSON inválido o no es un objeto.",
+      "preview_action": "Vista previa",
+      "preview_hint": "Nada se ha modificado aún. Los cambios solo se aplican tras confirmación explícita.",
+      "warnings_count_one": "{{count}} aviso de análisis",
+      "warnings_count_other": "{{count}} avisos de análisis",
+      "row": "fila {{row}}",
+      "kpi": {
+        "create": "Por crear",
+        "update": "Por actualizar",
+        "orphan": "Por desactivar",
+        "fetched": "Leídos del archivo"
+      },
+      "create_section": "Nuevos usuarios",
+      "update_section": "Usuarios por actualizar",
+      "orphan_section": "Usuarios que ya no están en el archivo",
+      "orphan_will_disable": "Se desactivará (isActive=false)",
+      "orphan_already_disabled": "Ya desactivado — sin acción",
+      "nothing_to_apply": "Nada que aplicar: el archivo ya coincide con la base de datos.",
+      "confirm_label": "Confirmo que he revisado el diff y quiero aplicar estos cambios.",
+      "hash_label": "Hash del archivo",
+      "apply_action": "Aplicar cambios",
+      "col": {
+        "matricola": "Matrícula",
+        "name": "Apellido Nombre",
+        "email": "Email",
+        "role": "Rol",
+        "course": "Curso",
+        "changes": "Cambios",
+        "action": "Acción"
+      },
+      "role": {
+        "docente": "Profesor",
+        "studente": "Alumno"
+      },
+      "done_title": "Sincronización completa",
+      "done_hint": "Consulta el historial al final de esta página, en \"Ejecuciones recientes\".",
+      "import_another": "Importar otro archivo",
+      "history_title": "Ejecuciones recientes",
+      "history_empty": "Sin ejecuciones registradas.",
+      "run_summary": "Leídos {{fetched}} · Creados {{created}} · Actualizados {{updated}} · Desactivados {{orphaned}} · Errores {{errors}}",
+      "toast": {
+        "applied": "Sync completa: {{created}} creados, {{updated}} actualizados, {{orphaned}} desactivados."
+      }
+    }
+  }
+}

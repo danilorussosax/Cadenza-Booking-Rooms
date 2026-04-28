@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Le mie prenotazioni — Conservatorio</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · prenotazioni</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html" data-nav="dashboard"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html" data-nav="booking"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html" data-nav="my-bookings"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html" data-nav="rooms"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Le mie prenotazioni</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Le mie <em style="color:var(--gold-1);font-weight:600;">prenotazioni</em></h1>
+          <div class="subtitle">Storico completo e prossime sessioni</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="upcoming">Future</button>
+        <button class="tab" data-tab="past">Passate</button>
+        <button class="tab" data-tab="cancelled">Cancellate</button>
+        <button class="tab" data-tab="all">Tutte</button>
+      </div>
+
+      <div id="bookings-list"></div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated()) window.location.href = '/login.html';
+    renderShell('my-bookings');
+
+    let allBookings = [];
+    let currentTab = 'upcoming';
+
+    async function load() {
+      try {
+        const data = await api('/bookings?mine=true');
+        allBookings = data.bookings;
+        render();
+      } catch (err) { showError(err); }
+    }
+
+    function render() {
+      const now = new Date();
+      let filtered;
+      if (currentTab === 'upcoming') {
+        filtered = allBookings.filter(b => b.status === 'confirmed' && new Date(b.endTime) >= now);
+      } else if (currentTab === 'past') {
+        filtered = allBookings.filter(b => b.status !== 'cancelled' && new Date(b.endTime) < now);
+      } else if (currentTab === 'cancelled') {
+        filtered = allBookings.filter(b => b.status === 'cancelled');
+      } else {
+        filtered = allBookings;
+      }
+
+      filtered.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+      const list = document.getElementById('bookings-list');
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty">— Nessuna prenotazione in questa categoria —</div>';
+        return;
+      }
+      list.innerHTML = filtered.map(b => {
+        const start = new Date(b.startTime);
+        const end = new Date(b.endTime);
+        const dur = Math.round((end - start) / 60000);
+        const canCancel = b.status === 'confirmed' && start > now;
+        return `
+          <div class="booking-item">
+            <div>
+              <div class="when">${fmtDate(b.startTime)}</div>
+              <div class="meta">${fmtTime(b.startTime)} – ${fmtTime(b.endTime)} · ${dur} min</div>
+            </div>
+            <div>
+              <div class="where">${escapeHtml(b.room?.name || 'Aula')}</div>
+              <div class="meta">${escapeHtml(b.room?.building?.name || '')} · ${escapeHtml(b.room?.floor || '')}</div>
+              ${b.purpose ? `<div class="meta" style="margin-top:6px;color:var(--text-2);">${escapeHtml(b.purpose)}</div>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+              <span class="badge ${b.status}">${b.status}</span>
+              ${canCancel ? `<button class="btn btn-ghost btn-sm" onclick="cancelBooking(${b.id})">Annulla</button>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    window.cancelBooking = function(id) {
+      confirmDialog('Vuoi annullare questa prenotazione?', async () => {
+        try {
+          await api(`/bookings/${id}`, { method: 'DELETE' });
+          toast('Prenotazione annullata', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+    };
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        currentTab = t.dataset.tab;
+        render();
+      });
+    });
+
+    load();
+  </script>
+</body>
+</html>

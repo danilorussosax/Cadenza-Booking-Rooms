@@ -1,0 +1,16 @@
+{
+  "name": "conservatory-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Test end-to-end con Playwright per Aula Book",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "install:browsers": "playwright install --with-deps chromium",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}

@@ -1,0 +1,1849 @@
+{
+  "app": {
+    "name": "Aula Book",
+    "subtitle": "Room Booking",
+    "institute_default": "Conservatory"
+  },
+  "common": {
+    "save": "Save",
+    "save_continue": "Save and continue",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "close": "Close",
+    "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "all": "All",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "Active",
+    "disabled": "Disabled",
+    "or": "or",
+    "optional": "optional",
+    "required": "required",
+    "actions": "Actions",
+    "status": "Status",
+    "name": "Name",
+    "code": "Code",
+    "description": "Description",
+    "copy": "Copy",
+    "copied": "Copied",
+    "show": "Show",
+    "hide": "Hide",
+    "logout": "Log out",
+    "settings": "Settings",
+    "administration": "Administration",
+    "open": "Open",
+    "view": "View",
+    "details": "Details",
+    "from": "From",
+    "to": "To",
+    "select": "Select",
+    "select_placeholder": "Select…",
+    "no_results": "No results",
+    "logout_switch_account": "Log out and use another account",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "and": "and",
+    "of": "of",
+    "verify": "Check",
+    "regenerate": "Regenerate",
+    "import": "Import",
+    "export": "Export",
+    "download": "Download",
+    "upload": "Upload",
+    "rename": "Rename",
+    "send": "Send",
+    "preview": "Preview",
+    "reset": "Reset",
+    "active": "Active",
+    "inactive": "Disabled",
+    "irreversible": "This action cannot be undone."
+  },
+  "language": {
+    "label": "Language",
+    "italian": "Italiano",
+    "english": "English",
+    "spanish": "Español",
+    "select": "Select language"
+  },
+  "theme": {
+    "light": "Light theme",
+    "dark": "Dark theme",
+    "system": "System theme"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "docente": "Teacher",
+    "studente": "Student",
+    "admin_short": "Admin",
+    "docente_short": "Teacher",
+    "studente_short": "Student"
+  },
+  "user_status": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "booking": "Book",
+    "my_bookings": "My bookings",
+    "rooms": "Rooms",
+    "profile": "Profile",
+    "instruments": "Instruments",
+    "my_loans": "My loans",
+    "admin_users": "Users",
+    "admin_structure": "Structure",
+    "admin_courses": "Courses",
+    "admin_rules": "Booking rules",
+    "admin_mail": "Mail service",
+    "admin_messaging": "Bot messaging",
+    "admin_backups": "Backups",
+    "admin_audit_log": "Activity log",
+    "admin_analytics": "Analytics",
+    "admin_announcements": "Announcements",
+    "admin_approvals": "Approvals",
+    "admin_bookings": "Bookings",
+    "admin_instruments": "Instruments inventory",
+    "admin_display": "Infopoint",
+    "admin_integrations_isidata": "Isidata import",
+    "admin_server_settings": "Server settings",
+    "monte_ore": "Hour budget",
+    "admin_monte_ore": "Hour budget management"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in with email and password.",
+      "title_choices": "Sign in required",
+      "subtitle_choices": "You must sign in to use Aula Book. If you don't have an account yet, you can request one.",
+      "submit": "Sign in",
+      "use_email": "Sign in with email",
+      "register": "Sign up",
+      "no_account": "Don't have an account?",
+      "back_to_options": "Back to options",
+      "continue_google": "Continue with Google",
+      "continue_microsoft": "Continue with Microsoft"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Just a few details to start booking rooms.",
+      "submit": "Create account",
+      "have_account": "Already have an account?",
+      "login": "Sign in",
+      "matricola_hint": "optional now",
+      "complete_later": "You can complete student ID and course after signing up."
+    },
+    "complete_profile": {
+      "title": "Complete profile",
+      "subtitle": "Confirm your role and basic data to access the application.",
+      "role_question": "Are you a student or a teacher?",
+      "teacher_warning": "Teacher accounts must be approved by an administrator before activation."
+    },
+    "pending": {
+      "title": "Awaiting approval",
+      "subtitle": "Your teacher account has been registered. An administrator will review it shortly: you'll get full access as soon as it's approved.",
+      "rejected_title": "Account rejected",
+      "rejected_subtitle": "The administrator has rejected your registration request. For more information contact the office.",
+      "verify_status": "Check status",
+      "quote": "Patience is a tree with bitter roots but the sweetest fruit.",
+      "quote_attribution": "Old proverb"
+    },
+    "oauth_callback": {
+      "title": "Signing in",
+      "subtitle": "Verifying provider credentials…",
+      "error_title": "Sign-in failed",
+      "missing_token": "Missing access token. Please try signing in again.",
+      "back_to_login": "Back to sign-in"
+    },
+    "fields": {
+      "first_name": "First name",
+      "last_name": "Last name",
+      "email": "Email",
+      "email_institutional": "Institutional email",
+      "email_placeholder": "name.surname@conservatory.edu",
+      "password": "Password",
+      "password_placeholder_min": "At least 8 characters",
+      "role": "Role",
+      "matricola": "Student ID",
+      "matricola_placeholder": "e.g. 12345",
+      "course": "Course of study",
+      "course_placeholder": "Select a course",
+      "course_placeholder_optional": "Select (optional)",
+      "course_loading": "Loading courses…"
+    },
+    "validation": {
+      "email_invalid": "Invalid email",
+      "email_required": "Enter a valid email address",
+      "password_required": "Password is required",
+      "password_min": "Password must be at least 8 characters",
+      "first_name_required": "Enter your first name",
+      "last_name_required": "Enter your last name",
+      "matricola_required_student": "Student ID is required for students",
+      "course_required": "Select your course of study",
+      "passwords_mismatch": "Passwords do not match",
+      "confirm_password_required": "Confirm the new password"
+    },
+    "auth_layout": {
+      "tagline": "Study, rehearse, perform.",
+      "tagline2": "A room for every note.",
+      "quote": "Silence is the solid background against which a note stands out.",
+      "quote_attribution": "Ferruccio Busoni",
+      "complete_quote": "Every detail is a note: together they make your music.",
+      "complete_attribution": "Conservatory Team"
+    },
+    "twofa": {
+      "title": "Two-step verification",
+      "subtitle_email": "We sent a 6-digit code to {{email}}. It expires in {{minutes}} minutes.",
+      "subtitle_recovery": "Enter one of your recovery codes (single use).",
+      "code_label": "Code received by email",
+      "recovery_label": "Recovery code",
+      "use_recovery": "Use a recovery code",
+      "use_email": "Send a new email code",
+      "resend": "Didn't get the email? Send a new code",
+      "resending": "Sending…",
+      "verify": "Verify and sign in"
+    }
+  },
+  "dashboard": {
+    "title": "Hello, {{name}}",
+    "subtitle": "Here's an overview of your bookings.",
+    "greeting_morning": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening",
+    "greeting_night": "Good night",
+    "hero_question": "Ready to practice today?",
+    "today_welcome": "{{date}} · welcome to the Conservatory booking system.",
+    "calendar_title": "Rooms calendar (weekly)",
+    "calendar_help": "First column: room · First row: Mon–Sat · 30-min slots (08:00–20:00). Click an empty slot to book.",
+    "prev_day": "Previous day",
+    "next_day": "Next day",
+    "prev_week": "Previous week",
+    "next_week": "Next week",
+    "this_week": "This week",
+    "export_weekly_pdf": "Export weekly PDF",
+    "no_bookings_yet": "No bookings on schedule",
+    "no_bookings_yet_subtitle": "Get started by booking a room for your rehearsals or lessons.",
+    "stats": {
+      "active_bookings": "Active bookings",
+      "active_bookings_hint": "Confirmed from now on",
+      "weekly_remaining_hours": "Hours left this week",
+      "weekly_remaining_unlimited": "{{used}}h booked · no limit",
+      "weekly_remaining_hint": "Out of {{max}}h · {{used}}h already booked",
+      "available_rooms": "Available rooms",
+      "available_rooms_hint": "With active booking",
+      "next_session": "Next session",
+      "next_session_none": "Nothing on schedule",
+      "active_loans": "Active loans",
+      "active_loans_hint": "{{pending}} awaiting approval"
+    },
+    "kpi": {
+      "next_booking": "Next booking",
+      "next_booking_none": "No upcoming bookings",
+      "weekly_used": "Hours booked (week)",
+      "weekly_remaining": "Hours left this week",
+      "daily_remaining": "Hours left today",
+      "unlimited": "Unlimited"
+    },
+    "next_bookings": {
+      "title": "Upcoming bookings",
+      "see_all": "See all",
+      "empty": "You have no upcoming bookings. Get started!",
+      "create": "Book a room"
+    },
+    "loans": {
+      "title": "My loans",
+      "see_all": "See all"
+    },
+    "quick_actions": {
+      "title": "Quick actions",
+      "new_booking": "New booking",
+      "view_rooms": "Browse rooms",
+      "my_bookings": "My bookings"
+    },
+    "pending_approvals": {
+      "title": "Bookings awaiting approval",
+      "subtitle": "{{count}} requests awaiting administrator review.",
+      "subtitle_one": "{{count}} request awaiting administrator review.",
+      "see_all": "See all"
+    }
+  },
+  "my_bookings": {
+    "title": "My bookings",
+    "subtitle": "Manage all your past, future and cancelled bookings.",
+    "new_booking": "New booking",
+    "export_ical": "Export iCal",
+    "export_ical_title": "Download bookings for the next 90 days in iCalendar format (.ics)",
+    "tabs": {
+      "future": "Upcoming",
+      "past": "Past",
+      "cancelled": "Cancelled",
+      "all": "All"
+    },
+    "empty": {
+      "future_title": "No upcoming bookings",
+      "future_subtitle": "Get started by booking a room for your rehearsals or lessons.",
+      "past_title": "No past bookings",
+      "past_subtitle": "Completed sessions will appear here.",
+      "cancelled_title": "No cancelled bookings",
+      "cancelled_subtitle": "Bookings you cancel will appear here.",
+      "all_title": "No bookings",
+      "all_subtitle": "Your first booking will appear here.",
+      "create": "Book a room"
+    },
+    "toast": {
+      "ical_downloaded": "iCal file downloaded",
+      "session_expired": "Session expired — please sign in again.",
+      "export_failed": "Export failed"
+    }
+  },
+  "calendar_subscription": {
+    "title": "Subscribe to calendar",
+    "description": "Add your bookings to your system calendar (Google Calendar, Apple Calendar, Outlook…). The calendar updates automatically with bookings for the next 90 days — no need to add events manually.",
+    "loading": "Loading link…",
+    "webcal_label": "Subscription link (webcal://)",
+    "https_label": "Direct link (https://)",
+    "show_token": "Show token",
+    "hide_token": "Hide token",
+    "copy_link": "Copy link",
+    "webcal_help": "Open the link on a device with a calendar app installed — it will ask to add the calendar in read-only mode. On Google Calendar use \"Other calendars → From URL\" and paste the https:// version below.",
+    "warning": "The link contains a read-only secret token. Don't share it: anyone holding it can view your booking calendar. If you lose it or suspect it leaked, regenerate it.",
+    "regenerate": "Regenerate token",
+    "regenerate_confirm": "Regenerating the token will invalidate the previous link. Continue?",
+    "regenerated": "Link regenerated — the previous one no longer works",
+    "copied": "{{label}} copied",
+    "copy_failed": "Could not copy automatically — please select and copy manually",
+    "label_webcal": "Webcal link",
+    "label_https": "Https link"
+  },
+  "booking": {
+    "title": "Book a room",
+    "subtitle": "Choose a room and date: click an empty time slot to book it.",
+    "select_room_first": "Select a room to view availability.",
+    "click_help": "Click an empty slot · Click your own booking to cancel it",
+    "form_validation": {
+      "room_required": "Select a room",
+      "start_required": "Set the start time",
+      "end_required": "Set the end time",
+      "end_after_start": "End time must be after start time.",
+      "studio_min_duration": "Individual practice must last at least 1 hour."
+    },
+    "form": {
+      "title_new": "New booking",
+      "title_edit": "Edit booking",
+      "title_description": "Check availability and confirm to lock the room.",
+      "purpose_title": "Title (optional)",
+      "purpose_placeholder_short": "e.g. Bach repertoire study",
+      "notes": "Notes (optional)",
+      "notes_placeholder": "Any requirements or remarks",
+      "type_activity": "Activity type",
+      "submit_book": "Book",
+      "weeks": "weeks (same day and time)",
+      "weeks_per": "for",
+      "skip_conflicts": "Conflicting occurrences will be skipped automatically.",
+      "recurring_created_some_skipped": "{{created}} bookings created · {{skipped}} skipped due to conflicts",
+      "recurring_created": "{{count}} recurring bookings created",
+      "created_success": "Booking created successfully",
+      "start": "Start",
+      "end": "End",
+      "room": "Room",
+      "room_loading": "Loading rooms…",
+      "date": "Date",
+      "start_time": "Start time",
+      "end_time": "End time",
+      "purpose": "Purpose / Notes",
+      "purpose_placeholder": "E.g. Individual practice, piano lesson, ensemble rehearsal…",
+      "type": "Type",
+      "type_studio_individuale": "Individual practice",
+      "type_lezione": "Lesson",
+      "type_prova": "Rehearsal",
+      "type_concerto": "Concert",
+      "type_altro": "Other",
+      "recurring": "Repeat weekly",
+      "recurring_label": "Create recurring booking",
+      "recurring_until": "Until",
+      "recurring_help": "A weekly booking will be created for each occurrence.",
+      "submit_create": "Confirm booking",
+      "submit_update": "Save changes",
+      "save_as_template": "Save as template",
+      "on_behalf_of": "Book on behalf of",
+      "on_behalf_self": "Myself",
+      "updated_success": "Booking updated"
+    },
+    "template": {
+      "save_dialog_title": "Save as template",
+      "save_dialog_description": "Store the current combination (room, weekday, time, type, purpose) so you can reuse it with one click from the Dashboard.",
+      "name_label": "Template name",
+      "name_placeholder": "e.g. Violin practice Mon morning",
+      "favorite_label": "Show in the Dashboard \"Quick book\"",
+      "favorite_hint": "Maximum 3 favorite templates at once.",
+      "save_button": "Save template",
+      "saved_toast": "Template \"{{name}}\" saved",
+      "quick_book_title": "Quick book",
+      "quick_book_help": "One click books the next occurrence of the chosen weekday.",
+      "quick_book_action_title": "Book from template: {{name}}",
+      "quick_booked_toast": "Booking created for {{when}}"
+    },
+    "type_label": "Type",
+    "status": {
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "no_show": "No-show"
+    },
+    "cancel": {
+      "title": "Cancel booking?",
+      "description": "The room will be freed and other users can book it.",
+      "reason": "Reason (optional)",
+      "reason_placeholder": "E.g. Schedule change",
+      "confirm": "Cancel booking",
+      "deadline_warning": "Cancellation requires {{hours}} hours' notice."
+    },
+    "actions": {
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "view": "View"
+    },
+    "list_item": {
+      "duration": "Duration",
+      "starts_in": "Starts in {{when}}"
+    },
+    "toast": {
+      "created": "Booking created",
+      "updated": "Booking updated",
+      "cancelled": "Booking cancelled"
+    }
+  },
+  "rooms": {
+    "title": "Conservatory rooms",
+    "subtitle": "Browse available rooms and book directly from here.",
+    "search_placeholder": "Search by name, building, equipment…",
+    "filter_type": "Type",
+    "filter_building": "Building",
+    "all_types": "All types",
+    "all_buildings": "All buildings",
+    "capacity": "{{count}} seats",
+    "capacity_one": "1 seat",
+    "floor": "Floor {{floor}}",
+    "no_rooms": "No rooms found",
+    "no_rooms_filtered_title": "No room matches the filters",
+    "no_rooms_filtered_subtitle": "Try changing the search term or the selected building.",
+    "book_room": "Book",
+    "type_label": "Room type",
+    "equipment_label": "Equipment",
+    "equipment_more": "+{{count}} more",
+    "advanced_filters": "Advanced filters",
+    "advanced_filters_help": "Search rooms by type, capacity, required equipment, and availability in a specific time range.",
+    "filter": {
+      "type": "Room type",
+      "type_any": "Any",
+      "min_capacity": "Minimum capacity",
+      "min_capacity_any": "Any",
+      "availability": "Availability",
+      "availability_help": "Excludes rooms with confirmed bookings overlapping the chosen range.",
+      "from": "Start",
+      "to": "End",
+      "preset_now": "Now (+2h)",
+      "equipment": "Required equipment",
+      "equipment_help": "The room must have ALL selected equipment.",
+      "apply": "Apply",
+      "reset": "Reset filters",
+      "reset_all": "Clear all"
+    }
+  },
+  "room_types": {
+    "studio": "Studio",
+    "sala_prove": "Rehearsal hall",
+    "aula_concerti": "Concert hall",
+    "classe": "Classroom",
+    "aula_didattica": "Lecture room",
+    "altro": "Other"
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Manage your personal data, password and view account information.",
+    "personal": {
+      "title": "Personal information",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "matricola": "Student ID",
+      "course": "Course of study",
+      "save": "Save changes",
+      "saved": "Profile updated"
+    },
+    "notifications": {
+      "title": "Email notifications",
+      "description": "Choose which automatic emails you want to receive for your bookings.",
+      "enabled": "Notifications on",
+      "master_title": "Receive emails for your bookings",
+      "master_help": "Turning this off disables every automatic email.",
+      "confirmation_title": "Confirmation on creation",
+      "confirmation_help": "Immediate email when you create a booking.",
+      "reminder_title": "Reminder 1 hour before",
+      "reminder_help": "Email sent about an hour before the booking starts.",
+      "cancellation_title": "Cancellation notice",
+      "cancellation_help": "Email when one of your bookings is cancelled.",
+      "saved_on": "Notification enabled",
+      "saved_off": "Notification disabled"
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm password",
+      "submit": "Update password",
+      "updated": "Password updated",
+      "oauth_only": "This account is linked through OAuth only: password cannot be set here."
+    },
+    "photo": {
+      "title": "Profile photo",
+      "upload": "Upload photo",
+      "remove": "Remove photo",
+      "remove_confirm": "Remove the profile photo?",
+      "uploaded": "Photo updated",
+      "removed": "Photo removed",
+      "format_hint": "PNG, JPG or WEBP — max 2 MB"
+    },
+    "account": {
+      "title": "Account",
+      "email": "Email",
+      "role": "Role",
+      "active": "Status",
+      "matricola": "Student ID",
+      "last_login": "Last login",
+      "registered": "Registered",
+      "providers": "Linked providers"
+    },
+    "copyright": {
+      "title": "Institute copyright",
+      "description": "Copyright string shown in the application footer.",
+      "field": "Copyright text",
+      "saved": "Copyright updated"
+    },
+    "bot_bindings": {
+      "title": "Bot messaging",
+      "subtitle": "Link your account to a bot (Telegram, WhatsApp, Signal, Email) to book rooms via message.",
+      "generate_code": "Generate code",
+      "empty": "No bot linked. Generate a code above and send it to the bot writing «bind XXXXXX».",
+      "bound_at": "Linked on {{date}}",
+      "last_seen": "last seen {{date}}",
+      "otp_title": "Code generated — valid {{minutes}} minutes",
+      "otp_help": "Open the bot chat (Telegram/WhatsApp/Signal) and send exactly:",
+      "otp_send_hint": "Once sent, the bot will reply confirming the link.",
+      "guide_text": "See docs/BOT-MESSAGING.md for the list of official Conservatory bots.",
+      "toast": {
+        "otp_generated": "Code generated",
+        "copied": "Command copied",
+        "copy_failed": "Copy failed",
+        "revoked": "Link revoked"
+      }
+    },
+    "twofa": {
+      "title": "Security · Two-step verification (email)",
+      "subtitle_email": "Add a second factor to your password: each sign-in will trigger a 6-digit code sent to {{email}}.",
+      "toggle_aria": "Enable/disable email 2FA",
+      "admin_required": "Administrators must enable two-step verification within 7 days from account creation.",
+      "activated_at": "Activated on",
+      "badge": {
+        "enabled": "Active"
+      },
+      "setup": {
+        "sent_title": "Code sent to {{email}}",
+        "sent_help": "Enter it below within {{minutes}} minutes to enable two-step verification.",
+        "code_label": "Code received by email",
+        "confirm": "Confirm and enable",
+        "resend": "Resend code",
+        "resending": "Sending…"
+      },
+      "recovery": {
+        "title": "Save your 10 recovery codes",
+        "help": "Shown ONLY once. Use them if you lose access to your inbox. Each code is single-use.",
+        "remaining": "Recovery codes remaining",
+        "regenerate": "Regenerate recovery codes",
+        "regenerate_help": "We'll send a code to your email to confirm. All previous recovery codes will be invalidated.",
+        "copy": "Copy all",
+        "copied": "Copied",
+        "copy_failed": "Copy failed",
+        "print": "Print",
+        "saved": "I saved the codes"
+      },
+      "disable": {
+        "title": "Disable two-step verification?",
+        "help": "We'll send a code to your email to confirm. Without 2FA your account is protected only by the password.",
+        "confirm": "Disable 2FA"
+      },
+      "toast": {
+        "code_sent": "Code sent to {{email}}",
+        "code_resent": "New code sent",
+        "enabled": "2FA enabled. Remember to save the recovery codes.",
+        "disabled": "2FA disabled",
+        "recovery_regenerated": "New recovery codes generated"
+      }
+    }
+  },
+  "admin": {
+    "server_settings": {
+      "title": "Server settings",
+      "subtitle": "Server-side configuration: mail, messaging channels, activity log and backups.",
+      "tabs": {
+        "mail_description": "SMTP configuration, sender identity and transactional email templates.",
+        "qrcodes": "QR Code",
+        "qrcodes_description": "Manage per-room check-in QR codes (regenerate/download) and the institute-network restriction policy.",
+        "messaging_description": "Messaging channels (Telegram, WhatsApp, Signal, IMAP) for notifications and bot commands.",
+        "display_description": "Configure the public Infopoint for the weekly rotating room timetable.",
+        "audit_log_description": "Append-only tracking of administrative actions and management of confirmed bookings.",
+        "backups_description": "Scheduled database backups and restore from snapshot."
+      }
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Manage accounts, roles and access.",
+      "new_user": "New user",
+      "search_placeholder": "Search by name, email, student ID, course…",
+      "filter_role": "Role",
+      "filter_status": "Approval",
+      "filter_active": "Status",
+      "all_roles": "All roles",
+      "all_statuses": "All approvals",
+      "all_active": "All statuses",
+      "active_yes": "Active",
+      "active_no": "Disabled",
+      "table": {
+        "user": "User",
+        "role": "Role",
+        "matricola": "Student ID",
+        "course": "Course",
+        "approval": "Approval",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "you_label": "you",
+      "empty": {
+        "title": "No users found",
+        "subtitle": "Adjust filters or add a new user."
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved_toast": "User approved",
+      "rejected_toast": "User rejected",
+      "deleted_toast": "User deleted",
+      "delete_title": "Delete {{name}}?",
+      "delete_description": "The user will lose access and their bookings will remain in history. This action cannot be undone.",
+      "bulk": {
+        "selected_count": "{{count}} selected ({{pending}} pending)",
+        "clear": "Deselect",
+        "approve": "Approve selected",
+        "reject": "Reject selected",
+        "delete": "Delete selected",
+        "approved_toast": "{{count}} users approved ({{skipped}} skipped)",
+        "rejected_toast": "{{count}} users rejected ({{skipped}} skipped)",
+        "deleted_toast": "{{count}} users deleted ({{removedBookings}} bookings removed)",
+        "confirm": {
+          "approve_title": "Approve the selected users?",
+          "reject_title": "Reject the selected users?",
+          "delete_title": "Delete {{count}} users?",
+          "approve_reject_description": "{{count}} pending users will be updated. {{skipped}} users already approved or rejected will be skipped.",
+          "delete_description": "You are about to delete {{count}} users and all their bookings. This cannot be undone."
+        }
+      },
+      "form": {
+        "title_new": "New user",
+        "title_edit": "Edit user",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "email": "Email",
+        "role": "Role",
+        "matricola": "Student ID",
+        "course": "Course",
+        "password": "Password",
+        "new_password": "New password",
+        "active": "Account active",
+        "submit_create": "Create user",
+        "submit_update": "Save changes"
+      }
+    },
+    "backups": {
+      "title": "Backup & restore",
+      "subtitle": "Daily automatic snapshots of database and uploaded files. Restore requires explicit confirmation and creates a pre-restore safety snapshot.",
+      "create_now": "Backup now",
+      "upload": "Upload external backup",
+      "scheduler": {
+        "title": "Automatic backup",
+        "status": "Status",
+        "enabled": "Active",
+        "disabled": "Disabled",
+        "scheduled": "Scheduled time",
+        "daily": "every day",
+        "next_run": "Next run",
+        "last_ok": "✓ Last backup: {{file}} ({{size}}) · {{when}}",
+        "last_error": "✗ Last run failed ({{when}}): {{error}}",
+        "config_title": "Active configuration",
+        "edit_button": "Edit",
+        "edit_title": "Edit settings",
+        "save_button": "Save settings",
+        "saved_toast": "Settings saved",
+        "source_db": "Settings are persisted in the database and applied immediately.",
+        "source_env": "Using defaults from environment variables. Edit to persist to DB.",
+        "f_auto_enabled": "Automatic backup",
+        "f_auto_enabled_help": "Runs a snapshot at the scheduled time.",
+        "f_tick_time": "Tick time",
+        "f_hour": "Hour (0–23)",
+        "f_minute": "Minute (0–59)",
+        "f_keep_daily": "Daily backups",
+        "f_keep_weekly": "Weekly backups",
+        "f_keep_monthly": "Monthly backups",
+        "f_auto_restart": "Backend restart enabled",
+        "f_auto_restart_help": "Enables the \"Restart\" button in the post-restore card (requires process manager).",
+        "f_dir": "Backup folder"
+      },
+      "list": {
+        "title": "Available backups",
+        "empty": "No backup yet. Click \"Backup now\" or wait for the scheduled run.",
+        "col_file": "File",
+        "col_when": "Created",
+        "col_size": "Size",
+        "col_actions": "Actions",
+        "download": "Download",
+        "restore": "Restore"
+      },
+      "restore_dialog": {
+        "title": "Restore {{file}}?",
+        "description": "A pre-restore safety snapshot will be created, then DB and uploads will be replaced with the backup content. Operation is irreversible unless you reuse the pre-restore snapshot.",
+        "confirm": "Yes, restore now"
+      },
+      "delete_dialog": {
+        "title": "Delete backup {{file}}?",
+        "description": "The file will be permanently removed from disk."
+      },
+      "restore_success": {
+        "title": "Restore complete: {{file}}",
+        "pre_snapshot": "Pre-restore snapshot created: {{file}}. Use it to rollback if needed.",
+        "help": "To apply the current schema and reload the DB pool, restart the backend."
+      },
+      "restart": {
+        "button": "Restart backend",
+        "confirm_title": "Restart backend?",
+        "confirm_description": "The process will exit; your process manager (systemd / pm2) will restart it automatically.",
+        "warning": "Without a configured process manager the server will stay down. Use only if you know what you are doing.",
+        "reload_hint": "The page will reload automatically in a few seconds."
+      },
+      "toast": {
+        "created": "Backup created: {{file}}",
+        "deleted": "Backup deleted",
+        "uploaded": "Backup uploaded: {{file}}",
+        "restored": "Restore complete"
+      }
+    },
+    "messaging": {
+      "title": "Bot messaging",
+      "subtitle": "Configure the bot channels (Telegram, WhatsApp Cloud, Signal, Email-IMAP) through which users can book rooms via message.",
+      "secret_configured": "•••••••• (configured)",
+      "secret_enter": "Enter the value",
+      "test_button": "Test connection",
+      "toggle_aria": "Enable {{channel}}",
+      "badge": { "enabled": "Active" },
+      "test": {
+        "ok": "Connection OK · {{info}}",
+        "error": "Error: {{error}}"
+      },
+      "toast": { "saved": "Settings saved" },
+      "telegram": {
+        "help": "Free conversational bot. Quick setup via @BotFather.",
+        "bot_token": "Bot token (BotFather)",
+        "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
+        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Generate a random secret: openssl rand -hex 32\n3) Save token + secret here, then enable the toggle.\n4) Register the webhook (replace TOKEN/SECRET):\n   curl -F \"url=https://aulabook.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+      },
+      "whatsapp": {
+        "help": "WhatsApp Business Cloud API (Meta direct). Requires verified Meta Business account.",
+        "access_token": "Access token (Bearer)",
+        "phone_id": "Phone Number ID",
+        "verify_token": "Verify token (handshake)",
+        "app_secret": "App secret (HMAC SHA256)",
+        "setup_guide": "1) Create a Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copy: Phone Number ID, System User access token (long-lived), App Secret.\n3) Pick a random Verify Token and save it here.\n4) Set callback URL: https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook\n   with the same Verify Token and subscribe to 'messages' events."
+      },
+      "signal": {
+        "help": "Signal via signal-cli (community). Requires a host running signal-cli and a dedicated registered number.",
+        "phone_number": "Registered number (E.164)",
+        "daemon_url": "signal-cli daemon URL",
+        "webhook_secret": "Webhook secret (X-Signal-Webhook-Secret)",
+        "setup_guide": "1) Install signal-cli (https://github.com/AsamK/signal-cli) on a reachable host.\n2) Register a dedicated number and run:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configure a forwarder to relay incoming messages to the Aula Book webhook with header X-Signal-Webhook-Secret."
+      },
+      "email": {
+        "help": "Always-on fallback via dedicated mailbox. Stub: IMAP poller will land in a future sprint.",
+        "host": "IMAP host",
+        "port": "Port",
+        "user": "Username",
+        "password": "IMAP password",
+        "setup_guide": "1) Create a dedicated mailbox (e.g. book@conservatorio.it).\n2) Configure host/port/credentials here.\n3) IMAP poller is not yet active: this channel remains a stub that does not receive messages (see roadmap)."
+      }
+    },
+    "oauth": {
+      "google_title": "Google OAuth",
+      "microsoft_title": "Microsoft OAuth",
+      "client_id": "Client ID",
+      "client_secret": "Client Secret",
+      "callback_url": "Callback URL",
+      "tenant": "Tenant",
+      "enable": "Enable {{provider}} OAuth",
+      "saved": "OAuth settings saved",
+      "restart_hint": "Restart the backend to apply the new OAuth settings.",
+      "secret_configured": "•••••••• (set — leave empty to keep)",
+      "secret_placeholder": "Enter the Client Secret"
+    },
+    "structure": {
+      "title": "Conservatory structure",
+      "subtitle": "Manage institutes, buildings, rooms and the equipment catalog.",
+      "tab_sedi": "Sites",
+      "tab_dotazioni": "Equipment",
+      "new_institute": "New institute",
+      "import_csv": "Import CSV",
+      "export_csv": "Export CSV",
+      "new_building": "Building",
+      "new_room": "Room",
+      "edit_building": "Edit building",
+      "delete_building": "Delete building",
+      "no_institutes_title": "No institute configured",
+      "no_institutes_subtitle": "Start by creating the first institute.",
+      "create_institute": "Create institute",
+      "buildings_count_one": "{{count}} building",
+      "buildings_count_other": "{{count}} buildings",
+      "rooms_count_one": "{{count}} room",
+      "rooms_count_other": "{{count}} rooms",
+      "no_buildings": "No buildings. Add one to get started.",
+      "no_rooms_in_building": "No rooms in this building.",
+      "select_all_rooms": "Select all rooms in {{building}}",
+      "rooms_selected_one": "{{count}} room selected",
+      "rooms_selected_other": "{{count}} rooms selected",
+      "select_building_aria": "Select building {{name}}",
+      "buildings_selected_one": "{{count}} building selected",
+      "buildings_selected_other": "{{count}} buildings selected",
+      "delete_buildings_selected": "Delete buildings",
+      "delete_buildings_title_one": "Delete {{count}} building?",
+      "delete_buildings_title_other": "Delete {{count}} buildings?",
+      "delete_buildings_description": "You are about to delete {{count}} buildings, including {{rooms}} rooms inside them and all related bookings. This cannot be undone.",
+      "buildings_deleted_toast": "{{count}} buildings deleted ({{removedRooms}} rooms, {{removedBookings}} bookings)",
+      "deselect": "Deselect",
+      "delete_selected": "Delete selected",
+      "no_code": "No code",
+      "delete_dialog_default_title": "Confirm deletion?",
+      "delete_dialog_description": "All child elements will also be removed. This action cannot be undone.",
+      "delete_institute_title": "Delete institute \"{{name}}\"?",
+      "delete_building_title": "Delete building \"{{name}}\"?",
+      "delete_room_title": "Delete room \"{{name}}\"?",
+      "delete_equipment_title": "Delete equipment \"{{name}}\"?",
+      "delete_rooms_title_one": "Delete {{count}} room?",
+      "delete_rooms_title_other": "Delete {{count}} rooms?",
+      "delete_rooms_description": "All equipment they contain will also be removed. This action cannot be undone.",
+      "delete_label": "Delete {{count}}",
+      "delete_completed": "Deletion complete",
+      "rooms_deleted_one": "{{count}} room deleted",
+      "rooms_deleted_other": "{{count}} rooms deleted",
+      "no_equipment": "No equipment",
+      "bookable": "Bookable",
+      "not_bookable": "Not bookable",
+      "seats_one": "{{count}} seat",
+      "seats_other": "{{count}} seats",
+      "select_room_aria": "Select {{name}}",
+      "room_photo": "Room photo",
+      "room_photo_help": "PNG, JPG or WEBP — will be resized to 16:9 (1200×675).",
+      "room_photo_upload": "Upload photo",
+      "room_photo_replace": "Replace",
+      "room_photo_remove": "Remove photo",
+      "room_photo_remove_confirm": "Remove the room photo?",
+      "room_photo_uploaded": "Room photo updated",
+      "room_photo_removed": "Room photo removed",
+      "room_photo_save_first": "Save the room first to upload a photo.",
+      "require_checkin": "QR check-in required",
+      "require_checkin_help": "If enabled, users must check in via QR at the start time to avoid auto-cancellation (ghost booking).",
+      "requires_approval": "Requires approval",
+      "requires_approval_help": "Bookings on this room by non-admin users start as pending approval. Typical for concert halls, auditoriums, official rooms."
+    },
+    "courses": {
+      "title": "Courses",
+      "subtitle": "Manage the catalog of courses of study.",
+      "new_course": "New course",
+      "import_csv": "Import CSV",
+      "search_placeholder": "Search by code or name…",
+      "table": {
+        "code": "Code",
+        "name": "Name",
+        "department": "Department",
+        "levels": "Levels",
+        "active": "Active",
+        "actions": "Actions"
+      },
+      "no_courses": "No courses found",
+      "form": {
+        "title_new": "New course",
+        "title_edit": "Edit course",
+        "code": "Code",
+        "name": "Name",
+        "department": "Department",
+        "description": "Description",
+        "levels": "Levels",
+        "active": "Course active"
+      },
+      "saved": "Course saved",
+      "deleted": "Course deleted",
+      "delete_title": "Delete course \"{{name}}\"?",
+      "delete_description": "Linked users will be detached from the course (student ID kept). This action cannot be undone."
+    },
+    "rules": {
+      "tabs": {
+        "by_role": "By role",
+        "by_role_description": "Limits applied to all users of the role: volumes, duration, advance booking, allowed time windows.",
+        "quotas": "Room quotas",
+        "quotas_description": "Dynamic caps by room type or equipment: applied in addition to per-role rules.",
+        "loan_quotas": "Loan quotas",
+        "loan_quotas_description": "Caps on concurrent instruments and total loan days per year, by family or single instrument.",
+        "exceptions": "Date exceptions",
+        "exceptions_description": "Blocks and time windows for specific days or periods (e.g. holidays, exam sessions)."
+      },
+      "preview": {
+        "title": "Simulate booking",
+        "subtitle": "Check if a sample request would pass the current rules, without creating the booking.",
+        "role": "Simulated role",
+        "course": "Course (optional)",
+        "no_course": "None",
+        "room": "Room",
+        "date": "Date",
+        "time_from": "Start",
+        "time_to": "End",
+        "simulate": "Simulate",
+        "result_ok": "Booking would pass the rules",
+        "result_ko": "Booking would be rejected",
+        "disclaimer": "Per-user hour quotas (e.g. \"you already used 8h this week\") are not evaluated: use a real user for that test."
+      }
+    },
+    "mail": {
+      "title": "Mail service",
+      "subtitle": "SMTP settings and transactional email templates.",
+      "tab_settings": "Settings",
+      "tab_templates": "Templates",
+      "settings": {
+        "host": "SMTP host",
+        "port": "Port",
+        "secure": "TLS",
+        "username": "Username",
+        "password": "Password",
+        "from_address": "Sender address",
+        "from_name": "Sender name",
+        "reply_to": "Reply-To",
+        "test_address": "Test address",
+        "send_test": "Send test email",
+        "test_sent": "Test email sent",
+        "saved": "Settings saved",
+        "enable": "Enable email sending"
+      },
+      "templates": {
+        "subject": "Subject",
+        "body": "Body",
+        "preview": "Preview",
+        "reset": "Reset to default",
+        "saved": "Template updated",
+        "type": "Template",
+        "variables": "Available variables"
+      }
+    },
+    "csv_import": {
+      "title": "Import from CSV",
+      "description": "Upload a CSV file with the indicated structure.",
+      "drag_drop": "Drag the file here or click to select it",
+      "submit": "Import",
+      "imported": "{{count}} items imported",
+      "errors_count": "{{count}} rows with errors",
+      "download_template": "Download template"
+    },
+    "equipment_templates": {
+      "title": "Equipment templates",
+      "subtitle": "Reusable catalog for room equipment.",
+      "new": "New template",
+      "type": "Type",
+      "delete_title": "Delete template \"{{name}}\"?"
+    },
+    "course_levels": {
+      "title": "Study levels",
+      "subtitle": "Course levels (e.g. Bachelor, Master).",
+      "new": "New level",
+      "code": "Code",
+      "name": "Name",
+      "sort_order": "Order",
+      "saved": "Levels saved"
+    },
+    "display": {
+      "title": "Infopoint",
+      "subtitle": "Choose which buildings rotate on the public Infopoint (/display) and how long each one stays on screen before switching to the next.",
+      "table": {
+        "building": "Building",
+        "rooms_count": "Rooms",
+        "enabled": "In rotation",
+        "interval": "Duration (seconds)",
+        "actions": "Actions"
+      },
+      "concerts_on": "On",
+      "concerts_off": "Off",
+      "bookings_card": {
+        "title": "Bookings rotation",
+        "subtitle": "Show each building's bookings as Infopoint rotation slides. Disable to hide booking tables and keep only concerts and announcements."
+      },
+      "concerts_card": {
+        "title": "Concert rotation",
+        "subtitle": "Show upcoming concerts as extra slides on the Infopoint, interleaved with the building rotation.",
+        "days_label": "Preview window (days)",
+        "days_help": "Show concerts from today up to N days ahead (0–365). Set 0 to disable the preview.",
+        "count_label": "Max upcoming events",
+        "count_help": "Cap on concerts shown, starting with the soonest (0 = unlimited, only the days window applies).",
+        "interval_label": "Slide duration (s)",
+        "interval_help": "How many seconds each concert stays on screen before the next slide (5–600)."
+      },
+      "announcements_card": {
+        "title": "Announcements rotation",
+        "subtitle": "Add active announcements as additional slides on the public Infopoint, after buildings and concerts.",
+        "count_label": "Maximum announcements",
+        "count_help": "Max number of announcements shown per cycle (0 = no limit, up to 30).",
+        "interval_label": "Slide duration (s)",
+        "interval_help": "How many seconds each announcement stays on screen before the next slide (5–600).",
+        "pinned_only_label": "Pinned announcements only",
+        "pinned_only_help": "Show only announcements flagged as pinned."
+      },
+      "interval_help": "Per-building Infopoint duration: between 5 and 600 seconds.",
+      "no_buildings": "No buildings configured. Add a building in Structure to populate the Infopoint.",
+      "save": "Save",
+      "saved": "Infopoint configuration updated",
+      "open_display": "Open Infopoint",
+      "preview_help": "Open /display in a new tab to verify the Infopoint rotation."
+    },
+    "quotas": {
+      "title": "Dynamic resource quotas",
+      "help": "Set hourly limits per room type or per equipment, in addition to the role-wide cap. Example: «students, max 2h/week on concert hall».",
+      "new": "New quota",
+      "new_title": "New resource quota",
+      "edit_title": "Edit quota",
+      "dialog_help": "The quota applies on top of the role's base rules. At least one cap (weekly or daily) must be greater than 0.",
+      "empty_title": "No quota configured",
+      "empty_subtitle": "Add a quota to limit usage of a specific room type or equipment.",
+      "active": "Active",
+      "inactive": "Disabled",
+      "created": "Quota created",
+      "updated": "Quota updated",
+      "deleted": "Quota deleted",
+      "delete_title": "Delete the quota?",
+      "delete_description": "The delete is soft (recoverable by the DB admin). Limits stop applying immediately.",
+      "scope_global_target": "All rooms",
+      "col_role": "Role",
+      "col_scope": "Scope",
+      "col_target": "Resource",
+      "col_max_week": "Max h/week",
+      "col_max_day": "Max h/day",
+      "col_active": "State",
+      "col_actions": "Actions",
+      "role": {
+        "admin": "Admin",
+        "docente": "Teacher",
+        "studente": "Student"
+      },
+      "scope": {
+        "global": "Global",
+        "roomType": "Room type",
+        "equipmentType": "Equipment",
+        "room": "Specific room",
+        "building": "Building"
+      },
+      "field": {
+        "role": "Role",
+        "scope": "Scope",
+        "target": "Resource",
+        "max_week": "Max hours / week",
+        "max_day": "Max hours / day",
+        "max_month": "Max hours / month",
+        "max_bookings": "Max bookings / week",
+        "max_bookings_help": "Cap on number of bookings in the ISO week. 0 = disabled.",
+        "days_of_week": "Active days",
+        "days_of_week_help": "If no day is selected the quota applies on every day of the week.",
+        "time_from": "Window start (HH:mm)",
+        "time_to": "Window end (HH:mm)",
+        "time_help": "Leave both empty for always active. If set, the quota applies only to bookings that intersect the time window.",
+        "zero_disables": "0 = cap disabled",
+        "active": "Active quota",
+        "active_help": "Disabling the quota stops limits without deleting it."
+      },
+      "errors": {
+        "cap_required": "At least one of hours/week, day, month or bookings count must be greater than 0",
+        "scope_required": "Select the resource for this scope",
+        "time_pair": "Fill both window start and end, or leave both empty",
+        "time_order": "Window start must be before window end",
+        "time_format": "Invalid time format (HH:mm)"
+      },
+      "active_count": "active",
+      "filter": {
+        "only_active": "Active only",
+        "show_all": "Show all"
+      }
+    },
+    "loan_quotas": {
+      "title": "Instrument loan quotas",
+      "help": "Set caps on concurrent instruments and total loan days within a 365-day rolling window per role. Applied in addition to existing loan rules.",
+      "new": "New loan quota",
+      "new_title": "New loan quota",
+      "edit_title": "Edit loan quota",
+      "dialog_help": "At least one of max concurrent or max days/year must be greater than 0.",
+      "empty_title": "No loan quota configured",
+      "empty_subtitle": "Add a quota to limit loans for an instrument family or a single instrument.",
+      "created": "Quota created",
+      "updated": "Quota updated",
+      "deleted": "Quota deleted",
+      "delete_title": "Delete the loan quota?",
+      "delete_description": "Soft delete (recoverable). Limits stop applying immediately.",
+      "scope_global_target": "All instruments",
+      "col_max_concurrent": "Max concurrent",
+      "col_max_days_year": "Max days / year",
+      "scope": {
+        "global": "Global",
+        "family": "Family",
+        "instrument": "Instrument"
+      },
+      "field": {
+        "scope": "Scope",
+        "target": "Resource",
+        "max_concurrent": "Max concurrent instruments",
+        "max_days_year": "Max days / year (rolling 365 days)"
+      },
+      "errors": {
+        "cap_required": "At least one of max concurrent or max days/year must be greater than 0"
+      }
+    },
+    "loan_rules": {
+      "title": "Instrument loan rules",
+      "subtitle": "For each instrument family choose which courses (SAD codes) are allowed to request a loan. The rule applies to students and teachers; admins are always authorized.",
+      "default_help": "If no course is configured for a family, the rule is permissive (default): anyone can request a loan.",
+      "configured_badge": "Configured",
+      "default_badge": "Permissive default",
+      "courses_count_one": "{{count}} course allowed",
+      "courses_count_other": "{{count}} courses allowed",
+      "no_courses_warning": "No course allowed → all non-admin users will be blocked.",
+      "search_courses": "Search courses…",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "save": "Save rule",
+      "reset": "Reset to default",
+      "reset_confirm": "Reset this family to the permissive default (anyone can request a loan)?",
+      "saved": "Rule saved",
+      "reset_done": "Rule reset to default",
+      "notes": "Notes (optional)",
+      "notes_placeholder": "E.g. Only Piano course students"
+    },
+    "instruments": {
+      "title": "Instruments inventory",
+      "subtitle": "Manage instruments, loan requests and overdue returns.",
+      "tabs": {
+        "inventory": "Inventory",
+        "all_loans": "All loans",
+        "overdue": "Overdue",
+        "expiring": "Expiring (2 days)",
+        "rules": "Loan rules"
+      },
+      "new_instrument": "New instrument",
+      "search_placeholder": "Search by name, code, brand, model…",
+      "filter_family": "Family",
+      "filter_condition": "Condition",
+      "filter_loanable": "Loan status",
+      "all_families": "All families",
+      "all_conditions": "All conditions",
+      "loanable_yes": "Loanable only",
+      "loanable_no": "Not loanable",
+      "loanable_all": "All",
+      "table": {
+        "instrument": "Instrument",
+        "family": "Family",
+        "condition": "Condition",
+        "code": "Code",
+        "loanable": "Loanable",
+        "loan_status": "Loan",
+        "actions": "Actions"
+      },
+      "empty": {
+        "title": "No instruments found",
+        "subtitle": "Add a new instrument or change filters."
+      },
+      "form": {
+        "title_new": "New instrument",
+        "title_edit": "Edit instrument",
+        "name": "Name",
+        "code": "Code (unique)",
+        "family": "Family",
+        "brand": "Brand",
+        "model": "Model",
+        "serial_number": "Serial number",
+        "condition": "Condition",
+        "is_loanable": "Available for loan",
+        "is_loanable_help": "Disable to hide this instrument from the loans catalog.",
+        "notes": "Notes",
+        "submit_create": "Create instrument",
+        "submit_update": "Save changes"
+      },
+      "photo": {
+        "label": "Instrument photo",
+        "help": "PNG, JPG or WEBP — will be resized to 16:9 (1200×675).",
+        "upload": "Upload photo",
+        "replace": "Replace",
+        "remove": "Remove photo",
+        "remove_confirm": "Remove the instrument photo?",
+        "uploaded": "Instrument photo updated",
+        "removed": "Instrument photo removed",
+        "save_first": "Save the instrument first to upload a photo."
+      },
+      "loans_table": {
+        "user": "User",
+        "instrument": "Instrument",
+        "period": "Period",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "loan_actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "force_return": "Mark returned",
+        "print_delivery": "Delivery form",
+        "print_return": "Return form"
+      },
+      "toast": {
+        "saved": "Instrument saved",
+        "deleted": "Instrument deleted",
+        "approved": "Loan approved",
+        "rejected": "Loan rejected",
+        "returned": "Loan marked as returned"
+      },
+      "delete_title": "Delete instrument \"{{name}}\"?",
+      "delete_description": "All associated loans will be removed too. This action cannot be undone.",
+      "bulk": {
+        "selected_count": "{{count}} instruments selected",
+        "clear": "Deselect",
+        "enable_loanable": "Mark as loanable",
+        "disable_loanable": "Mark as not loanable",
+        "delete": "Delete selected",
+        "enabled_toast": "{{count}} instruments marked as loanable",
+        "disabled_toast": "{{count}} instruments marked as not loanable",
+        "deleted_toast": "{{count}} instruments deleted ({{removedLoans}} loans removed)",
+        "confirm": {
+          "delete_title": "Delete the selected instruments?",
+          "enable_title": "Mark the selected instruments as loanable?",
+          "disable_title": "Mark the selected instruments as not loanable?",
+          "description": "The action will affect {{count}} instruments."
+        }
+      },
+      "import_csv": "Import CSV",
+      "export_csv": "Export CSV",
+      "import_dialog": {
+        "title": "Import instruments inventory",
+        "description": "Upload a CSV file to populate or update instruments. The operation is idempotent: matches by code or (name + brand + model + s/n).",
+        "select_file": "Select file…",
+        "change_file": "Change file",
+        "preview_label": "Preview (first rows):",
+        "supported_columns": "Supported columns: code, name, family, brand, model, serialNumber, condition, isLoanable, notes. Only \"name\" is required.",
+        "download_template": "Download template",
+        "submit": "Import",
+        "close": "Close",
+        "result_title": "Import complete",
+        "row_total": "Total rows",
+        "created": "Created",
+        "updated": "Updated",
+        "skipped": "Skipped",
+        "errors_label": "Rows with errors:"
+      },
+      "export_failed": "Export failed",
+      "exported": "Inventory exported"
+    },
+    "instrument_rules": {
+      "help": "For each instrument, select the SAD course codes allowed to request a loan. Leave empty to let any user (with course and complete profile) request it. Admins are always authorized.",
+      "search_placeholder": "Search by name, code, brand…",
+      "count_one": "{{count}} instrument",
+      "count_other": "{{count}} instruments",
+      "empty_title": "No instruments in inventory",
+      "empty_subtitle": "Create an instrument from the Inventory tab to configure its rules.",
+      "col_instrument": "Instrument",
+      "col_family": "Family",
+      "col_courses": "Allowed courses",
+      "col_actions": "Actions",
+      "all_allowed": "All courses",
+      "courses_count_one": "{{count}} course",
+      "courses_count_other": "{{count}} courses",
+      "edit": "Edit courses",
+      "dialog_title": "Courses allowed to loan",
+      "dialog_help_empty": "No course selected → permissive: any user (non-admin) with a valid course can request the loan.",
+      "dialog_help_filtered": "{{count}} courses selected. Only users from these courses can request the loan.",
+      "search_courses": "Search courses…",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "loading_courses": "Loading courses…",
+      "no_courses_found": "No course matches the search",
+      "saved": "Loan rules saved"
+    },
+    "activity": {
+      "title": "Activity log",
+      "subtitle": "Bulk approvals and cancellations of confirmed bookings, plus the administrative audit trail.",
+      "tab_approvals": "Approvals",
+      "tab_approvals_description": "View and bulk-cancel confirmed future bookings. Cancellation notices are emailed to the affected users.",
+      "tab_log": "Activity log",
+      "tab_log_description": "Append-only trail of every administrative action. Entries are immutable and used for audit and compliance."
+    },
+    "audit_log": {
+      "title": "Activity log",
+      "subtitle": "Append-only trail of admin actions on users, structure and settings. Entries are immutable.",
+      "empty_title": "No activity recorded",
+      "empty_subtitle": "POST/PUT/DELETE on admin routes will appear here.",
+      "filter": {
+        "action": "Action",
+        "target_type": "Entity",
+        "actor_id": "User ID",
+        "actor_id_placeholder": "e.g. 1",
+        "date_from": "From",
+        "date_to": "To",
+        "path_search": "Path",
+        "path_placeholder": "e.g. /api/structure/rooms",
+        "apply": "Apply",
+        "reset": "Reset"
+      },
+      "col_when": "When",
+      "col_actor": "User",
+      "col_action": "Action",
+      "col_target": "Entity",
+      "col_path": "Path",
+      "col_status": "Status",
+      "pagination_summary": "{{from}}-{{to}} of {{total}}"
+    },
+    "analytics": {
+      "title": "Usage analytics",
+      "subtitle": "Occupancy heatmap, top rooms & users, no-show rate, weekly trend.",
+      "no_data": "No data in the selected range",
+      "export_csv": "Export CSV",
+      "export_pdf": "Export PDF",
+      "filter": {
+        "date_from": "Start date",
+        "date_to": "End date",
+        "apply": "Update"
+      },
+      "kpi": {
+        "confirmed": "Confirmed bookings",
+        "ghosted": "Auto-cancelled (no-show)",
+        "no_show_rate": "No-show rate",
+        "total_created": "Total created"
+      },
+      "heatmap": {
+        "title": "Occupancy by time slot",
+        "help": "Bookings count by day of week × start hour. Darker cell = more bookings.",
+        "day": {
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat",
+          "sun": "Sun"
+        }
+      },
+      "trend": {
+        "title": "Last 8 weeks trend",
+        "help": "Booked hours per ISO week."
+      },
+      "top_rooms": {
+        "title": "Top 10 rooms by hours"
+      },
+      "top_users": {
+        "title": "Top 10 users by hours",
+        "privacy": "Admin-only data — do not share externally.",
+        "bookings_count_one": "{{count}} booking",
+        "bookings_count_other": "{{count}} bookings"
+      }
+    },
+    "announcements": {
+      "title": "Announcements",
+      "subtitle": "Publish targeted notices for roles, courses or buildings. Optional emails reach only the selected audience.",
+      "new": "New announcement",
+      "new_title": "New announcement",
+      "edit_title": "Edit announcement",
+      "empty_title": "No announcements published",
+      "empty_subtitle": "Create the first announcement to reach users, courses or sites.",
+      "delete_title": "Delete announcement?",
+      "delete_description": "The announcement will be permanently removed. Emails already sent are not retracted.",
+      "deleted": "Announcement deleted",
+      "created": "Announcement created",
+      "updated": "Announcement updated",
+      "broadcast_sent": "Email sent to {{count}} recipients",
+      "dialog_help": "Fill in title and body, pick audience and dates. Sending email is optional.",
+      "edit_email_disclaimer": "Emails are sent only on creation: the toggle is disabled in edit mode.",
+      "email_sent": "Email sent",
+      "expired": "Expired",
+      "expires": "expires on",
+      "inactive": "Inactive",
+      "pinned": "Pinned",
+      "resend": "Resend email",
+      "errors": {
+        "title_required": "Title is required",
+        "body_required": "Body is required"
+      },
+      "field": {
+        "active": "Active",
+        "active_help": "Disable to hide without deleting",
+        "audience": "Audience",
+        "audience_target": "Target",
+        "body": "Body",
+        "body_help": "Free text. Line breaks are preserved.",
+        "expires_at": "Expires on",
+        "expires_at_help": "Leave empty to never expire",
+        "pinned": "Pinned",
+        "pinned_help": "Show on top of the list",
+        "published_at": "Published on",
+        "published_at_help": "Leave empty to publish now",
+        "send_email": "Send email",
+        "send_email_help": "Notify the selected audience by email",
+        "title": "Title"
+      },
+      "audience": {
+        "all": "Everyone",
+        "role": "Role",
+        "course": "Course",
+        "building": "Building"
+      }
+    },
+    "approvals": {
+      "title": "Pending approvals",
+      "subtitle": "Booking requests for rooms that require approval (concert halls, auditoriums…). Approve or reject from the actions on the right.",
+      "empty_title": "No pending requests",
+      "empty_subtitle": "When a user books a room that requires approval, the request will appear here.",
+      "action": {
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "toast": {
+        "approved": "Booking approved",
+        "rejected": "Request rejected"
+      },
+      "reject_dialog": {
+        "title": "Reject the request",
+        "description": "Provide an optional reason: it will be included in the email to the user.",
+        "reason_label": "Reason",
+        "reason_placeholder": "E.g. hall already booked for another institutional event"
+      }
+    },
+    "bookings": {
+      "title": "Confirmed bookings",
+      "subtitle": "Bulk-cancel future confirmed bookings with email notification to affected users.",
+      "search_placeholder": "Search by user, room, purpose…",
+      "count": "{{count}} bookings",
+      "select_all": "Select all",
+      "selected_count": "{{count}} bookings selected",
+      "clear_selection": "Deselect",
+      "bulk_cancel": "Cancel selected",
+      "table": {
+        "user": "User",
+        "room": "Room",
+        "when": "When",
+        "type": "Type"
+      },
+      "empty": {
+        "title": "No confirmed bookings",
+        "subtitle": "There are no future confirmed bookings to manage."
+      },
+      "confirm": {
+        "title": "Cancel the selected bookings?",
+        "description": "You are about to cancel {{count}} bookings from {{users}} users. They will receive an email with the reason. This cannot be undone.",
+        "reason_label": "Reason (included in the email)",
+        "reason_placeholder": "E.g. extraordinary site closure for an institutional event",
+        "reason_help": "If empty, a generic administrative cancellation message will be sent."
+      },
+      "toast": {
+        "cancelled": "{{count}} bookings cancelled ({{skipped}} skipped)"
+      }
+    }
+  },
+  "waitlist": {
+    "dashboard_title": "You're on a waiting list",
+    "dashboard_subtitle_one": "You have 1 active entry.",
+    "dashboard_subtitle_other": "You have {{count}} active entries.",
+    "your_turn": "It's your turn",
+    "expires_in_one": "expires in 1 minute",
+    "expires_in_other": "expires in {{count}} minutes",
+    "position": "Position {{n}}",
+    "claim": "Confirm",
+    "claim_success": "Waitlist claimed: booking confirmed",
+    "cancel": "Leave queue",
+    "cancel_success": "Waitlist entry cancelled",
+    "joined": "Joined queue. You're at position {{position}}.",
+    "offer": "The slot is already booked. Want to join the queue? You'll get an email if it frees up.",
+    "join_action": "Add to waitlist",
+    "offer_dialog_title": "Room already booked",
+    "offer_dialog_description": "The chosen slot is already taken. Do you want to join the waiting list? You'll get an email if the existing booking is cancelled.",
+    "offer_dialog_decline": "No, I'll pick another time",
+    "offer_dialog_confirm": "Yes, add me to the queue"
+  },
+  "check_in": {
+    "title": "Presence check-in",
+    "subtitle_with_room": "Checking in for {{room}}.",
+    "subtitle_no_bookings": "You have no bookings in this room in the next few hours.",
+    "no_bookings_help": "Make sure you booked this room and try again at your slot time.",
+    "confirm_button": "Confirm presence",
+    "confirmed_at": "Confirmed at {{time}}",
+    "already_confirmed": "You have already confirmed presence for this booking.",
+    "open_at": "Check-in opens at {{time}}",
+    "closed_at": "Check-in closed at {{time}}",
+    "window_help": "Check-in opens {{early}} minutes before and closes {{grace}} minutes after the start.",
+    "auto_cancel_warning": "If you don't check in within {{grace}} minutes from the start, the booking is auto-cancelled and the room is freed.",
+    "now": "Now: {{time}}",
+    "starts_at": "Start: {{time}}",
+    "ends_at": "End: {{time}}",
+    "back_to_dashboard": "Back to dashboard",
+    "loading": "Loading bookings…",
+    "checkin_success": "Check-in registered",
+    "go_to_my_bookings": "Go to My bookings",
+    "dashboard_card_title": "Check-in required",
+    "dashboard_card_help_one": "You have an upcoming booking awaiting check-in.",
+    "dashboard_card_help_other": "You have {{count}} upcoming bookings awaiting check-in.",
+    "dashboard_card_action": "Confirm now",
+    "missed_checkin_badge": "Missed check-in",
+    "missed_checkin_help": "No check-in was recorded for this booking."
+  },
+  "admin_structure_qr": {
+    "print_qr": "Print room QR",
+    "qr_help": "Download the QR code to post at the room entrance. Students scan it from their phone to confirm presence.",
+    "qr_failed": "Could not download QR"
+  },
+  "display": {
+    "title_default": "Room booking system",
+    "no_bookings": "No bookings today",
+    "now": "now",
+    "next": "next",
+    "live": "Live",
+    "reconnecting": "Reconnecting…",
+    "loading_agenda": "Loading agenda…",
+    "no_rooms_configured": "No rooms configured",
+    "hour_label": "Time",
+    "busy_until": "Busy · until {{time}}",
+    "free_now": "Free now",
+    "now_indicator": "Now ({{time}})",
+    "exit_fullscreen": "Press ESC to exit fullscreen",
+    "default_copyright": "Copyright © 2026 by Danilo Russo",
+    "footer_auto_update": "Auto-refresh every 30s",
+    "footer_last_update": "last update {{time}}",
+    "rooms_count_one": "{{count}} room",
+    "rooms_count_other": "{{count}} rooms",
+    "bookings_today_one": "{{count}} booking today",
+    "bookings_today_other": "{{count}} bookings today",
+    "bookings_week_one": "{{count}} booking",
+    "bookings_week_other": "{{count}} bookings",
+    "offline_banner": "Connection lost · last update {{time}}",
+    "legend": {
+      "cell_30min": "Each cell represents 30 minutes"
+    },
+    "kpi": {
+      "in_use": "In use now",
+      "in_use_subtitle": "{{pct}}% occupancy",
+      "bookings_today": "Bookings today",
+      "bookings_today_subtitle": "{{hours}}h total",
+      "week": "This week",
+      "week_subtitle": "{{hours}}h booked",
+      "active_rooms": "Active rooms",
+      "active_rooms_subtitle": "Available in the system"
+    },
+    "concert": {
+      "upcoming_label": "Upcoming concert",
+      "performers": "Performers",
+      "program": "Program"
+    },
+    "announcement": {
+      "label": "Notice",
+      "pinned_label": "Pinned"
+    }
+  },
+  "concert": {
+    "action_open": "Concert info",
+    "dialog_title": "Concert info",
+    "dialog_description": "Add the details that will appear in the Infopoint rotation: title, performers, program and poster.",
+    "saved": "Concert info saved",
+    "save_first": "Save the concert info first to upload the poster.",
+    "poster": "Poster",
+    "poster_help": "PNG, JPG or WEBP — portrait 3:4 (max 1200×1600). If empty a default poster is used.",
+    "poster_upload": "Upload poster",
+    "poster_replace": "Replace poster",
+    "poster_remove": "Remove poster",
+    "poster_remove_confirm": "Remove the uploaded poster?",
+    "poster_uploaded": "Poster updated",
+    "poster_removed": "Poster removed",
+    "field": {
+      "title": "Title",
+      "title_placeholder": "e.g. Spring concert",
+      "performers": "Performers and instruments",
+      "performers_placeholder": "One line per performer (e.g. \"Maria Rossi · violin\")",
+      "performers_help": "One line per performer — they show as a list on the Infopoint.",
+      "program": "Composers and program",
+      "program_placeholder": "One line per piece (e.g. \"J. S. Bach · Partita No. 2\")",
+      "program_help": "One line per piece/composer — they show as a list on the Infopoint."
+    },
+    "errors": {
+      "title_required": "Enter a title"
+    }
+  },
+  "not_found": {
+    "title": "Page not found",
+    "subtitle": "The page you're looking for doesn't exist or has been moved.",
+    "back": "Back to dashboard"
+  },
+  "instrument_families": {
+    "archi": "Strings (bowed)",
+    "fiati_legni": "Woodwinds",
+    "fiati_ottoni": "Brass",
+    "tastiere": "Keyboards",
+    "percussioni": "Percussion",
+    "corde": "Strings (plucked)",
+    "voce": "Voice",
+    "elettronica": "Electronics",
+    "altro": "Other"
+  },
+  "instrument_conditions": {
+    "ottimo": "Excellent",
+    "buono": "Good",
+    "discreto": "Fair",
+    "da_riparare": "Needs repair",
+    "fuori_uso": "Out of order"
+  },
+  "loans": {
+    "status": {
+      "requested": "Pending",
+      "active": "Active",
+      "returned": "Returned",
+      "overdue": "Overdue",
+      "rejected": "Rejected"
+    }
+  },
+  "instruments": {
+    "title": "Conservatory instruments",
+    "subtitle": "Browse available instruments and request a loan.",
+    "search_placeholder": "Search by name, code, brand or model…",
+    "filter_family": "Family",
+    "filter_loanable": "Loanable only",
+    "all_families": "All families",
+    "no_results_title": "No instrument matches the filters",
+    "no_results_subtitle": "Adjust your search or remove filters.",
+    "request_loan": "Request loan",
+    "available": "Available",
+    "borrowed_until": "On loan until {{date}}",
+    "not_loanable": "Not loanable",
+    "course_not_allowed": "Your course is not allowed",
+    "course_not_allowed_help": "Your course of study is not in the list authorized to request loans of this instrument family. Please contact the office for more information.",
+    "request_dialog": {
+      "title": "Request loan · {{name}}",
+      "description": "Pick start and expected return dates. The request will be reviewed by an administrator.",
+      "from_date": "Start date",
+      "to_date": "Return date",
+      "notes": "Notes (optional)",
+      "notes_placeholder": "E.g. for the concert on…",
+      "submit": "Send request",
+      "submitted": "Request sent"
+    }
+  },
+  "my_loans": {
+    "title": "My loans",
+    "subtitle": "Manage your active, pending and historical loan requests.",
+    "tabs": {
+      "active": "Active",
+      "requested": "Pending",
+      "history": "History"
+    },
+    "empty": {
+      "active_title": "No active loans",
+      "active_subtitle": "Browse the instrument catalog to request a loan.",
+      "requested_title": "No pending requests",
+      "requested_subtitle": "All your requests have been processed.",
+      "history_title": "No loan history",
+      "history_subtitle": "Your history will appear here after the first return.",
+      "browse": "Go to catalog"
+    },
+    "period": "From {{from}} to {{to}}",
+    "actions": {
+      "return": "Mark as returned",
+      "cancel_request": "Cancel request",
+      "print_delivery": "Delivery form",
+      "print_return": "Return form"
+    },
+    "toast": {
+      "returned": "Loan marked as returned",
+      "cancelled": "Request cancelled",
+      "pdf_failed": "Could not generate PDF"
+    }
+  },
+  "errors": {
+    "generic": "An unexpected error occurred.",
+    "network": "Connection error: please retry.",
+    "session_expired": "Session expired — please sign in again.",
+    "validation_failed": "Validation failed",
+    "unauthorized": "You are not authorized to perform this action.",
+    "forbidden": "Permission denied.",
+    "not_found": "Resource not found.",
+    "code": {
+      "INVALID_CREDENTIALS": "Invalid credentials",
+      "ACCOUNT_DISABLED": "Account disabled",
+      "ACCOUNT_PENDING": "Account awaiting approval",
+      "ACCOUNT_REJECTED": "Your account has been rejected by the administrator",
+      "OAUTH_ONLY": "This account is linked only to OAuth. Use Google/Microsoft.",
+      "EMAIL_ALREADY_REGISTERED": "Email already registered",
+      "MATRICOLA_ALREADY_USED": "Student ID already registered",
+      "MATRICOLA_REQUIRED": "Student ID is required for students",
+      "COURSE_REQUIRED": "Course is required",
+      "COURSE_INVALID": "Invalid course",
+      "INCOMPLETE_PROFILE": "Incomplete profile: complete the data before continuing",
+      "WRONG_PASSWORD": "Wrong current password",
+      "PASSWORD_TOO_SHORT": "Password too short",
+      "BOOKING_CONFLICT": "A booking already exists for that room at that time",
+      "BOOKING_INVALID_TIME": "Invalid time",
+      "BOOKING_OUT_OF_WINDOW": "Time outside the allowed window",
+      "BOOKING_TOO_SHORT": "Duration shorter than the allowed minimum",
+      "BOOKING_TOO_LONG": "Duration longer than the allowed maximum",
+      "BOOKING_TOO_FAR": "Advance exceeds the allowed maximum",
+      "BOOKING_TOO_SOON": "Advance below the allowed minimum",
+      "BOOKING_LIMIT_REACHED": "You reached the booking limit",
+      "BOOKING_HOURS_EXCEEDED": "You reached the hours limit",
+      "BOOKING_CANCEL_DEADLINE": "Cancellation deadline exceeded",
+      "ROOM_NOT_BOOKABLE": "Room not bookable",
+      "ROOM_FORBIDDEN_FOR_ROLE": "You are not allowed to book this room",
+      "RECURRING_NOT_ALLOWED": "Recurring bookings are not allowed for your role",
+      "FILE_TOO_LARGE": "File too large",
+      "FILE_FORMAT_UNSUPPORTED": "File format not supported",
+      "OAUTH_NOT_CONFIGURED": "OAuth provider not configured on the server",
+      "INVALID_TOKEN": "Invalid or expired token",
+      "USER_NOT_FOUND": "User not found",
+      "CANNOT_DELETE_SELF": "You cannot delete yourself",
+      "FK_CONSTRAINT": "Cannot delete: the resource is still referenced by other data",
+      "UNIQUE_VIOLATION": "A record with these values already exists",
+      "EXCLUSION_VIOLATION": "Operation conflicts with an existing record (overlap not allowed)",
+      "FK_VIOLATION": "Operation blocked: the record is still referenced by other data",
+      "CHECK_VIOLATION": "Invalid data for the applied constraints",
+      "LOAN_CONFLICT": "Instrument is already booked for the requested period",
+      "LOAN_INVALID_DATE": "Invalid loan dates",
+      "LOAN_INVALID_STATE": "Operation not valid for the current loan status",
+      "LOAN_ALREADY_RETURNED": "Loan already returned",
+      "INSTRUMENT_NOT_LOANABLE": "Instrument not available for loan",
+      "INSTRUMENT_CODE_DUPLICATE": "Instrument code already in use",
+      "INSTRUMENT_FAMILY_NOT_ALLOWED": "Your course is not authorized to request loans of this instrument family",
+      "CHECKIN_TOO_EARLY": "Too early to check in",
+      "CHECKIN_TOO_LATE": "Check-in window has closed: the booking may have been cancelled",
+      "CHECKIN_INVALID_STATUS": "Booking is not confirmed",
+      "ALREADY_CHECKED_IN": "You already checked in",
+      "CONCERT_INVALID_TYPE": "This booking is not of type concert",
+      "CONCERT_NOT_FOUND": "Concert info not yet created",
+      "CONCERT_TITLE_REQUIRED": "Enter a title for the concert info",
+      "BOOKING_INVALID": "Invalid booking",
+      "QUOTA_EXCEEDED_GLOBAL": "Personal quota exceeded: you have used your full allowance",
+      "QUOTA_EXCEEDED_ROOM_TYPE": "Quota exceeded for the requested room type",
+      "QUOTA_EXCEEDED_EQUIPMENT_TYPE": "Quota exceeded for the equipment available in this room",
+      "WAITLIST_NOT_NEEDED": "The slot is available, book directly",
+      "WAITLIST_PAST": "The slot is in the past",
+      "WAITLIST_ALREADY_CLAIMED": "Waitlist already claimed",
+      "WAITLIST_CANCELLED": "Waitlist cancelled",
+      "WAITLIST_NOT_YOUR_TURN": "You're not next in line yet",
+      "WAITLIST_EXPIRED": "Claim window has expired",
+      "RATE_LIMITED": "Too many requests — try again in a few minutes",
+      "BOOKING_INVALID_STATE": "The booking is not in a valid state for this action."
+    }
+  },
+  "footer": {
+    "copyright_default": "© {{year}} {{name}}"
+  },
+  "delete_confirm": {
+    "title": "Confirm deletion?",
+    "description": "This action cannot be undone.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  },
+  "bookings": {
+    "status": {
+      "pending_approval": "Awaiting approval"
+    }
+  },
+  "weekly_timetable": {
+    "room_header": "Room",
+    "hour_header": "Hour",
+    "book_aria": "Book {{room}} on {{day}}"
+  },
+  "pwa": {
+    "install": {
+      "title": "Install Aula Book",
+      "subtitle": "Add the app to your home screen for instant launch and offline fallback.",
+      "subtitle_ios": "Open Safari's Share menu and tap \"Add to Home Screen\".",
+      "cta": "Install",
+      "dismiss": "Not now"
+    },
+    "update": {
+      "title": "Update available",
+      "subtitle": "Reload to apply the new version.",
+      "reload": "Reload"
+    }
+  },
+  "integrations": {
+    "isidata": {
+      "title": "User import from Isidata",
+      "subtitle": "Upload an Isidata XLSX/CSV export: Aula Book compares the data and shows what will change before you apply.",
+      "step1_title": "1. Upload file",
+      "step2_title": "2. Review changes",
+      "dropzone_label": "Drop your Isidata XLSX file here, or click to choose",
+      "dropzone_hint": "Supported: .xlsx, .xls, .csv. Max 10 MB, up to 5000 records.",
+      "overrides_title": "Field mapping (advanced)",
+      "overrides_hint_short": "Override default headers",
+      "overrides_help": "Only if your file headers are not auto-detected. Pass a JSON object that maps target fields to your file headers. Example: {\"externalId\": \"StudentNumber\", \"email\": \"InstitutionalEmail\"}.",
+      "overrides_label": "JSON override",
+      "overrides_invalid": "Invalid JSON, or not an object.",
+      "preview_action": "Preview",
+      "preview_hint": "Nothing has been changed yet. Changes will only be applied after explicit confirmation.",
+      "warnings_count_one": "{{count}} parse warning",
+      "warnings_count_other": "{{count}} parse warnings",
+      "row": "row {{row}}",
+      "kpi": {
+        "create": "To create",
+        "update": "To update",
+        "orphan": "To deactivate",
+        "fetched": "Read from file"
+      },
+      "create_section": "New users",
+      "update_section": "Users to update",
+      "orphan_section": "Users no longer in the file",
+      "orphan_will_disable": "Will be deactivated (isActive=false)",
+      "orphan_already_disabled": "Already deactivated — no action",
+      "nothing_to_apply": "Nothing to apply: the file already matches the database.",
+      "confirm_label": "I confirm I have reviewed the diff and want to apply these changes.",
+      "hash_label": "File hash",
+      "apply_action": "Apply changes",
+      "col": {
+        "matricola": "ID",
+        "name": "Last First",
+        "email": "Email",
+        "role": "Role",
+        "course": "Course",
+        "changes": "Changes",
+        "action": "Action"
+      },
+      "role": {
+        "docente": "Teacher",
+        "studente": "Student"
+      },
+      "done_title": "Sync complete",
+      "done_hint": "See the history at the bottom of this page, under \"Recent runs\".",
+      "import_another": "Import another file",
+      "history_title": "Recent runs",
+      "history_empty": "No runs recorded yet.",
+      "run_summary": "Read {{fetched}} · Created {{created}} · Updated {{updated}} · Deactivated {{orphaned}} · Errors {{errors}}",
+      "toast": {
+        "applied": "Sync complete: {{created}} created, {{updated}} updated, {{orphaned}} deactivated."
+      }
+    }
+  }
+}

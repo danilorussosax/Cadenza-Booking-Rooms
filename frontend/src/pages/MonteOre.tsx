@@ -1,0 +1,545 @@
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+  CalendarRange,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Send,
+  Trash2,
+  AlertCircle,
+  Pencil,
+} from 'lucide-react';
+import {
+  monteOreApi,
+  type MonteOreProposal,
+  type MonteOreSchedule,
+  type SchedulePayload,
+} from '@/api/monteOre';
+import { roomsApi } from '@/api/rooms';
+import { httpErrorMessage } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
+import type { BookingType } from '@/types';
+import MonteOreGrid from '@/components/monteOre/MonteOreGrid';
+
+const DAYS_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+const TYPE_OPTIONS: { value: BookingType; label: string }[] = [
+  { value: 'lezione', label: 'Lezione' },
+  { value: 'studio_individuale', label: 'Studio individuale' },
+  { value: 'prova', label: 'Prova' },
+  { value: 'concerto', label: 'Concerto' },
+];
+
+function statusBadge(status: MonteOreProposal['status']) {
+  const map: Record<
+    MonteOreProposal['status'],
+    { v: 'success' | 'secondary' | 'destructive' | 'muted'; lbl: string }
+  > = {
+    draft: { v: 'muted', lbl: 'Bozza' },
+    submitted: { v: 'secondary', lbl: 'In attesa di approvazione' },
+    approved: { v: 'success', lbl: 'Approvata' },
+    rejected: { v: 'destructive', lbl: 'Rifiutata' },
+    generated: { v: 'success', lbl: 'Prenotazioni create' },
+  };
+  const m = map[status];
+  return <Badge variant={m.v}>{m.lbl}</Badge>;
+}
+
+export default function MonteOre() {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<MonteOreSchedule | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const proposalQuery = useQuery({
+    queryKey: ['monte-ore', 'me'],
+    queryFn: () => monteOreApi.getMine(),
+  });
+
+  const proposal = proposalQuery.data?.proposal;
+  const isLocked = proposal && !['draft', 'rejected'].includes(proposal.status);
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: {
+      notes?: string | null;
+      totalHoursRequested?: number;
+      validFrom?: string;
+      validTo?: string;
+    }) => monteOreApi.updateMine(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: number) => monteOreApi.removeMySchedule(id),
+    onSuccess: () => {
+      toast.success('Riga eliminata');
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: () => monteOreApi.submitMine(),
+    onSuccess: () => {
+      toast.success('Proposta inviata al coordinatore');
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  if (proposalQuery.isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-4">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!proposal) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Impossibile caricare la proposta.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
+            <Clock className="h-6 w-6 text-primary" />
+            Monte ore
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Compila la tua proposta annuale e inviala al coordinatore della didattica.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {statusBadge(proposal.status)}
+          {proposal.status === 'draft' && proposal.schedules.length > 0 && (
+            <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
+              <Send className="h-4 w-4" />
+              Invia al coordinatore
+            </Button>
+          )}
+          {proposal.status === 'rejected' && proposal.schedules.length > 0 && (
+            <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
+              <Send className="h-4 w-4" />
+              Reinvia
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {/* Riepilogo + range */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Anno accademico {proposal.academicYear}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Inizio validità
+            </Label>
+            <Input
+              type="date"
+              value={proposal.validFrom}
+              disabled={isLocked}
+              onChange={(e) => updateMutation.mutate({ validFrom: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Fine validità
+            </Label>
+            <Input
+              type="date"
+              value={proposal.validTo}
+              disabled={isLocked}
+              onChange={(e) => updateMutation.mutate({ validTo: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Ore totali (calcolate)
+            </Label>
+            <p className="font-display text-2xl font-medium tabular-nums">
+              {proposal.totalHoursRequested.toFixed(1)} h
+            </p>
+          </div>
+          <div className="sm:col-span-3">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Note al coordinatore (opzionale)
+            </Label>
+            <Textarea
+              rows={3}
+              placeholder="Eventuali esigenze, vincoli particolari, richieste sull'aula…"
+              defaultValue={proposal.notes ?? ''}
+              disabled={isLocked}
+              onBlur={(e) => {
+                if ((proposal.notes ?? '') !== e.target.value) {
+                  updateMutation.mutate({ notes: e.target.value || null });
+                }
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stato approvazione */}
+      {proposal.status === 'rejected' && proposal.rejectionReason && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Proposta rifiutata.</strong> {proposal.rejectionReason}
+          </AlertDescription>
+        </Alert>
+      )}
+      {proposal.status === 'approved' && (
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>
+            Proposta approvata dal coordinatore. Le prenotazioni verranno create dal sistema.
+          </AlertDescription>
+        </Alert>
+      )}
+      {proposal.status === 'generated' && (
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>
+            Prenotazioni create automaticamente in base alla tua proposta — le trovi nella pagina{' '}
+            <strong>Le mie prenotazioni</strong>.
+            {proposal.generationSummary && (
+              <span className="ml-2 text-muted-foreground">
+                ({proposal.generationSummary.created} create
+                {proposal.generationSummary.skipped > 0 &&
+                  `, ${proposal.generationSummary.skipped} saltate per conflitto`}
+                ).
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Tabella schedules */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg">Pianificazione settimanale</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Aggiungi una riga per ogni "fascia ricorrente" (es. ogni lunedì 14–17 in Aula 102).
+            </p>
+          </div>
+          {!isLocked && (
+            <Button size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Aggiungi fascia
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {proposal.schedules.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center">
+              <CalendarRange className="mx-auto h-8 w-8 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium">Nessuna fascia ancora configurata.</p>
+              <p className="text-xs text-muted-foreground">
+                Clicca <em>Aggiungi fascia</em> per inserire la prima.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Giorno</th>
+                    <th className="px-3 py-2">Orario</th>
+                    <th className="px-3 py-2">Aula preferita</th>
+                    <th className="px-3 py-2">Tipo</th>
+                    <th className="px-3 py-2">Attività</th>
+                    {!isLocked && <th className="px-3 py-2 text-right">Azioni</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {proposal.schedules.map((s) => (
+                    <tr key={s.id} className="border-b last:border-0">
+                      <td className="px-3 py-2 font-medium">{DAYS_IT[s.dayOfWeek]}</td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {s.startTime}–{s.endTime}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {s.room
+                          ? `${s.room.name}${s.room.building ? ' · ' + s.room.building.name : ''}`
+                          : '— qualunque —'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {TYPE_OPTIONS.find((o) => o.value === s.bookingType)?.label ??
+                          s.bookingType}
+                      </td>
+                      <td className="px-3 py-2 truncate text-muted-foreground">
+                        {s.purpose ?? ''}
+                      </td>
+                      {!isLocked && (
+                        <td className="px-3 py-2 text-right">
+                          <Button variant="ghost" size="icon" onClick={() => setEditing(s)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeMutation.mutate(s.id)}
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sezione B: griglia annuale (solo se calendar configurato dall'admin) */}
+      <MonteOreGrid
+        proposalStatus={proposal.status}
+        isPatternEmpty={proposal.schedules.length === 0}
+      />
+
+      {/* Dialog: aggiungi/modifica riga */}
+      <ScheduleDialog
+        open={adding || editing !== null}
+        onClose={() => {
+          setAdding(false);
+          setEditing(null);
+        }}
+        existing={editing}
+        proposalId={proposal.id}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Dialog di edit/aggiunta riga schedule
+// ============================================================
+
+function ScheduleDialog({
+  open,
+  onClose,
+  existing,
+  proposalId: _proposalId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existing: MonteOreSchedule | null;
+  proposalId: number;
+}) {
+  const qc = useQueryClient();
+  const isEdit = existing !== null;
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'bookable'],
+    queryFn: () => roomsApi.list({ bookable: true }),
+    staleTime: 60_000,
+  });
+
+  const [form, setForm] = useState<SchedulePayload>(() => ({
+    roomId: existing?.roomId ?? null,
+    dayOfWeek: existing?.dayOfWeek ?? 1,
+    startTime: existing?.startTime ?? '14:00',
+    endTime: existing?.endTime ?? '16:00',
+    bookingType: existing?.bookingType ?? 'lezione',
+    purpose: existing?.purpose ?? '',
+    notes: existing?.notes ?? '',
+  }));
+
+  // Reset form when opening for a different schedule
+  useMemo(() => {
+    if (open) {
+      setForm({
+        roomId: existing?.roomId ?? null,
+        dayOfWeek: existing?.dayOfWeek ?? 1,
+        startTime: existing?.startTime ?? '14:00',
+        endTime: existing?.endTime ?? '16:00',
+        bookingType: existing?.bookingType ?? 'lezione',
+        purpose: existing?.purpose ?? '',
+        notes: existing?.notes ?? '',
+      });
+    }
+  }, [open, existing]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      isEdit ? monteOreApi.updateMySchedule(existing.id, form) : monteOreApi.addMySchedule(form),
+    onSuccess: () => {
+      toast.success(isEdit ? 'Fascia aggiornata' : 'Fascia aggiunta');
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const sortedRooms = sortRoomsCrossBuilding(roomsQuery.data?.rooms ?? []);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Modifica fascia' : 'Nuova fascia oraria'}</DialogTitle>
+          <DialogDescription>
+            La fascia verrà ripetuta ogni settimana nel range della proposta.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveMutation.mutate();
+          }}
+        >
+          <div className="space-y-2">
+            <Label>Giorno</Label>
+            <Select
+              value={String(form.dayOfWeek)}
+              onValueChange={(v) => setForm((f) => ({ ...f, dayOfWeek: Number(v) }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                  <SelectItem key={d} value={String(d)}>
+                    {DAYS_IT[d]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Inizio</Label>
+              <Input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Fine</Label>
+              <Input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Aula preferita (opzionale)</Label>
+            <Select
+              value={form.roomId ? String(form.roomId) : 'any'}
+              onValueChange={(v) =>
+                setForm((f) => ({ ...f, roomId: v === 'any' ? null : Number(v) }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">— qualunque —</SelectItem>
+                {sortedRooms.map((r) => (
+                  <SelectItem key={r.id} value={String(r.id)}>
+                    {r.name}
+                    {r.building?.name ? ` · ${r.building.name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Il coordinatore confermerà o riassegnerà l'aula in fase di approvazione.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo attività</Label>
+            <Select
+              value={form.bookingType}
+              onValueChange={(v) => setForm((f) => ({ ...f, bookingType: v as BookingType }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Etichetta (opzionale)</Label>
+            <Input
+              maxLength={255}
+              value={form.purpose ?? ''}
+              placeholder="es. Pianoforte 3°, Solfeggio biennio…"
+              onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+            >
+              Annulla
+            </Button>
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {isEdit ? 'Salva modifiche' : 'Aggiungi'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

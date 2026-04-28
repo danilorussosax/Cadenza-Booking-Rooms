@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utenti — Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · admin</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Admin · Utenti</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Gestione <em style="color:var(--gold-1);font-weight:600;">utenti</em></h1>
+          <div class="subtitle">Approva ruoli, riassegna corsi, disabilita account</div>
+        </div>
+        <button class="btn btn-primary" onclick="newUser()">+ Nuovo utente</button>
+      </div>
+
+      <div class="card">
+        <div class="form-row" style="grid-template-columns:1fr 200px 200px;">
+          <div class="form-group">
+            <label>Cerca</label>
+            <input type="text" id="search" placeholder="Nome, cognome, email, matricola…">
+          </div>
+          <div class="form-group">
+            <label>Ruolo</label>
+            <select id="filter-role">
+              <option value="">Tutti</option>
+              <option value="admin">Admin</option>
+              <option value="docente">Docente</option>
+              <option value="studente">Studente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Stato</label>
+            <select id="filter-active">
+              <option value="">Tutti</option>
+              <option value="true">Attivi</option>
+              <option value="false">Disabilitati</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th><th>Email</th><th>Ruolo</th><th>Matricola</th><th>Corso</th><th>Stato</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated() || !Auth.isAdmin()) window.location.href = '/dashboard.html';
+    renderShell('users');
+
+    let allUsers = [];
+    let courses = [];
+
+    async function load() {
+      try {
+        const params = new URLSearchParams();
+        const role = document.getElementById('filter-role').value;
+        const active = document.getElementById('filter-active').value;
+        if (role) params.set('role', role);
+        if (active) params.set('active', active);
+
+        const [usersRes, coursesRes] = await Promise.all([
+          api('/users?' + params),
+          api('/courses?active=false')
+        ]);
+        allUsers = usersRes.users;
+        courses = coursesRes.courses;
+        render();
+      } catch (err) { showError(err); }
+    }
+
+    function render() {
+      const q = document.getElementById('search').value.toLowerCase().trim();
+      const tbody = document.getElementById('users-tbody');
+      const filtered = q
+        ? allUsers.filter(u =>
+            (u.firstName + ' ' + u.lastName + ' ' + u.email + ' ' + (u.matricola || '')).toLowerCase().includes(q))
+        : allUsers;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty">— Nessun utente —</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(u => `
+        <tr>
+          <td><strong>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</strong></td>
+          <td class="text-muted">${escapeHtml(u.email)}</td>
+          <td><span class="badge ${u.role}">${u.role}</span></td>
+          <td>${escapeHtml(u.matricola || '—')}</td>
+          <td>${escapeHtml(u.course?.name || '—')}</td>
+          <td>${u.isActive ? '<span class="badge confirmed">Attivo</span>' : '<span class="badge cancelled">Disabilitato</span>'}</td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm" onclick="editUser(${u.id})">Modifica</button>
+              <button class="btn btn-ghost btn-sm" onclick="delUser(${u.id})">Elimina</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    window.editUser = async function(id) {
+      const u = allUsers.find(x => x.id === id);
+      if (!u) return;
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-row">
+          <div class="form-group"><label>Nome</label><input type="text" id="u-firstName" value="${escapeHtml(u.firstName)}"></div>
+          <div class="form-group"><label>Cognome</label><input type="text" id="u-lastName" value="${escapeHtml(u.lastName)}"></div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" value="${escapeHtml(u.email)}" disabled style="opacity:0.6;">
+          <small class="text-muted" style="font-size:0.78rem;">L'email non è modificabile.</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ruolo</label>
+            <select id="u-role">
+              ${['admin','docente','studente'].map(r =>
+                `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Matricola</label><input type="text" id="u-matricola" value="${escapeHtml(u.matricola || '')}"></div>
+        </div>
+        <div class="form-group">
+          <label>Corso</label>
+          <select id="u-course">
+            <option value="">— Nessuno —</option>
+            ${courses.map(c =>
+              `<option value="${c.id}" ${u.courseId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="u-active" ${u.isActive ? 'checked' : ''}>
+            <span>Account attivo</span>
+          </label>
+        </div>
+        <div class="divider-h"></div>
+        <div class="form-group">
+          <label>Reset password (lascia vuoto per non cambiare)</label>
+          <input type="password" id="u-password" placeholder="Min. 8 caratteri">
+        </div>
+      `;
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, 'Salva modifiche');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+      save.addEventListener('click', async () => {
+        const body = {
+          firstName: form.querySelector('#u-firstName').value.trim(),
+          lastName: form.querySelector('#u-lastName').value.trim(),
+          role: form.querySelector('#u-role').value,
+          matricola: form.querySelector('#u-matricola').value.trim() || null,
+          courseId: parseInt(form.querySelector('#u-course').value, 10) || null,
+          isActive: form.querySelector('#u-active').checked
+        };
+        const newPwd = form.querySelector('#u-password').value;
+        if (newPwd) body.newPassword = newPwd;
+        try {
+          await api(`/users/${id}`, { method: 'PUT', body });
+          document.querySelector('.modal-overlay').remove();
+          toast('Utente aggiornato', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+      modal({ title: `Modifica · ${u.firstName} ${u.lastName}`, body: form, footer: [cancel, save] });
+    };
+
+    window.delUser = function(id) {
+      confirmDialog('Eliminare definitivamente questo utente? Le sue prenotazioni resteranno.', async () => {
+        try { await api(`/users/${id}`, { method: 'DELETE' }); toast('Utente eliminato', 'success'); load(); }
+        catch (err) { showError(err); }
+      });
+    };
+
+    window.newUser = function() {
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-row">
+          <div class="form-group"><label>Nome *</label><input type="text" id="n-firstName" placeholder="Es. Mario"></div>
+          <div class="form-group"><label>Cognome *</label><input type="text" id="n-lastName" placeholder="Es. Rossi"></div>
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="n-email" placeholder="mario.rossi@conservatorio.it">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="n-password" placeholder="Min. 8 caratteri">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ruolo</label>
+            <select id="n-role">
+              <option value="studente">Studente</option>
+              <option value="docente">Docente</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Matricola</label>
+            <input type="text" id="n-matricola" placeholder="Opzionale">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Corso</label>
+          <select id="n-course">
+            <option value="">— Nessuno —</option>
+            ${courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="n-active" checked>
+            <span>Account attivo</span>
+          </label>
+        </div>
+      `;
+
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, 'Crea utente');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+
+      save.addEventListener('click', async () => {
+        const body = {
+          firstName: form.querySelector('#n-firstName').value.trim(),
+          lastName: form.querySelector('#n-lastName').value.trim(),
+          email: form.querySelector('#n-email').value.trim(),
+          password: form.querySelector('#n-password').value,
+          role: form.querySelector('#n-role').value,
+          matricola: form.querySelector('#n-matricola').value.trim() || null,
+          courseId: parseInt(form.querySelector('#n-course').value, 10) || null,
+          isActive: form.querySelector('#n-active').checked
+        };
+        try {
+          await api('/users', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast('Utente creato', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+
+      modal({ title: 'Nuovo utente', body: form, footer: [cancel, save] });
+    };
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('filter-role').addEventListener('change', load);
+    document.getElementById('filter-active').addEventListener('change', load);
+
+    load();
+  </script>
+</body>
+</html>

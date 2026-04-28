@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conservatorio — Sistema Prenotazioni</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="display:grid;place-items:center;min-height:100vh;">
+  <div style="text-align:center;">
+    <div class="loader" style="width:48px;height:48px;border-width:3px;"></div>
+    <p style="margin-top:20px;color:var(--text-3);font-size:0.9rem;font-weight:500;">
+      Caricamento…
+    </p>
+  </div>
+  <script src="/js/api.js"></script>
+  <script>
+    if (Auth.isAuthenticated()) {
+      const u = Auth.getUser();
+      if (u?.role !== 'admin' && (!u?.matricola || !u?.courseId)) {
+        window.location.href = '/complete-profile.html';
+      } else {
+        window.location.href = '/dashboard.html';
+      }
+    } else {
+      window.location.href = '/login.html';
+    }
+  </script>
+</body>
+</html>

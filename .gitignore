@@ -1,0 +1,29 @@
+node_modules/
+.env
+data/
+backups/
+uploads/
+uploads.pre-restore-*/
+*.sqlite
+*.sqlite-journal
+.DS_Store
+.idea/
+.vscode/
+npm-debug.log*
+yarn-debug.log*
+*.log
+dist/
+build/
+coverage/
+.cache/
+
+# Test artifacts
+junit.xml
+playwright-report/
+test-results/
+e2e/playwright-report/
+e2e/test-results/
+
+# Misc
+.tsbuildinfo
+*.tsbuildinfo

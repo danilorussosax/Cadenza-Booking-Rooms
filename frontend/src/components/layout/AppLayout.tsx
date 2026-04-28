@@ -1,0 +1,473 @@
+import { useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart3,
+  Building2,
+  CalendarPlus,
+  ChevronDown,
+  ClipboardCheck,
+  ClipboardList,
+  Clock,
+  GraduationCap,
+  Guitar,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  Menu,
+  Music4,
+  Package,
+  PackageOpen,
+  Scale,
+  Server,
+  Users,
+  UserRound,
+  X,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { bookingsApi } from '@/api/bookings';
+import { institutesApi } from '@/api/institutes';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { AppFooter } from '@/components/AppFooter';
+import { ConsentGate } from '@/components/legal/ConsentGate';
+import type { Role } from '@/types';
+
+interface NavItem {
+  to: string;
+  labelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles?: Role[];
+}
+
+const NAV: NavItem[] = [
+  { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { to: '/booking', labelKey: 'nav.booking', icon: CalendarPlus },
+  { to: '/my-bookings', labelKey: 'nav.my_bookings', icon: ClipboardList },
+  // Monte Ore — proposta annuale del docente. Voce visibile a tutti i ruoli
+  // approvati: studenti vedranno comunque la pagina (mostra il loro stato
+  // "non applicabile" se non sono docenti). Volendo nasconderla ai soli
+  // studenti basta filtrare con `roles: ['docente', 'admin']`.
+  { to: '/monte-ore', labelKey: 'nav.monte_ore', icon: Clock, roles: ['docente', 'admin'] },
+  { to: '/rooms', labelKey: 'nav.rooms', icon: Music4 },
+  { to: '/instruments', labelKey: 'nav.instruments', icon: Guitar },
+  { to: '/my-loans', labelKey: 'nav.my_loans', icon: PackageOpen },
+];
+
+// Sidebar admin riorganizzata nell'ordine logico richiesto:
+//   1. Utenti       → gestione anagrafica (chi può accedere)
+//   2. Corsi        → catalogo SAD (a cosa appartengono)
+//   3. Regole       → policy di prenotazione + quote
+//   4. Strutture    → istituti / edifici / aule / equipment
+//   5. Inventario   → strumenti e prestiti
+// Le voci operative (mail, messaging, display kiosk) e di tracciabilità
+// (audit-log, backups) sono raggruppate dentro "Impostazioni Server" —
+// un'unica voce con tab interne per ridurre il rumore in sidebar.
+const ADMIN_NAV: NavItem[] = [
+  { to: '/admin/users', labelKey: 'nav.admin_users', icon: Users, roles: ['admin'] },
+  { to: '/admin/courses', labelKey: 'nav.admin_courses', icon: GraduationCap, roles: ['admin'] },
+  // Gestione Monte Ore — DOPO i Corsi come richiesto: l'admin/coordinatore
+  // approva le proposte annuali dei docenti, riassegna le aule e genera
+  // le prenotazioni ricorrenti.
+  { to: '/admin/monte-ore', labelKey: 'nav.admin_monte_ore', icon: Clock, roles: ['admin'] },
+  { to: '/admin/rules', labelKey: 'nav.admin_rules', icon: Scale, roles: ['admin'] },
+  // "Approvazioni" sotto "Regole" (richiesto dall'utente):
+  // semanticamente l'approvazione è un'estensione delle regole.
+  {
+    to: '/admin/approvals',
+    labelKey: 'nav.admin_approvals',
+    icon: ClipboardCheck,
+    roles: ['admin'],
+  },
+  { to: '/admin/structure', labelKey: 'nav.admin_structure', icon: Building2, roles: ['admin'] },
+  { to: '/admin/instruments', labelKey: 'nav.admin_instruments', icon: Package, roles: ['admin'] },
+  { to: '/admin/analytics', labelKey: 'nav.admin_analytics', icon: BarChart3, roles: ['admin'] },
+  {
+    to: '/admin/announcements',
+    labelKey: 'nav.admin_announcements',
+    icon: Megaphone,
+    roles: ['admin'],
+  },
+  // "Impostazioni Server" raggruppa: Servizio Posta, Bot Messaging,
+  // Registro attività e Backup come tab interne (vedi ServerSettings.tsx).
+  {
+    to: '/admin/server-settings',
+    labelKey: 'nav.admin_server_settings',
+    icon: Server,
+    roles: ['admin'],
+  },
+  // L'import anagrafica Isidata è esposto come riquadro nella pagina
+  // "Utenti" (admin/users), accanto alle card di Google/Microsoft OAuth.
+  // Manteniamo la rotta `/admin/integrations/isidata` per accesso diretto
+  // (deep-link, bookmark) ma niente voce di sidebar — nav minimal.
+];
+
+function userInitials(firstName?: string, lastName?: string) {
+  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.trim() || '?';
+}
+
+export function AppLayout() {
+  const { user, logout, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useTranslation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const { data: instituteData } = useQuery({
+    queryKey: ['institute', 'public'],
+    queryFn: () => institutesApi.public(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const institute = instituteData?.institute;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const showAdmin = hasRole('admin');
+
+  // Title from current path (best-effort; pages can also override via document.title)
+  const currentItem =
+    NAV.find((n) => location.pathname.startsWith(n.to)) ??
+    ADMIN_NAV.find((n) => location.pathname.startsWith(n.to));
+
+  return (
+    <div className="flex min-h-screen bg-muted/30">
+      {/* Sidebar (desktop) */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
+        <SidebarBrand institute={institute} />
+        <SidebarNav showAdmin={showAdmin} />
+        <SidebarFooter user={user} onLogout={handleLogout} />
+      </aside>
+
+      {/* Sidebar (mobile, animated) */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              onClick={() => {
+                setMobileOpen(false);
+              }}
+            />
+            <motion.aside
+              key="drawer"
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card lg:hidden"
+            >
+              <div className="flex items-center justify-between p-4">
+                <SidebarBrand institute={institute} compact />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setMobileOpen(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <SidebarNav
+                showAdmin={showAdmin}
+                onNavigate={() => {
+                  setMobileOpen(false);
+                }}
+              />
+              <SidebarFooter user={user} onLogout={handleLogout} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 flex h-20 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:px-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => {
+              setMobileOpen(true);
+            }}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+              {institute?.logoUrl ? (
+                <img src={institute.logoUrl} alt="" className="h-8 w-8 object-contain" />
+              ) : (
+                <Music4 className="h-5 w-5 text-primary" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p
+                className="truncate text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: 'rgb(55 98 170)' }}
+              >
+                {institute?.name ?? t('app.institute_default')}
+              </p>
+              <h1 className="truncate font-display text-lg font-semibold leading-tight text-foreground sm:text-xl">
+                {currentItem ? t(currentItem.labelKey) : t('app.subtitle')}
+              </h1>
+            </div>
+          </div>
+
+          <LanguageToggle />
+          <ThemeToggle />
+
+          {/* User menu */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setUserMenuOpen((s) => !s);
+              }}
+              className="flex items-center gap-2 rounded-full border bg-card p-1 pl-2 text-left text-sm transition-colors hover:bg-accent"
+            >
+              <span className="hidden text-right sm:block">
+                <span className="block text-sm font-medium leading-tight text-foreground">
+                  {user?.firstName}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {user ? t(`roles.${user.role}`) : ''}
+                </span>
+              </span>
+              <Avatar className="h-8 w-8">
+                {user?.profilePhotoUrl && <AvatarImage src={user.profilePhotoUrl} alt="" />}
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {userInitials(user?.firstName, user?.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <ChevronDown className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            <AnimatePresence>
+              {userMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                    }}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border bg-popover shadow-lg"
+                  >
+                    <div className="border-b p-3">
+                      <p className="text-sm font-medium">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                      {user?.matricola && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('profile.account.matricola')} · {user.matricola}
+                        </p>
+                      )}
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 border-b px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                    >
+                      <UserRound className="h-4 w-4" />
+                      {t('nav.profile')}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {t('common.logout')}
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <Outlet />
+          </motion.div>
+        </main>
+        <AppFooter className="border-t" />
+      </div>
+      <ConsentGate />
+    </div>
+  );
+}
+
+function SidebarBrand({
+  compact,
+}: {
+  institute?: { name: string; logoUrl?: string | null } | null;
+  compact?: boolean;
+}) {
+  return (
+    <div className={cn('flex items-center gap-3 px-5', compact ? 'py-1' : 'py-5')}>
+      <img
+        src="/assets/icona.svg"
+        alt="Aula Book"
+        className="h-10 w-10 shrink-0 rounded-lg object-contain"
+      />
+      <p className="truncate font-display text-lg leading-tight tracking-tight">
+        <span className="font-normal text-muted-foreground">Aula</span>
+        <span className="font-semibold text-primary"> Book</span>
+      </p>
+    </div>
+  );
+}
+
+function SidebarNav({ showAdmin, onNavigate }: { showAdmin: boolean; onNavigate?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <nav className="flex-1 overflow-y-auto px-3 py-2">
+      <ul className="space-y-1">
+        {NAV.map((item) => (
+          <NavRow key={item.to} item={item} onNavigate={onNavigate} />
+        ))}
+      </ul>
+      {showAdmin && (
+        <>
+          <Separator className="my-4" />
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('common.administration')}
+          </p>
+          <AdminNavList onNavigate={onNavigate} />
+        </>
+      )}
+    </nav>
+  );
+}
+
+/**
+ * Render del blocco admin con badge counter sulla voce "Approvazioni":
+ * polling ogni 60s di /api/bookings/pending/count, rosso se > 0.
+ */
+function AdminNavList({ onNavigate }: { onNavigate?: () => void }) {
+  const pendingQuery = useQuery({
+    queryKey: ['admin', 'bookings', 'pending', 'count'],
+    queryFn: () => bookingsApi.pendingCount(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const pendingCount = pendingQuery.data?.count ?? 0;
+  return (
+    <ul className="space-y-1">
+      {ADMIN_NAV.map((item) => (
+        <NavRow
+          key={item.to}
+          item={item}
+          onNavigate={onNavigate}
+          badge={item.to === '/admin/approvals' && pendingCount > 0 ? pendingCount : undefined}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function NavRow({
+  item,
+  onNavigate,
+  badge,
+}: {
+  item: NavItem;
+  onNavigate?: () => void;
+  badge?: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <li>
+      <NavLink
+        to={item.to}
+        onClick={onNavigate}
+        className={({ isActive }) =>
+          cn(
+            'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            isActive
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          )
+        }
+      >
+        <item.icon className="h-4 w-4" />
+        <span className="truncate">{t(item.labelKey)}</span>
+        {badge !== undefined && badge > 0 && (
+          <span className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold tabular-nums text-destructive-foreground">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </NavLink>
+    </li>
+  );
+}
+
+function SidebarFooter({
+  user,
+  onLogout,
+}: {
+  user: {
+    firstName: string;
+    lastName: string;
+    role: Role;
+    email: string;
+    profilePhotoUrl?: string | null;
+  } | null;
+  onLogout: () => void;
+}) {
+  const { t } = useTranslation();
+  if (!user) return null;
+  return (
+    <div className="border-t p-4">
+      <div className="flex items-center gap-3">
+        <Avatar>
+          {user.profilePhotoUrl && <AvatarImage src={user.profilePhotoUrl} alt="" />}
+          <AvatarFallback className="bg-primary/10 text-primary">
+            {userInitials(user.firstName, user.lastName)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {user.firstName} {user.lastName}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{t(`roles.${user.role}`)}</p>
+        </div>
+        <button
+          onClick={onLogout}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          title={t('common.logout')}
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}

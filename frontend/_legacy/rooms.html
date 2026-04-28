@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aule — Conservatorio</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · prenotazioni</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html" data-nav="dashboard"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html" data-nav="booking"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html" data-nav="my-bookings"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html" data-nav="rooms"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Aule</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Le nostre <em style="color:var(--gold-1);font-weight:600;">aule</em></h1>
+          <div class="subtitle">Esplora la struttura del conservatorio</div>
+        </div>
+      </div>
+
+      <div id="institutes-list"></div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated()) window.location.href = '/login.html';
+    renderShell('rooms');
+
+    async function load() {
+      try {
+        const data = await api('/structure/institutes?full=true');
+        const list = document.getElementById('institutes-list');
+        if (data.institutes.length === 0) {
+          list.innerHTML = '<div class="empty">— Nessun istituto configurato —</div>';
+          return;
+        }
+        list.innerHTML = data.institutes.map(inst => `
+          <div class="card">
+            <h2 style="font-size:1.8rem;margin-bottom:4px;">${escapeHtml(inst.name)}</h2>
+            <p class="card-subtitle">${escapeHtml(inst.city || '')} ${inst.address ? '· ' + escapeHtml(inst.address) : ''}</p>
+            ${(inst.buildings || []).map(b => `
+              <div style="margin-top:24px;padding:16px;border:1px solid var(--line-soft);border-radius:8px;">
+                <h3>${escapeHtml(b.name)} <span class="text-muted" style="font-size:0.85rem;">(${b.rooms?.length || 0} aule)</span></h3>
+                <div class="grid grid-3" style="margin-top:16px;">
+                  ${(b.rooms || []).map(r => `
+                    <div style="background:var(--bg-deep);border:1px solid var(--line-soft);border-radius:6px;padding:14px;">
+                      <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--gold-1);">${escapeHtml(r.name)}</div>
+                      <div class="text-muted" style="font-size:0.82rem;margin-top:4px;">
+                        ${escapeHtml(r.floor)} · ${r.capacity} ${r.capacity === 1 ? 'posto' : 'posti'} · ${escapeHtml(r.type)}
+                      </div>
+                      ${(r.equipment && r.equipment.length) ? `
+                        <div class="text-muted" style="font-size:0.78rem;margin-top:8px;border-top:1px dashed var(--line-soft);padding-top:8px;">
+                          ${r.equipment.map(e => '🎵 ' + escapeHtml(e.name)).join('<br>')}
+                        </div>
+                      ` : ''}
+                      ${r.isBookable ? `<a href="/booking.html?room=${r.id}" class="btn btn-secondary btn-sm" style="margin-top:10px;">Prenota</a>` : '<span class="badge cancelled" style="margin-top:10px;display:inline-block;">Non prenotabile</span>'}
+                    </div>
+                  `).join('') || '<div class="empty">Nessuna aula in questo edificio</div>'}
+                </div>
+              </div>
+            `).join('') || '<div class="empty">Nessun edificio</div>'}
+          </div>
+        `).join('');
+      } catch (err) { showError(err); }
+    }
+
+    load();
+  </script>
+</body>
+</html>

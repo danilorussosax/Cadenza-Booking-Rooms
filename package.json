@@ -1,0 +1,42 @@
+{
+  "name": "aula-book-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Aula Book — root meta-package per devtools condivisi (husky, lint-staged, commitlint, prettier).",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\" --ignore-path .gitignore",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "lint:backend": "echo '(backend non ha ESLint configurato — solo prettier)'",
+    "lint": "npm run lint:frontend",
+    "test:frontend": "npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test": "npm run test:backend && npm run test:frontend"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "prettier --write",
+      "npm --prefix frontend run lint:fix --"
+    ],
+    "frontend/**/*.{js,jsx}": [
+      "prettier --write"
+    ],
+    "backend/**/*.js": [
+      "prettier --write"
+    ],
+    "**/*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

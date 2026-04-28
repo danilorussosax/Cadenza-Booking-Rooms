@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prenota un'aula — Conservatorio</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · prenotazioni</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html" data-nav="dashboard"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html" data-nav="booking"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html" data-nav="my-bookings"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html" data-nav="rooms"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Prenota un'aula</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Trova la tua <em style="color:var(--gold-1);font-weight:600;">aula</em></h1>
+          <div class="subtitle">Seleziona aula, data e orario</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-row" style="grid-template-columns:2fr 1fr 1fr;">
+          <div class="form-group">
+            <label for="filter-room">Aula</label>
+            <select id="filter-room">
+              <option value="">Caricamento aule…</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filter-date">Data</label>
+            <input type="date" id="filter-date">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary btn-block" id="prev-day">‹ Giorno precedente</button>
+          </div>
+        </div>
+        <div class="flex flex-end gap-3" style="margin-top:-12px;">
+          <button class="btn btn-ghost btn-sm" id="today-btn">Oggi</button>
+          <button class="btn btn-secondary btn-sm" id="next-day">Giorno successivo ›</button>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <h3 id="cal-title">Disponibilità</h3>
+        <p class="card-subtitle" id="cal-subtitle"></p>
+        <div id="calendar"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated()) window.location.href = '/login.html';
+    renderShell('booking');
+    if (!requireProfileComplete()) { /* redirect avvenuto */ }
+
+    const user = Auth.getUser();
+
+    // Imposta data di default = oggi
+    const dateInput = document.getElementById('filter-date');
+    dateInput.value = new Date().toISOString().split('T')[0];
+
+    let allRooms = [];
+    let selectedRoomId = null;
+    let bookingsForRoom = [];
+
+    async function loadRooms() {
+      const data = await api('/structure/rooms?bookable=true');
+      allRooms = data.rooms;
+      const sel = document.getElementById('filter-room');
+      sel.innerHTML = allRooms.map(r =>
+        `<option value="${r.id}">${escapeHtml(r.name)} · ${escapeHtml(r.building?.name || '')} · ${escapeHtml(r.floor)}</option>`
+      ).join('');
+      if (allRooms.length > 0) {
+        selectedRoomId = allRooms[0].id;
+        sel.value = selectedRoomId;
+        loadAvailability();
+      }
+    }
+
+    async function loadAvailability() {
+      if (!selectedRoomId) return;
+      const date = dateInput.value;
+      const room = allRooms.find(r => r.id == selectedRoomId);
+      try {
+        const data = await api(`/bookings/availability/${selectedRoomId}?date=${date}`);
+        bookingsForRoom = data.bookings;
+        renderCalendar(room, date);
+      } catch (err) { showError(err); }
+    }
+
+    function renderCalendar(room, dateStr) {
+      const date = new Date(dateStr);
+      document.getElementById('cal-title').innerHTML =
+        `<em style="color:var(--gold-1);font-weight:600;">${escapeHtml(room.name)}</em>`;
+      document.getElementById('cal-subtitle').textContent =
+        `${escapeHtml(room.building?.name || '')} · ${escapeHtml(room.floor)} · ${room.capacity} ${room.capacity === 1 ? 'posto' : 'posti'} · ` +
+        date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      // Slot di 30 minuti dalle 7 alle 23
+      const startHour = 7, endHour = 23;
+      const slotsHtml = [];
+      slotsHtml.push(`<div style="display:grid;grid-template-columns:90px 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--r-md);overflow:hidden;">`);
+
+      for (let h = startHour; h < endHour; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const slotStart = new Date(date); slotStart.setHours(h, m, 0, 0);
+          const slotEnd = new Date(slotStart); slotEnd.setMinutes(slotEnd.getMinutes() + 30);
+
+          // Trova prenotazione sovrapposta
+          const overlap = bookingsForRoom.find(b => {
+            const bs = new Date(b.startTime);
+            const be = new Date(b.endTime);
+            return bs < slotEnd && be > slotStart;
+          });
+
+          const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+          let cellClass = 'calendar-cell slot';
+          let cellContent = '';
+          let onclick = `onClickSlot('${slotStart.toISOString()}')`;
+
+          if (overlap) {
+            cellClass += ' booked';
+            const isMine = overlap.userId === user.id;
+            if (isMine) cellClass += ' mine';
+            const userLabel = isMine ? '(tu)' :
+              overlap.user ? `${overlap.user.firstName} ${overlap.user.lastName.charAt(0)}.` : '';
+            cellContent = `<strong>${escapeHtml(userLabel)}</strong>` +
+              (overlap.purpose ? `<br><span style="color:var(--text-3);font-size:0.78rem;">${escapeHtml(overlap.purpose)}</span>` : '');
+            onclick = isMine ? `cancelBooking(${overlap.id})` : '';
+          }
+
+          slotsHtml.push(`<div class="calendar-cell time-label">${time}</div>`);
+          slotsHtml.push(`<div class="${cellClass}" ${onclick ? `onclick="${onclick}"` : ''}>${cellContent}</div>`);
+        }
+      }
+      slotsHtml.push('</div>');
+      document.getElementById('calendar').innerHTML = slotsHtml.join('');
+    }
+
+    window.onClickSlot = function(isoStart) {
+      const start = new Date(isoStart);
+      // Default 60 minuti
+      const end = new Date(start); end.setMinutes(end.getMinutes() + 60);
+      openBookingModal(start, end);
+    };
+
+    window.cancelBooking = function(id) {
+      confirmDialog('Vuoi annullare questa prenotazione?', async () => {
+        try {
+          await api(`/bookings/${id}`, { method: 'DELETE' });
+          toast('Prenotazione annullata', 'success');
+          loadAvailability();
+        } catch (err) { showError(err); }
+      });
+    };
+
+    function openBookingModal(start, end) {
+      const room = allRooms.find(r => r.id == selectedRoomId);
+      const toLocalDateTime = (d) => {
+        const tz = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - tz * 60000);
+        return local.toISOString().slice(0, 16);
+      };
+
+      const form = el('form', { id: 'booking-form' });
+      form.innerHTML = `
+        <p class="text-muted mb-3">${escapeHtml(room.name)} · ${escapeHtml(room.building?.name || '')}</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Inizio</label>
+            <input type="datetime-local" id="b-start" value="${toLocalDateTime(start)}" required>
+          </div>
+          <div class="form-group">
+            <label>Fine</label>
+            <input type="datetime-local" id="b-end" value="${toLocalDateTime(end)}" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="b-type">
+            <option value="studio_individuale">Studio individuale</option>
+            <option value="lezione">Lezione</option>
+            <option value="prova">Prova / Insieme</option>
+            <option value="concerto">Concerto / Saggio</option>
+            <option value="altro">Altro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Scopo (facoltativo)</label>
+          <input type="text" id="b-purpose" placeholder="Es. Studio sonata Beethoven op. 27">
+        </div>
+        <div class="form-group">
+          <label>Note (facoltativo)</label>
+          <textarea id="b-notes"></textarea>
+        </div>
+        <div id="b-error"></div>
+      `;
+
+      const submitBtn = el('button', { class: 'btn btn-primary', type: 'button' }, 'Conferma prenotazione');
+      const cancelBtn = el('button', {
+        class: 'btn btn-ghost',
+        type: 'button',
+        onclick: () => document.querySelector('.modal-overlay')?.remove()
+      }, 'Annulla');
+
+      submitBtn.addEventListener('click', async () => {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loader"></span>';
+        try {
+          await api('/bookings', {
+            method: 'POST',
+            body: {
+              roomId: selectedRoomId,
+              startTime: new Date(document.getElementById('b-start').value).toISOString(),
+              endTime: new Date(document.getElementById('b-end').value).toISOString(),
+              purpose: document.getElementById('b-purpose').value.trim() || null,
+              type: document.getElementById('b-type').value,
+              notes: document.getElementById('b-notes').value.trim() || null
+            }
+          });
+          document.querySelector('.modal-overlay')?.remove();
+          toast('Prenotazione confermata', 'success');
+          loadAvailability();
+        } catch (err) {
+          let msg = err.message;
+          if (err.data?.issues) msg = err.data.issues.join(' • ');
+          document.getElementById('b-error').innerHTML = `<div class="alert error">${escapeHtml(msg)}</div>`;
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Conferma prenotazione';
+        }
+      });
+
+      modal({
+        title: 'Nuova prenotazione',
+        body: form,
+        footer: [cancelBtn, submitBtn]
+      });
+    }
+
+    document.getElementById('filter-room').addEventListener('change', e => {
+      selectedRoomId = parseInt(e.target.value, 10);
+      loadAvailability();
+    });
+    document.getElementById('filter-date').addEventListener('change', loadAvailability);
+    document.getElementById('today-btn').addEventListener('click', () => {
+      dateInput.value = new Date().toISOString().split('T')[0];
+      loadAvailability();
+    });
+    document.getElementById('prev-day').addEventListener('click', () => {
+      const d = new Date(dateInput.value); d.setDate(d.getDate() - 1);
+      dateInput.value = d.toISOString().split('T')[0]; loadAvailability();
+    });
+    document.getElementById('next-day').addEventListener('click', () => {
+      const d = new Date(dateInput.value); d.setDate(d.getDate() + 1);
+      dateInput.value = d.toISOString().split('T')[0]; loadAvailability();
+    });
+
+    loadRooms();
+  </script>
+</body>
+</html>

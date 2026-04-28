@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn neutral palette tuned with a warm institutional indigo accent */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 60% 28%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 94%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 71% 36%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 60% 28%;
+
+    --radius: 0.7rem;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 80% 70%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 60% 45%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 11%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 210 80% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Inter stylistic set for circular '0' and improved 'a/g' */
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    /* Same family but bolder + tighter tracking for headings/brand */
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* =============================================================================
+ * Print: "Esporta PDF Settimanale" (Dashboard).
+ *
+ * Strategia "browser-print":
+ *   - WeeklyExportPrintView monta un overlay con una <section.weekly-print-page>
+ *     per ogni edificio, contenente la WeeklyRoomTimetable a colori.
+ *   - In schermo l'overlay è nascosto (display:none).
+ *   - In stampa nascondiamo TUTTO tranne la radice .weekly-print-root e usiamo
+ *     page-break-after: always per generare una pagina per edificio.
+ *   - @page A4 landscape + print-color-adjust:exact per preservare i colori.
+ *
+ * L'utente sceglie "Salva come PDF" dal dialog di stampa del browser.
+ * ============================================================================= */
+.weekly-print-root {
+  display: none;
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  /* nasconde tutto */
+  body * {
+    visibility: hidden;
+  }
+  /* mostra solo l'overlay di stampa */
+  .weekly-print-root,
+  .weekly-print-root * {
+    visibility: visible;
+  }
+  .weekly-print-root {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: white;
+    color: black;
+  }
+  .weekly-print-page {
+    page-break-after: always;
+    padding: 4mm 6mm;
+  }
+  .weekly-print-page:last-child {
+    page-break-after: auto;
+  }
+  .weekly-print-header {
+    margin-bottom: 4mm;
+  }
+  .weekly-print-header h1 {
+    font-size: 18pt;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .weekly-print-header p {
+    font-size: 9pt;
+    color: #555;
+    margin: 1mm 0 0;
+  }
+  /* Conserva i colori dei blocchi prenotazione */
+  .weekly-print-grid,
+  .weekly-print-grid * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}

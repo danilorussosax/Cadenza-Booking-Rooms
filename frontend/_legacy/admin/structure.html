@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Struttura — Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · admin</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Admin · Struttura</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Gestione <em style="color:var(--gold-1);font-weight:600;">struttura</em></h1>
+          <div class="subtitle">Istituti → Edifici → Aule → Attrezzature</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-secondary" id="import-csv">↑ Importa CSV</button>
+          <button class="btn btn-primary" id="new-institute">+ Nuovo istituto</button>
+        </div>
+      </div>
+
+      <div id="tree"></div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated() || !Auth.isAdmin()) window.location.href = '/dashboard.html';
+    renderShell('structure');
+
+    async function load() {
+      try {
+        const data = await api('/structure/institutes?full=true');
+        const tree = document.getElementById('tree');
+        if (data.institutes.length === 0) {
+          tree.innerHTML = '<div class="empty">— Nessun istituto. Creane uno per iniziare —</div>';
+          return;
+        }
+        tree.innerHTML = data.institutes.map(inst => `
+          <div class="card" style="margin-bottom:24px;">
+            <div class="flex-between">
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div style="width:56px;height:56px;border-radius:12px;background:var(--bg-deep);border:1px solid var(--line-soft);display:grid;place-items:center;overflow:hidden;flex-shrink:0;padding:4px;box-sizing:border-box;">
+                  ${inst.logoUrl
+                    ? `<img src="${inst.logoUrl}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;">`
+                    : `<span style="color:var(--gold-1);">${ICONS.building}</span>`}
+                </div>
+                <div>
+                  <h2 style="font-size:1.6rem;">${escapeHtml(inst.name)}</h2>
+                  <p class="card-subtitle">
+                    ${escapeHtml(inst.code || '')} · ${escapeHtml(inst.city || '')} ${inst.address ? '· ' + escapeHtml(inst.address) : ''}
+                  </p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button class="btn btn-secondary btn-sm" onclick="editInstitute(${inst.id})">Modifica</button>
+                <button class="btn btn-secondary btn-sm" onclick="addBuilding(${inst.id})">+ Edificio</button>
+                <button class="btn btn-danger btn-sm" onclick="delInstitute(${inst.id})">Elimina</button>
+              </div>
+            </div>
+
+            ${(inst.buildings || []).map(b => `
+              <div style="margin-top:20px;padding:16px;border:1px solid var(--line-soft);border-radius:var(--r-md);background:var(--bg-elevated);">
+                <div class="flex-between">
+                  <div>
+                    <h3>${escapeHtml(b.name)} <span class="text-muted" style="font-size:0.85rem;">${escapeHtml(b.code || '')}</span></h3>
+                    <div class="text-muted" style="font-size:0.82rem;">
+                      Piani: ${(b.floors || []).map(f => escapeHtml(f)).join(' · ')}
+                    </div>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-ghost btn-sm" onclick="editBuilding(${b.id})">Modifica</button>
+                    <button class="btn btn-ghost btn-sm" onclick="addRoom(${b.id}, ${JSON.stringify(b.floors).replace(/"/g, '&quot;')})">+ Aula</button>
+                    <button class="btn btn-ghost btn-sm" onclick="delBuilding(${b.id})">Elimina</button>
+                  </div>
+                </div>
+
+                ${(b.rooms || []).length > 0 ? `
+                  <div class="grid grid-3" style="margin-top:14px;">
+                    ${b.rooms.map(r => `
+                      <div style="background:var(--bg-deep);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:12px;">
+                        <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--gold-1);">${escapeHtml(r.name)}</div>
+                        <div class="text-muted" style="font-size:0.78rem;margin-top:2px;">
+                          ${escapeHtml(r.code || '')} · ${escapeHtml(r.floor)} · cap. ${r.capacity} · ${escapeHtml(r.type)}
+                        </div>
+                        ${r.equipment && r.equipment.length ? `
+                          <div style="margin-top:10px;font-size:0.78rem;color:var(--text-2);">
+                            ${r.equipment.map(e => `<div>🎵 ${escapeHtml(e.name)}${e.brand ? ' (' + escapeHtml(e.brand) + ')' : ''}</div>`).join('')}
+                          </div>
+                        ` : ''}
+                        <div class="flex gap-2" style="margin-top:10px;flex-wrap:wrap;">
+                          <button class="btn btn-ghost btn-sm" onclick="editRoom(${r.id}, ${JSON.stringify(b.floors).replace(/"/g, '&quot;')})">Modifica</button>
+                          <button class="btn btn-ghost btn-sm" onclick="addEquipment(${r.id})">+ Attrezzo</button>
+                          <button class="btn btn-ghost btn-sm" onclick="manageEquipment(${r.id})">Attrezzi</button>
+                          <button class="btn btn-ghost btn-sm" onclick="delRoom(${r.id})">×</button>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : '<div class="empty" style="padding:20px;">— Nessuna aula in questo edificio —</div>'}
+              </div>
+            `).join('') || '<div class="empty">— Nessun edificio in questo istituto —</div>'}
+          </div>
+        `).join('');
+      } catch (err) { showError(err); }
+    }
+
+    // ============== IMPORT CSV ==============
+    const SAMPLE_CSV = [
+      'edificio;codice_edificio;indirizzo;piano;aula;codice_aula;capienza;tipo_aula;prenotabile;attrezzatura;tipo_attrezzatura;quantita',
+      'Sede Centrale;SC;Via Roma 1;Piano Terra;Aula 23;A23;30;studio;si;Pianoforte verticale;pianoforte;1',
+      'Sede Centrale;SC;Via Roma 1;Piano Terra;Aula 23;A23;30;studio;si;Leggio;leggio;3',
+      'Sede Centrale;SC;Via Roma 1;Primo Piano;Aula 7;A07;15;sala_prove;si;;;',
+      'Sede Radar;SR;Via Tiburtina 99;Primo Piano;Studio 1;S01;10;studio;si;Pianoforte a coda;pianoforte_a_coda;1',
+      'Sede Radar;SR;Via Tiburtina 99;Primo Piano;Sala Concerti;C01;120;aula_concerti;si;Mixer;mixer;1'
+    ].join('\n');
+
+    document.getElementById('import-csv').addEventListener('click', async () => {
+      let institutes = [];
+      try {
+        const r = await api('/structure/institutes');
+        institutes = r.institutes;
+      } catch (err) { showError(err); return; }
+
+      if (institutes.length === 0) {
+        toast('Crea prima un istituto', 'error');
+        return;
+      }
+
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-group">
+          <label>Istituto di destinazione *</label>
+          <select id="imp-institute" required>
+            ${institutes.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>File CSV *</label>
+          <input type="file" id="imp-file" accept=".csv,text/csv,text/plain" required>
+          <small class="text-muted" style="font-size:0.78rem;display:block;margin-top:6px;">
+            Delimitatore auto-rilevato (virgola, punto-e-virgola, tab). Codifica: UTF-8.
+            <a href="#" id="imp-sample" style="color:var(--gold-1);">↓ Scarica template</a>
+          </small>
+        </div>
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer;color:var(--text-2);font-size:0.85rem;">Colonne supportate</summary>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-top:8px;line-height:1.6;">
+            <strong>Obbligatorie:</strong> edificio, piano, aula<br>
+            <strong>Edificio:</strong> codice_edificio, indirizzo<br>
+            <strong>Aula:</strong> codice_aula, capienza, tipo_aula (studio | sala_prove | aula_concerti | classe | aula_didattica | altro), prenotabile (si/no)<br>
+            <strong>Attrezzatura (opzionale):</strong> attrezzatura, tipo_attrezzatura, marca, modello, quantita<br>
+            Più attrezzature per la stessa aula → più righe con stessa aula.
+          </div>
+        </details>
+        <div id="imp-result" style="margin-top:12px;"></div>
+      `;
+
+      form.querySelector('#imp-sample').addEventListener('click', (e) => {
+        e.preventDefault();
+        const blob = new Blob([SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = el('a', { href: url, download: 'struttura-template.csv' });
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      const submit = el('button', { class: 'btn btn-primary', type: 'button' }, 'Importa');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Chiudi');
+
+      submit.addEventListener('click', async () => {
+        const file = form.querySelector('#imp-file').files[0];
+        if (!file) { toast('Seleziona un file CSV', 'error'); return; }
+        if (file.size > 1.8 * 1024 * 1024) { toast('File troppo grande (max ~1.8 MB)', 'error'); return; }
+
+        submit.disabled = true;
+        submit.innerHTML = '<span class="loader"></span>';
+
+        try {
+          const csv = await file.text();
+          const instituteId = parseInt(form.querySelector('#imp-institute').value, 10);
+          const res = await api('/structure/import', { method: 'POST', body: { instituteId, csv } });
+
+          const errors = res.errors || [];
+          const errBlock = errors.length === 0 ? '' : `
+            <div style="margin-top:10px;padding:10px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.05);max-height:160px;overflow:auto;">
+              <strong style="color:var(--danger);font-size:0.82rem;">${errors.length} avvisi</strong>
+              <ul style="margin:6px 0 0 18px;padding:0;font-size:0.78rem;color:var(--text-2);">
+                ${errors.slice(0, 30).map(e => `<li>Riga ${e.line}: ${escapeHtml(e.msg)}</li>`).join('')}
+                ${errors.length > 30 ? `<li>... e altri ${errors.length - 30}</li>` : ''}
+              </ul>
+            </div>`;
+
+          form.querySelector('#imp-result').innerHTML = `
+            <div style="padding:14px;border:1px solid rgba(16,185,129,0.3);border-radius:10px;background:rgba(16,185,129,0.06);">
+              <div style="font-weight:600;color:var(--success);margin-bottom:8px;">✓ Import completato (${res.parsed} righe processate)</div>
+              <div class="grid grid-3" style="gap:8px;font-size:0.82rem;">
+                <div>
+                  <div style="color:var(--text-3);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;">Edifici</div>
+                  <div><strong>${res.buildings.created}</strong> creati · <strong>${res.buildings.updated}</strong> aggiornati</div>
+                </div>
+                <div>
+                  <div style="color:var(--text-3);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;">Aule</div>
+                  <div><strong>${res.rooms.created}</strong> create · <strong>${res.rooms.updated}</strong> aggiornate</div>
+                </div>
+                <div>
+                  <div style="color:var(--text-3);font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;">Attrezzature</div>
+                  <div><strong>${res.equipment.created}</strong> create · <strong>${res.equipment.updated}</strong> aggiornate</div>
+                </div>
+              </div>
+              ${res.skipped ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--text-3);">${res.skipped} righe ignorate.</div>` : ''}
+            </div>
+            ${errBlock}
+          `;
+
+          toast(`Import completato: ${res.parsed} righe`, 'success');
+          load(); // ricarica l'albero della struttura
+        } catch (err) {
+          showError(err);
+        } finally {
+          submit.disabled = false;
+          submit.textContent = 'Importa';
+        }
+      });
+
+      modal({ title: 'Importa struttura da CSV', body: form, footer: [cancel, submit] });
+    });
+
+    // ============== ISTITUTI ==============
+    document.getElementById('new-institute').addEventListener('click', () => editInstitute(null));
+
+    window.editInstitute = async function(id) {
+      let data = id ? (await api(`/structure/institutes/${id}`)).institute : { name: '', code: '', address: '', city: '', timezone: 'Europe/Rome', description: '', logoUrl: null };
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-group"><label>Nome *</label><input type="text" id="i-name" value="${escapeHtml(data.name || '')}" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Codice</label><input type="text" id="i-code" value="${escapeHtml(data.code || '')}"></div>
+          <div class="form-group"><label>Città</label><input type="text" id="i-city" value="${escapeHtml(data.city || '')}"></div>
+        </div>
+        <div class="form-group"><label>Indirizzo</label><input type="text" id="i-address" value="${escapeHtml(data.address || '')}"></div>
+        <div class="form-group"><label>Timezone</label><input type="text" id="i-timezone" value="${escapeHtml(data.timezone || 'Europe/Rome')}"></div>
+        <div class="form-group">
+          <label>Logo dell'istituto <span class="text-muted" style="font-weight:400;">(PNG/JPG/SVG · consigliato &lt;500&nbsp;KB · ridimensionato a 256px)</span></label>
+          <div class="flex gap-3" style="align-items:center;">
+            <div id="i-logo-preview" style="width:72px;height:72px;border-radius:12px;border:1px solid var(--line);background:var(--bg-deep);display:grid;place-items:center;overflow:hidden;flex-shrink:0;padding:4px;box-sizing:border-box;">
+              ${data.logoUrl ? `<img src="${data.logoUrl}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;">` : '<span style="color:var(--text-3);font-size:0.7rem;">nessun logo</span>'}
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <input type="file" id="i-logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp">
+              ${data.logoUrl ? '<button type="button" class="btn btn-ghost btn-sm" id="i-logo-clear" style="align-self:flex-start;">Rimuovi logo</button>' : ''}
+            </div>
+          </div>
+        </div>
+        <div class="form-group"><label>Descrizione</label><textarea id="i-desc">${escapeHtml(data.description || '')}</textarea></div>
+      `;
+
+      // Stato logo: ereditato, può diventare data-URL nuovo o null se cancellato
+      let pendingLogo = data.logoUrl || null;
+
+      form.querySelector('#i-logo-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          toast('Il file è troppo grande (max 2 MB).', 'error');
+          e.target.value = '';
+          return;
+        }
+        // Per i raster ridimensioniamo a 256px lato lungo via canvas; per SVG passiamo il data URL grezzo.
+        if (file.type === 'image/svg+xml') {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            pendingLogo = ev.target.result;
+            form.querySelector('#i-logo-preview').innerHTML = `<img src="${pendingLogo}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;">`;
+          };
+          reader.readAsDataURL(file);
+        } else {
+          const img = new Image();
+          img.onload = () => {
+            const max = 256;
+            const scale = Math.min(1, max / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            pendingLogo = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.9);
+            form.querySelector('#i-logo-preview').innerHTML = `<img src="${pendingLogo}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;">`;
+          };
+          img.src = URL.createObjectURL(file);
+        }
+      });
+
+      form.querySelector('#i-logo-clear')?.addEventListener('click', () => {
+        pendingLogo = null;
+        form.querySelector('#i-logo-preview').innerHTML = '<span style="color:var(--text-3);font-size:0.7rem;">nessun logo</span>';
+        form.querySelector('#i-logo-file').value = '';
+      });
+
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, id ? 'Salva modifiche' : 'Crea istituto');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+      save.addEventListener('click', async () => {
+        const body = {
+          name: form.querySelector('#i-name').value.trim(),
+          code: form.querySelector('#i-code').value.trim() || null,
+          city: form.querySelector('#i-city').value.trim() || null,
+          address: form.querySelector('#i-address').value.trim() || null,
+          timezone: form.querySelector('#i-timezone').value.trim() || 'Europe/Rome',
+          description: form.querySelector('#i-desc').value.trim() || null,
+          logoUrl: pendingLogo
+        };
+        try {
+          if (id) await api(`/structure/institutes/${id}`, { method: 'PUT', body });
+          else await api('/structure/institutes', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast(id ? 'Istituto aggiornato' : 'Istituto creato', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+      modal({ title: id ? 'Modifica istituto' : 'Nuovo istituto', body: form, footer: [cancel, save] });
+    };
+
+    window.delInstitute = function(id) {
+      confirmDialog('Eliminare istituto e TUTTI gli edifici/aule/attrezzature collegati?', async () => {
+        try { await api(`/structure/institutes/${id}`, { method: 'DELETE' }); toast('Eliminato', 'success'); load(); }
+        catch (err) { showError(err); }
+      });
+    };
+
+    // ============== EDIFICI ==============
+    window.addBuilding = (instituteId) => editBuilding(null, instituteId);
+
+    window.editBuilding = async function(id, instituteId = null) {
+      let data = id ? (await api(`/structure/buildings/${id}`)).building : { instituteId, name: '', code: '', address: '', floors: ['Piano Terra'] };
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-group"><label>Nome *</label><input type="text" id="b-name" value="${escapeHtml(data.name || '')}" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Codice</label><input type="text" id="b-code" value="${escapeHtml(data.code || '')}"></div>
+          <div class="form-group"><label>Indirizzo</label><input type="text" id="b-address" value="${escapeHtml(data.address || '')}"></div>
+        </div>
+        <div class="form-group">
+          <label>Piani (uno per riga)</label>
+          <textarea id="b-floors" rows="4">${(data.floors || []).map(f => escapeHtml(f)).join('\n')}</textarea>
+          <small class="text-muted" style="font-size:0.78rem;">Es. "Piano Terra", "Primo Piano". Le aule riferiranno questi nomi.</small>
+        </div>
+      `;
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, id ? 'Salva' : 'Crea edificio');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+      save.addEventListener('click', async () => {
+        const body = {
+          instituteId: data.instituteId,
+          name: form.querySelector('#b-name').value.trim(),
+          code: form.querySelector('#b-code').value.trim() || null,
+          address: form.querySelector('#b-address').value.trim() || null,
+          floors: form.querySelector('#b-floors').value.split('\n').map(s => s.trim()).filter(Boolean)
+        };
+        try {
+          if (id) await api(`/structure/buildings/${id}`, { method: 'PUT', body });
+          else await api('/structure/buildings', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast(id ? 'Edificio aggiornato' : 'Edificio creato', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+      modal({ title: id ? 'Modifica edificio' : 'Nuovo edificio', body: form, footer: [cancel, save] });
+    };
+
+    window.delBuilding = function(id) {
+      confirmDialog('Eliminare edificio e tutte le aule?', async () => {
+        try { await api(`/structure/buildings/${id}`, { method: 'DELETE' }); toast('Eliminato', 'success'); load(); }
+        catch (err) { showError(err); }
+      });
+    };
+
+    // ============== AULE ==============
+    window.addRoom = (buildingId, floors) => editRoom(null, floors, buildingId);
+
+    window.editRoom = async function(id, floors, buildingId = null) {
+      let data = id ? (await api(`/structure/rooms/${id}`)).room : {
+        buildingId, name: '', code: '', floor: floors[0] || 'Piano Terra',
+        capacity: 1, type: 'studio', isBookable: true,
+        allowedRoles: ['admin', 'docente', 'studente'], allowedCourseIds: [], notes: ''
+      };
+      const courses = (await api('/courses')).courses;
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-row">
+          <div class="form-group"><label>Nome *</label><input type="text" id="r-name" value="${escapeHtml(data.name || '')}" required></div>
+          <div class="form-group"><label>Codice</label><input type="text" id="r-code" value="${escapeHtml(data.code || '')}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Piano *</label>
+            <select id="r-floor">${(floors || []).map(f =>
+              `<option value="${escapeHtml(f)}" ${data.floor === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select>
+          </div>
+          <div class="form-group"><label>Capienza</label><input type="number" id="r-capacity" min="1" value="${data.capacity || 1}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="r-type">
+              ${['studio', 'sala_prove', 'aula_concerti', 'classe', 'aula_didattica', 'altro'].map(t =>
+                `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Prenotabile?</label>
+            <select id="r-bookable">
+              <option value="true" ${data.isBookable ? 'selected' : ''}>Sì</option>
+              <option value="false" ${!data.isBookable ? 'selected' : ''}>No</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Ruoli abilitati alla prenotazione</label>
+          <div class="flex gap-3" style="padding:8px 0;">
+            ${['admin', 'docente', 'studente'].map(r => `
+              <label class="checkbox-row">
+                <input type="checkbox" class="r-role" value="${r}" ${(data.allowedRoles || []).includes(r) ? 'checked' : ''}>
+                <span>${r}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Limita ai corsi (vuoto = tutti i corsi)</label>
+          <select id="r-courses" multiple size="6">
+            ${courses.map(c =>
+              `<option value="${c.id}" ${(data.allowedCourseIds || []).includes(c.id) ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+            ).join('')}
+          </select>
+          <small class="text-muted" style="font-size:0.78rem;">Tieni Ctrl/Cmd per selezione multipla.</small>
+        </div>
+        <div class="form-group"><label>Note</label><textarea id="r-notes">${escapeHtml(data.notes || '')}</textarea></div>
+      `;
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, id ? 'Salva' : 'Crea aula');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+      save.addEventListener('click', async () => {
+        const allowedRoles = Array.from(form.querySelectorAll('.r-role:checked')).map(cb => cb.value);
+        const allowedCourseIds = Array.from(form.querySelector('#r-courses').selectedOptions).map(o => parseInt(o.value, 10));
+        const body = {
+          buildingId: data.buildingId,
+          name: form.querySelector('#r-name').value.trim(),
+          code: form.querySelector('#r-code').value.trim() || null,
+          floor: form.querySelector('#r-floor').value,
+          capacity: parseInt(form.querySelector('#r-capacity').value, 10) || 1,
+          type: form.querySelector('#r-type').value,
+          isBookable: form.querySelector('#r-bookable').value === 'true',
+          allowedRoles, allowedCourseIds,
+          notes: form.querySelector('#r-notes').value.trim() || null
+        };
+        try {
+          if (id) await api(`/structure/rooms/${id}`, { method: 'PUT', body });
+          else await api('/structure/rooms', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast(id ? 'Aula aggiornata' : 'Aula creata', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+      modal({ title: id ? 'Modifica aula' : 'Nuova aula', body: form, footer: [cancel, save] });
+    };
+
+    window.delRoom = function(id) {
+      confirmDialog('Eliminare l\'aula?', async () => {
+        try { await api(`/structure/rooms/${id}`, { method: 'DELETE' }); toast('Eliminata', 'success'); load(); }
+        catch (err) { showError(err); }
+      });
+    };
+
+    // ============== ATTREZZATURE ==============
+    window.addEquipment = (roomId) => editEquipment(null, roomId);
+
+    window.editEquipment = async function(id, roomId = null) {
+      let data = id ? (await api(`/structure/equipment?roomId=${roomId}`)).equipment.find(e => e.id === id)
+                    : { roomId, name: '', type: 'altro', brand: '', model: '', quantity: 1, isWorking: true, notes: '' };
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-group"><label>Nome *</label><input type="text" id="e-name" value="${escapeHtml(data.name || '')}" required></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="e-type">
+              ${['pianoforte','pianoforte_a_coda','organo','clavicembalo','leggio','amplificatore','mixer','microfono','computer','proiettore','lavagna','sedia','altro'].map(t =>
+                `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Quantità</label><input type="number" id="e-quantity" min="1" value="${data.quantity || 1}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Marca</label><input type="text" id="e-brand" value="${escapeHtml(data.brand || '')}"></div>
+          <div class="form-group"><label>Modello</label><input type="text" id="e-model" value="${escapeHtml(data.model || '')}"></div>
+        </div>
+        <div class="form-group">
+          <label>Funzionante?</label>
+          <select id="e-working">
+            <option value="true" ${data.isWorking ? 'selected' : ''}>Sì</option>
+            <option value="false" ${!data.isWorking ? 'selected' : ''}>No / In manutenzione</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Note</label><textarea id="e-notes">${escapeHtml(data.notes || '')}</textarea></div>
+      `;
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, id ? 'Salva' : 'Aggiungi');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+      save.addEventListener('click', async () => {
+        const body = {
+          roomId: data.roomId,
+          name: form.querySelector('#e-name').value.trim(),
+          type: form.querySelector('#e-type').value,
+          brand: form.querySelector('#e-brand').value.trim() || null,
+          model: form.querySelector('#e-model').value.trim() || null,
+          quantity: parseInt(form.querySelector('#e-quantity').value, 10) || 1,
+          isWorking: form.querySelector('#e-working').value === 'true',
+          notes: form.querySelector('#e-notes').value.trim() || null
+        };
+        try {
+          if (id) await api(`/structure/equipment/${id}`, { method: 'PUT', body });
+          else await api('/structure/equipment', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast(id ? 'Attrezzo aggiornato' : 'Attrezzo aggiunto', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+      modal({ title: id ? 'Modifica attrezzatura' : 'Nuova attrezzatura', body: form, footer: [cancel, save] });
+    };
+
+    window.manageEquipment = async function(roomId) {
+      const data = await api(`/structure/equipment?roomId=${roomId}`);
+      const list = el('div');
+      if (data.equipment.length === 0) {
+        list.innerHTML = '<div class="empty">— Nessuna attrezzatura —</div>';
+      } else {
+        list.innerHTML = data.equipment.map(e => `
+          <div class="booking-item" style="grid-template-columns:1fr auto;">
+            <div>
+              <div class="where">${escapeHtml(e.name)}</div>
+              <div class="meta">${escapeHtml(e.type)} · ${escapeHtml(e.brand || '')} ${escapeHtml(e.model || '')} · qta ${e.quantity}</div>
+              ${!e.isWorking ? '<span class="badge cancelled">Non funzionante</span>' : ''}
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm" onclick="document.querySelector('.modal-overlay').remove(); editEquipment(${e.id}, ${roomId})">Modifica</button>
+              <button class="btn btn-ghost btn-sm" onclick="delEquipment(${e.id}, ${roomId})">Elimina</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      const close = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Chiudi');
+      const add = el('button', { class: 'btn btn-primary', type: 'button',
+        onclick: () => { document.querySelector('.modal-overlay').remove(); addEquipment(roomId); } }, '+ Nuova attrezzatura');
+      modal({ title: 'Attrezzature dell\'aula', body: list, footer: [close, add] });
+    };
+
+    window.delEquipment = function(id, roomId) {
+      confirmDialog('Eliminare l\'attrezzatura?', async () => {
+        try {
+          await api(`/structure/equipment/${id}`, { method: 'DELETE' });
+          document.querySelector('.modal-overlay')?.remove();
+          toast('Eliminata', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+    };
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Completa il tuo profilo — Conservatorio</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-poster">
+      <div class="poster-content">
+        <div class="institute-badge">
+          <div class="logo" id="institute-logo"></div>
+          <div class="name" id="institute-name">Conservatorio</div>
+        </div>
+        <h1>Un ultimo<br><em>dettaglio</em></h1>
+        <p>Inserisci la tua matricola e il corso<br>per iniziare a prenotare.</p>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <div class="auth-form">
+        <h2>Completa profilo</h2>
+        <p class="auth-subtitle">Dati necessari per procedere</p>
+
+        <div id="error-box"></div>
+
+        <form id="profile-form">
+          <div class="form-group">
+            <label for="matricola">Matricola</label>
+            <input type="text" id="matricola" required placeholder="Es. 12345">
+          </div>
+
+          <div class="form-group">
+            <label for="courseId">Corso di appartenenza</label>
+            <select id="courseId" required>
+              <option value="">Caricamento corsi…</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="role">Ruolo</label>
+            <select id="role">
+              <option value="studente">Studente</option>
+              <option value="docente">Docente</option>
+            </select>
+            <small class="text-muted" style="display:block;margin-top:6px;font-size:0.8rem;">
+              Il tuo ruolo verrà verificato dall'amministratore.
+            </small>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg">Salva e continua</button>
+        </form>
+
+        <p class="auth-foot">
+          <a href="#" id="logout-link">Esci e accedi con altro account</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated()) window.location.href = '/login.html';
+    document.getElementById('logout-link').addEventListener('click', e => { e.preventDefault(); Auth.logout(); });
+
+    document.getElementById('institute-logo').innerHTML = ICONS.brand;
+    Institute.getPublic().then(inst => {
+      if (!inst) return;
+      if (inst.name) document.getElementById('institute-name').textContent = inst.name;
+      if (inst.logoUrl) {
+        document.getElementById('institute-logo').innerHTML =
+          `<img src="${inst.logoUrl}" alt="${escapeHtml(inst.name || '')}">`;
+      }
+    });
+
+    const user = Auth.getUser();
+    if (user.role) document.getElementById('role').value = user.role;
+    if (user.matricola) document.getElementById('matricola').value = user.matricola;
+
+    (async () => {
+      try {
+        const data = await api('/courses');
+        const sel = document.getElementById('courseId');
+        sel.innerHTML = '<option value="">Seleziona un corso…</option>' +
+          data.courses.map(c =>
+            `<option value="${c.id}" ${user.courseId === c.id ? 'selected' : ''}>${escapeHtml(c.name)} (${escapeHtml(c.code)})</option>`
+          ).join('');
+      } catch (err) { showError(err); }
+    })();
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loader"></span>';
+
+      try {
+        const data = await api('/auth/me', {
+          method: 'PATCH',
+          body: {
+            matricola: document.getElementById('matricola').value.trim(),
+            courseId: parseInt(document.getElementById('courseId').value, 10)
+          }
+        });
+        Auth.setUser(data.user);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        document.getElementById('error-box').innerHTML =
+          `<div class="alert error">${escapeHtml(err.message)}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Salva e continua';
+      }
+    });
+  </script>
+</body>
+</html>

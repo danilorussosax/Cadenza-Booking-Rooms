@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Conservatorio</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ── Calendario ───────────────────────────────────────────── */
+    .cal-toolbar {
+      display: flex; align-items: center; gap: var(--space-3);
+      margin-bottom: var(--space-4); flex-wrap: wrap;
+    }
+    .cal-toolbar h3 { margin: 0; flex: 1; min-width: 140px; }
+    .cal-nav { display: flex; align-items: center; gap: 4px; }
+    .cal-date-input {
+      height: 36px; padding: 0 10px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--bg-card); color: var(--text-1);
+      font-size: 0.9rem; font-family: var(--font-body); cursor: pointer;
+    }
+    .cal-date-input:focus { outline: none; border-color: var(--gold-1); box-shadow: 0 0 0 3px rgba(37,99,200,0.1); }
+
+    .building-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-4); }
+    .bld-tab {
+      padding: 6px 16px; border: 1px solid var(--line); border-radius: 999px;
+      font-size: 0.85rem; cursor: pointer; background: transparent;
+      color: var(--text-2); transition: all 0.15s; font-family: var(--font-body);
+    }
+    .bld-tab.active { background: var(--gold-1); color: #fff; border-color: var(--gold-1); }
+    .bld-tab:hover:not(.active) { border-color: var(--gold-1); color: var(--gold-1); }
+
+    .cal-wrap {
+      overflow: auto; max-height: 560px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+    }
+    .cal-grid { display: grid; min-width: max-content; }
+
+    .cal-corner {
+      position: sticky; top: 0; left: 0; z-index: 20;
+      background: var(--bg-deep); border-right: 1px solid var(--line);
+      border-bottom: 2px solid var(--line); min-height: 44px;
+    }
+    .cal-room-hd {
+      position: sticky; top: 0; z-index: 15;
+      background: var(--gold-1); color: #fff;
+      font-size: 0.78rem; font-weight: 600; text-align: center;
+      padding: 0 8px; border-right: 1px solid rgba(255,255,255,0.2);
+      border-bottom: 2px solid var(--line);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      height: 44px; display: flex; align-items: center; justify-content: center;
+    }
+    .cal-time {
+      position: sticky; left: 0; z-index: 10;
+      background: var(--bg-card); border-right: 1px solid var(--line);
+      font-size: 0.68rem; color: var(--text-3);
+      padding: 0 8px; height: 30px;
+      display: flex; align-items: flex-start; padding-top: 3px;
+      white-space: nowrap; box-sizing: border-box; width: 64px;
+    }
+    .cal-time.hour {
+      background: var(--bg-deep); color: var(--text-2);
+      font-weight: 600; border-top: 1px solid var(--line);
+    }
+    .cal-cell { height: 30px; border-right: 1px solid var(--line); background: var(--bg-card); box-sizing: border-box; }
+    .cal-cell.hour { background: rgba(240,244,248,0.7); border-top: 1px solid var(--line); }
+
+    .cal-booking {
+      position: relative; z-index: 5;
+      margin: 1px 2px; border-radius: 4px; overflow: hidden;
+    }
+    .cal-booking-inner {
+      padding: 3px 6px; height: 100%; overflow: hidden;
+      font-size: 0.69rem; line-height: 1.35; box-sizing: border-box;
+    }
+    .cal-booking-name { font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-booking-time { color: var(--text-2); font-size: 0.63rem; }
+    .cal-booking-note { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.63rem; }
+
+    .cal-booking[data-type="studio_individuale"] { background: rgba(37,99,200,0.12);  border-left: 3px solid #2563c8; }
+    .cal-booking[data-type="lezione"]            { background: rgba(16,185,129,0.12); border-left: 3px solid #10b981; }
+    .cal-booking[data-type="prova"]              { background: rgba(245,158,11,0.12); border-left: 3px solid #f59e0b; }
+    .cal-booking[data-type="concerto"]           { background: rgba(239,68,68,0.12);  border-left: 3px solid #ef4444; }
+    .cal-booking[data-type="altro"]              { background: rgba(139,92,246,0.12); border-left: 3px solid #8b5cf6; }
+
+    .cal-legend {
+      display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+      margin-top: var(--space-3); font-size: 0.74rem; color: var(--text-2);
+    }
+    .cal-legend-item { display: flex; align-items: center; gap: 6px; }
+    .cal-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    .cal-empty-state {
+      padding: 48px; text-align: center; color: var(--text-3);
+      font-size: 0.9rem; border: 1px solid var(--line); border-radius: var(--r-md);
+    }
+
+    .cal-building-title { display: none; }
+
+    /* ── Print ────────────────────────────────────────────────── */
+    @media print {
+      .sidebar, .topbar, .page-header, #stats,
+      #upcoming-section, .cal-toolbar, .building-tabs,
+      .cal-legend { display: none !important; }
+
+      .app-shell { display: block !important; }
+      .main-content { padding: 0 !important; }
+      #calendar-section {
+        box-shadow: none !important; border: none !important;
+        padding: 0 !important; margin: 0 !important;
+      }
+      .cal-building { display: block !important; page-break-after: always; }
+      .cal-building:last-child { page-break-after: avoid; }
+      .cal-building-title {
+        display: block !important; font-size: 1rem; font-weight: 700;
+        margin-bottom: 8px; padding-bottom: 4px;
+        border-bottom: 2px solid #1d2d44; color: #1a2234;
+      }
+      .cal-wrap { overflow: visible !important; max-height: none !important; border: none !important; border-radius: 0 !important; }
+      .cal-room-hd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .cal-booking { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .cal-cell.hour { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · prenotazioni</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html" data-nav="dashboard"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html" data-nav="booking"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html" data-nav="my-bookings"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html" data-nav="rooms"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer">
+        <em>"La musica esprime ciò che<br>non può essere detto."</em>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Dashboard</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <div class="institute-logo" id="institute-logo"></div>
+          <div>
+            <div class="institute-name" id="institute-name"></div>
+            <h1 id="greeting">Benvenuto</h1>
+            <div class="subtitle" id="today-date"></div>
+          </div>
+        </div>
+        <a href="/booking.html" class="btn btn-primary btn-lg">+ Nuova prenotazione</a>
+      </div>
+
+      <div class="grid grid-4 mb-4" id="stats">
+        <div class="stat-card">
+          <div>
+            <div class="label">Prenotazioni attive</div>
+            <div class="value" id="stat-active">—</div>
+            <div class="change" id="stat-active-info"></div>
+          </div>
+          <div class="stat-icon blue" id="stat-icon-active"></div>
+        </div>
+        <div class="stat-card">
+          <div>
+            <div class="label">Ore questa settimana</div>
+            <div class="value" id="stat-week">—</div>
+            <div class="change" id="stat-week-info"></div>
+          </div>
+          <div class="stat-icon cyan" id="stat-icon-week"></div>
+        </div>
+        <div class="stat-card">
+          <div>
+            <div class="label">Aule disponibili</div>
+            <div class="value" id="stat-rooms">—</div>
+            <div class="change">in tutto il sistema</div>
+          </div>
+          <div class="stat-icon green" id="stat-icon-rooms"></div>
+        </div>
+        <div class="stat-card">
+          <div>
+            <div class="label">Prossima sessione</div>
+            <div class="value" style="font-size:1.6rem;" id="stat-next">—</div>
+            <div class="change" id="stat-next-info"></div>
+          </div>
+          <div class="stat-icon amber" id="stat-icon-next"></div>
+        </div>
+      </div>
+
+      <div class="card" id="upcoming-section">
+        <h3>Le tue prossime prenotazioni</h3>
+        <p class="card-subtitle">Solo confermate, ordinate per data</p>
+        <div id="upcoming-list"></div>
+      </div>
+
+      <!-- ── Calendario ──────────────────────────────────────── -->
+      <div class="card mt-4" id="calendar-section">
+        <div class="cal-toolbar">
+          <h3>Calendario aule</h3>
+          <div class="cal-nav">
+            <button class="btn btn-ghost btn-sm" id="cal-prev" title="Giorno precedente">&#8249;</button>
+            <input type="date" id="cal-date" class="cal-date-input">
+            <button class="btn btn-ghost btn-sm" id="cal-next" title="Giorno successivo">&#8250;</button>
+            <button class="btn btn-ghost btn-sm" id="cal-today">Oggi</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="cal-pdf" style="margin-left:auto;">
+            &#8595; Esporta PDF
+          </button>
+        </div>
+
+        <div class="building-tabs" id="cal-tabs"></div>
+        <div id="cal-body"><div class="cal-empty-state">Caricamento…</div></div>
+
+        <div class="cal-legend">
+          <span style="font-weight:600;color:var(--text-2);margin-right:2px;">Legenda:</span>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(37,99,200,0.45);border-left:3px solid #2563c8;"></div>Studio individuale
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(16,185,129,0.45);border-left:3px solid #10b981;"></div>Lezione
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(245,158,11,0.45);border-left:3px solid #f59e0b;"></div>Prova
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(239,68,68,0.45);border-left:3px solid #ef4444;"></div>Concerto
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:rgba(139,92,246,0.45);border-left:3px solid #8b5cf6;"></div>Altro
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated()) window.location.href = '/login.html';
+    renderShell('dashboard');
+    if (!requireProfileComplete()) { /* redirect avvenuto */ }
+
+    const user = Auth.getUser();
+    document.getElementById('greeting').innerHTML =
+      `Buongiorno, <em style="color:var(--gold-1);font-weight:600;">${escapeHtml(user.firstName)}</em>`;
+    document.getElementById('today-date').textContent =
+      new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Icone stat-card
+    document.getElementById('stat-icon-active').innerHTML = ICONS.calendar;
+    document.getElementById('stat-icon-week').innerHTML   = ICONS.clock;
+    document.getElementById('stat-icon-rooms').innerHTML  = ICONS.door;
+    document.getElementById('stat-icon-next').innerHTML   = ICONS.group;
+    document.getElementById('institute-logo').innerHTML   = ICONS.building;
+
+    // Header istituto: nome + logo (se configurato)
+    Institute.getPublic().then(inst => {
+      if (!inst) return;
+      const nameEl = document.getElementById('institute-name');
+      const logoEl = document.getElementById('institute-logo');
+      if (inst.name) nameEl.textContent = inst.name;
+      if (inst.logoUrl) logoEl.innerHTML = `<img src="${inst.logoUrl}" alt="${escapeHtml(inst.name || '')}">`;
+    });
+
+    // ── Dashboard stats & upcoming ─────────────────────────────
+    async function loadDashboard() {
+      try {
+        const fromIso = new Date().toISOString();
+        const myBookings = await api(`/bookings?mine=true&from=${encodeURIComponent(fromIso)}&status=confirmed`);
+        const upcoming = myBookings.bookings;
+
+        document.getElementById('stat-active').textContent = upcoming.length;
+
+        const weekStart = new Date(); weekStart.setHours(0,0,0,0);
+        const day = weekStart.getDay() || 7;
+        weekStart.setDate(weekStart.getDate() - (day - 1));
+        const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 7);
+        const weekBookings = upcoming.filter(b => {
+          const s = new Date(b.startTime);
+          return s >= weekStart && s < weekEnd;
+        });
+        const weekMin = weekBookings.reduce((acc, b) =>
+          acc + (new Date(b.endTime) - new Date(b.startTime)) / 60000, 0);
+        document.getElementById('stat-week').textContent = (weekMin / 60).toFixed(1) + 'h';
+        document.getElementById('stat-week-info').textContent = `${weekBookings.length} sessioni programmate`;
+
+        if (upcoming.length > 0) {
+          const next = upcoming[0];
+          document.getElementById('stat-next').innerHTML =
+            new Date(next.startTime).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) +
+            ' · ' + fmtTime(next.startTime);
+          document.getElementById('stat-next-info').textContent = next.room?.name || '';
+        } else {
+          document.getElementById('stat-next').textContent = '—';
+          document.getElementById('stat-next-info').textContent = 'nessuna in programma';
+        }
+
+        const roomsRes = await api('/structure/rooms?bookable=true');
+        document.getElementById('stat-rooms').textContent = roomsRes.rooms.length;
+
+        const list = document.getElementById('upcoming-list');
+        if (upcoming.length === 0) {
+          list.innerHTML = '<div class="empty">— Nessuna prenotazione attiva —</div>';
+        } else {
+          list.innerHTML = upcoming.slice(0, 8).map(b => {
+            const start = new Date(b.startTime);
+            const end   = new Date(b.endTime);
+            const dur   = Math.round((end - start) / 60000);
+            return `
+              <div class="booking-item">
+                <div>
+                  <div class="when">${fmtDate(b.startTime)}</div>
+                  <div class="meta">${fmtTime(b.startTime)} – ${fmtTime(b.endTime)} · ${dur} min</div>
+                </div>
+                <div>
+                  <div class="where">${escapeHtml(b.room?.name || 'Aula')}</div>
+                  <div class="meta">${escapeHtml(b.room?.building?.name || '')} · ${escapeHtml(b.room?.floor || '')}</div>
+                  ${b.purpose ? `<div class="meta">${escapeHtml(b.purpose)}</div>` : ''}
+                </div>
+                <div>
+                  <span class="badge ${b.status}">${b.status}</span>
+                  <button class="btn btn-ghost btn-sm" onclick="cancelBooking(${b.id})">Annulla</button>
+                </div>
+              </div>`;
+          }).join('');
+        }
+      } catch (err) { showError(err); }
+    }
+
+    async function cancelBooking(id) {
+      confirmDialog('Vuoi annullare questa prenotazione?', async () => {
+        try {
+          await api(`/bookings/${id}`, { method: 'DELETE' });
+          toast('Prenotazione annullata', 'success');
+          loadDashboard();
+        } catch (err) { showError(err); }
+      });
+    }
+    window.cancelBooking = cancelBooking;
+
+    // ── Calendario ─────────────────────────────────────────────
+    const CAL_H_START = 8;
+    const CAL_H_END   = 22;
+    const CAL_SLOT    = 30; // minuti per slot
+    const CAL_TOTAL   = (CAL_H_END - CAL_H_START) * (60 / CAL_SLOT); // 28 slot
+
+    let calDate      = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+    let calBuildings = [];
+    let calActive    = 0;
+
+    function calDateStr(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    function calSlotLabel(slot) {
+      const t = CAL_H_START * 60 + slot * CAL_SLOT;
+      return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    }
+
+    function calTimeToSlot(iso) {
+      const d = new Date(iso);
+      return Math.floor(((d.getHours() - CAL_H_START) * 60 + d.getMinutes()) / CAL_SLOT);
+    }
+
+    function renderCalGrid(rooms, bookings) {
+      if (!rooms.length) {
+        return `<div class="cal-empty-state">Nessuna aula prenotabile in questo edificio.</div>`;
+      }
+
+      const tplCols = `64px repeat(${rooms.length}, minmax(130px, 1fr))`;
+      const tplRows = `44px repeat(${CAL_TOTAL}, 30px)`;
+
+      let h = `<div class="cal-wrap"><div class="cal-grid" style="grid-template-columns:${tplCols};grid-template-rows:${tplRows};">`;
+
+      // Intestazione
+      h += `<div class="cal-corner"></div>`;
+      rooms.forEach(r => {
+        h += `<div class="cal-room-hd" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>`;
+      });
+
+      // Celle di sfondo (orari + griglia)
+      for (let s = 0; s < CAL_TOTAL; s++) {
+        const isH = s % 2 === 0;
+        h += `<div class="cal-time${isH ? ' hour' : ''}">${isH ? calSlotLabel(s) : ''}</div>`;
+        rooms.forEach(() => { h += `<div class="cal-cell${isH ? ' hour' : ''}"></div>`; });
+      }
+
+      // Blocchi prenotazione
+      bookings.forEach(b => {
+        const roomIdx = rooms.findIndex(r => r.id === b.roomId);
+        if (roomIdx < 0) return;
+
+        const startSlot = calTimeToSlot(b.startTime);
+        const endSlot   = calTimeToSlot(b.endTime);
+        const span      = Math.max(1, endSlot - startSlot);
+
+        if (startSlot < 0 || startSlot >= CAL_TOTAL) return;
+        const clampedSpan = Math.min(span, CAL_TOTAL - startSlot);
+
+        const gridRow = startSlot + 2;
+        const gridCol = roomIdx  + 2;
+        const type    = b.type || 'studio_individuale';
+        const name    = `${b.user?.firstName || ''} ${b.user?.lastName || ''}`.trim() || 'Prenotazione';
+
+        h += `<div class="cal-booking" data-type="${escapeHtml(type)}"
+          style="grid-row:${gridRow}/span ${clampedSpan};grid-column:${gridCol};"
+          title="${escapeHtml(name)} · ${fmtTime(b.startTime)}–${fmtTime(b.endTime)}">
+          <div class="cal-booking-inner">
+            <div class="cal-booking-name">${escapeHtml(name)}</div>
+            <div class="cal-booking-time">${fmtTime(b.startTime)}–${fmtTime(b.endTime)}</div>
+            ${b.purpose ? `<div class="cal-booking-note">${escapeHtml(b.purpose)}</div>` : ''}
+          </div>
+        </div>`;
+      });
+
+      h += '</div></div>';
+      return h;
+    }
+
+    function renderCalTabs() {
+      const el = document.getElementById('cal-tabs');
+      el.innerHTML = calBuildings.map((b, i) =>
+        `<button class="bld-tab${i === calActive ? ' active' : ''}" data-idx="${i}">${escapeHtml(b.name)}</button>`
+      ).join('');
+      el.querySelectorAll('.bld-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          calActive = +btn.dataset.idx;
+          el.querySelectorAll('.bld-tab').forEach(t => t.classList.toggle('active', t === btn));
+          document.querySelectorAll('.cal-building').forEach((d, i) => {
+            d.style.display = i === calActive ? 'block' : 'none';
+          });
+        });
+      });
+    }
+
+    async function loadCalendar() {
+      const ds = calDateStr(calDate);
+      document.getElementById('cal-date').value = ds;
+
+      try {
+        if (!calBuildings.length) {
+          const res = await api('/structure/buildings');
+          calBuildings = (res.buildings || []).filter(b =>
+            (b.rooms || []).some(r => r.isBookable !== false)
+          );
+        }
+
+        if (!calBuildings.length) {
+          document.getElementById('cal-body').innerHTML =
+            '<div class="cal-empty-state">Nessun edificio con aule prenotabili configurato.</div>';
+          document.getElementById('cal-tabs').innerHTML = '';
+          return;
+        }
+
+        const dayStart = new Date(calDate); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd   = new Date(calDate); dayEnd.setHours(23, 59, 59, 999);
+        const bkRes = await api(
+          `/bookings?from=${encodeURIComponent(dayStart.toISOString())}&to=${encodeURIComponent(dayEnd.toISOString())}&status=confirmed`
+        );
+        const allBookings = bkRes.bookings || [];
+
+        renderCalTabs();
+
+        const label = calDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+        document.getElementById('cal-body').innerHTML = calBuildings.map((b, i) => {
+          const bookable    = (b.rooms || []).filter(r => r.isBookable !== false)
+                                              .sort((a, z) => a.name.localeCompare(z.name));
+          const bldBookings = allBookings.filter(bk => bookable.some(r => r.id === bk.roomId));
+          return `<div class="cal-building" style="display:${i === calActive ? 'block' : 'none'};">
+            <div class="cal-building-title">${escapeHtml(b.name)} — ${label}</div>
+            ${renderCalGrid(bookable, bldBookings)}
+          </div>`;
+        }).join('');
+
+      } catch (err) {
+        document.getElementById('cal-body').innerHTML =
+          '<div class="cal-empty-state">Errore nel caricamento del calendario.</div>';
+        showError(err);
+      }
+    }
+
+    // Navigazione data
+    function shiftDay(n) {
+      calDate = new Date(calDate);
+      calDate.setDate(calDate.getDate() + n);
+      loadCalendar();
+    }
+
+    document.getElementById('cal-prev').addEventListener('click', () => shiftDay(-1));
+    document.getElementById('cal-next').addEventListener('click', () => shiftDay(+1));
+    document.getElementById('cal-today').addEventListener('click', () => {
+      calDate = new Date(); calDate.setHours(0, 0, 0, 0);
+      loadCalendar();
+    });
+    document.getElementById('cal-date').addEventListener('change', e => {
+      if (e.target.value) {
+        calDate = new Date(e.target.value + 'T00:00:00');
+        loadCalendar();
+      }
+    });
+
+    // Esportazione PDF
+    document.getElementById('cal-pdf').addEventListener('click', () => {
+      // Mostra tutti gli edifici per la stampa
+      document.querySelectorAll('.cal-building').forEach(d => { d.style.display = 'block'; });
+      // Ripristina dopo la stampa
+      window.addEventListener('afterprint', () => {
+        document.querySelectorAll('.cal-building').forEach((d, i) => {
+          d.style.display = i === calActive ? 'block' : 'none';
+        });
+      }, { once: true });
+      window.print();
+    });
+
+    loadDashboard();
+    loadCalendar();
+  </script>
+</body>
+</html>

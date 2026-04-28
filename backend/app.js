@@ -1,0 +1,306 @@
+'use strict';
+
+/**
+ * Costruisce l'istanza Express dell'applicazione (middleware + route + error handler).
+ *
+ * Estratta da server.js per consentire l'uso con supertest senza dover
+ * effettivamente fare listen su una porta. server.js continua a essere
+ * l'entry point operativo (sync DB, scheduler, signal handler).
+ */
+
+const path = require('path');
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const session = require('express-session');
+const pinoHttp = require('pino-http');
+const { randomUUID } = require('crypto');
+const passport = require('./config/passport');
+const logger = require('./lib/logger');
+const { apiDefaultLimiter } = require('./middleware/rateLimit');
+const { auditMiddleware } = require('./middleware/audit');
+const { mapSequelizeError } = require('./lib/dbErrors');
+const sentry = require('./lib/sentry');
+
+function buildApp({ serveFrontend = true } = {}) {
+  const app = express();
+
+  // Trust proxy in produzione (X-Forwarded-For dal reverse proxy).
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
+  // ============================================================
+  // Security headers (Helmet + CSP custom + Permissions-Policy)
+  // ============================================================
+  // Strategia:
+  //  - CSP rigorosa con default-src 'self', no inline script (lo script
+  //    anti-FOUC è esternalizzato in /theme-init.js).
+  //  - 'unsafe-inline' su style-src: Tailwind/shadcn iniettano stili inline
+  //    runtime (es. style={{...}}). Hash/nonce non praticabile.
+  //  - 'wasm-unsafe-eval' su script-src: predisposto per moduli WASM
+  //    (recharts può usarlo in alcune build).
+  //  - img-src: include i CDN OAuth (avatar Google/Microsoft) + data/blob
+  //    (preview foto upload sharp lato client) + il proprio /storage.
+  //  - font-src: include Google Fonts (Inter); per self-host basta togliere
+  //    `https://fonts.gstatic.com`.
+  //  - frame-ancestors 'none': clickjacking protection. Eccezione futura
+  //    per /embed/* (vedi roadmap §5.8) tramite override middleware.
+  //  - HSTS preload solo in produzione (max-age 2 anni, includeSubDomains).
+  //  - crossOriginEmbedderPolicy: false → necessario per pop-up OAuth
+  //    (Google/Microsoft). Riabilitarla solo se si rinuncia a OAuth.
+  const cspDirectives = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    imgSrc: [
+      "'self'",
+      'data:',
+      'blob:',
+      'https://*.googleusercontent.com',
+      'https://*.microsoftonline.com',
+    ],
+    connectSrc: ["'self'"],
+    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+    frameAncestors: ["'none'"],
+    baseUri: ["'self'"],
+    objectSrc: ["'none'"],
+    formAction: ["'self'"],
+    // PWA: il service worker (/sw.js) e il manifest devono essere first-party.
+    // worker-src include anche blob: per consentire workbox-window di usare
+    // module workers durante l'init (alcuni browser).
+    workerSrc: ["'self'", 'blob:'],
+    manifestSrc: ["'self'"],
+  };
+  if (process.env.NODE_ENV === 'production') {
+    cspDirectives.upgradeInsecureRequests = [];
+  }
+  app.use(
+    helmet({
+      contentSecurityPolicy: { useDefaults: false, directives: cspDirectives },
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'same-origin' },
+      referrerPolicy: { policy: 'no-referrer' },
+      hsts:
+        process.env.NODE_ENV === 'production'
+          ? { maxAge: 63072000, includeSubDomains: true, preload: true }
+          : false,
+    }),
+  );
+
+  // Permissions-Policy: nessuna API potente abilitata di default.
+  // Il kiosk /display in fullscreen NON richiede l'API fullscreen permission
+  // (è user-gesture initiated, non bloccato da questa policy).
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Permissions-Policy',
+      [
+        'accelerometer=()',
+        'autoplay=()',
+        'camera=()',
+        'display-capture=()',
+        'encrypted-media=()',
+        'fullscreen=(self)',
+        'geolocation=()',
+        'gyroscope=()',
+        'magnetometer=()',
+        'microphone=()',
+        'midi=()',
+        'payment=()',
+        'picture-in-picture=()',
+        'publickey-credentials-get=(self)',
+        'screen-wake-lock=()',
+        'usb=()',
+        'xr-spatial-tracking=()',
+      ].join(', '),
+    );
+    next();
+  });
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL || true,
+      credentials: true,
+    }),
+  );
+
+  // Request id per correlazione log
+  app.use((req, res, next) => {
+    const id = req.get('x-request-id') || randomUUID();
+    req.id = id;
+    res.setHeader('X-Request-Id', id);
+    next();
+  });
+
+  // Sentry scope per request: tag request_id sempre, user.id (anonimizzato) +
+  // user.role appena disponibili. Va PRIMA di qualunque route per essere
+  // attivo già nella prima eccezione.
+  if (sentry.isInitialized()) {
+    app.use((req, res, next) => {
+      sentry.setRequestScope(req);
+      next();
+    });
+  }
+
+  // Log strutturato (silenziato in test per non sporcare l'output di vitest)
+  if (process.env.NODE_ENV !== 'test') {
+    app.use(
+      pinoHttp({
+        logger,
+        genReqId: (req) => req.id,
+        customLogLevel: (req, res, err) => {
+          if (err || res.statusCode >= 500) return 'error';
+          if (res.statusCode >= 400) return 'warn';
+          return 'debug';
+        },
+        autoLogging: { ignore: (req) => req.url === '/api/health' },
+      }),
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      app.use(morgan('dev'));
+    }
+  }
+
+  // express.json con `verify` callback per preservare req.rawBody:
+  // necessario per la verifica HMAC SHA256 del webhook WhatsApp Cloud
+  // (firma calcolata sul body raw, non sul JSON re-stringificato).
+  app.use(
+    express.json({
+      limit: '2mb',
+      verify: (req, _res, buf) => {
+        // Solo per le request webhook messaging — evita memoria sprecata altrove.
+        if (req.url && req.url.startsWith('/api/messaging/')) {
+          req.rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true }));
+
+  // Rate limiting baseline. In test bypassato per non interferire con
+  // sequenze rapide di richieste (i test che vogliono colpire il rate
+  // limiter usano un app dedicato — vedi auth.test.js).
+  if (process.env.NODE_ENV !== 'test') {
+    app.use('/api/', apiDefaultLimiter);
+  }
+
+  app.use('/api/', auditMiddleware);
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || 'dev-session-secret',
+      resave: false,
+      saveUninitialized: false,
+      cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 },
+    }),
+  );
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Static frontend (saltato quando esplicitamente disattivato — vedi tests/)
+  if (serveFrontend) {
+    const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+    app.use(
+      express.static(FRONTEND_DIST, {
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+        },
+      }),
+    );
+    const UPLOADS_DIR = path.join(__dirname, 'uploads');
+    app.use('/storage', express.static(UPLOADS_DIR, { maxAge: '7d', etag: true }));
+  }
+
+  // ============== API routes ==============
+  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/users/me/gdpr', require('./routes/gdpr'));
+  app.use('/api/users', require('./routes/users'));
+  app.use('/api/courses', require('./routes/courses'));
+  app.use('/api/course-levels', require('./routes/courseLevels'));
+  app.use('/api/structure', require('./routes/structure'));
+  app.use('/api/admin/quotas', require('./routes/quotas'));
+  app.use('/api/admin/audit-log', require('./routes/auditLog'));
+  app.use('/api/admin/analytics', require('./routes/analytics'));
+  app.use('/api/bookings/waitlist', require('./routes/waitlist'));
+  app.use('/api/bookings/templates', require('./routes/bookingTemplates'));
+  app.use('/api/rules', require('./routes/rules'));
+  app.use('/api/admin/rules', require('./routes/rulesPreview'));
+  app.use('/api/bookings', require('./routes/bookings'));
+  app.use('/api/instruments', require('./routes/instruments'));
+  app.use('/api/loans', require('./routes/instrumentLoans'));
+  app.use('/api/admin/instrument-loan-rules', require('./routes/instrumentLoanRules'));
+  app.use('/api/admin/instrument-loan-quotas', require('./routes/loanQuotas'));
+  app.use('/api/admin/announcements', require('./routes/announcementsAdmin'));
+  app.use('/api/announcements', require('./routes/announcements'));
+  app.use('/api/public', require('./routes/public'));
+  app.use('/api/admin/mail-settings', require('./routes/mailSettings'));
+  app.use('/api/admin/mail-templates', require('./routes/mailTemplates'));
+  app.use('/api/admin/backups', require('./routes/backups'));
+  app.use('/api/admin/oauth-settings', require('./routes/oauthSettings'));
+  app.use('/api/admin/messaging-settings', require('./routes/messagingSettings'));
+  app.use('/api/admin/integrations', require('./routes/integrations'));
+  // Monte Ore — proposte annuali del docente + gestione coordinatore
+  const monteOre = require('./routes/monteOre');
+  app.use('/api/monte-ore', monteOre.router);
+  app.use('/api/admin/monte-ore', monteOre.adminRouter);
+  app.use('/api/users/me/bot-bindings', require('./routes/botBindings'));
+  app.use('/api/messaging', require('./routes/messagingWebhook'));
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // SPA fallback (saltato quando serveFrontend === false)
+  if (serveFrontend) {
+    const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+    app.get(/^(?!\/api).*/, (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+    });
+  }
+
+  // Sentry error handler — DEVE stare PRIMA dell'error handler custom così
+  // gli errori vengono catturati prima di essere mappati a JSON e persi.
+  // No-op se Sentry non è inizializzato.
+  if (sentry.isInitialized()) {
+    const Sentry = require('@sentry/node');
+    Sentry.setupExpressErrorHandler(app);
+  }
+
+  // Error handler (stessa logica di server.js)
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    if (err && err.status && err.code) {
+      return res.status(err.status).json({
+        error: err.message,
+        code: err.code,
+        ...(err.details && { details: err.details }),
+        ...(err.fields && { fields: err.fields }),
+      });
+    }
+    const mapped = mapSequelizeError(err);
+    if (mapped) {
+      return res.status(mapped.status).json({
+        error: mapped.message,
+        code: mapped.code,
+        ...(mapped.fields && mapped.fields.length && { fields: mapped.fields }),
+        ...(mapped.details && { details: mapped.details }),
+      });
+    }
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Errore non gestito:', err);
+    }
+    res.status(err.status || 500).json({
+      error: err.message || 'Errore interno del server',
+      ...(err.code && { code: err.code }),
+      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+    });
+  });
+
+  return app;
+}
+
+module.exports = { buildApp };

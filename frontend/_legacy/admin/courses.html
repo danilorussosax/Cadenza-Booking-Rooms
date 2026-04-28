@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Corsi — Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .levels-cell { display: flex; flex-wrap: wrap; gap: 4px; }
+    .badge.level-propedeutico { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
+    .badge.level-triennio     { color: var(--info);    border-color: rgba(129,140,248,0.3); background: rgba(129,140,248,0.08); }
+    .badge.level-biennio      { color: var(--success); border-color: rgba(52,211,153,0.3);  background: rgba(52,211,153,0.08); }
+    .badge.level-master       { color: var(--gold-1);  border-color: rgba(37,99,200,0.3);   background: rgba(37,99,200,0.08); }
+    .badge.level-altro        { color: var(--text-2);  border-color: var(--line); }
+
+    .levels-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: 4px; }
+    .level-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: var(--text-2);
+      background: transparent;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .level-chip input { display: none; }
+    .level-chip.checked { color: var(--gold-1); border-color: rgba(37,99,200,0.45); background: rgba(37,99,200,0.08); }
+    .level-chip:hover { border-color: rgba(37,99,200,0.3); }
+
+    .search-bar {
+      display: flex; gap: var(--space-3); margin-bottom: var(--space-4);
+      flex-wrap: wrap;
+    }
+    .search-bar input { flex: 1; min-width: 200px; }
+    .search-bar select { min-width: 160px; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Aulae <em>Cantorum</em></h1>
+        <div class="tagline">Conservatorio · admin</div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="/dashboard.html"><span class="icon">▸</span> Dashboard</a></li>
+          <li><a href="/booking.html"><span class="icon">▸</span> Prenota un'aula</a></li>
+          <li><a href="/my-bookings.html"><span class="icon">▸</span> Le mie prenotazioni</a></li>
+          <li><a href="/rooms.html"><span class="icon">▸</span> Aule</a></li>
+        </ul>
+        <div class="nav-section" data-role="admin">Amministrazione</div>
+        <ul data-role="admin">
+          <li><a href="/admin/structure.html" data-nav="structure"><span class="icon">▸</span> Struttura</a></li>
+          <li><a href="/admin/courses.html" data-nav="courses"><span class="icon">▸</span> Corsi</a></li>
+          <li><a href="/admin/users.html" data-nav="users"><span class="icon">▸</span> Utenti</a></li>
+          <li><a href="/admin/rules.html" data-nav="rules"><span class="icon">▸</span> Regole prenotazione</a></li>
+        </ul>
+      </nav>
+      <div class="footer"><em>Studia. Crea. Risuona.</em></div>
+    </aside>
+
+    <header class="topbar">
+      <div class="crumb">Admin · Corsi</div>
+      <div class="user-info" id="user-info"></div>
+    </header>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="title-block">
+          <h1>Settori <em style="color:var(--gold-1);font-weight:600;">artistico-disciplinari</em></h1>
+          <div class="subtitle">Corsi ufficiali AFAM — DM 128 Tabella A</div>
+        </div>
+        <button class="btn btn-primary" id="new-course">+ Nuovo SAD</button>
+      </div>
+
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="search" placeholder="Cerca per codice o denominazione…">
+          <select id="filter-level">
+            <option value="">Tutti i livelli</option>
+            <option value="propedeutico">Propedeutico</option>
+            <option value="triennio">Triennio</option>
+            <option value="biennio">Biennio</option>
+            <option value="master">Master</option>
+            <option value="altro">Altro</option>
+          </select>
+          <select id="filter-active">
+            <option value="">Tutti gli stati</option>
+            <option value="true">Attivi</option>
+            <option value="false">Disabilitati</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:110px">Codice SAD</th>
+                <th>Denominazione</th>
+                <th style="width:240px">Livelli</th>
+                <th style="width:90px">Stato</th>
+                <th style="width:140px"></th>
+              </tr>
+            </thead>
+            <tbody id="courses-tbody"></tbody>
+          </table>
+        </div>
+        <div id="courses-count" style="text-align:right;font-size:0.82rem;color:var(--text-3);margin-top:var(--space-3);padding-right:4px;"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!Auth.isAuthenticated() || !Auth.isAdmin()) window.location.href = '/dashboard.html';
+    renderShell('courses');
+
+    const ALL_LEVELS = ['propedeutico', 'triennio', 'biennio', 'master', 'altro'];
+    const LEVEL_LABELS = { propedeutico: 'Propedeutico', triennio: 'Triennio', biennio: 'Biennio', master: 'Master', altro: 'Altro' };
+
+    let allCourses = [];
+
+    function levelBadges(levels) {
+      if (!Array.isArray(levels) || levels.length === 0) return '<span class="text-muted">—</span>';
+      return `<div class="levels-cell">${levels.map(l =>
+        `<span class="badge level-${l}">${LEVEL_LABELS[l] || l}</span>`
+      ).join('')}</div>`;
+    }
+
+    async function load() {
+      try {
+        const data = await api('/courses?active=false');
+        allCourses = data.courses;
+        render();
+      } catch (err) { showError(err); }
+    }
+
+    function render() {
+      const q = document.getElementById('search').value.toLowerCase().trim();
+      const filterLevel = document.getElementById('filter-level').value;
+      const filterActive = document.getElementById('filter-active').value;
+      const tbody = document.getElementById('courses-tbody');
+
+      let list = allCourses;
+      if (q) list = list.filter(c =>
+        c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+      if (filterLevel) list = list.filter(c =>
+        Array.isArray(c.levels) && c.levels.includes(filterLevel));
+      if (filterActive !== '') list = list.filter(c =>
+        String(c.isActive) === filterActive);
+
+      document.getElementById('courses-count').textContent =
+        list.length === allCourses.length
+          ? `${allCourses.length} SAD totali`
+          : `${list.length} di ${allCourses.length} SAD`;
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty">— Nessun corso corrisponde ai filtri —</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(c => `
+        <tr>
+          <td><strong style="color:var(--gold-1);font-family:var(--font-body);letter-spacing:0.03em;">${escapeHtml(c.code)}</strong></td>
+          <td>${escapeHtml(c.name)}</td>
+          <td>${levelBadges(c.levels)}</td>
+          <td>${c.isActive ? '<span class="badge confirmed">Attivo</span>' : '<span class="badge cancelled">Disabilitato</span>'}</td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm" onclick="editCourse(${c.id})">Modifica</button>
+              <button class="btn btn-ghost btn-sm" onclick="delCourse(${c.id})">Elimina</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('filter-level').addEventListener('change', render);
+    document.getElementById('filter-active').addEventListener('change', render);
+    document.getElementById('new-course').addEventListener('click', () => editCourse(null));
+
+    // Costruisce la sezione livelli con checkbox-chips
+    function buildLevelsPicker(selected) {
+      return `
+        <div class="form-group">
+          <label>Livelli di corso</label>
+          <div class="levels-picker" id="levels-picker">
+            ${ALL_LEVELS.map(l => `
+              <label class="level-chip ${(selected || []).includes(l) ? 'checked' : ''}" data-level="${l}">
+                <input type="checkbox" name="levels" value="${l}" ${(selected || []).includes(l) ? 'checked' : ''}>
+                ${LEVEL_LABELS[l]}
+              </label>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+
+    window.editCourse = async function(id) {
+      let data = id
+        ? (await api(`/courses/${id}`)).course
+        : { code: '', name: '', department: '', levels: ['triennio', 'biennio'], description: '', isActive: true };
+
+      const form = el('form');
+      form.innerHTML = `
+        <div class="form-row">
+          <div class="form-group">
+            <label>Codice SAD *</label>
+            <input type="text" id="c-code" value="${escapeHtml(data.code || '')}" placeholder="Es. AFAM018" required>
+          </div>
+          <div class="form-group">
+            <label>Stato</label>
+            <label class="checkbox-row" style="margin-top:10px;">
+              <input type="checkbox" id="c-active" ${data.isActive !== false ? 'checked' : ''}>
+              <span>Attivo (visibile in registrazione)</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Denominazione *</label>
+          <input type="text" id="c-name" value="${escapeHtml(data.name || '')}" required>
+        </div>
+        ${buildLevelsPicker(data.levels)}
+        <div class="form-group">
+          <label>Dipartimento <span class="text-muted">(opzionale)</span></label>
+          <input type="text" id="c-dept" value="${escapeHtml(data.department || '')}" placeholder="Es. Strumenti ad arco">
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <textarea id="c-desc" rows="2">${escapeHtml(data.description || '')}</textarea>
+        </div>
+      `;
+
+      // Toggle chip checked state
+      form.querySelectorAll('.level-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const cb = chip.querySelector('input');
+          cb.checked = !cb.checked;
+          chip.classList.toggle('checked', cb.checked);
+        });
+      });
+
+      const save = el('button', { class: 'btn btn-primary', type: 'button' }, id ? 'Salva' : 'Crea SAD');
+      const cancel = el('button', { class: 'btn btn-ghost', type: 'button',
+        onclick: () => document.querySelector('.modal-overlay').remove() }, 'Annulla');
+
+      save.addEventListener('click', async () => {
+        const selectedLevels = [...form.querySelectorAll('input[name="levels"]:checked')].map(cb => cb.value);
+        const body = {
+          code: form.querySelector('#c-code').value.trim(),
+          name: form.querySelector('#c-name').value.trim(),
+          department: form.querySelector('#c-dept').value.trim() || null,
+          levels: selectedLevels,
+          description: form.querySelector('#c-desc').value.trim() || null,
+          isActive: form.querySelector('#c-active').checked
+        };
+        if (!body.code || !body.name) { toast('Codice e denominazione sono obbligatori', 'error'); return; }
+        try {
+          if (id) await api(`/courses/${id}`, { method: 'PUT', body });
+          else await api('/courses', { method: 'POST', body });
+          document.querySelector('.modal-overlay').remove();
+          toast(id ? 'SAD aggiornato' : 'SAD creato', 'success');
+          load();
+        } catch (err) { showError(err); }
+      });
+
+      modal({ title: id ? `Modifica · ${data.code}` : 'Nuovo SAD', body: form, footer: [cancel, save] });
+    };
+
+    window.delCourse = function(id) {
+      confirmDialog('Eliminare il SAD? Gli utenti collegati perderanno il riferimento al corso.', async () => {
+        try { await api(`/courses/${id}`, { method: 'DELETE' }); toast('SAD eliminato', 'success'); load(); }
+        catch (err) { showError(err); }
+      });
+    };
+
+    load();
+  </script>
+</body>
+</html>
