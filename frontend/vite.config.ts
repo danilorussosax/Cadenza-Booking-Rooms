@@ -42,10 +42,26 @@ export default defineConfig({
       ],
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
-        // concerto.png è 2.4 MB (locandina default kiosk): alziamo il limite
-        // a 3 MB così entra nel precache. Servirla "just-in-time" via runtime
-        // cache la rende visibile come "salta" al primo display fullscreen.
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // Esclude dal precache i chunk admin/raramente-usati: studenti e
+        // docenti scaricano ~700 KB in meno al primo accesso. Restano
+        // cacheabili runtime via SWR di Vite-PWA — gli admin pagheranno
+        // un round-trip in più solo la prima volta.
+        globIgnores: [
+          '**/Analytics-*.js',
+          '**/IsidataImport-*.js',
+          '**/AuditLog-*.js',
+          '**/Backups-*.js',
+          '**/ServerSettings-*.js',
+          '**/Rules-*.js',
+          '**/MailSettings-*.js',
+          '**/MessagingSettings-*.js',
+          '**/Announcements-*.js',
+          '**/Approvals-*.js',
+          '**/Bookings-*.js',
+        ],
+        // Le immagini sono ora ottimizzate (~200 KB max), non serve più il
+        // limite a 3 MB: 1 MB è abbastanza con margine.
+        maximumFileSizeToCacheInBytes: 1 * 1024 * 1024,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//, // niente fallback HTML su request API
