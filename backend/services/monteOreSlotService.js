@@ -66,8 +66,10 @@ async function regenerateSlotsFromPattern(proposalId, { transaction = null } = {
       const day = week.days.find((d) => d.dayOfWeek === sched.dayOfWeek);
       if (!day) continue; // sched.dayOfWeek non in Lun-Ven
       const isLocked = day.isLocked;
-      // Slot lockati salvati comunque, ma con isActive=false (non possono essere
-      // attivati dal docente) — utili per mostrare "rosso" nella griglia.
+      // Logica "additiva": tutti gli slot nascono INATTIVI. Il docente li
+      // seleziona uno ad uno cliccando sulla griglia, e il totale ore si
+      // somma. Gli slot lockati restano isActive=false comunque (non
+      // possono essere selezionati dal docente).
       await MonteOreSlot.create(
         {
           proposalId,
@@ -76,10 +78,13 @@ async function regenerateSlotsFromPattern(proposalId, { transaction = null } = {
           dayOfWeek: day.dayOfWeek,
           startTime: sched.startTime,
           endTime: sched.endTime,
-          isActive: !isLocked,
+          isActive: false,
           isLocked,
           lockReason: day.lockReason,
-          originalActive: !isLocked,
+          // originalActive verrà settato a snapshot della selezione corrente
+          // al momento dell'approve (vedi snapshotOriginalActive); qui parte
+          // false perché lo slot non è ancora stato scelto.
+          originalActive: false,
         },
         { transaction },
       );

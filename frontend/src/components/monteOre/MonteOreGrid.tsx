@@ -152,7 +152,8 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
             Calendario didattico {settings.lessonsStartDate} → {settings.lessonsEndDate}. Clicca le
-            celle per attivare/disattivare le occorrenze; le celle rosse sono bloccate (festività).
+            celle per <strong>aggiungerle</strong> al tuo monte ore — il totale si somma man mano.
+            Le celle rosse sono festività (non selezionabili).
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -321,8 +322,8 @@ function DayCell({
               locked
                 ? 'cursor-not-allowed bg-destructive/10 text-destructive'
                 : active
-                  ? 'bg-primary/15 text-primary hover:bg-primary/25'
-                  : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 line-through'
+                  ? 'bg-primary/15 text-primary hover:bg-primary/25 ring-1 ring-primary/40'
+                  : 'border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
             }`}
             title={`${s.startTime}–${s.endTime}${locked && s.lockReason ? ` (${s.lockReason})` : ''}`}
           >

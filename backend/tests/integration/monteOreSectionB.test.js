@@ -92,9 +92,9 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .expect(200);
   });
 
-  it('docente: calendar + regenerate-slots + toggle in draft', async () => {
+  it('docente: calendar + regenerate-slots + toggle in draft (logica additiva)', async () => {
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 8 });
+    await setupSettings({ minRequiredHours: 4 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
 
@@ -103,7 +103,6 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .get('/api/monte-ore/me?year=2025/2026')
       .set('Authorization', docHeader);
     expect(me.status).toBe(200);
-    const proposalId = me.body.proposal.id;
 
     // 2) Pattern: lun 10-12 e mer 14-16 (2 giorni → ok 2-4)
     await request(app)
@@ -124,31 +123,37 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     expect(cal.status).toBe(200);
     expect(cal.body.weeks.length).toBeGreaterThanOrEqual(4);
 
-    // 4) Regenerate slots
+    // 4) Regenerate slots — TUTTI nascono INATTIVI
     const regen = await request(app)
       .post('/api/monte-ore/me/regenerate-slots')
       .set('Authorization', docHeader)
       .send({});
     expect(regen.status).toBe(200);
-    // 4 settimane × 2 schedules = 8 slots (tutti unlocked, nov non ha festività)
     expect(regen.body.result.created).toBeGreaterThanOrEqual(7);
 
-    // 5) GET slots
-    const slots = await request(app)
+    // 5) GET slots — verifica default isActive=false
+    const slotsResp = await request(app)
       .get('/api/monte-ore/me/slots?year=2025/2026')
       .set('Authorization', docHeader);
-    expect(slots.body.slots.length).toBeGreaterThanOrEqual(7);
-    const firstSlot = slots.body.slots[0];
+    const slots = slotsResp.body.slots;
+    expect(slots.length).toBeGreaterThanOrEqual(7);
+    expect(slots.every((s) => s.isActive === false)).toBe(true);
 
-    // 6) Toggle in draft → diretto
-    const tog = await request(app)
-      .post(`/api/monte-ore/me/slots/${firstSlot.id}/toggle`)
+    // 6) Toggle 2 slot da inattivi → attivi (4h totali, sopra soglia)
+    const tog1 = await request(app)
+      .post(`/api/monte-ore/me/slots/${slots[0].id}/toggle`)
       .set('Authorization', docHeader)
       .send({});
-    expect(tog.status).toBe(200);
-    expect(tog.body.slot.isActive).toBe(false);
+    expect(tog1.status).toBe(200);
+    expect(tog1.body.slot.isActive).toBe(true);
 
-    // 7) Submit con totale ≥ 8h → ok
+    await request(app)
+      .post(`/api/monte-ore/me/slots/${slots[1].id}/toggle`)
+      .set('Authorization', docHeader)
+      .send({})
+      .expect(200);
+
+    // 7) Submit con 4h ≥ soglia 4h → ok
     const sub = await request(app)
       .post('/api/monte-ore/me/submit')
       .set('Authorization', docHeader)
@@ -195,7 +200,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
 
   it('amendments: toggle_off su slot originalActive=true → auto_approved', async () => {
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 8 });
+    await setupSettings({ minRequiredHours: 4 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
     const { authHeader: adminHeader } = await createAdmin();
@@ -216,6 +221,24 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post('/api/monte-ore/me/regenerate-slots')
       .set('Authorization', docHeader)
       .send({});
+
+    // Logica additiva: attivo 2 slot (4h, sopra soglia)
+    const draftSlots = await MonteOreSlot.findAll({
+      where: { proposalId: id },
+      order: [['date', 'ASC']],
+    });
+    const activatedId = draftSlots[0].id;
+    await request(app)
+      .post(`/api/monte-ore/me/slots/${activatedId}/toggle`)
+      .set('Authorization', docHeader)
+      .send({})
+      .expect(200);
+    await request(app)
+      .post(`/api/monte-ore/me/slots/${draftSlots[1].id}/toggle`)
+      .set('Authorization', docHeader)
+      .send({})
+      .expect(200);
+
     await request(app)
       .post('/api/monte-ore/me/submit')
       .set('Authorization', docHeader)
@@ -227,14 +250,14 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .send({})
       .expect(200);
 
-    // Tutti gli slot sono originalActive=true (snapshottati all'approve)
+    // Snapshot: solo gli slot attivati hanno originalActive=true
     const slotsAfterApprove = await MonteOreSlot.findAll({ where: { proposalId: id } });
-    expect(slotsAfterApprove.every((s) => s.originalActive === true)).toBe(true);
+    const activeAfterApprove = slotsAfterApprove.filter((s) => s.originalActive);
+    expect(activeAfterApprove).toHaveLength(2);
 
-    // Docente toggle_off → auto_approved
-    const slotId = slotsAfterApprove[0].id;
+    // Docente toggle_off su uno slot originalActive=true → auto_approved
     const tog = await request(app)
-      .post(`/api/monte-ore/me/slots/${slotId}/toggle`)
+      .post(`/api/monte-ore/me/slots/${activatedId}/toggle`)
       .set('Authorization', docHeader)
       .send({});
     expect(tog.status).toBe(201);
@@ -244,7 +267,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
 
   it('amendments: toggle_on su slot originalActive=false → pending, admin approva', async () => {
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 8 });
+    await setupSettings({ minRequiredHours: 4 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
     const { authHeader: adminHeader } = await createAdmin();
@@ -266,14 +289,20 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', docHeader)
       .send({});
 
-    // Disattiva uno slot in draft (così originalActive sarà false dopo l'approve)
+    // Logica additiva: attivo slot[1] e slot[2] (4h totali) ma LASCIO slot[0]
+    // inattivo: dopo l'approve, slot[0].originalActive sarà false.
     const draftSlots = await MonteOreSlot.findAll({
       where: { proposalId: id },
       order: [['date', 'ASC']],
     });
     const targetId = draftSlots[0].id;
     await request(app)
-      .post(`/api/monte-ore/me/slots/${targetId}/toggle`)
+      .post(`/api/monte-ore/me/slots/${draftSlots[1].id}/toggle`)
+      .set('Authorization', docHeader)
+      .send({})
+      .expect(200);
+    await request(app)
+      .post(`/api/monte-ore/me/slots/${draftSlots[2].id}/toggle`)
       .set('Authorization', docHeader)
       .send({})
       .expect(200);
@@ -292,7 +321,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     const target = await MonteOreSlot.findByPk(targetId);
     expect(target.originalActive).toBe(false);
 
-    // Docente vuole riattivarlo → toggle_on con originalActive=false → pending
+    // Docente vuole aggiungerlo → toggle_on con originalActive=false → pending
     const tog = await request(app)
       .post(`/api/monte-ore/me/slots/${targetId}/toggle`)
       .set('Authorization', docHeader)
@@ -324,7 +353,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
 
   it('amendments: admin reject', async () => {
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 8 });
+    await setupSettings({ minRequiredHours: 4 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
     const { authHeader: adminHeader } = await createAdmin();
@@ -346,12 +375,22 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', docHeader)
       .send({});
 
-    const draftSlots = await MonteOreSlot.findAll({ where: { proposalId: id } });
+    // Attivo 2 slot per superare la soglia (4h), lasciando target inattivo.
+    const draftSlots = await MonteOreSlot.findAll({
+      where: { proposalId: id },
+      order: [['date', 'ASC']],
+    });
     const targetId = draftSlots[0].id;
     await request(app)
-      .post(`/api/monte-ore/me/slots/${targetId}/toggle`)
+      .post(`/api/monte-ore/me/slots/${draftSlots[1].id}/toggle`)
       .set('Authorization', docHeader)
-      .send({});
+      .send({})
+      .expect(200);
+    await request(app)
+      .post(`/api/monte-ore/me/slots/${draftSlots[2].id}/toggle`)
+      .set('Authorization', docHeader)
+      .send({})
+      .expect(200);
 
     await request(app)
       .post('/api/monte-ore/me/submit')
@@ -364,7 +403,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .send({})
       .expect(200);
 
-    // Pending amendment
+    // Toggle_on su target (originalActive=false) → pending
     const tog = await request(app)
       .post(`/api/monte-ore/me/slots/${targetId}/toggle`)
       .set('Authorization', docHeader)
