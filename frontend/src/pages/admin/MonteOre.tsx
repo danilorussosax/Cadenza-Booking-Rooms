@@ -12,6 +12,9 @@ import {
   XCircle,
   Zap,
   CalendarRange,
+  ListChecks,
+  GitPullRequest,
+  type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -75,17 +78,61 @@ const STATUS_VARIANT: Record<
   generated: 'success',
 };
 
+// Macro tab — stesso pattern di pages/admin/Rules.tsx (card con icona+colore).
+
+type MacroTab = 'proposals' | 'amendments';
+
+interface MacroTabDef {
+  value: MacroTab;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+}
+
+const MACRO_TABS: MacroTabDef[] = [
+  {
+    value: 'proposals',
+    label: 'Proposte',
+    description: 'Lista delle proposte monte ore dei docenti, da approvare e generare.',
+    icon: ListChecks,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    iconBg: 'bg-blue-100 dark:bg-blue-500/15',
+  },
+  {
+    value: 'amendments',
+    label: 'Richieste variazioni',
+    description: 'Modifiche al piano post-approvazione che richiedono il tuo OK.',
+    icon: GitPullRequest,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconBg: 'bg-amber-100 dark:bg-amber-500/15',
+  },
+];
+
 export default function AdminMonteOre() {
   const qc = useQueryClient();
+  const [macroTab, setMacroTab] = useState<MacroTab>('proposals');
   const [statusFilter, setStatusFilter] = useState<MonteOreProposal['status'] | 'all'>('submitted');
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const listQuery = useQuery({
     queryKey: ['admin', 'monte-ore', 'list', statusFilter],
     queryFn: () => monteOreAdminApi.list(statusFilter === 'all' ? {} : { status: statusFilter }),
+    enabled: macroTab === 'proposals',
   });
 
+  // Counter per badge "richieste in attesa" sulla tab
+  const pendingCountQuery = useQuery({
+    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryFn: () => monteOreAdminApi.listAmendments({ status: 'pending' }),
+    refetchInterval: 30_000,
+  });
+  const pendingCount = pendingCountQuery.data?.amendments?.length ?? 0;
+
   const proposals = listQuery.data?.proposals ?? [];
+  const activeTab = MACRO_TABS.find((t) => t.value === macroTab) ?? MACRO_TABS[0];
+  const ActiveIcon = activeTab.icon;
 
   return (
     <div className="space-y-6">
@@ -107,64 +154,121 @@ export default function AdminMonteOre() {
         </Button>
       </header>
 
+      {/* Macro tab strip (stesso stile di Regole prenotazione) */}
+      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
+        {MACRO_TABS.map((tdef) => {
+          const Icon = tdef.icon;
+          const isActive = tdef.value === macroTab;
+          const showBadge = tdef.value === 'amendments' && pendingCount > 0;
+          return (
+            <button
+              key={tdef.value}
+              type="button"
+              onClick={() => setMacroTab(tdef.value)}
+              className={`flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all ${
+                isActive
+                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  : 'text-muted-foreground hover:bg-background/60'
+              }`}
+            >
+              <div className="flex w-full items-center gap-2">
+                <Icon className={`h-4 w-4 ${isActive ? tdef.iconColor : ''}`} />
+                {showBadge && (
+                  <Badge variant="secondary" className="ml-auto">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </div>
+              <span className={`text-sm font-medium ${isActive ? 'text-foreground' : ''}`}>
+                {tdef.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Header descrittivo della tab attiva */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Filtra:</Label>
-          {(['submitted', 'approved', 'generated', 'rejected', 'draft', 'all'] as const).map(
-            (s) => (
-              <Button
-                key={s}
-                variant={statusFilter === s ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter(s)}
-              >
-                {s === 'all' ? 'Tutte' : STATUS_LABEL[s]}
-              </Button>
-            ),
-          )}
-          <span className="ml-auto text-xs text-muted-foreground">{proposals.length} proposte</span>
+        <CardContent className="flex items-start gap-3 p-4">
+          <div className={`mt-0.5 rounded-lg p-2 ${activeTab.iconBg}`}>
+            <ActiveIcon className={`h-4 w-4 ${activeTab.iconColor}`} />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-display text-lg font-medium leading-tight">{activeTab.label}</h2>
+            <p className="text-xs text-muted-foreground">{activeTab.description}</p>
+          </div>
         </CardContent>
       </Card>
 
-      {listQuery.isLoading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : proposals.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Nessuna proposta in questo stato.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3">
-          {proposals.map((p) => (
-            <Card
-              key={p.id}
-              className="cursor-pointer transition hover:shadow-md"
-              onClick={() => setSelectedId(p.id)}
-            >
-              <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
-                <div>
-                  <p className="font-medium">
-                    {p.user ? `${p.user.lastName} ${p.user.firstName}` : `User #${p.userId}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    AA {p.academicYear} · {p.schedules.length} fasce ·{' '}
-                    {p.totalHoursRequested.toFixed(1)} h totali
-                  </p>
-                </div>
-                <Badge variant={STATUS_VARIANT[p.status]}>{STATUS_LABEL[p.status]}</Badge>
-                <p className="text-xs text-muted-foreground">
-                  Inviata:{' '}
-                  {p.submittedAt ? new Date(p.submittedAt).toLocaleDateString('it-IT') : '—'}
-                </p>
-                <Button variant="outline" size="sm">
-                  Apri
-                </Button>
+      {/* Contenuto tab */}
+      {macroTab === 'proposals' && (
+        <>
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Filtra:
+              </Label>
+              {(['submitted', 'approved', 'generated', 'rejected', 'draft', 'all'] as const).map(
+                (s) => (
+                  <Button
+                    key={s}
+                    variant={statusFilter === s ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter(s)}
+                  >
+                    {s === 'all' ? 'Tutte' : STATUS_LABEL[s]}
+                  </Button>
+                ),
+              )}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {proposals.length} proposte
+              </span>
+            </CardContent>
+          </Card>
+
+          {listQuery.isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : proposals.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                Nessuna proposta in questo stato.
               </CardContent>
             </Card>
-          ))}
-        </div>
+          ) : (
+            <div className="grid gap-3">
+              {proposals.map((p) => (
+                <Card
+                  key={p.id}
+                  className="cursor-pointer transition hover:shadow-md"
+                  onClick={() => setSelectedId(p.id)}
+                >
+                  <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+                    <div>
+                      <p className="font-medium">
+                        {p.user ? `${p.user.lastName} ${p.user.firstName}` : `User #${p.userId}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        AA {p.academicYear} · {p.schedules.length} fasce ·{' '}
+                        {p.totalHoursRequested.toFixed(1)} h totali
+                      </p>
+                    </div>
+                    <Badge variant={STATUS_VARIANT[p.status]}>{STATUS_LABEL[p.status]}</Badge>
+                    <p className="text-xs text-muted-foreground">
+                      Inviata:{' '}
+                      {p.submittedAt ? new Date(p.submittedAt).toLocaleDateString('it-IT') : '—'}
+                    </p>
+                    <Button variant="outline" size="sm">
+                      Apri
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {macroTab === 'amendments' && <AmendmentsRequestsTab />}
 
       {/* Detail dialog */}
       {selectedId !== null && (
@@ -177,6 +281,171 @@ export default function AdminMonteOre() {
         />
       )}
     </div>
+  );
+}
+
+// ============================================================
+// Tab "Richieste variazioni" — lista globale degli amendments pending
+// (cross-proposta) con approva/rifiuta inline.
+// ============================================================
+
+const AMENDMENT_KIND_LABEL_LOCAL: Record<MonteOreAmendment['kind'], string> = {
+  toggle_off: 'Disattivazione',
+  toggle_on: 'Riattivazione',
+  change_time: 'Cambio orario',
+  add_new_day: 'Nuovo giorno',
+};
+
+function AmendmentsRequestsTab() {
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
+  const listQuery = useQuery({
+    queryKey: ['admin', 'monte-ore', 'amendments', 'list', statusFilter],
+    queryFn: () =>
+      monteOreAdminApi.listAmendments(statusFilter === 'all' ? {} : { status: statusFilter }),
+  });
+
+  const approve = useMutation({
+    mutationFn: ({ pid, aid }: { pid: number; aid: number }) =>
+      monteOreAdminApi.approveAmendment(pid, aid),
+    onSuccess: () => {
+      toast.success('Variazione approvata');
+      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const reject = useMutation({
+    mutationFn: ({ pid, aid, reason }: { pid: number; aid: number; reason: string }) =>
+      monteOreAdminApi.rejectAmendment(pid, aid, reason),
+    onSuccess: () => {
+      toast.success('Variazione rifiutata');
+      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const items = listQuery.data?.amendments ?? [];
+
+  return (
+    <>
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Filtra:</Label>
+          {(['pending', 'all'] as const).map((s) => (
+            <Button
+              key={s}
+              variant={statusFilter === s ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter(s)}
+            >
+              {s === 'pending' ? 'In attesa' : 'Tutte'}
+            </Button>
+          ))}
+          <span className="ml-auto text-xs text-muted-foreground">{items.length} richieste</span>
+        </CardContent>
+      </Card>
+
+      {listQuery.isLoading ? (
+        <Skeleton className="h-64 w-full" />
+      ) : items.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Nessuna richiesta di variazione{statusFilter === 'pending' ? ' in attesa' : ''}.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Docente</th>
+                    <th className="px-3 py-2">Tipo</th>
+                    <th className="px-3 py-2">Cella</th>
+                    <th className="px-3 py-2">Note</th>
+                    <th className="px-3 py-2">Stato</th>
+                    <th className="px-3 py-2 text-right">Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((a) => (
+                    <tr key={a.id} className="border-b last:border-0 align-top">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">
+                          {a.requester
+                            ? `${a.requester.lastName} ${a.requester.firstName}`
+                            : `User #${a.requesterId}`}
+                        </div>
+                        {a.proposal && (
+                          <div className="text-xs text-muted-foreground">
+                            AA {a.proposal.academicYear}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">{AMENDMENT_KIND_LABEL_LOCAL[a.kind]}</td>
+                      <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
+                        {a.slot ? `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}` : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[260px]">
+                        {a.requestNotes || (
+                          <span className="italic text-muted-foreground/60">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge
+                          variant={
+                            a.status === 'auto_approved' || a.status === 'approved'
+                              ? 'success'
+                              : a.status === 'rejected'
+                                ? 'destructive'
+                                : 'secondary'
+                          }
+                        >
+                          {a.status === 'pending' && 'In attesa'}
+                          {a.status === 'auto_approved' && 'Auto-approvata'}
+                          {a.status === 'approved' && 'Approvata'}
+                          {a.status === 'rejected' && 'Rifiutata'}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {a.status === 'pending' && (
+                          <div className="inline-flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approve.mutate({ pid: a.proposalId, aid: a.id })}
+                              disabled={approve.isPending}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Approva
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                const reason = prompt('Motivo del rifiuto (opzionale):') ?? '';
+                                reject.mutate({ pid: a.proposalId, aid: a.id, reason });
+                              }}
+                              disabled={reject.isPending}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Rifiuta
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
 

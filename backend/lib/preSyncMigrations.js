@@ -540,6 +540,10 @@ async function runPreSyncMigrations() {
   // totalHoursPlanned è float; se non c'è già lo aggiungiamo come nullable
   // (il default verrà settato dall'app a 0 in fase di create/update).
   await ensureNullableFloatColumn('monte_ore_proposals', 'totalHoursPlanned');
+
+  // Monte Ore — link opzionale tra sospensione e BookingRuleException
+  // (per applicare il blocco anche alle prenotazioni regolari).
+  await ensureNullableIntColumn('monte_ore_suspensions', 'bookingRuleExceptionId');
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

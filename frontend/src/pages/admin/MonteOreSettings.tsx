@@ -325,6 +325,7 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
     dateFrom: '',
     dateTo: '',
     kind: 'partial' as SuspensionKind,
+    applyToAllBookings: false,
   });
 
   const createMutation = useMutation({
@@ -376,7 +377,17 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
         <Label>Tipo</Label>
         <Select
           value={form.kind}
-          onValueChange={(v) => setForm((f) => ({ ...f, kind: v as SuspensionKind }))}
+          onValueChange={(v) =>
+            setForm((f) => ({
+              ...f,
+              kind: v as SuspensionKind,
+              // Se passa a full_week il flag perde senso (la settimana
+              // sparisce dalla griglia comunque, e il blocco prenotazioni
+              // andrebbe applicato all'intera settimana — caso raro che
+              // l'admin gestirà a mano).
+              applyToAllBookings: v === 'partial' ? f.applyToAllBookings : false,
+            }))
+          }
         >
           <SelectTrigger>
             <SelectValue />
@@ -387,6 +398,26 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
           </SelectContent>
         </Select>
       </div>
+      {form.kind === 'partial' && (
+        <label className="sm:col-span-5 flex items-start gap-2 rounded-lg border border-dashed bg-background p-3 cursor-pointer hover:bg-muted/30">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4"
+            checked={form.applyToAllBookings}
+            onChange={(e) => setForm((f) => ({ ...f, applyToAllBookings: e.target.checked }))}
+          />
+          <div className="text-sm">
+            <div className="font-medium">
+              Applica anche alle prenotazioni regolari di tutti gli utenti
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Crea automaticamente una eccezione "blocco" nelle Regole di prenotazione (Regole →
+              Eccezioni) per il range di date scelto. Cancellando questa sospensione anche
+              l'eccezione viene rimossa.
+            </div>
+          </div>
+        </label>
+      )}
       <div className="sm:col-span-5 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onClose}>
           Annulla

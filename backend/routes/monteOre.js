@@ -35,6 +35,7 @@ const {
   MonteOreSlot,
   MonteOreAmendment,
   Institute,
+  BookingRuleException,
 } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
 const monteOreService = require('../services/monteOreService');
@@ -608,9 +609,28 @@ adminRouter.post('/suspensions', authenticate, requireRole('admin'), async (req,
     const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
     if (settings) instituteId = settings.instituteId;
     else instituteId = await resolveDefaultInstituteId();
+
+    // Opzionale: se l'admin chiede di propagare il blocco anche alle
+    // prenotazioni regolari (booking_rule_exceptions), creiamo prima
+    // l'exception e poi linkiamo la suspension.
+    let bookingRuleExceptionId = null;
+    if (req.body.applyToAllBookings === true) {
+      const ex = await BookingRuleException.create({
+        role: 'all',
+        name: data.name,
+        kind: 'block',
+        dateFrom: data.dateFrom,
+        dateTo: data.dateTo,
+        isActive: true,
+        notes: `Generata automaticamente dalla sospensione monte ore (${year})`,
+      });
+      bookingRuleExceptionId = ex.id;
+    }
+
     const susp = await MonteOreSuspension.create({
       instituteId,
       academicYear: year,
+      bookingRuleExceptionId,
       ...data,
     });
     res.status(201).json({ suspension: susp.toJSON() });
@@ -644,6 +664,10 @@ adminRouter.delete(
     try {
       const susp = await MonteOreSuspension.findByPk(req.params.id);
       if (!susp) return res.status(404).json({ error: 'Sospensione non trovata' });
+      // Cancella prima l'exception linkata (se presente), poi la suspension.
+      if (susp.bookingRuleExceptionId) {
+        await BookingRuleException.destroy({ where: { id: susp.bookingRuleExceptionId } });
+      }
       await susp.destroy();
       res.json({ message: 'Sospensione eliminata' });
     } catch (err) {

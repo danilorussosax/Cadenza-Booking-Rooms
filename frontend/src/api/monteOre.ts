@@ -322,6 +322,7 @@ export const monteOreAdminApi = {
     dateTo: string;
     kind?: SuspensionKind;
     notes?: string | null;
+    applyToAllBookings?: boolean;
   }) =>
     api<{ suspension: MonteOreSuspension }>('/api/admin/monte-ore/suspensions', {
       method: 'POST',

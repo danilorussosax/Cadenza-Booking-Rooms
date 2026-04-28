@@ -51,6 +51,15 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      // Se valorizzato, la sospensione (di solito kind='partial') è "linkata"
+      // a una BookingRuleException con kind='block' e role='all' creata
+      // automaticamente: il blocco delle festività si applica anche alle
+      // prenotazioni manuali normali, non solo al monte ore.
+      // Cancellare la suspension → cancella anche l'exception (handled in route).
+      bookingRuleExceptionId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
     },
     {
       tableName: 'monte_ore_suspensions',
