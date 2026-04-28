@@ -39,8 +39,13 @@ async function seed() {
   // ==========================================
   // 1. Admin di default
   // ==========================================
+  // Idempotenza: cerchiamo prima per email; se non trovato, fallback su
+  // matricola='ADMIN-001' (matricola UNIQUE) — evita di creare un secondo
+  // admin se l'email è stata cambiata a runtime ma la matricola è la stessa.
   const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@conservatorio.it').toLowerCase();
-  let admin = await User.findOne({ where: { email: adminEmail } });
+  let admin =
+    (await User.findOne({ where: { email: adminEmail } })) ||
+    (await User.findOne({ where: { matricola: 'ADMIN-001' } }));
   if (!admin) {
     admin = await User.create({
       email: adminEmail,
@@ -53,7 +58,7 @@ async function seed() {
     });
     console.log(`  ✓ Admin creato: ${adminEmail}`);
   } else {
-    console.log(`  → Admin già presente: ${adminEmail}`);
+    console.log(`  → Admin già presente: ${admin.email} (matricola ${admin.matricola})`);
   }
 
   // ==========================================
