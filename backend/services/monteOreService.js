@@ -191,9 +191,16 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
             //     prenotare nel passato"). Con `includePast=true` il generator
             //     materializza anche quelle (utile per piani contabili e
             //     storico monte ore già svolto).
+            //   - bypassDuration: il pattern del docente può legittimamente
+            //     contenere blocchi di 6h consecutive (es. lezioni di
+            //     strumento principale), che eccedono il maxBookingDurationMinutes
+            //     della rule "docente" (tipicamente 240 min, pensato per
+            //     prenotazioni manuali). Il coordinatore ha già approvato la
+            //     proposta, quindi le durate sono consentite.
             bypassQuotas: !!actorUser && actorUser.role === 'admin',
             bypassAdvance: !!actorUser && actorUser.role === 'admin',
             bypassPastDates: includePast,
+            bypassDuration: !!actorUser && actorUser.role === 'admin',
             transaction: t,
           });
           if (!validation.valid) {

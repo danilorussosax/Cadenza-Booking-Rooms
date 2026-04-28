@@ -41,6 +41,7 @@ async function validateBooking({
   bypassQuotas = false,
   bypassAdvance = false,
   bypassPastDates = false,
+  bypassDuration = false,
   transaction = null,
 }) {
   const errors = [];
@@ -100,16 +101,23 @@ async function validateBooking({
   }
 
   // ---- Durata prenotazione ----
+  // `bypassDuration` salta i check min/max sulla durata: usato dal generator
+  // monte ore quando l'admin espande un pattern approvato. La rule
+  // maxBookingDurationMinutes è pensata per le prenotazioni manuali (es. uno
+  // studente non deve prenotare 6h consecutive), ma un docente ha
+  // legittimamente lezioni da 6h che il coordinatore ha già approvato.
   const durationMin = end.diff(start, 'minute');
-  if (durationMin < rule.minBookingDurationMinutes) {
-    errors.push(`Durata minima prenotazione: ${rule.minBookingDurationMinutes} minuti`);
-  }
-  if (durationMin > rule.maxBookingDurationMinutes) {
-    errors.push(`Durata massima prenotazione: ${rule.maxBookingDurationMinutes} minuti`);
-  }
-  // Floor specifico per studio individuale (vedi STUDIO_MIN_DURATION_MINUTES).
-  if (type === 'studio_individuale' && durationMin < STUDIO_MIN_DURATION_MINUTES) {
-    errors.push(`Durata minima per lo studio individuale: ${STUDIO_MIN_DURATION_MINUTES} minuti`);
+  if (!bypassDuration) {
+    if (durationMin < rule.minBookingDurationMinutes) {
+      errors.push(`Durata minima prenotazione: ${rule.minBookingDurationMinutes} minuti`);
+    }
+    if (durationMin > rule.maxBookingDurationMinutes) {
+      errors.push(`Durata massima prenotazione: ${rule.maxBookingDurationMinutes} minuti`);
+    }
+    // Floor specifico per studio individuale (vedi STUDIO_MIN_DURATION_MINUTES).
+    if (type === 'studio_individuale' && durationMin < STUDIO_MIN_DURATION_MINUTES) {
+      errors.push(`Durata minima per lo studio individuale: ${STUDIO_MIN_DURATION_MINUTES} minuti`);
+    }
   }
 
   // ---- Anticipo massimo / minimo ----
