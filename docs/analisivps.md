@@ -1,6 +1,6 @@
-# Analisi VPS per Aula Book
+# Analisi VPS per Cadenza
 
-Stima realistica della capacità di carico di Aula Book (backend Node.js +
+Stima realistica della capacità di carico di Cadenza (backend Node.js +
 Postgres co-residenti, frontend React servito come dist statica) su due
 tagli VPS comuni. Le stime sono basate sulla forma reale dell'app:
 
@@ -160,7 +160,7 @@ Stesso pattern di polling (~3–4 req/min per kiosk).
    Throughput API quasi raddoppia.
 
    ```bash
-   pm2 start server.js -i 2 --name aulabook
+   pm2 start server.js -i 2 --name cadenza
    pm2 save && pm2 startup
    ```
 
@@ -249,7 +249,7 @@ Ogni query Node→Postgres aggiunge un round-trip di rete:
 | Region diversa transcontinentale                                                        | 50–150 ms          |
 | Internet pubblico (sconsigliato)                                                        | 10–50 ms variabile |
 
-Per Aula Book contano:
+Per Cadenza contano:
 
 - **Endpoint normali** (1–3 query): impatto trascurabile (~1–3 ms in più).
 - **Endpoint analytics** (10+ query in serie): impatto cumulato 10–30 ms.
@@ -336,7 +336,7 @@ E in `pg_hba.conf` aprire solo l'IP privato dell'app server:
 
 ```conf
 # CIDR della rete privata del provider (es. DO VPC, AWS VPC)
-hostssl  aulabook  aulabook  10.116.0.0/20  scram-sha-256
+hostssl  cadenza  cadenza  10.116.0.0/20  scram-sha-256
 ```
 
 ### 3.6 PgBouncer fortemente raccomandato
@@ -349,7 +349,7 @@ risolve:
 ```ini
 # pgbouncer.ini (sull'app server o su un mini-host laterale)
 [databases]
-aulabook = host=10.116.0.5 port=5432 dbname=aulabook
+cadenza = host=10.116.0.5 port=5432 dbname=cadenza
 
 [pgbouncer]
 listen_addr = 127.0.0.1
@@ -366,7 +366,7 @@ server_reset_query = DISCARD ALL
 Sequelize si connette a `127.0.0.1:6432` invece che al DB diretto:
 
 ```env
-DATABASE_URL=postgres://aulabook:secret@127.0.0.1:6432/aulabook
+DATABASE_URL=postgres://cadenza:secret@127.0.0.1:6432/cadenza
 ```
 
 ```js
@@ -377,7 +377,7 @@ pool: { max: 30, min: 2, acquire: 10000, idle: 5000 }
 ```
 
 **Limiti**: in transaction mode niente prepared statements server-side e
-niente `LISTEN/NOTIFY` o session GUC. Aula Book non li usa, quindi va
+niente `LISTEN/NOTIFY` o session GUC. Cadenza non li usa, quindi va
 bene. Se in futuro userai notify (es. realtime via PG channels), passa
 a session mode con pool più piccolo.
 
@@ -499,7 +499,7 @@ psql -c "SELECT query, calls, total_exec_time, mean_exec_time
          ORDER BY mean_exec_time DESC LIMIT 10;"
 
 # Backend log live (script di restart già usato dal progetto)
-tail -f /tmp/aulabook-backend-$USER.log
+tail -f /tmp/cadenza-backend-$USER.log
 
 # Health check
 curl -s http://localhost:3000/api/health

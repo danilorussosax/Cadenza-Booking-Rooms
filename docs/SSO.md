@@ -1,20 +1,20 @@
 # SSO — Login con Microsoft 365 (Entra ID) e Google Workspace
 
 Questa guida spiega passo-passo come abilitare il login Single Sign-On in
-Aula Book usando i piani **gratuiti** di Microsoft 365 for Education
+Cadenza usando i piani **gratuiti** di Microsoft 365 for Education
 (Entra ID) e di Google Workspace for Education Fundamentals.
 
 > **Tempo richiesto**: ~15 minuti per provider (lato Microsoft / Google)
 >
-> - 2 minuti per incollare i valori in Aula Book.
+> - 2 minuti per incollare i valori in Cadenza.
 >
 > **Prerequisito**: avere un account amministratore del tenant
-> Microsoft 365 / Workspace del proprio istituto, e un admin Aula Book.
+> Microsoft 365 / Workspace del proprio istituto, e un admin Cadenza.
 
 > **Le immagini** referenziate (`./images/sso/...`) sono placeholder: vai
 > nei portali Microsoft/Google e carica gli screenshot reali nelle
 > directory `docs/images/sso/microsoft/`, `docs/images/sso/google/` e
-> `docs/images/sso/aulabook/`. La guida è comunque utilizzabile senza
+> `docs/images/sso/cadenza/`. La guida è comunque utilizzabile senza
 > immagini grazie alle descrizioni testuali "Cosa devi vedere".
 
 ## Indice
@@ -22,7 +22,7 @@ Aula Book usando i piani **gratuiti** di Microsoft 365 for Education
 1. [Sommario rapido](#1-sommario-rapido)
 2. [Microsoft 365 / Entra ID — passo-passo](#2-microsoft-365--entra-id--passo-passo)
 3. [Google Workspace — passo-passo](#3-google-workspace--passo-passo)
-4. [Configurazione in Aula Book](#4-configurazione-in-aula-book)
+4. [Configurazione in Cadenza](#4-configurazione-in-cadenza)
 5. [Test del login](#5-test-del-login)
 6. [Troubleshooting](#6-troubleshooting)
 7. [FAQ](#7-faq)
@@ -34,7 +34,7 @@ Aula Book usando i piani **gratuiti** di Microsoft 365 for Education
 Il flusso end-to-end per ciascun provider è sempre lo stesso:
 
 ```
-Admin del cliente               Admin Aula Book
+Admin del cliente               Admin Cadenza
 ─────────────────               ─────────────────
 1. Apre portale Azure
    o Google Cloud Console
@@ -42,9 +42,9 @@ Admin del cliente               Admin Aula Book
    "OAuth app" / "App
    registration"
 3. Imposta il "Redirect URI"
-   verso Aula Book
+   verso Cadenza
 4. Genera Client ID + Secret
-5. Comunica i due valori   →   6. Apre Aula Book →
+5. Comunica i due valori   →   6. Apre Cadenza →
                                   Admin → Utenti
                                7. Incolla nelle card
                                   Google / Microsoft
@@ -56,16 +56,16 @@ Admin del cliente               Admin Aula Book
 L'utente finale (docente/studente) vedrà nella pagina di login **due
 nuovi pulsanti** "Continua con Google" e "Continua con Microsoft".
 
-### URL di redirect (Aula Book)
+### URL di redirect (Cadenza)
 
-Aula Book riceve il callback OAuth su due URL fissi del backend.
-Sostituisci `aulabook.tuo-dominio.it` con il dominio reale (in dev:
+Cadenza riceve il callback OAuth su due URL fissi del backend.
+Sostituisci `cadenza.tuo-dominio.it` con il dominio reale (in dev:
 `http://localhost:3000`).
 
-| Provider      | Redirect URI da inserire nel portale                          |
-| ------------- | ------------------------------------------------------------- |
-| **Google**    | `https://aulabook.tuo-dominio.it/api/auth/google/callback`    |
-| **Microsoft** | `https://aulabook.tuo-dominio.it/api/auth/microsoft/callback` |
+| Provider      | Redirect URI da inserire nel portale                         |
+| ------------- | ------------------------------------------------------------ |
+| **Google**    | `https://cadenza.tuo-dominio.it/api/auth/google/callback`    |
+| **Microsoft** | `https://cadenza.tuo-dominio.it/api/auth/microsoft/callback` |
 
 > **Importante**: l'URL deve essere **esatto**, schema (https/http) e
 > path inclusi. Se in sviluppo locale usi `http://localhost:3000` va bene
@@ -102,10 +102,10 @@ Sostituisci `aulabook.tuo-dominio.it` con il dominio reale (in dev:
 
    | Campo                       | Valore                                                           |
    | --------------------------- | ---------------------------------------------------------------- |
-   | **Name**                    | `Aula Book`                                                      |
+   | **Name**                    | `Cadenza`                                                        |
    | **Supported account types** | `Accounts in this organizational directory only (Single tenant)` |
    | **Redirect URI** → tipo     | `Web`                                                            |
-   | **Redirect URI** → URL      | `https://aulabook.tuo-dominio.it/api/auth/microsoft/callback`    |
+   | **Redirect URI** → URL      | `https://cadenza.tuo-dominio.it/api/auth/microsoft/callback`     |
 
    ![Form New registration](./images/sso/microsoft/02-register-form.png)
 
@@ -118,14 +118,14 @@ Sostituisci `aulabook.tuo-dominio.it` con il dominio reale (in dev:
 
 ### 2.2 Recupera Client ID e Tenant ID
 
-Nella pagina **Overview** dell'app trovi due GUID che servono ad Aula Book:
+Nella pagina **Overview** dell'app trovi due GUID che servono ad Cadenza:
 
 ![Overview con i GUID evidenziati](./images/sso/microsoft/03-overview.png)
 
-| Campo nel portale           | Lo userai come…          |
-| --------------------------- | ------------------------ |
-| **Application (client) ID** | `Client ID` in Aula Book |
-| **Directory (tenant) ID**   | `Tenant` in Aula Book    |
+| Campo nel portale           | Lo userai come…        |
+| --------------------------- | ---------------------- |
+| **Application (client) ID** | `Client ID` in Cadenza |
+| **Directory (tenant) ID**   | `Tenant` in Cadenza    |
 
 > Copia entrambi in un blocco note temporaneo. Il Client ID è
 > lungo ~36 caratteri tipo `1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6`.
@@ -141,14 +141,14 @@ Nella pagina **Overview** dell'app trovi due GUID che servono ad Aula Book:
 
    | Campo           | Valore consigliato           |
    | --------------- | ---------------------------- |
-   | **Description** | `Aula Book backend`          |
+   | **Description** | `Cadenza backend`            |
    | **Expires**     | `24 months` (max consentito) |
 
 3. Click **Add**. Microsoft mostra il secret in una riga della tabella.
 
    ⚠️ **CRITICO**: il valore visibile nella colonna **Value** è
    mostrato **una sola volta**. Copialo subito, lo userai come
-   `Client Secret` in Aula Book. Se chiudi la pagina senza copiarlo
+   `Client Secret` in Cadenza. Se chiudi la pagina senza copiarlo
    dovrai cancellarlo e ricrearlo.
 
    ![Secret value](./images/sso/microsoft/05-secret-value.png)
@@ -175,7 +175,7 @@ Directory (tenant) ID    →  copia in [Microsoft OAuth → Tenant]
 Client secret VALUE      →  copia in [Microsoft OAuth → Client Secret]
 ```
 
-Vai a [Configurazione in Aula Book](#4-configurazione-in-aula-book).
+Vai a [Configurazione in Cadenza](#4-configurazione-in-cadenza).
 
 ---
 
@@ -208,7 +208,7 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 
    | Campo            | Valore                                 |
    | ---------------- | -------------------------------------- |
-   | **Project name** | `Aula Book`                            |
+   | **Project name** | `Cadenza`                              |
    | **Organization** | il tuo dominio (es. `cons-xxx.edu.it`) |
    | **Location**     | la stessa organization                 |
 
@@ -234,10 +234,10 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 
    | Campo                       | Valore                                           |
    | --------------------------- | ------------------------------------------------ |
-   | **App name**                | `Aula Book`                                      |
+   | **App name**                | `Cadenza`                                        |
    | **User support email**      | la tua email admin                               |
    | **App logo**                | (opzionale) carica il logo del conservatorio     |
-   | **Application home page**   | `https://aulabook.tuo-dominio.it`                |
+   | **Application home page**   | `https://cadenza.tuo-dominio.it`                 |
    | **Authorized domains**      | `tuo-dominio.it` (premi Enter dopo aver scritto) |
    | **Developer contact email** | la tua email admin                               |
 
@@ -254,12 +254,12 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 
 2. Form:
 
-   | Campo                             | Valore                                                     |
-   | --------------------------------- | ---------------------------------------------------------- |
-   | **Application type**              | `Web application`                                          |
-   | **Name**                          | `Aula Book backend`                                        |
-   | **Authorized JavaScript origins** | `https://aulabook.tuo-dominio.it`                          |
-   | **Authorized redirect URIs**      | `https://aulabook.tuo-dominio.it/api/auth/google/callback` |
+   | Campo                             | Valore                                                    |
+   | --------------------------------- | --------------------------------------------------------- |
+   | **Application type**              | `Web application`                                         |
+   | **Name**                          | `Cadenza backend`                                         |
+   | **Authorized JavaScript origins** | `https://cadenza.tuo-dominio.it`                          |
+   | **Authorized redirect URIs**      | `https://cadenza.tuo-dominio.it/api/auth/google/callback` |
 
    ![OAuth client form](./images/sso/google/05-oauth-client-form.png)
 
@@ -267,10 +267,10 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 
    ![Client created modal](./images/sso/google/06-client-created.png)
 
-   | Campo nel popup   | Lo userai come…              |
-   | ----------------- | ---------------------------- |
-   | **Client ID**     | `Client ID` in Aula Book     |
-   | **Client secret** | `Client Secret` in Aula Book |
+   | Campo nel popup   | Lo userai come…            |
+   | ----------------- | -------------------------- |
+   | **Client ID**     | `Client ID` in Cadenza     |
+   | **Client secret** | `Client Secret` in Cadenza |
 
    > Il **Client ID** termina sempre con `.apps.googleusercontent.com`.
    > Puoi rivedere il **Client secret** in qualsiasi momento entrando
@@ -285,18 +285,18 @@ Client ID      →  copia in [Google OAuth → Client ID]
 Client secret  →  copia in [Google OAuth → Client Secret]
 ```
 
-Vai a [Configurazione in Aula Book](#4-configurazione-in-aula-book).
+Vai a [Configurazione in Cadenza](#4-configurazione-in-cadenza).
 
 ---
 
-## 4. Configurazione in Aula Book
+## 4. Configurazione in Cadenza
 
-1. Accedi ad Aula Book con un utente **admin**.
+1. Accedi ad Cadenza con un utente **admin**.
 
 2. Vai su **Admin → Utenti**. Scorri la pagina fino in fondo: vedi tre
    card **Google OAuth · Microsoft OAuth · Isidata** affiancate.
 
-   ![Card OAuth in Admin → Utenti](./images/sso/aulabook/01-oauth-cards.png)
+   ![Card OAuth in Admin → Utenti](./images/sso/cadenza/01-oauth-cards.png)
 
 ### 4.1 Card "Google OAuth"
 
@@ -307,11 +307,11 @@ Compila:
 | Toggle in alto a destra (header card) | **abilita**                                                        |
 | **Client ID**                         | il Client ID di Google (`...apps.googleusercontent.com`)           |
 | **Client Secret**                     | il Client Secret di Google (clicca occhio per mostrare/nascondere) |
-| **Callback URL**                      | `https://aulabook.tuo-dominio.it/api/auth/google/callback`         |
+| **Callback URL**                      | `https://cadenza.tuo-dominio.it/api/auth/google/callback`          |
 
 Click **Salva**.
 
-![Form Google OAuth in Aula Book](./images/sso/aulabook/02-google-form.png)
+![Form Google OAuth in Cadenza](./images/sso/cadenza/02-google-form.png)
 
 ### 4.2 Card "Microsoft OAuth"
 
@@ -322,16 +322,16 @@ Compila:
 | Toggle in alto a destra | **abilita**                                                                                                         |
 | **Client ID**           | l'Application (client) ID di Microsoft                                                                              |
 | **Client Secret**       | il **Value** del client secret di Microsoft (NON l'ID)                                                              |
-| **Callback URL**        | `https://aulabook.tuo-dominio.it/api/auth/microsoft/callback`                                                       |
+| **Callback URL**        | `https://cadenza.tuo-dominio.it/api/auth/microsoft/callback`                                                        |
 | **Tenant**              | il Directory (tenant) ID di Microsoft (oppure `common` per accettare qualunque tenant — sconsigliato in produzione) |
 
 Click **Salva**.
 
-![Form Microsoft OAuth in Aula Book](./images/sso/aulabook/03-microsoft-form.png)
+![Form Microsoft OAuth in Cadenza](./images/sso/cadenza/03-microsoft-form.png)
 
 ### 4.3 Riavvio backend (importante)
 
-Aula Book carica le strategie OAuth allo **startup**. Dopo il primo
+Cadenza carica le strategie OAuth allo **startup**. Dopo il primo
 salvataggio (o ogni volta che cambi i valori) **riavvia il backend**:
 
 ```bash
@@ -345,7 +345,7 @@ npm run restart:bg
 In alternativa, se gestisci il backend con `pm2`:
 
 ```bash
-pm2 restart aulabook
+pm2 restart cadenza
 ```
 
 Nella pagina di settings vedrai un banner ambra:
@@ -358,7 +358,7 @@ dopo il riavvio il banner sparisce alla prossima ricarica.
 
 ## 5. Test del login
 
-1. Vai alla pagina **Login** di Aula Book in **incognito** (per evitare
+1. Vai alla pagina **Login** di Cadenza in **incognito** (per evitare
    sessione cached).
 
 2. Vedi due nuovi pulsanti sotto al form email/password:
@@ -368,26 +368,26 @@ dopo il riavvio il banner sparisce alla prossima ricarica.
    | **Continua con Google**    | parte il flusso OAuth Google    |
    | **Continua con Microsoft** | parte il flusso OAuth Microsoft |
 
-   ![Pagina login con SSO](./images/sso/aulabook/04-login-page.png)
+   ![Pagina login con SSO](./images/sso/cadenza/04-login-page.png)
 
 3. Click su uno dei due → vieni redirezionato al provider →
    autenticazione → consent (solo la prima volta) → ritorni in Aula
    Book autenticato.
 
 4. **Primo login di un nuovo utente**: il profilo nasce in stato
-   `pending` con il dominio email del provider. Un admin Aula Book deve
+   `pending` con il dominio email del provider. Un admin Cadenza deve
    approvarlo (o assegnarlo a un corso/matricola se è uno studente)
    prima che possa prenotare.
 
 ### Cosa controllare se non funziona
 
-| Sintomo                                                            | Diagnosi                                                                                               |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Click su "Continua con X" → 503 / pagina di errore                 | backend non riavviato dopo il salvataggio                                                              |
-| Pagina provider mostra **AADSTS50011** "redirect URI mismatch"     | il Redirect URI in Entra ≠ Callback URL in Aula Book (controlla schema https vs http e ogni carattere) |
-| Pagina Google mostra **error 400 redirect_uri_mismatch**           | come sopra ma su Google Cloud Console                                                                  |
-| Login OK ma utente in stato pending: non riesce a prenotare        | normale: un admin Aula Book deve approvarlo (Admin → Approvazioni)                                     |
-| Login Microsoft con `tenant=common` accetta utenti di altri tenant | metti il **Directory (tenant) ID** specifico, non `common`                                             |
+| Sintomo                                                            | Diagnosi                                                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Click su "Continua con X" → 503 / pagina di errore                 | backend non riavviato dopo il salvataggio                                                            |
+| Pagina provider mostra **AADSTS50011** "redirect URI mismatch"     | il Redirect URI in Entra ≠ Callback URL in Cadenza (controlla schema https vs http e ogni carattere) |
+| Pagina Google mostra **error 400 redirect_uri_mismatch**           | come sopra ma su Google Cloud Console                                                                |
+| Login OK ma utente in stato pending: non riesce a prenotare        | normale: un admin Cadenza deve approvarlo (Admin → Approvazioni)                                     |
+| Login Microsoft con `tenant=common` accetta utenti di altri tenant | metti il **Directory (tenant) ID** specifico, non `common`                                           |
 
 Vedi anche [Troubleshooting](#6-troubleshooting).
 
@@ -398,11 +398,11 @@ Vedi anche [Troubleshooting](#6-troubleshooting).
 ### 6.1 "AADSTS50011: The redirect URI specified... does not match"
 
 Il **Redirect URI** registrato in Entra ID è diverso da quello
-configurato in Aula Book. Apri di nuovo l'app in Entra → **Authentication**
+configurato in Cadenza. Apri di nuovo l'app in Entra → **Authentication**
 → verifica che ci sia esattamente:
 
 ```
-https://aulabook.tuo-dominio.it/api/auth/microsoft/callback
+https://cadenza.tuo-dominio.it/api/auth/microsoft/callback
 ```
 
 Anche un singolo `/` finale di troppo o `http` invece di `https` rompe
@@ -415,7 +415,7 @@ clicca sul tuo OAuth client, verifica che **Authorized redirect URIs**
 contenga **esattamente**:
 
 ```
-https://aulabook.tuo-dominio.it/api/auth/google/callback
+https://cadenza.tuo-dominio.it/api/auth/google/callback
 ```
 
 ### 6.3 "OAUTH_NOT_CONFIGURED" / 503 dopo il click
@@ -438,8 +438,8 @@ Rimuovi gli scope extra o concedi consent.
 
 L'utente ha cliccato su un account personale invece dell'account
 istituzionale. Per **forzare** solo account del dominio del Workspace,
-in Aula Book non c'è ancora un parametro `hostedDomain` configurabile
-(roadmap Liv A miglioramenti SSO). Workaround temporaneo: in Aula Book
+in Cadenza non c'è ancora un parametro `hostedDomain` configurabile
+(roadmap Liv A miglioramenti SSO). Workaround temporaneo: in Cadenza
 **Admin → Approvazioni** rifiuti gli account `@gmail.com`.
 
 ### 6.6 Microsoft accetta account guest da altri tenant
@@ -455,7 +455,7 @@ i login iniziano a fallire con `AADSTS7000222 invalid_client`. Soluzione:
 
 1. Entra in Azure → app → **Certificates & secrets** → **+ New client
    secret** → copia il valore.
-2. Aula Book → Admin → Utenti → Microsoft OAuth → incolla il nuovo
+2. Cadenza → Admin → Utenti → Microsoft OAuth → incolla il nuovo
    secret → Salva → `npm run restart:bg`.
 
 Stesso flusso vale per Google ma i secret Google **non scadono** —
@@ -480,7 +480,7 @@ login (Conditional Access, MFA enforcement IdP-side, custom branding).
 
 ### 7.2 Posso abilitare solo uno dei due provider?
 
-Sì. Le due card in Aula Book sono indipendenti: lascia l'altra
+Sì. Le due card in Cadenza sono indipendenti: lascia l'altra
 disabilitata (toggle off, campi vuoti) e funziona comunque.
 
 ### 7.3 Cosa succede agli utenti che si erano già registrati con
@@ -488,7 +488,7 @@ disabilitata (toggle off, campi vuoti) e funziona comunque.
 email/password?
 
 Nulla: il login email/password resta attivo. Se un utente si registra
-poi con SSO usando la **stessa email**, Aula Book riconosce l'account
+poi con SSO usando la **stessa email**, Cadenza riconosce l'account
 esistente e lo collega al provider (no duplicati).
 
 ### 7.4 Posso forzare tutti gli utenti a usare SSO disabilitando le
@@ -521,23 +521,23 @@ per prod) per non mischiare i secret.
 ### 7.7 Quanti utenti posso autenticare contemporaneamente?
 
 I piani gratuiti EDU non hanno limiti pratici per il login (Microsoft:
-50 000 utenti per tenant; Google: illimitato per dominio). Aula Book a
+50 000 utenti per tenant; Google: illimitato per dominio). Cadenza a
 sua volta gestisce centinaia di login simultanei senza problemi anche su
 VPS minimale (vedi `analisivps.md`).
 
 ### 7.8 Sicurezza: come è cifrato il Client Secret?
 
-Aula Book cifra `googleClientSecret` e `microsoftClientSecret` at-rest
+Cadenza cifra `googleClientSecret` e `microsoftClientSecret` at-rest
 con AES-256-GCM (vedi `backend/lib/crypto.js`). La chiave deriva dal
 `JWT_SECRET` configurato in `.env`. Non sono mai esposti in response
 JSON dell'API admin (ricezione solo di un placeholder `••••••`).
 
 ### 7.9 Posso revocare i token JWT degli utenti SSO se l'IdP disabilita un account?
 
-Non automaticamente (Aula Book non riceve back-channel logout). Ma puoi:
+Non automaticamente (Cadenza non riceve back-channel logout). Ma puoi:
 
 1. Disattivare l'utente in Admin → Utenti (toggle "Attivo" off): al
-   prossimo refresh del token Aula Book lo blocca.
+   prossimo refresh del token Cadenza lo blocca.
 2. Forzare logout globale incrementando il `tokenVersion` dell'utente
    (DB query manuale o feature admin "Forza logout").
 
@@ -565,7 +565,7 @@ Prima di passare il login SSO in produzione:
 
 ## Appendice B — Variabili d'ambiente vs configurazione DB
 
-Aula Book supporta due modi di configurare OAuth:
+Cadenza supporta due modi di configurare OAuth:
 
 1. **DB (consigliato)**: i valori vivono in tabella `oauth_settings`,
    editabili da Admin → Utenti, cifrati at-rest. Perfetto per ambienti

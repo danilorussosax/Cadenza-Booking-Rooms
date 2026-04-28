@@ -8,7 +8,7 @@
 //   2. Scegli un secret HMAC random (es. crypto.randomBytes(32).toString('hex'))
 //   3. Salva botToken + webhookSecret in MessagingSettings via UI admin
 //   4. Registra il webhook:
-//      curl -F "url=https://aulabook.example.it/api/messaging/telegram/webhook" \
+//      curl -F "url=https://cadenza.example.it/api/messaging/telegram/webhook" \
 //           -F "secret_token=<webhookSecret>" \
 //           https://api.telegram.org/bot<botToken>/setWebhook
 //

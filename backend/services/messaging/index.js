@@ -119,8 +119,8 @@ async function handleIncoming(incoming, config) {
         knownUser = await findUserByPhone(externalId);
       }
       const reply = knownUser
-        ? `Ciao ${knownUser.firstName}, prima di poter prenotare devi collegare il bot al tuo account.\n\n👉 Vai su Aula Book → Profilo → Bot messaging, clicca "Genera codice" e inviamelo qui scrivendo:\n   bind XXXXXX`
-        : `Numero non riconosciuto. Per usare questo bot devi avere un account su Aula Book con il tuo numero registrato. Contatta la segreteria per assistenza.\n\nSe sei già registrato: Aula Book → Profilo → Bot messaging → Genera codice → invialo qui (bind XXXXXX).`;
+        ? `Ciao ${knownUser.firstName}, prima di poter prenotare devi collegare il bot al tuo account.\n\n👉 Vai su Cadenza → Profilo → Bot messaging, clicca "Genera codice" e inviamelo qui scrivendo:\n   bind XXXXXX`
+        : `Numero non riconosciuto. Per usare questo bot devi avere un account su Cadenza con il tuo numero registrato. Contatta la segreteria per assistenza.\n\nSe sei già registrato: Cadenza → Profilo → Bot messaging → Genera codice → invialo qui (bind XXXXXX).`;
       auditChatMessage({
         direction: 'out',
         channel,
@@ -133,7 +133,7 @@ async function handleIncoming(incoming, config) {
     // Cerca challenge in tutti gli utenti (verifica hash). Se match → bind.
     const result = await consumeBindingOtp(otp);
     if (!result.ok) {
-      const reply = `Codice non valido o scaduto. Genera un nuovo codice da Aula Book → Profilo → Bot messaging.`;
+      const reply = `Codice non valido o scaduto. Genera un nuovo codice da Cadenza → Profilo → Bot messaging.`;
       auditChatMessage({
         direction: 'out',
         channel,

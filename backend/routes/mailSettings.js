@@ -109,7 +109,7 @@ router.post(
     const to = req.body?.to || req.user.email;
     const result = await sendTestEmail({
       to,
-      subject: 'Test invio · Aula Book',
+      subject: 'Test invio · Cadenza',
       message: req.body?.message,
     });
     // Risposta sempre 200: il test viene eseguito; ok=true/false indica l'esito

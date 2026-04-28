@@ -1,4 +1,4 @@
-# Vincoli a livello DB — rete di sicurezza per Aula Book
+# Vincoli a livello DB — rete di sicurezza per Cadenza
 
 Questo documento descrive i vincoli (constraint) applicati direttamente al database, perché esistono e cosa fare quando uno di loro scatta.
 
@@ -109,7 +109,7 @@ Su alcuni provider managed (es. Supabase free, alcuni RDS) non hai i permessi pe
 
 ### C) Permessi insufficienti
 
-L'utente DB con cui Aula Book si connette deve essere **owner della tabella `bookings`** per poter aggiungere constraint. Se hai usato `CREATE DATABASE aulabook OWNER aulabook` come da `install.sh`/`install.md`, sei già a posto.
+L'utente DB con cui Cadenza si connette deve essere **owner della tabella `bookings`** per poter aggiungere constraint. Se hai usato `CREATE DATABASE cadenza OWNER cadenza` come da `install.sh`/`install.md`, sei già a posto.
 
 ---
 
@@ -141,7 +141,7 @@ I test sono **skippati** quando `DB_DIALECT !== 'postgres'` (la suite di default
 ```bash
 DB_DIALECT=postgres \
 DB_HOST=localhost DB_PORT=5432 \
-DB_NAME=aulabook_test DB_USER=aulabook DB_PASSWORD=... \
+DB_NAME=cadenza_test DB_USER=cadenza DB_PASSWORD=... \
 DB_SSL=false \
 npx vitest run tests/integration/excludeConstraint.test.js
 ```

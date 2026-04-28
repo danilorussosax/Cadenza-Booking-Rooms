@@ -29,7 +29,7 @@ const router = express.Router();
 // Il file resta su disco tra preview e apply (TTL 10 minuti) così l'apply
 // può ricomputare il diff sullo stesso payload e validare l'hash anti-TOCTOU.
 // =====================================================
-const TMP_DIR = path.join(os.tmpdir(), 'aulabook-imports');
+const TMP_DIR = path.join(os.tmpdir(), 'cadenza-imports');
 const TMP_TTL_MS = 10 * 60 * 1000; // 10 minuti
 
 function ensureTmpDir() {

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Dashboard analytics admin per Aula Book.
+ * Dashboard analytics admin per Cadenza.
  *
  * Endpoints (tutti `requireRole('admin')`):
  *   GET  /api/admin/analytics?dateFrom&dateTo
@@ -449,7 +449,7 @@ function drawHeader(doc, range) {
     .font('Helvetica')
     .fontSize(10)
     .fillColor(PDF.textMuted)
-    .text('Aula Book — report analytics', x, y + 28);
+    .text('Cadenza — report analytics', x, y + 28);
 
   // Pill range (in alto a destra). Usiamo l'en-dash `–` invece di `→` perché
   // il font Helvetica standard di pdfkit non ha il glifo arrow Unicode (U+2192)
@@ -823,7 +823,7 @@ function drawFooter(doc) {
     .fontSize(7)
     .fillColor(PDF.textSubtle)
     .text(
-      'Documento generato automaticamente da Aula Book — uso interno.',
+      'Documento generato automaticamente da Cadenza — uso interno.',
       margin,
       height - margin - 14,
       {

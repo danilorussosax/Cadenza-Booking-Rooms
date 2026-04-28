@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Aula Book",
+    "name": "Cadenza",
     "subtitle": "Room Booking",
     "institute_default": "Conservatory"
   },
@@ -128,7 +128,7 @@
       "title": "Welcome back",
       "subtitle": "Sign in with email and password.",
       "title_choices": "Sign in required",
-      "subtitle_choices": "You must sign in to use Aula Book. If you don't have an account yet, you can request one.",
+      "subtitle_choices": "You must sign in to use Cadenza. If you don't have an account yet, you can request one.",
       "submit": "Sign in",
       "use_email": "Sign in with email",
       "register": "Sign up",
@@ -763,7 +763,7 @@
         "help": "Free conversational bot. Quick setup via @BotFather.",
         "bot_token": "Bot token (BotFather)",
         "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Generate a random secret: openssl rand -hex 32\n3) Save token + secret here, then enable the toggle.\n4) Register the webhook (replace TOKEN/SECRET):\n   curl -F \"url=https://aulabook.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Generate a random secret: openssl rand -hex 32\n3) Save token + secret here, then enable the toggle.\n4) Register the webhook (replace TOKEN/SECRET):\n   curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
       },
       "whatsapp": {
         "help": "WhatsApp Business Cloud API (Meta direct). Requires verified Meta Business account.",
@@ -771,14 +771,14 @@
         "phone_id": "Phone Number ID",
         "verify_token": "Verify token (handshake)",
         "app_secret": "App secret (HMAC SHA256)",
-        "setup_guide": "1) Create a Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copy: Phone Number ID, System User access token (long-lived), App Secret.\n3) Pick a random Verify Token and save it here.\n4) Set callback URL: https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook\n   with the same Verify Token and subscribe to 'messages' events."
+        "setup_guide": "1) Create a Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copy: Phone Number ID, System User access token (long-lived), App Secret.\n3) Pick a random Verify Token and save it here.\n4) Set callback URL: https://cadenza.example.it/api/messaging/whatsapp_cloud/webhook\n   with the same Verify Token and subscribe to 'messages' events."
       },
       "signal": {
         "help": "Signal via signal-cli (community). Requires a host running signal-cli and a dedicated registered number.",
         "phone_number": "Registered number (E.164)",
         "daemon_url": "signal-cli daemon URL",
         "webhook_secret": "Webhook secret (X-Signal-Webhook-Secret)",
-        "setup_guide": "1) Install signal-cli (https://github.com/AsamK/signal-cli) on a reachable host.\n2) Register a dedicated number and run:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configure a forwarder to relay incoming messages to the Aula Book webhook with header X-Signal-Webhook-Secret."
+        "setup_guide": "1) Install signal-cli (https://github.com/AsamK/signal-cli) on a reachable host.\n2) Register a dedicated number and run:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configure a forwarder to relay incoming messages to the Cadenza webhook with header X-Signal-Webhook-Secret."
       },
       "email": {
         "help": "Always-on fallback via dedicated mailbox. Stub: IMAP poller will land in a future sprint.",
@@ -1777,7 +1777,7 @@
   },
   "pwa": {
     "install": {
-      "title": "Install Aula Book",
+      "title": "Install Cadenza",
       "subtitle": "Add the app to your home screen for instant launch and offline fallback.",
       "subtitle_ios": "Open Safari's Share menu and tap \"Add to Home Screen\".",
       "cta": "Install",
@@ -1792,7 +1792,7 @@
   "integrations": {
     "isidata": {
       "title": "User import from Isidata",
-      "subtitle": "Upload an Isidata XLSX/CSV export: Aula Book compares the data and shows what will change before you apply.",
+      "subtitle": "Upload an Isidata XLSX/CSV export: Cadenza compares the data and shows what will change before you apply.",
       "step1_title": "1. Upload file",
       "step2_title": "2. Review changes",
       "dropzone_label": "Drop your Isidata XLSX file here, or click to choose",

@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Aula Book — restore script.
+ * Cadenza — restore script.
  *
  * Ripristina un archivio backup-YYYY-MM-DD-HHmm.tar.gz creato da backup.js.
  * Usage:
@@ -75,7 +75,7 @@ async function main() {
 
   console.log(`[restore] archivio: ${archivePath}`);
   console.log('[restore] estrazione in cartella temporanea…');
-  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aulabook-rst-'));
+  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-rst-'));
   await spawnPromise('tar', ['-xzf', archivePath, '-C', stagingDir]);
 
   // Lettura manifest

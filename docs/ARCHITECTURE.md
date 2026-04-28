@@ -1,4 +1,4 @@
-# Aula Book · Architettura del progetto / Project Architecture
+# Cadenza · Architettura del progetto / Project Architecture
 
 > Sistema di prenotazione aule per Conservatori di Musica.
 > Room booking system for Music Conservatories.
@@ -11,7 +11,7 @@
 
 ## 1. Panoramica
 
-**Aula Book** è un'applicazione web full-stack per la gestione delle prenotazioni delle aule di un Conservatorio di Musica. Permette a studenti, docenti e amministratori di prenotare studi, sale prove, sale concerti e aule didattiche, con regole differenziate per ruolo e una vista pubblica "kiosk" per i monitor in struttura.
+**Cadenza** è un'applicazione web full-stack per la gestione delle prenotazioni delle aule di un Conservatorio di Musica. Permette a studenti, docenti e amministratori di prenotare studi, sale prove, sale concerti e aule didattiche, con regole differenziate per ruolo e una vista pubblica "kiosk" per i monitor in struttura.
 
 L'applicazione è organizzata come **monorepo** con due moduli:
 
@@ -179,7 +179,7 @@ Route admin (RequireAdmin):
 
 ## 6-bis. Check-in & ghost-booking prevention
 
-Per ridurre le prenotazioni "fantasma" (aule prenotate e mai utilizzate) Aula Book implementa un sistema di check-in QR:
+Per ridurre le prenotazioni "fantasma" (aule prenotate e mai utilizzate) Cadenza implementa un sistema di check-in QR:
 
 - **Modello `Booking`** ha 3 campi dedicati:
   - `checkInToken` — UUID generato in `beforeCreate` (riservato a usi futuri come check-in passwordless)
@@ -405,7 +405,7 @@ L'app è multi-tenant-ready a livello logico: tutti i dati specifici dell'istitu
 
 - **Tipografia**: Inter unico, distinzione solo via peso (`font-normal` 400 · `font-medium` 500 · `font-semibold` 600 · `font-display` 700 con tracking ridotto)
 - **Colore brand istituto**: `rgb(55 98 170)` per nome dell'istituto in topbar e login
-- **Brand app**: "Aula Book" a due toni (Aula soft / Book primary semibold) + icona `icona.png`
+- **Brand app**: "Cadenza" a due toni (Aula soft / Book primary semibold) + icona `icona.png`
 - **Tema**: variabili CSS HSL per tutti i colori semantici (background, foreground, primary, muted, ...) con override `.dark`
 - **Animazioni**: Framer Motion per transizioni di pagina, AnimatePresence per dialog/dropdown
 - **Sfondo login**: immagine architettonica `sfondo.png` con overlay traslucido + leggera sfocatura
@@ -445,7 +445,7 @@ cd backend && npm start             # serves API + dist
 
 ## 1. Overview
 
-**Aula Book** is a full-stack web application for managing room bookings at a Music Conservatory. Students, teachers and administrators can book practice studios, rehearsal rooms, concert halls and lecture rooms, with role-based rules and a public "kiosk" view for in-building monitors.
+**Cadenza** is a full-stack web application for managing room bookings at a Music Conservatory. Students, teachers and administrators can book practice studios, rehearsal rooms, concert halls and lecture rooms, with role-based rules and a public "kiosk" view for in-building monitors.
 
 The application is organized as a **monorepo** with two modules:
 
@@ -695,7 +695,7 @@ The app is logically multi-tenant-ready: all institute-specific data lives in `I
 
 - **Typography**: Inter only, distinction by weight (`font-normal` 400 · `font-medium` 500 · `font-semibold` 600 · `font-display` 700 with tighter tracking)
 - **Institute brand color**: `rgb(55 98 170)` for the institute name in the topbar and login
-- **App brand**: "Aula Book" two-tone (Aula soft / Book primary semibold) + `icona.png` icon
+- **App brand**: "Cadenza" two-tone (Aula soft / Book primary semibold) + `icona.png` icon
 - **Theme**: HSL CSS variables for all semantic colors (background, foreground, primary, muted, …) with `.dark` override
 - **Animations**: Framer Motion for page transitions, AnimatePresence for dialogs/dropdowns
 - **Login background**: architectural image `sfondo.png` with translucent overlay + slight blur
@@ -731,4 +731,4 @@ cd backend && npm start             # serves API + dist
 
 ---
 
-_Document version · Aula Book — © 2026 Danilo Russo_
+_Document version · Cadenza — © 2026 Danilo Russo_

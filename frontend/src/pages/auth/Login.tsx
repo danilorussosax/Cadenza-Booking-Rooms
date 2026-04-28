@@ -179,7 +179,7 @@ export default function Login() {
         >
           <Card className="shadow-xl">
             <CardContent className="space-y-5 p-6 sm:p-8">
-              {/* App brand (Aula Book) con sottoetichetta accanto all'icona,
+              {/* App brand (Cadenza) con sottoetichetta accanto all'icona,
                   nome istituto centrato sotto */}
               <div className="flex flex-col items-center gap-1 text-center">
                 <div className="flex items-center gap-3">

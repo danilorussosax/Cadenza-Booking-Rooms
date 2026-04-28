@@ -18,7 +18,7 @@ La spec PWA (Chromium / Firefox / Safari) richiede TUTTI questi requisiti per es
 
 Tutti questi requisiti sono soddisfatti dal repository:
 
-- `frontend/public/manifest.webmanifest` — manifest statico con `name`, `short_name="Aula Book"`, icone 192/512 PNG (any + maskable), `theme_color="#1a3367"`.
+- `frontend/public/manifest.webmanifest` — manifest statico con `name`, `short_name="Cadenza"`, icone 192/512 PNG (any + maskable), `theme_color="#1a3367"`.
 - `vite-plugin-pwa` (workbox `generateSW`) genera `dist/sw.js` + `dist/registerSW.js`.
 - `frontend/src/lib/pwa.ts` registra il SW con `workbox-window` solo in produzione (`import.meta.env.PROD`).
 - CSP del backend (`backend/app.js`) include `worker-src 'self' blob:` e `manifest-src 'self'`.
@@ -41,7 +41,7 @@ NODE_ENV=production node server.js
 Apri **http://localhost:4173/dashboard** in Chrome o Edge, fai login e:
 
 1. **DevTools → Application → Manifest** — deve mostrare:
-   - "Aula Book — Prenotazione Aule del Conservatorio"
+   - "Cadenza — Prenotazione Aule del Conservatorio"
    - Icone 192×192 e 512×512 (preview verde)
    - `start_url: /dashboard`
    - `theme_color: #1a3367`
@@ -60,7 +60,7 @@ Apri **http://localhost:4173/dashboard** in Chrome o Edge, fai login e:
 
 1. Apri il sito HTTPS.
 2. Naviga almeno **2 volte** (la logica A2HS interna mostra il prompt dalla 2ª visita).
-3. Vedrai in basso un banner Aula Book "Installa Aula Book" → tap su **Installa**.
+3. Vedrai in basso un banner Cadenza "Installa Cadenza" → tap su **Installa**.
 4. L'icona appare nella home, l'avvio apre l'app in `display: standalone` senza barra del browser.
 
 In alternativa il browser propone in autonomo il prompt nativo dopo qualche secondo di permanenza.
@@ -68,7 +68,7 @@ In alternativa il browser propone in autonomo il prompt nativo dopo qualche seco
 ### iOS Safari
 
 1. Apri il sito HTTPS.
-2. Dal banner Aula Book (oppure dal menu Condividi) tap su **Aggiungi alla schermata Home**.
+2. Dal banner Cadenza (oppure dal menu Condividi) tap su **Aggiungi alla schermata Home**.
 3. L'icona ha il design `theme_color #1a3367` su sfondo crema.
 
 ---
@@ -103,7 +103,7 @@ In DevTools → Application → Cache Storage devi vedere:
 
 ## 5. Verifica dell'aggiornamento del SW
 
-Aula Book usa `registerType: 'prompt'`: nessun reload sorpresa.
+Cadenza usa `registerType: 'prompt'`: nessun reload sorpresa.
 
 1. Deploy nuova versione → push frontend → reload browser apre la nuova versione del SW in stato `waiting`.
 2. Il client mostra un toast (Sonner): "**Aggiornamento disponibile · Ricarica**".
@@ -118,7 +118,7 @@ In alternativa l'utente può continuare a lavorare e l'aggiornamento si appliche
 ## 6. Verifica CSP
 
 ```bash
-curl -I https://aulabook.example.it/dashboard | grep -i 'content-security-policy'
+curl -I https://cadenza.example.it/dashboard | grep -i 'content-security-policy'
 ```
 
 Devi vedere (riga unica):
@@ -134,7 +134,7 @@ Il browser deve avere **0 violations** in DevTools → Console al boot di `/dash
 ## 7. Lighthouse audit
 
 ```bash
-npx lighthouse https://aulabook.example.it/dashboard \
+npx lighthouse https://cadenza.example.it/dashboard \
   --view --preset=desktop --only-categories=pwa
 ```
 
@@ -172,14 +172,14 @@ Ricorda di disinstallare il SW (DevTools → Application → Service Workers →
 
 ## 9. Troubleshooting
 
-| Sintomo                                      | Causa probabile                                    | Fix                                                                                                                 |
-| -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| "Installa app" non compare in URL bar Chrome | Manifest non valido o icone mancanti               | DevTools → Application → Manifest, leggi gli errori                                                                 |
-| SW non si registra                           | CSP blocca `worker-src`                            | Verifica header risposta: deve includere `worker-src 'self' blob:`                                                  |
-| Banner A2HS non appare mai                   | Visit count < 2 oppure dismissed in passato        | `localStorage.removeItem('aulabook:visit-count')` + `localStorage.removeItem('aulabook:a2hs-dismissed')` e ricarica |
-| Banner "Connessione persa" sempre acceso     | `agendaQuery` non riesce mai per CORS              | Verifica nginx proxy `/api/*` → backend                                                                             |
-| App standalone si apre con barra browser     | `start_url` non corrisponde alla rotta corrente    | Manifest dichiara `/dashboard`, deve essere raggiungibile autenticato                                               |
-| Vecchia versione cached anche dopo deploy    | SW in waiting, l'utente non ha cliccato "Ricarica" | Toast Sonner "Aggiornamento disponibile" deve apparire entro pochi secondi                                          |
+| Sintomo                                      | Causa probabile                                    | Fix                                                                                                               |
+| -------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| "Installa app" non compare in URL bar Chrome | Manifest non valido o icone mancanti               | DevTools → Application → Manifest, leggi gli errori                                                               |
+| SW non si registra                           | CSP blocca `worker-src`                            | Verifica header risposta: deve includere `worker-src 'self' blob:`                                                |
+| Banner A2HS non appare mai                   | Visit count < 2 oppure dismissed in passato        | `localStorage.removeItem('cadenza:visit-count')` + `localStorage.removeItem('cadenza:a2hs-dismissed')` e ricarica |
+| Banner "Connessione persa" sempre acceso     | `agendaQuery` non riesce mai per CORS              | Verifica nginx proxy `/api/*` → backend                                                                           |
+| App standalone si apre con barra browser     | `start_url` non corrisponde alla rotta corrente    | Manifest dichiara `/dashboard`, deve essere raggiungibile autenticato                                             |
+| Vecchia versione cached anche dopo deploy    | SW in waiting, l'utente non ha cliccato "Ricarica" | Toast Sonner "Aggiornamento disponibile" deve apparire entro pochi secondi                                        |
 
 ---
 
@@ -192,9 +192,9 @@ navigator.serviceWorker
   .then((rs) => rs.forEach((r) => r.unregister()));
 caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
 [
-  'aulabook:visit-count',
-  'aulabook:a2hs-dismissed',
-  'aulabook:a2hs-installed',
+  'cadenza:visit-count',
+  'cadenza:a2hs-dismissed',
+  'cadenza:a2hs-installed',
 ].forEach((k) => localStorage.removeItem(k));
 location.reload();
 ```

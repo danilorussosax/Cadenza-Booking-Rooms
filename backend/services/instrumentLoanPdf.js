@@ -155,7 +155,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
     margins: { top: 56, left: 56, right: 56, bottom: 56 },
     info: {
       Title: `Prestito strumento #${loan.id}`,
-      Author: institute?.name || 'Aula Book',
+      Author: institute?.name || 'Cadenza',
     },
   });
   doc.pipe(res);
@@ -177,7 +177,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
     .fillColor('#3762aa')
     .fontSize(13)
     .font('Helvetica-Bold')
-    .text(institute?.name || 'Aula Book', headerTextX, headerY + 4);
+    .text(institute?.name || 'Cadenza', headerTextX, headerY + 4);
   if (institute?.city) {
     doc
       .fillColor('#6b7a90')
@@ -274,7 +274,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
     .fontSize(8)
     .font('Helvetica')
     .text(
-      institute?.copyright || `© ${dayjs().year()} ${institute?.name || 'Aula Book'}`,
+      institute?.copyright || `© ${dayjs().year()} ${institute?.name || 'Cadenza'}`,
       doc.page.margins.left,
       footerY,
       {

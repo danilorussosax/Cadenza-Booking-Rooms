@@ -119,9 +119,9 @@ async function buildAnnouncementContext({ user, announcement }) {
         : '',
     },
     institute: {
-      name: inst?.name || 'Aula Book',
+      name: inst?.name || 'Cadenza',
       copyright:
-        inst?.copyright || 'Aula Book · Per disattivare le notifiche avvisi vai sul tuo profilo.',
+        inst?.copyright || 'Cadenza · Per disattivare le notifiche avvisi vai sul tuo profilo.',
     },
     now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
   };

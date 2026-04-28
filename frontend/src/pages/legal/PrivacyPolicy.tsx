@@ -171,14 +171,14 @@ export default function PrivacyPolicy() {
           <h2 className="font-display text-xl">3.bis Bot messaging — trattamenti specifici</h2>
           <p>
             L'utente può, in modo <strong>volontario e opt-in</strong>, collegare il proprio account
-            Aula Book a un bot conversazionale (Telegram, WhatsApp, Signal, Email IMAP) per
-            prenotare aule via messaggio. Il collegamento avviene tramite un codice OTP a 6
-            caratteri generato dal profilo utente e inviato dall'utente stesso al bot.
+            Cadenza a un bot conversazionale (Telegram, WhatsApp, Signal, Email IMAP) per prenotare
+            aule via messaggio. Il collegamento avviene tramite un codice OTP a 6 caratteri generato
+            dal profilo utente e inviato dall'utente stesso al bot.
           </p>
           <ul className="list-disc space-y-1 pl-6">
             <li>
               <strong>Dati trattati</strong>: identificativo del canale (Telegram chat_id, numero
-              WhatsApp/Signal, email), associazione con l'account Aula Book, contenuto dei messaggi
+              WhatsApp/Signal, email), associazione con l'account Cadenza, contenuto dei messaggi
               inviati al bot (oggetto della prenotazione).
             </li>
             <li>

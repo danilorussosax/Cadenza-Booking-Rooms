@@ -1,6 +1,6 @@
 # Bot messaging — Telegram / WhatsApp / Signal / Email
 
-Aula Book espone un bot conversazionale che permette agli utenti di prenotare le aule via messaggio. Supporta 4 canali pluggable, ciascuno gestito da un adapter dedicato.
+Cadenza espone un bot conversazionale che permette agli utenti di prenotare le aule via messaggio. Supporta 4 canali pluggable, ciascuno gestito da un adapter dedicato.
 
 > **Implementazione attuale**: Telegram = pieno (production-ready). WhatsApp Cloud API = scaffolding completo (verifica handshake, send/receive, HMAC) ma richiede onboarding Meta Business. Signal (`signal-cli`) e Email IMAP = stub funzionali per la pipeline interna; il trigger inbound vero richiederà uno sprint dedicato.
 
@@ -12,7 +12,7 @@ Aula Book espone un bot conversazionale che permette agli utenti di prenotare le
 
 ```
                 ┌─────────────────────────────┐
-                │      Aula Book API          │
+                │      Cadenza API          │
                 │   (booking, validator…)     │
                 └──────────────▲──────────────┘
                                │ services/bookingValidator
@@ -74,7 +74,7 @@ Aula Book espone un bot conversazionale che permette agli utenti di prenotare le
 ### 2.1 Crea il bot
 
 1. Apri Telegram → cerca **@BotFather** → `/newbot`
-2. Scegli un nome ("Aula Book Conservatorio") e uno username (`aulabook_conservatorio_bot`)
+2. Scegli un nome ("Cadenza Conservatorio") e uno username (`cadenza_conservatorio_bot`)
 3. BotFather risponde con il **token** (formato `12345:AAAA…`). Conservalo.
 
 ### 2.2 Genera webhook secret
@@ -84,7 +84,7 @@ openssl rand -hex 32
 # es: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 ```
 
-### 2.3 Configura Aula Book
+### 2.3 Configura Cadenza
 
 1. Login admin → menu **Bot messaging** (`/admin/messaging`)
 2. Card **Telegram**: incolla `Bot token` + `Webhook secret` → toggle ON → `Salva`
@@ -95,7 +95,7 @@ openssl rand -hex 32
 Sostituisci `TOKEN` e `SECRET`:
 
 ```bash
-curl -F "url=https://aulabook.example.it/api/messaging/telegram/webhook" \
+curl -F "url=https://cadenza.example.it/api/messaging/telegram/webhook" \
      -F "secret_token=SECRET" \
      https://api.telegram.org/botTOKEN/setWebhook
 ```
@@ -104,7 +104,7 @@ Risposta attesa: `{"ok":true,"result":true,"description":"Webhook was set"}`.
 
 ### 2.5 Test end-to-end
 
-1. Sul tuo profilo Aula Book → sezione **Bot messaging** → `Genera codice`
+1. Sul tuo profilo Cadenza → sezione **Bot messaging** → `Genera codice`
 2. Copia il comando `bind XXXXXX`
 3. Apri il tuo bot Telegram, manda il comando
 4. Il bot risponde "✅ Collegamento completato" → ora puoi usare `/help`, `/book`, `/list`, `/cancel`
@@ -134,7 +134,7 @@ Dalla dashboard:
 | **App Secret**      | App settings → Basic                                                                                                         |
 | **Verify Token**    | Stringa random scelta da te (es. `openssl rand -hex 16`)                                                                     |
 
-### 3.3 Configura Aula Book
+### 3.3 Configura Cadenza
 
 1. `/admin/messaging` → Card **WhatsApp Cloud API**: salva tutti e 4 i campi
 2. Toggle ON → Salva
@@ -142,8 +142,8 @@ Dalla dashboard:
 ### 3.4 Webhook su Meta
 
 1. Dashboard app Meta → WhatsApp → Configuration → Webhooks → **Edit**
-2. Callback URL: `https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook`
-3. Verify token: lo stesso che hai messo in Aula Book
+2. Callback URL: `https://cadenza.example.it/api/messaging/whatsapp_cloud/webhook`
+3. Verify token: lo stesso che hai messo in Cadenza
 4. Click **Verify and save** (Meta fa una GET di handshake immediata)
 5. Sotto **Webhook fields** → Subscribe a: `messages`
 
@@ -185,7 +185,7 @@ docker exec -it signal-cli signal-cli -a +393331234567 register
 docker exec -it signal-cli signal-cli -a +393331234567 verify <CODE>
 ```
 
-### 4.3 Configura Aula Book
+### 4.3 Configura Cadenza
 
 1. `/admin/messaging` → Card **Signal**:
    - **Numero registrato**: `+393331234567`
@@ -195,7 +195,7 @@ docker exec -it signal-cli signal-cli -a +393331234567 verify <CODE>
 
 ### 4.4 Inbound forwarder
 
-`signal-cli-rest-api` espone `POST /v1/receive` per fare polling. Per il flusso webhook serve un piccolo wrapper che faccia poll e POST verso Aula Book con header `X-Signal-Webhook-Secret`. Esempio in `scripts/signal-poller.example.js` (da creare nel proprio deploy).
+`signal-cli-rest-api` espone `POST /v1/receive` per fare polling. Per il flusso webhook serve un piccolo wrapper che faccia poll e POST verso Cadenza con header `X-Signal-Webhook-Secret`. Esempio in `scripts/signal-poller.example.js` (da creare nel proprio deploy).
 
 > Lo stub funzionale di `adapters/signal_cli.js` è già completo — manca solo il forwarder esterno per attivarlo.
 
@@ -254,7 +254,7 @@ Conservatorio ~500 utenti, ~30 prenotazioni/giorno = ~660 conversazioni/mese:
 | **Twilio WA + Telegram**      | ~€55       | overhead Twilio + numero $1.50/mese                                                  |
 | **Solo Signal**               | ~€2-10     | numero prepagato; richiede ops manuale signal-cli                                    |
 
-Hosting: messaging gira nello stesso processo Aula Book → 0 € overhead. Il poller IMAP (futuro) potrebbe necessitare di un worker dedicato.
+Hosting: messaging gira nello stesso processo Cadenza → 0 € overhead. Il poller IMAP (futuro) potrebbe necessitare di un worker dedicato.
 
 ---
 

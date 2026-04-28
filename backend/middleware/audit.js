@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Middleware audit log per Aula Book.
+ * Middleware audit log per Cadenza.
  *
  * Intercetta richieste di scrittura (POST/PUT/DELETE/PATCH) verso rotte
  * "sensibili" (admin / users / structure / quotas / mail-templates / …) e

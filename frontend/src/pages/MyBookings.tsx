@@ -51,7 +51,7 @@ export default function MyBookings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aula-book-${dayjs().format('YYYY-MM-DD')}.ics`;
+      a.download = `cadenza-${dayjs().format('YYYY-MM-DD')}.ics`;
       document.body.appendChild(a);
       a.click();
       a.remove();

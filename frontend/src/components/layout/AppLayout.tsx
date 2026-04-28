@@ -335,7 +335,7 @@ function SidebarBrand({
     <div className={cn('flex items-center gap-3 px-5', compact ? 'py-1' : 'py-5')}>
       <img
         src="/assets/icona.svg"
-        alt="Aula Book"
+        alt="Cadenza"
         className="h-10 w-10 shrink-0 rounded-lg object-contain"
       />
       <p className="truncate font-display text-lg leading-tight tracking-tight">

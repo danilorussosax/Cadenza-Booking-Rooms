@@ -12,7 +12,7 @@ sysadmin meno tecnici.
 | File                       | Cosa mostrare                                                                                          |
 | -------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `01-app-registrations.png` | Pannello **Entra ID → App registrations** con il pulsante "+ New registration" evidenziato             |
-| `02-register-form.png`     | Form "Register an application" compilato (Name=`Aula Book`, Single tenant, Web + redirect URI)         |
+| `02-register-form.png`     | Form "Register an application" compilato (Name=`Cadenza`, Single tenant, Web + redirect URI)           |
 | `03-overview.png`          | Pagina **Overview** dell'app con i due GUID (Application/Tenant ID) evidenziati con un riquadro rosso  |
 | `04-secrets-tab.png`       | Tab **Certificates & secrets** con il pulsante "+ New client secret" evidenziato                       |
 | `05-secret-value.png`      | Tabella secrets con il valore visibile UNA VOLTA SOLA (sfocare la parte sensibile prima di committare) |
@@ -29,7 +29,7 @@ sysadmin meno tecnici.
 | `05-oauth-client-form.png`  | Form "Create OAuth client ID" compilato (Web application, redirect URIs)                      |
 | `06-client-created.png`     | Modal di successo con Client ID e Client secret (sfocare le parti sensibili)                  |
 
-### `aulabook/`
+### `cadenza/`
 
 | File                    | Cosa mostrare                                                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |

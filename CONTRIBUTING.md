@@ -1,4 +1,4 @@
-# Contributing — Aula Book
+# Contributing — Cadenza
 
 Linee guida per sviluppatori che lavorano sul codebase. Le pre-commit hook applicano automaticamente la maggior parte di queste regole; questo doc spiega il "perché" e cosa fare quando un controllo fallisce.
 

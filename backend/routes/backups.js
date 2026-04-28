@@ -20,7 +20,7 @@ const uploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, os.tmpdir()),
   filename: (_req, file, cb) => {
     const safe = path.basename(file.originalname);
-    cb(null, `aulabook-upload-${Date.now()}-${safe}`);
+    cb(null, `cadenza-upload-${Date.now()}-${safe}`);
   },
 });
 const backupUpload = multer({

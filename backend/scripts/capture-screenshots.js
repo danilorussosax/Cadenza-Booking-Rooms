@@ -3,7 +3,7 @@
 /**
  * capture-screenshots.js
  *
- * Cattura screenshot reali della web app Aula Book usando puppeteer.
+ * Cattura screenshot reali della web app Cadenza usando puppeteer.
  * Salva i PNG dentro `backend/scripts/screenshots/` da dove il
  * generate-slides.js li può embedare con `doc.image()`.
  *

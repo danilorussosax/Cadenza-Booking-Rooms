@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Inizializzazione Sentry per il backend Aula Book.
+ * Inizializzazione Sentry per il backend Cadenza.
  *
  * IMPORTANTE: questo file deve essere richiesto come PRIMA cosa in server.js
  * (prima di qualunque altro require), così l'instrumentation di @sentry/node

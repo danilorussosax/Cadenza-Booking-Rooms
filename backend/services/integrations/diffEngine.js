@@ -4,7 +4,7 @@
  * Diff engine: confronta gli ExternalUser provenienti dal sistema sorgente
  * con gli User locali e calcola tre liste:
  *
- *   - toCreate:  nuovi utenti del sorgente, da inserire in Aula Book
+ *   - toCreate:  nuovi utenti del sorgente, da inserire in Cadenza
  *   - toUpdate:  utenti già presenti, con campi divergenti tra sorgente e DB
  *   - toOrphan:  utenti locali con `externalSource = source` MA non presenti
  *                nel batch corrente del sorgente. Verranno disabilitati
@@ -26,7 +26,7 @@
  * Ai fini del campo `fieldsChanged`, confrontiamo dopo normalizzazione
  * (lowercase per email, trim per stringhe). Solo i campi della "snapshot
  * sincronizzabile" vengono comparati: ignoriamo password, 2FA, lastLogin
- * e altri attributi locali a Aula Book.
+ * e altri attributi locali a Cadenza.
  */
 
 const SYNCED_FIELDS = ['email', 'firstName', 'lastName', 'role', 'matricola', 'isActive'];

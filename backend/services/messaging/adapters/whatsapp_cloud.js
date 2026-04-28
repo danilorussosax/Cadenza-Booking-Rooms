@@ -10,7 +10,7 @@
 //      - appSecret (per HMAC SHA256 della firma webhook)
 //      - verifyToken (stringa random scelta da te per il GET di verifica)
 //   2. Configura webhook su Meta:
-//      callback URL = https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook
+//      callback URL = https://cadenza.example.it/api/messaging/whatsapp_cloud/webhook
 //      verify_token = <verifyToken>
 //      subscribe a "messages" + "message_status"
 //   3. Salva tutti i campi in MessagingSettings via UI admin.

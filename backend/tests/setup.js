@@ -17,7 +17,7 @@ if (!process.env.BACKUP_DIR) {
   const fs = require('fs');
   const path = require('path');
   const os = require('os');
-  process.env.BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aulabook-tests-bkp-'));
+  process.env.BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-tests-bkp-'));
 }
 
 require('../config/database.test');

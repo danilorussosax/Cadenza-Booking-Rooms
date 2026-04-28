@@ -8,11 +8,11 @@
 //      consigliato): https://github.com/AsamK/signal-cli
 //   2. Registra un numero dedicato (anche prepagato) e attiva la modalità
 //      daemon REST: `signal-cli daemon --http 0.0.0.0:8080`
-//   3. Configura su Aula Book (admin → messaging):
+//   3. Configura su Cadenza (admin → messaging):
 //      - phoneNumber: numero registrato (E.164, es. +393331234567)
 //      - daemonUrl:   URL HTTP del daemon (es. http://signal:8080)
 //      - webhookSecret: stringa random per validare webhook in arrivo
-//   4. Inoltra i messaggi entranti dal daemon al webhook Aula Book con il
+//   4. Inoltra i messaggi entranti dal daemon al webhook Cadenza con il
 //      header `X-Signal-Webhook-Secret: <webhookSecret>`.
 //
 // Limiti rispetto a Telegram/WhatsApp Cloud:

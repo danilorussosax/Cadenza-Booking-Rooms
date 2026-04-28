@@ -18,9 +18,9 @@ interface BeforeInstallPromptEvent extends Event {
 
 type SwUpdateHandler = (reload: () => void) => void;
 
-const VISIT_COUNT_KEY = 'aulabook:visit-count';
-const A2HS_DISMISSED_KEY = 'aulabook:a2hs-dismissed';
-const A2HS_INSTALLED_KEY = 'aulabook:a2hs-installed';
+const VISIT_COUNT_KEY = 'cadenza:visit-count';
+const A2HS_DISMISSED_KEY = 'cadenza:a2hs-dismissed';
+const A2HS_INSTALLED_KEY = 'cadenza:a2hs-installed';
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 

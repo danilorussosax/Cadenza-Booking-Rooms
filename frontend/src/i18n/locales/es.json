@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Aula Book",
+    "name": "Cadenza",
     "subtitle": "Reserva de aulas",
     "institute_default": "Conservatorio"
   },
@@ -128,7 +128,7 @@
       "title": "Bienvenido",
       "subtitle": "Inicia sesión con email y contraseña.",
       "title_choices": "Acceso requerido",
-      "subtitle_choices": "Debes iniciar sesión para usar Aula Book. Si aún no tienes una cuenta, puedes solicitar una.",
+      "subtitle_choices": "Debes iniciar sesión para usar Cadenza. Si aún no tienes una cuenta, puedes solicitar una.",
       "submit": "Entrar",
       "use_email": "Acceder con email",
       "register": "Registrarse",
@@ -691,7 +691,7 @@
         "help": "Bot conversacional gratuito. Configuración rápida vía @BotFather.",
         "bot_token": "Bot token (BotFather)",
         "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Abre @BotFather en Telegram → /newbot → obtén el token.\n2) Genera un secreto aleatorio: openssl rand -hex 32\n3) Guarda token + secret aquí, luego activa el toggle.\n4) Registra el webhook (sustituye TOKEN/SECRET):\n   curl -F \"url=https://aulabook.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+        "setup_guide": "1) Abre @BotFather en Telegram → /newbot → obtén el token.\n2) Genera un secreto aleatorio: openssl rand -hex 32\n3) Guarda token + secret aquí, luego activa el toggle.\n4) Registra el webhook (sustituye TOKEN/SECRET):\n   curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
       },
       "whatsapp": {
         "help": "WhatsApp Business Cloud API (Meta directa). Requiere cuenta Meta Business verificada.",
@@ -699,14 +699,14 @@
         "phone_id": "Phone Number ID",
         "verify_token": "Verify token (handshake)",
         "app_secret": "App secret (HMAC SHA256)",
-        "setup_guide": "1) Crea una Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copia: Phone Number ID, System User access token (long-lived), App Secret.\n3) Elige un Verify Token aleatorio y guárdalo aquí.\n4) Configura callback URL: https://aulabook.example.it/api/messaging/whatsapp_cloud/webhook\n   con el mismo Verify Token y suscríbete a 'messages'."
+        "setup_guide": "1) Crea una Meta Business app + WhatsApp Business: https://developers.facebook.com/apps\n2) Copia: Phone Number ID, System User access token (long-lived), App Secret.\n3) Elige un Verify Token aleatorio y guárdalo aquí.\n4) Configura callback URL: https://cadenza.example.it/api/messaging/whatsapp_cloud/webhook\n   con el mismo Verify Token y suscríbete a 'messages'."
       },
       "signal": {
         "help": "Signal vía signal-cli (community). Requiere host con signal-cli y un número dedicado registrado.",
         "phone_number": "Número registrado (E.164)",
         "daemon_url": "URL daemon signal-cli",
         "webhook_secret": "Webhook secret (X-Signal-Webhook-Secret)",
-        "setup_guide": "1) Instala signal-cli (https://github.com/AsamK/signal-cli) en un host accesible.\n2) Registra un número dedicado y ejecuta:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configura un forwarder que reenvíe los mensajes entrantes al webhook Aula Book con header X-Signal-Webhook-Secret."
+        "setup_guide": "1) Instala signal-cli (https://github.com/AsamK/signal-cli) en un host accesible.\n2) Registra un número dedicado y ejecuta:\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configura un forwarder que reenvíe los mensajes entrantes al webhook Cadenza con header X-Signal-Webhook-Secret."
       },
       "email": {
         "help": "Fallback always-on vía buzón dedicado. Stub: el poller IMAP llegará en un sprint futuro.",
@@ -1777,7 +1777,7 @@
   },
   "pwa": {
     "install": {
-      "title": "Instalar Aula Book",
+      "title": "Instalar Cadenza",
       "subtitle": "Añade la app a la pantalla principal: arranque inmediato y modo reducido sin conexión.",
       "subtitle_ios": "Abre el menú Compartir de Safari y toca \"Añadir a la pantalla de inicio\".",
       "cta": "Instalar",
@@ -1792,7 +1792,7 @@
   "integrations": {
     "isidata": {
       "title": "Importación de usuarios desde Isidata",
-      "subtitle": "Sube un archivo XLSX/CSV exportado desde Isidata: Aula Book compara los datos y muestra los cambios antes de aplicarlos.",
+      "subtitle": "Sube un archivo XLSX/CSV exportado desde Isidata: Cadenza compara los datos y muestra los cambios antes de aplicarlos.",
       "step1_title": "1. Subir archivo",
       "step2_title": "2. Revisar cambios",
       "dropzone_label": "Arrastra aquí el archivo XLSX de Isidata, o haz clic para elegir",

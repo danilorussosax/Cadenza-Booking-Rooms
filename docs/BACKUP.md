@@ -1,4 +1,4 @@
-# Aula Book · Backup & Restore
+# Cadenza · Backup & Restore
 
 > Procedura di backup automatico del database e dei file caricati
 > (logo istituto e altri uploads) con strategia di rotazione,
@@ -115,8 +115,8 @@ crontab -e
 Aggiungi:
 
 ```cron
-# Aula Book — backup giornaliero alle 03:00
-0 3 * * * cd /path/to/conservatory-app/backend && /usr/bin/npm run backup >> /var/log/aulabook-backup.log 2>&1
+# Cadenza — backup giornaliero alle 03:00
+0 3 * * * cd /path/to/conservatory-app/backend && /usr/bin/npm run backup >> /var/log/cadenza-backup.log 2>&1
 ```
 
 Verifica che `node` e `npm` siano nel PATH del cron:
@@ -128,35 +128,35 @@ PATH=/usr/local/bin:/usr/bin:/bin
 oppure usa percorsi assoluti:
 
 ```cron
-0 3 * * * cd /path/to/conservatory-app/backend && /usr/local/bin/node scripts/backup.js >> /var/log/aulabook-backup.log 2>&1
+0 3 * * * cd /path/to/conservatory-app/backend && /usr/local/bin/node scripts/backup.js >> /var/log/cadenza-backup.log 2>&1
 ```
 
 ### systemd timer
 
 Crea due unit file (più moderno di cron):
 
-`/etc/systemd/system/aulabook-backup.service`
+`/etc/systemd/system/cadenza-backup.service`
 
 ```ini
 [Unit]
-Description=Aula Book backup giornaliero
+Description=Cadenza backup giornaliero
 
 [Service]
 Type=oneshot
-WorkingDirectory=/srv/aulabook/backend
+WorkingDirectory=/srv/cadenza/backend
 ExecStart=/usr/bin/node scripts/backup.js
-User=aulabook
+User=cadenza
 Environment=NODE_ENV=production
-Environment=BACKUP_DIR=/var/backups/aulabook
+Environment=BACKUP_DIR=/var/backups/cadenza
 StandardOutput=journal
 StandardError=journal
 ```
 
-`/etc/systemd/system/aulabook-backup.timer`
+`/etc/systemd/system/cadenza-backup.timer`
 
 ```ini
 [Unit]
-Description=Aula Book — esegui backup giornalmente alle 03:00
+Description=Cadenza — esegui backup giornalmente alle 03:00
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -170,21 +170,21 @@ Attivazione:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now aulabook-backup.timer
-sudo systemctl list-timers aulabook-backup.timer
-sudo journalctl -u aulabook-backup.service --since today
+sudo systemctl enable --now cadenza-backup.timer
+sudo systemctl list-timers cadenza-backup.timer
+sudo journalctl -u cadenza-backup.service --since today
 ```
 
 ### launchd (macOS)
 
-`~/Library/LaunchAgents/local.aulabook.backup.plist`:
+`~/Library/LaunchAgents/local.cadenza.backup.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>local.aulabook.backup</string>
+  <key>Label</key><string>local.cadenza.backup</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/npm</string>
@@ -194,16 +194,16 @@ sudo journalctl -u aulabook-backup.service --since today
   <key>WorkingDirectory</key><string>/Users/me/conservatory-app/backend</string>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
-  <key>StandardOutPath</key><string>/Users/me/Library/Logs/aulabook-backup.log</string>
-  <key>StandardErrorPath</key><string>/Users/me/Library/Logs/aulabook-backup.log</string>
+  <key>StandardOutPath</key><string>/Users/me/Library/Logs/cadenza-backup.log</string>
+  <key>StandardErrorPath</key><string>/Users/me/Library/Logs/cadenza-backup.log</string>
 </dict></plist>
 ```
 
 Carica:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/local.aulabook.backup.plist
-launchctl list | grep aulabook
+launchctl load ~/Library/LaunchAgents/local.cadenza.backup.plist
+launchctl list | grep cadenza
 ```
 
 ---
@@ -308,14 +308,14 @@ Con `awscli` v2 (funziona su qualunque endpoint S3-compatible passando `--endpoi
 aws configure        # (oppure variabili AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 
 # Sync (incrementale, elimina i file rimossi localmente)
-aws s3 sync /var/backups/aulabook/ s3://my-bucket/aulabook/ --delete \
+aws s3 sync /var/backups/cadenza/ s3://my-bucket/cadenza/ --delete \
   --storage-class STANDARD_IA
 ```
 
 **Backblaze B2** (compatibile S3):
 
 ```bash
-aws s3 sync /var/backups/aulabook/ s3://my-b2-bucket/aulabook/ \
+aws s3 sync /var/backups/cadenza/ s3://my-b2-bucket/cadenza/ \
   --endpoint-url=https://s3.eu-central-003.backblazeb2.com \
   --delete
 ```
@@ -323,14 +323,14 @@ aws s3 sync /var/backups/aulabook/ s3://my-b2-bucket/aulabook/ \
 **MinIO** (self-hosted):
 
 ```bash
-aws s3 sync /var/backups/aulabook/ s3://my-bucket/aulabook/ \
+aws s3 sync /var/backups/cadenza/ s3://my-bucket/cadenza/ \
   --endpoint-url=https://minio.mio-server.it
 ```
 
 Esegui dopo il backup con un wrapper:
 
 ```cron
-0 3 * * * cd /srv/aulabook/backend && npm run backup && aws s3 sync /var/backups/aulabook/ s3://my-bucket/aulabook/ --delete >> /var/log/aulabook-backup.log 2>&1
+0 3 * * * cd /srv/cadenza/backend && npm run backup && aws s3 sync /var/backups/cadenza/ s3://my-bucket/cadenza/ --delete >> /var/log/cadenza-backup.log 2>&1
 ```
 
 ### Hetzner Storage Box (rsync su SSH)
@@ -345,14 +345,14 @@ ssh-copy-id -i ~/.ssh/hetzner_storagebox.pub -p 23 u123456@u123456.your-storageb
 
 # Sync
 rsync -av --delete -e "ssh -i ~/.ssh/hetzner_storagebox -p 23" \
-  /var/backups/aulabook/ \
-  u123456@u123456.your-storagebox.de:./aulabook/
+  /var/backups/cadenza/ \
+  u123456@u123456.your-storagebox.de:./cadenza/
 ```
 
 In cron:
 
 ```cron
-0 3 * * * /srv/aulabook/scripts/backup-and-push.sh >> /var/log/aulabook-backup.log 2>&1
+0 3 * * * /srv/cadenza/scripts/backup-and-push.sh >> /var/log/cadenza-backup.log 2>&1
 ```
 
 dove `backup-and-push.sh` è:
@@ -360,10 +360,10 @@ dove `backup-and-push.sh` è:
 ```bash
 #!/usr/bin/env bash
 set -e
-cd /srv/aulabook/backend
+cd /srv/cadenza/backend
 npm run backup
 rsync -av --delete -e "ssh -i ~/.ssh/hetzner_storagebox -p 23" \
-  /var/backups/aulabook/ u123456@u123456.your-storagebox.de:./aulabook/
+  /var/backups/cadenza/ u123456@u123456.your-storagebox.de:./cadenza/
 ```
 
 ### Dropbox / Google Drive / OneDrive (rclone)
@@ -377,7 +377,7 @@ curl https://rclone.org/install.sh | sudo bash
 # Setup interattivo (una tantum, configura "remote" per ogni provider)
 rclone config
 #   n) New remote
-#   name> aulabook-dropbox    (o aulabook-gdrive, aulabook-onedrive)
+#   name> cadenza-dropbox    (o cadenza-gdrive, cadenza-onedrive)
 #   Storage> dropbox          (o drive, onedrive)
 #   …segue OAuth nel browser
 ```
@@ -386,13 +386,13 @@ Sync verso ciascuno:
 
 ```bash
 # Dropbox
-rclone sync /var/backups/aulabook/ aulabook-dropbox:Backup/AulaBook --transfers=4
+rclone sync /var/backups/cadenza/ cadenza-dropbox:Backup/Cadenza --transfers=4
 
 # Google Drive
-rclone sync /var/backups/aulabook/ aulabook-gdrive:Backup/AulaBook
+rclone sync /var/backups/cadenza/ cadenza-gdrive:Backup/Cadenza
 
 # OneDrive
-rclone sync /var/backups/aulabook/ aulabook-onedrive:Backup/AulaBook
+rclone sync /var/backups/cadenza/ cadenza-onedrive:Backup/Cadenza
 ```
 
 Aggiungi `--bwlimit 5M` per limitare la banda, `-v` per verbose.
@@ -402,10 +402,10 @@ In cron, con upload a 3 destinazioni in parallelo:
 ```bash
 #!/usr/bin/env bash
 set -e
-cd /srv/aulabook/backend && npm run backup
-rclone sync /var/backups/aulabook/ aulabook-dropbox:Backup/AulaBook &
-rclone sync /var/backups/aulabook/ aulabook-gdrive:Backup/AulaBook &
-rclone sync /var/backups/aulabook/ aulabook-onedrive:Backup/AulaBook &
+cd /srv/cadenza/backend && npm run backup
+rclone sync /var/backups/cadenza/ cadenza-dropbox:Backup/Cadenza &
+rclone sync /var/backups/cadenza/ cadenza-gdrive:Backup/Cadenza &
+rclone sync /var/backups/cadenza/ cadenza-onedrive:Backup/Cadenza &
 wait
 ```
 
@@ -418,7 +418,7 @@ Setup:
 ```bash
 gpg --gen-key      # crea chiave RSA con passphrase
 # Esporta la public key per usarla anche su altri server
-gpg --export -a "Backup Aula Book" > backup-pubkey.asc
+gpg --export -a "Backup Cadenza" > backup-pubkey.asc
 ```
 
 Wrapper di backup + cifratura + upload:
@@ -426,11 +426,11 @@ Wrapper di backup + cifratura + upload:
 ```bash
 #!/usr/bin/env bash
 set -e
-cd /srv/aulabook/backend
+cd /srv/cadenza/backend
 npm run backup
-LATEST=$(ls -t /var/backups/aulabook/backup-*.tar.gz | head -1)
-gpg --encrypt --recipient "Backup Aula Book" --output "${LATEST}.gpg" "$LATEST"
-rclone sync /var/backups/aulabook/ aulabook-gdrive:Backup/AulaBook --include "*.gpg"
+LATEST=$(ls -t /var/backups/cadenza/backup-*.tar.gz | head -1)
+gpg --encrypt --recipient "Backup Cadenza" --output "${LATEST}.gpg" "$LATEST"
+rclone sync /var/backups/cadenza/ cadenza-gdrive:Backup/Cadenza --include "*.gpg"
 ```
 
 Per il restore:
@@ -451,7 +451,7 @@ npm run restore -- backup-2026-04-25-0300.tar.gz
 - **Monitoring**: in caso di errore, fai uscire un alert (`mailx`, healthchecks.io, ntfy, ecc.). Esempio:
   ```bash
   npm run backup || curl -fsS -m 10 --retry 5 \
-    https://hc-ping.com/your-uuid/fail -d "$(tail -50 /var/log/aulabook-backup.log)"
+    https://hc-ping.com/your-uuid/fail -d "$(tail -50 /var/log/cadenza-backup.log)"
   ```
 - **Ritenzione cloud**: configura cycle policy lato cloud per mantenere ulteriori snapshot oltre la rotazione locale (es. su B2 mantieni anche le versioni eliminate per 30 giorni).
 - **Backup separati per ambienti diversi**: dev / staging / prod su bucket distinti, con prefissi nei nomi file.
@@ -459,4 +459,4 @@ npm run restore -- backup-2026-04-25-0300.tar.gz
 
 ---
 
-_Documento per Aula Book · © 2026 Danilo Russo_
+_Documento per Cadenza · © 2026 Danilo Russo_

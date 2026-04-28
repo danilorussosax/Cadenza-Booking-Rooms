@@ -96,7 +96,7 @@ async function start() {
     }
 
     httpServer = app.listen(PORT, () => {
-      console.log(`\n  🎼  Conservatory Booking System`);
+      console.log(`\n  🎼  Cadenza — Conservatory Booking System`);
       console.log(`      In ascolto su http://localhost:${PORT}`);
       console.log(`      Ambiente: ${process.env.NODE_ENV || 'development'}`);
       console.log(`      Database: ${process.env.DB_DIALECT || 'sqlite'}\n`);

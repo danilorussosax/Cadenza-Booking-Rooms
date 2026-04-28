@@ -117,7 +117,7 @@ async function ensureTestUsers() {
   // Docenti
   for (let i = 0; i < TEST_DOCENTI.length; i++) {
     const t = TEST_DOCENTI[i];
-    const email = `docente${i + 1}@test.aulabook.it`;
+    const email = `docente${i + 1}@test.cadenza.it`;
     const matricola = `DOC-T${String(i + 1).padStart(3, '0')}`;
     const courseId = courses.length > 0 ? courses[i % courses.length].id : null;
     const [user] = await User.upsert(
@@ -142,7 +142,7 @@ async function ensureTestUsers() {
   // Studenti
   for (let i = 0; i < TEST_STUDENTI.length; i++) {
     const s = TEST_STUDENTI[i];
-    const email = `studente${i + 1}@test.aulabook.it`;
+    const email = `studente${i + 1}@test.cadenza.it`;
     const matricola = `STU-T${String(i + 1).padStart(3, '0')}`;
     const courseId = courses.length > 0 ? courses[i % courses.length].id : null;
     const [user] = await User.upsert(
@@ -359,10 +359,10 @@ async function summary() {
   const stats = {
     bookingsTotal: await Booking.count(),
     docenti: await User.count({
-      where: { role: 'docente', email: { [require('sequelize').Op.like]: '%@test.aulabook.it' } },
+      where: { role: 'docente', email: { [require('sequelize').Op.like]: '%@test.cadenza.it' } },
     }),
     studenti: await User.count({
-      where: { role: 'studente', email: { [require('sequelize').Op.like]: '%@test.aulabook.it' } },
+      where: { role: 'studente', email: { [require('sequelize').Op.like]: '%@test.cadenza.it' } },
     }),
     rooms: await Room.count({ where: { isBookable: true } }),
     buildings: await Building.count(),
@@ -374,14 +374,14 @@ async function summary() {
   console.log(`  · Studenti di test: ${stats.studenti}`);
   console.log(`  · Prenotazioni nel DB: ${stats.bookingsTotal}`);
   console.log('\n💡 Login utenti di test:');
-  console.log('   Email: docente1@test.aulabook.it … docente10@test.aulabook.it');
-  console.log('   Email: studente1@test.aulabook.it … studente18@test.aulabook.it');
+  console.log('   Email: docente1@test.cadenza.it … docente10@test.cadenza.it');
+  console.log('   Email: studente1@test.cadenza.it … studente18@test.cadenza.it');
   console.log('   Password (tutti): Test1234!');
 }
 
 (async () => {
   try {
-    console.log('🌱 Aula Book — Seed dati di test');
+    console.log('🌱 Cadenza — Seed dati di test');
     await sequelize.authenticate();
     console.log('  · DB connection OK');
 

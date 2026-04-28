@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Mini template engine per email Aula Book.
+ * Mini template engine per email Cadenza.
  *
  * Sintassi:
  *   {{path.to.var}}            → sostituzione (HTML-escape automatico)

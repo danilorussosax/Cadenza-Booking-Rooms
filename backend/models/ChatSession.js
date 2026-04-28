@@ -8,7 +8,7 @@ const { DataTypes } = require('sequelize');
  *   - channel    : 'telegram' | 'whatsapp_cloud' | 'signal_cli' | 'email_imap'
  *   - externalId : id univoco sul canale (chat_id Telegram, msisdn WA/Signal,
  *                  email per IMAP)
- *   - userId     : utente Aula Book bindato (null finché il binding non è
+ *   - userId     : utente Cadenza bindato (null finché il binding non è
  *                  completato — vedi BotBinding + endpoint /me/bot-bindings)
  *   - state      : nome dello step della state-machine (intent.js); null
  *                  quando non c'è un wizard in corso

@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Aula Book — backup script.
+ * Cadenza — backup script.
  *
  * Crea un archivio backups/backup-YYYY-MM-DD-HHmm.tar.gz contenente:
  *   - SQLite: snapshot atomico del DB (VACUUM INTO) + cartella uploads
@@ -210,7 +210,7 @@ async function performBackup(opts = {}) {
   ensureDir(BACKUP_DIR);
 
   const dialect = (process.env.DB_DIALECT || 'sqlite').toLowerCase();
-  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aulabook-bkp-'));
+  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-bkp-'));
   const outputName = `backup-${timestamp()}.tar.gz`;
   const outputPath = path.join(BACKUP_DIR, outputName);
 

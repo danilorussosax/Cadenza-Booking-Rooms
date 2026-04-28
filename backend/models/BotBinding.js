@@ -7,7 +7,7 @@ const { DataTypes } = require('sequelize');
  *
  *   - channel     : 'telegram' | 'whatsapp_cloud' | 'signal_cli' | 'email_imap'
  *   - externalId  : id univoco lato canale (chat_id, msisdn, email)
- *   - userId      : utente Aula Book proprietario del binding
+ *   - userId      : utente Cadenza proprietario del binding
  *   - boundAt     : quando il binding è stato confermato via OTP
  *   - lastSeenAt  : aggiornato a ogni messaggio ricevuto, utile per analytics
  *

@@ -173,7 +173,7 @@ module.exports = (sequelize) => {
       },
       // ---- Integrazioni esterne (Isidata, …) ----
       // `externalSource` identifica il sistema sorgente (es. 'isidata'). Se NULL
-      // l'utente è nato direttamente in Aula Book (registrazione manuale o admin).
+      // l'utente è nato direttamente in Cadenza (registrazione manuale o admin).
       // `externalId` è l'identificativo nel sistema sorgente (matricola Isidata,
       // staff number, …). Coppia (externalSource, externalId) è UNIQUE quando
       // entrambi sono valorizzati (vedi index sotto).

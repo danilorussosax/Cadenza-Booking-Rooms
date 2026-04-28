@@ -79,9 +79,9 @@ async function buildLoanContext({ user, loan }) {
       status: loan.status || '',
     },
     institute: {
-      name: inst?.name || 'Aula Book',
+      name: inst?.name || 'Cadenza',
       copyright:
-        inst?.copyright || 'Aula Book · Per disattivare le notifiche email vai sul tuo profilo.',
+        inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
     },
     now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
   };

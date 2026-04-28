@@ -1,4 +1,4 @@
-# Aula Book · Roadmap Enterprise & Integrazioni PA
+# Cadenza · Roadmap Enterprise & Integrazioni PA
 
 > **Documento operativo per il team di sviluppo** — focus su funzionalità "enterprise" che sbloccano i conservatori AFAM grandi e l'integrazione con i sistemi gestionali italiani.
 > **Aggiornato al 28 aprile 2026** · complementare a [`develop.md`](./develop.md) (roadmap generale) e [`../analisi.md`](../analisi.md) (analisi commerciale).
@@ -69,7 +69,7 @@ Il progetto ha già modelli e pattern direttamente applicabili alle nuove integr
 
 I conservatori italiani medi e grandi tipicamente hanno un **Active Directory aziendale** (gestito dall'ufficio IT del conservatorio o federato con la rete della Regione/Università) per docenti e personale amministrativo. Senza SSO LDAP/AD:
 
-- Gli utenti devono creare credenziali Aula Book separate da quelle istituzionali → frizione, password reuse, sicurezza ridotta.
+- Gli utenti devono creare credenziali Cadenza separate da quelle istituzionali → frizione, password reuse, sicurezza ridotta.
 - I direttori IT spesso pongono come **requisito di gara** l'integrazione LDAP — è uno dei primi filtri tecnici.
 - L'admin deve gestire manualmente l'on/off-boarding (creare/disattivare account) invece di riusare il ciclo di vita Active Directory.
 
@@ -126,7 +126,7 @@ LdapSettings {
   id: 1,                                     // sempre 1, singleton
   isEnabled: BOOLEAN,                        // master switch
   serverUrl: STRING,                         // ldaps://ad.cons.it:636 (TLS obbligatorio in prod)
-  bindDN: STRING,                            // CN=svc-aulabook,OU=Service,DC=cons,DC=it
+  bindDN: STRING,                            // CN=svc-cadenza,OU=Service,DC=cons,DC=it
   bindPasswordEncrypted: TEXT,               // AES-256-GCM via lib/crypto.js
   searchBase: STRING,                        // OU=People,DC=cons,DC=it
   searchFilter: STRING,                      // (|(uid={u})(mail={u})(sAMAccountName={u}))
@@ -200,7 +200,7 @@ Nuova pagina `/admin/ldap-settings` (oppure tab dentro nuova pagina `/admin/auth
 ### 2.8 Prompt di implementazione
 
 ```prompt
-Implementa autenticazione LDAP/Active Directory per Aula Book.
+Implementa autenticazione LDAP/Active Directory per Cadenza.
 
 OBIETTIVO
 Permettere a un utente di accedere con le credenziali del directory aziendale
@@ -304,21 +304,21 @@ Dato che gli endpoint SOAP non sono documentati pubblicamente e richiedono accor
 
 #### Livello A — Import CSV/XLSX manuale (MVP, sempre fattibile)
 
-Il conservatorio esporta da Isidata un file XLSX con anagrafica studenti/docenti e lo carica nel pannello admin di Aula Book. Il sistema mostra un **preview diff** (X nuovi, Y aggiornati, Z disattivati) prima di applicare.
+Il conservatorio esporta da Isidata un file XLSX con anagrafica studenti/docenti e lo carica nel pannello admin di Cadenza. Il sistema mostra un **preview diff** (X nuovi, Y aggiornati, Z disattivati) prima di applicare.
 
 **Effort**: M (3-5 gg). Sblocca il 100% dei conservatori senza dipendenze esterne.
 
 #### Livello B — Polling SOAP/REST con endpoint dedicato (per conservatori che hanno acquistato il modulo "Servizi Web" Isidata)
 
-Il conservatorio fornisce ad Aula Book le credenziali del modulo Servizi Web Isidata. Cron notturno fa polling degli endpoint anagrafica e applica delta.
+Il conservatorio fornisce ad Cadenza le credenziali del modulo Servizi Web Isidata. Cron notturno fa polling degli endpoint anagrafica e applica delta.
 
 **Effort**: L (1-2 sett) per il template generico, **+M-L per ogni conservatorio specifico** (l'endpoint SOAP non è standard tra installazioni, vanno mappati i campi caso per caso).
 
 #### Livello C — Webhook push (per conservatori che hanno un contratto custom con Isidata)
 
-Isidata stesso pusha eventi (immatricolazione, ritiro) verso un webhook Aula Book. Real-time.
+Isidata stesso pusha eventi (immatricolazione, ritiro) verso un webhook Cadenza. Real-time.
 
-**Effort**: L (richiede contratto specifico Isidata-cliente, implementazione lato Aula Book è M).
+**Effort**: L (richiede contratto specifico Isidata-cliente, implementazione lato Cadenza è M).
 
 ### 3.3 Architettura comune (tutti e tre i livelli)
 
@@ -330,7 +330,7 @@ backend/services/integrations/
     csvImporter.js          # Livello A: parser XLSX/CSV
     soapClient.js           # Livello B: client SOAP wrapper
     webhookHandler.js       # Livello C: handler push
-    fieldMapping.js         # Mapping Isidata field → Aula Book User
+    fieldMapping.js         # Mapping Isidata field → Cadenza User
     diffEngine.js           # Calcola added/updated/removed (riusato A,B,C)
   esse3/                    # vedi § 4
     ...
@@ -400,20 +400,20 @@ IntegrationSyncRun {
 }
 ```
 
-### 3.5 Field mapping Isidata → Aula Book
+### 3.5 Field mapping Isidata → Cadenza
 
 Mapping di default (override per istituto):
 
-| Isidata field                     | Aula Book User field | Note                                                         |
-| --------------------------------- | -------------------- | ------------------------------------------------------------ |
-| `Matricola`                       | `matricola`          | UNIQUE — usato come primary external ID                      |
-| `Cognome`                         | `lastName`           |                                                              |
-| `Nome`                            | `firstName`          |                                                              |
-| `EMail`                           | `email`              | UNIQUE — fallback se matricola assente                       |
-| `TipoUtente` (Studente/Docente)   | `role`               | Mapping `Studente→studente`, `Docente→docente`, altro → skip |
-| `CorsoCodice` (es. `DCPL01`)      | `courseId` (lookup)  | Se non trova course → log warning, courseId=null             |
-| `LivelloCorso` (Triennio/Biennio) | `courseLevel`        |                                                              |
-| `StatoIscrizione`                 | logica conversione   | `Attivo→active`, `Ritirato→soft delete with isExternal=true` |
+| Isidata field                     | Cadenza User field  | Note                                                         |
+| --------------------------------- | ------------------- | ------------------------------------------------------------ |
+| `Matricola`                       | `matricola`         | UNIQUE — usato come primary external ID                      |
+| `Cognome`                         | `lastName`          |                                                              |
+| `Nome`                            | `firstName`         |                                                              |
+| `EMail`                           | `email`             | UNIQUE — fallback se matricola assente                       |
+| `TipoUtente` (Studente/Docente)   | `role`              | Mapping `Studente→studente`, `Docente→docente`, altro → skip |
+| `CorsoCodice` (es. `DCPL01`)      | `courseId` (lookup) | Se non trova course → log warning, courseId=null             |
+| `LivelloCorso` (Triennio/Biennio) | `courseLevel`       |                                                              |
+| `StatoIscrizione`                 | logica conversione  | `Attivo→active`, `Ritirato→soft delete with isExternal=true` |
 
 ### 3.6 Strategia "mai cancellare"
 
@@ -452,7 +452,7 @@ Aggiunge sopra Livello A:
 ### 3.9 Prompt di implementazione (Livello A — MVP)
 
 ```prompt
-Implementa importazione anagrafica utenti via CSV/XLSX da Isidata in Aula Book.
+Implementa importazione anagrafica utenti via CSV/XLSX da Isidata in Cadenza.
 
 OBIETTIVO
 Permettere all'admin di caricare un file XLSX/CSV esportato da Isidata,
@@ -508,7 +508,7 @@ STEP
    - POST /api/admin/integrations/isidata-csv/apply
      body {instituteId, mappingOverrides?, confirmedDiffHash}.
      Ricarica file dal blob storage temp (cache 10min Redis o filesystem
-     `/tmp/aulabook-imports/{adminId}-{ts}.xlsx`), ricomputa diff, verifica
+     `/tmp/cadenza-imports/{adminId}-{ts}.xlsx`), ricomputa diff, verifica
      hash matcha quello mostrato all'admin (anti-TOCTOU), applica in
      transazione SERIALIZABLE.
      Ritorna IntegrationSyncRun.id.
@@ -581,9 +581,9 @@ backend/services/integrations/esse3/
   webhookSignature.js       # HMAC verify (riusa pattern messagingWebhook.js)
 ```
 
-### 4.4 Field mapping Esse3 → Aula Book
+### 4.4 Field mapping Esse3 → Cadenza
 
-| Esse3 field (REST)                  | Aula Book User field    | Note                                                           |
+| Esse3 field (REST)                  | Cadenza User field      | Note                                                           |
 | ----------------------------------- | ----------------------- | -------------------------------------------------------------- |
 | `id` (esse3 internal)               | `externalId`            | string, stabile per ateneo                                     |
 | `matricola`                         | `matricola`             | UNIQUE primary                                                 |
@@ -596,7 +596,7 @@ backend/services/integrations/esse3/
 
 ### 4.5 Sincronizzazione bidirezionale (opzionale)
 
-Caso d'uso enterprise: un conservatorio vuole vedere in Esse3 le ore di studio individuale tracciate da Aula Book.
+Caso d'uso enterprise: un conservatorio vuole vedere in Esse3 le ore di studio individuale tracciate da Cadenza.
 
 Esse3 espone POST endpoints per `attivita-didattiche-aggiuntive` (workshop, laboratori), ma NON per "ore studio individuale" standard. Bidirezionale è quindi limitato a "registrazione masterclass/concerto come attività didattica" — utile ma non MVP.
 
@@ -620,7 +620,7 @@ Esse3 espone POST endpoints per `attivita-didattiche-aggiuntive` (workshop, labo
 ### 4.7 Prompt di implementazione
 
 ```prompt
-Implementa sincronizzazione anagrafiche da Esse3 (Cineca) verso Aula Book.
+Implementa sincronizzazione anagrafiche da Esse3 (Cineca) verso Cadenza.
 
 OBIETTIVO
 Cron notturno + webhook real-time che importa studenti/docenti da Esse3 v3 API,

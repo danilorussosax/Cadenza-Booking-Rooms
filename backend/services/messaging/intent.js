@@ -32,7 +32,7 @@ const { Op } = require('sequelize');
 const { Booking, Room, Building } = require('../../models');
 const { validateBooking } = require('../bookingValidator');
 
-const HELP_TEXT = `🤖 *Aula Book — Bot*
+const HELP_TEXT = `🤖 *Cadenza — Bot*
 
 Comandi disponibili:
 • /book — prenota un'aula (ti guido step by step)

@@ -2,7 +2,7 @@
   "name": "conservatory-e2e",
   "private": true,
   "version": "1.0.0",
-  "description": "Test end-to-end con Playwright per Aula Book",
+  "description": "Test end-to-end con Playwright per Cadenza",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",

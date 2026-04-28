@@ -1,8 +1,8 @@
 {
-  "name": "aula-book-monorepo",
+  "name": "cadenza-monorepo",
   "private": true,
   "version": "1.0.0",
-  "description": "Aula Book — root meta-package per devtools condivisi (husky, lint-staged, commitlint, prettier).",
+  "description": "Cadenza — root meta-package per devtools condivisi (husky, lint-staged, commitlint, prettier).",
   "engines": {
     "node": ">=20.0.0"
   },

@@ -5,7 +5,7 @@ const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT || 3199);
 const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${BACKEND_PORT}`;
 
 /**
- * Playwright config per Aula Book.
+ * Playwright config per Cadenza.
  *
  * Strategia:
  *  - Avviamo il backend Node con SQLite in-memory + seed E2E (vedi

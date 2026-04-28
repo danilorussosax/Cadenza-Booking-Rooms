@@ -24,7 +24,7 @@
  *   03 Tre pilastri
  *   04 Screen — Dashboard
  *   05 PRIMA: pomeriggio in segreteria
- *   06 DOPO: con Aula Book
+ *   06 DOPO: con Cadenza
  *   07 Screen — Vista settimanale
  *   08 Screen — Form prenotazione
  *   09 Conflitti impossibili
@@ -183,7 +183,7 @@ function pill(
 }
 
 function logoMark(doc, cx, cy, size = 56, _color = null) {
-  // Embed del logo ufficiale Aula Book (icon-512.png — il favicon/PWA icon
+  // Embed del logo ufficiale Cadenza (icon-512.png — il favicon/PWA icon
   // del software). Il parametro `color` è ignorato perché il logo PNG ha la
   // sua identità cromatica fissa (navy + oro + nota musicale crema). Se il
   // file non è disponibile ricadiamo su un cerchio rose come placeholder.
@@ -232,14 +232,14 @@ function footer(doc, pageNum, total, { color = C.clay } = {}) {
     .font('Helvetica-Bold')
     .fontSize(10)
     .fillColor(C.text)
-    .text('Aula Book', 96, H - 30, { lineBreak: false });
+    .text('Cadenza', 96, H - 30, { lineBreak: false });
   doc
     .font('Helvetica')
     .fontSize(10)
     .fillColor(C.textMuted)
     .text(
       '  ·  Presentazione per direttori e responsabili didattica',
-      96 + doc.widthOfString('Aula Book'),
+      96 + doc.widthOfString('Cadenza'),
       H - 30,
       { lineBreak: false },
     );
@@ -506,7 +506,7 @@ function slideCover(doc) {
     .fillColor(C.bg)
     .font('Helvetica-Bold')
     .fontSize(32)
-    .text('Aula Book', 144, 90, { lineBreak: false });
+    .text('Cadenza', 144, 90, { lineBreak: false });
   doc
     .fillColor('#bdb6a8')
     .font('Helvetica')
@@ -652,7 +652,7 @@ function slideSoluzione(doc) {
     .fillColor(C.text)
     .font('Helvetica-Bold')
     .fontSize(34)
-    .text('Aula Book è il sistema unico per', 64, 200, { width: W - 128, align: 'center' });
+    .text('Cadenza è il sistema unico per', 64, 200, { width: W - 128, align: 'center' });
   doc
     .fillColor(C.clay)
     .font('Helvetica-Bold')
@@ -752,7 +752,7 @@ function slideScreenDashboard(doc) {
     .fillColor(C.textSubtle)
     .font('Helvetica')
     .fontSize(8)
-    .text('aulabook.tuo-conservatorio.it/dashboard', fx + 88, fy + 12, { lineBreak: false });
+    .text('cadenza.tuo-conservatorio.it/dashboard', fx + 88, fy + 12, { lineBreak: false });
 
   // Sidebar
   const sx = fx,
@@ -766,7 +766,7 @@ function slideScreenDashboard(doc) {
     .fillColor(C.text)
     .font('Helvetica-Bold')
     .fontSize(15)
-    .text('Aula Book', sx + 44, sy + 18, { lineBreak: false });
+    .text('Cadenza', sx + 44, sy + 18, { lineBreak: false });
   // Nav items — icone Lucide identiche a quelle usate dalla sidebar reale
   // del software (vedi `frontend/src/components/layout/AppLayout.tsx`).
   const nav = [
@@ -948,7 +948,7 @@ function slideScreenDashboard(doc) {
 
 function slidePrima(doc) {
   bgFill(doc);
-  slideTitle(doc, 'Lunedì, 15:00. Telefono in segreteria.', 'OGGI · senza Aula Book', {
+  slideTitle(doc, 'Lunedì, 15:00. Telefono in segreteria.', 'OGGI · senza Cadenza', {
     color: C.terracotta,
   });
 
@@ -1022,7 +1022,7 @@ function slidePrima(doc) {
 }
 
 // =============================================
-// SLIDE 06 — DOPO: con Aula Book
+// SLIDE 06 — DOPO: con Cadenza
 // =============================================
 
 function slideDopo(doc) {
@@ -1030,7 +1030,7 @@ function slideDopo(doc) {
   slideTitle(doc, 'Lunedì, 15:00. Niente telefono.', 'CON AULA BOOK', { color: C.sage });
 
   const steps = [
-    { time: '15:00:00', txt: 'Prof. Rossi apre Aula Book sul cellulare.' },
+    { time: '15:00:00', txt: 'Prof. Rossi apre Cadenza sul cellulare.' },
     {
       time: '15:00:08',
       txt: 'Vede in tempo reale: aula 102 giovedì 14–17 occupata, 17–19 libera.',
@@ -1657,7 +1657,7 @@ function slideScreenAnalytics(doc) {
     .fillColor(C.textSubtle)
     .font('Helvetica')
     .fontSize(8)
-    .text('aulabook.tuo-conservatorio.it/admin/analytics', fx + 80, fy + 10, { lineBreak: false });
+    .text('cadenza.tuo-conservatorio.it/admin/analytics', fx + 80, fy + 10, { lineBreak: false });
 
   // Inner content area
   const ix = fx + 24,
@@ -1674,7 +1674,7 @@ function slideScreenAnalytics(doc) {
     .fillColor(C.textMuted)
     .font('Helvetica')
     .fontSize(10)
-    .text('Aula Book · report analytics', ix, iy + 28, { lineBreak: false });
+    .text('Cadenza · report analytics', ix, iy + 28, { lineBreak: false });
   pill(doc, ix + iw - 200, iy + 4, '29 mar – 28 apr 2026', {
     fill: C.claySoft,
     color: C.clayDark,
@@ -1962,7 +1962,7 @@ function slideScreenKiosk(doc) {
     .font('Helvetica-Oblique')
     .fontSize(11)
     .text(
-      'Screenshot live della pagina /display servita dal backend Aula Book con dati reali del seed.',
+      'Screenshot live della pagina /display servita dal backend Cadenza con dati reali del seed.',
       mx,
       my + mh + 24,
       { width: mw, align: 'center', lineBreak: false },
@@ -2394,7 +2394,7 @@ function slideIntegrazioni(doc) {
     .fillColor(C.textMuted)
     .font('Helvetica')
     .fontSize(14)
-    .text('Niente "isole digitali". Aula Book parla con i sistemi del conservatorio.', 64, 152, {
+    .text('Niente "isole digitali". Cadenza parla con i sistemi del conservatorio.', 64, 152, {
       lineBreak: false,
     });
 
@@ -2506,7 +2506,7 @@ function slideClosing(doc) {
     .fillColor(C.bg)
     .font('Helvetica-Bold')
     .fontSize(28)
-    .text('Aula Book', 156, 92, { lineBreak: false });
+    .text('Cadenza', 156, 92, { lineBreak: false });
   doc
     .fillColor('#bdb6a8')
     .font('Helvetica')
@@ -2550,7 +2550,7 @@ function slideClosing(doc) {
     .fontSize(10)
     .fillColor('#7e776a')
     .text(
-      'Aula Book · ' +
+      'Cadenza · ' +
         new Date().toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' }),
       48,
       H - 36,
@@ -2570,10 +2570,10 @@ function generate() {
     size: [W, H],
     margin: 0,
     info: {
-      Title: 'Aula Book — Presentazione per direttori',
-      Author: 'Aula Book',
+      Title: 'Cadenza — Presentazione per direttori',
+      Author: 'Cadenza',
       Subject: 'Sistema di prenotazione aule per il conservatorio',
-      Keywords: 'aulabook, conservatorio, prenotazione, presentazione',
+      Keywords: 'cadenza, conservatorio, prenotazione, presentazione',
     },
   });
   const stream = fs.createWriteStream(out);

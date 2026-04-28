@@ -86,7 +86,7 @@ async function performRestore({ archivePath, dryRun = false }) {
   }
   restoreInProgress = true;
   const startedAt = Date.now();
-  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aulabook-rst-'));
+  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-rst-'));
   let savedDbBackup = null;
   let savedUploadsBackup = null;
   try {

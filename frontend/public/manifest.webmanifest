@@ -1,6 +1,6 @@
 {
-  "name": "Aula Book — Prenotazione Aule del Conservatorio",
-  "short_name": "Aula Book",
+  "name": "Cadenza — Prenotazione Aule del Conservatorio",
+  "short_name": "Cadenza",
   "description": "Sistema di prenotazione aule, prestiti strumenti e display kiosk per il Conservatorio.",
   "start_url": "/dashboard",
   "scope": "/",

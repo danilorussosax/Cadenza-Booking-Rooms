@@ -117,9 +117,9 @@ router.get('/ical', async (req, res, next) => {
       order: [['startTime', 'ASC']],
     });
 
-    const calendar = buildIcs(bookings, { calName: 'Aula Book' });
+    const calendar = buildIcs(bookings, { calName: 'Cadenza' });
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', 'inline; filename="aula-book.ics"');
+    res.setHeader('Content-Disposition', 'inline; filename="cadenza.ics"');
     res.setHeader('Cache-Control', 'no-cache');
     res.send(calendar);
   } catch (err) {

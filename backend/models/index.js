@@ -8,7 +8,7 @@ const sequelize = require('../config/database');
 // esplicitamente autorizzato via env (DB_ALLOW_DESTRUCTIVE=1).
 //
 // Motivazione: il 28 apr 2026 uno script ad-hoc ha lanciato
-// sequelize.sync({force:true}) sul DB Postgres di sviluppo `aulabook`
+// sequelize.sync({force:true}) sul DB Postgres di sviluppo `cadenza`
 // invece che su un DB di test → wipe completo dei dati. La guardia ferma
 // questa classe di errori a tempo di esecuzione.
 //

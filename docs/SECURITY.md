@@ -1,14 +1,14 @@
 # Sicurezza · Verifica in due passaggi via codice email
 
-Questa guida spiega come funziona la **2FA via email** in Aula Book e come gli amministratori la configurano.
+Questa guida spiega come funziona la **2FA via email** in Cadenza e come gli amministratori la configurano.
 
 > Riferimento codice: `backend/services/twoFa.js`, `backend/services/emailService.js#sendSecurityEmail`, `backend/middleware/auth.js`, `backend/routes/auth.js` (sezione `/api/auth/2fa/*`), `frontend/src/components/profile/TwoFaSection.tsx`, `frontend/src/pages/auth/Login.tsx` (TwoFaView).
 
 ---
 
-## 1. Cos'è la 2FA email in Aula Book
+## 1. Cos'è la 2FA email in Cadenza
 
-Aula Book utilizza una **OTP via email**: a ogni accesso (e per le operazioni sensibili sul 2FA stesso) il backend genera un codice di **6 cifre random**, lo invia all'email dell'utente e lo verifica al ritorno. Il codice scade in **10 minuti** (configurabile via `TWO_FA_TTL_MIN`) e ha un cap di **5 tentativi errati** (`TWO_FA_MAX_ATTEMPTS`) prima di essere invalidato.
+Cadenza utilizza una **OTP via email**: a ogni accesso (e per le operazioni sensibili sul 2FA stesso) il backend genera un codice di **6 cifre random**, lo invia all'email dell'utente e lo verifica al ritorno. Il codice scade in **10 minuti** (configurabile via `TWO_FA_TTL_MIN`) e ha un cap di **5 tentativi errati** (`TWO_FA_MAX_ATTEMPTS`) prima di essere invalidato.
 
 Vantaggi rispetto al TOTP:
 
@@ -38,7 +38,7 @@ SMTP_PORT=587
 SMTP_SECURE=false        # true se porta 465
 SMTP_USER=noreply@conservatorio.it
 SMTP_PASS=...
-SMTP_FROM="Conservatorio · Aula Book <noreply@conservatorio.it>"
+SMTP_FROM="Conservatorio · Cadenza <noreply@conservatorio.it>"
 ```
 
 Le email di sicurezza (`sendSecurityEmail`) **non rispettano** le preferenze granulari (`emailNotifications`, `notifyOnConfirmation`, ecc.): vanno SEMPRE inviate.
@@ -47,7 +47,7 @@ Le email di sicurezza (`sendSecurityEmail`) **non rispettano** le preferenze gra
 
 ```env
 # Mostrato nel subject e nell'header HTML dell'email codice
-TWO_FA_ISSUER=Conservatorio · Aula Book
+TWO_FA_ISSUER=Conservatorio · Cadenza
 # Scadenza codice in minuti (default 10)
 TWO_FA_TTL_MIN=10
 # Tentativi max prima dell'invalidazione (default 5)
@@ -69,7 +69,7 @@ L'utente accede al profilo (`/profile`) e nella sezione **"Sicurezza · Verifica
 1. **Toggle "Attiva"** → backend chiama `issueAndSendTwoFaCode(user, 'enroll')`:
    - Genera codice 6 cifre, hashato con bcrypt (cost 8)
    - Salva `{ hash, expiresAt, attempts: 0, purpose: 'enroll' }` in `users.twoFaChallenge`
-   - Invia email `Conservatorio · Aula Book · Codice di accesso` con il codice in chiaro
+   - Invia email `Conservatorio · Cadenza · Codice di accesso` con il codice in chiaro
 2. **UI mostra "Codice inviato a m\***@example.it"\*\* + input.
 3. **Inserimento codice** → POST `/api/auth/2fa/verify { code }`:
    - Validazione bcrypt + scadenza + cap tentativi
@@ -244,7 +244,7 @@ Verifiche manuali consigliate:
 
 ## 9. Riferimenti normativi
 
-- **OWASP ASVS v4 §2.7** — multi-factor authentication. Aula Book copre `2.7.4` (OOB authenticator: l'email è un canale OOB rispetto al browser) e `2.7.6` (server non rivela se il primo fattore era valido in caso di errore al secondo step).
+- **OWASP ASVS v4 §2.7** — multi-factor authentication. Cadenza copre `2.7.4` (OOB authenticator: l'email è un canale OOB rispetto al browser) e `2.7.6` (server non rivela se il primo fattore era valido in caso di errore al secondo step).
 - **NIST SP 800-63B AAL2** — l'email-OTP è classificato come "Out-of-Band" + "look-up secret" (recovery codes). Per AAL3 sarebbe richiesto un autenticatore hardware (YubiKey, ecc.) — non in scope.
 - **GDPR art. 32** — la verifica in due passaggi è una misura tecnica appropriata per l'accesso a dati personali. La challenge non contiene PII oltre all'email del destinatario stesso (no leak cross-utente).
 

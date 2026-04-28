@@ -1,9 +1,9 @@
 # Integrazione Isidata — Liv A (import manuale CSV/XLSX)
 
-Questa guida descrive come allineare l'anagrafica utenti di Aula Book con
+Questa guida descrive come allineare l'anagrafica utenti di Cadenza con
 quella della segreteria Isidata caricando un export del file XLSX/CSV.
 
-> **Sicurezza**: Aula Book non cancella mai utenti locali. Gli utenti che
+> **Sicurezza**: Cadenza non cancella mai utenti locali. Gli utenti che
 > non sono più presenti nell'export Isidata vengono **disattivati**
 > (`isActive=false`) e marcati con una nota "external_orphan". Lo storico
 > prenotazioni rimane intatto.
@@ -11,7 +11,7 @@ quella della segreteria Isidata caricando un export del file XLSX/CSV.
 ## Indice
 
 1. [Esportare i dati da Isidata](#1-esportare-i-dati-da-isidata)
-2. [Caricare il file in Aula Book](#2-caricare-il-file-in-aula-book)
+2. [Caricare il file in Cadenza](#2-caricare-il-file-in-cadenza)
 3. [Anteprima e applica](#3-anteprima-e-applica)
 4. [Cosa cambia nel database](#4-cosa-cambia-nel-database)
 5. [Mapping campi e override avanzato](#5-mapping-campi-e-override-avanzato)
@@ -28,10 +28,10 @@ Le procedure variano leggermente fra release Isidata; il flusso tipico è:
    all'export anagrafica.
 2. Vai in **Allievi → Stampe / Export → Esporta in formato Excel**, oppure
    l'analogo per Docenti (**Personale → Export → XLSX**).
-3. Spunta i campi minimi richiesti da Aula Book:
+3. Spunta i campi minimi richiesti da Cadenza:
    - **Matricola** (obbligatorio)
    - **Cognome**, **Nome** (obbligatori)
-   - **Email istituzionale** (consigliato — se assente, Aula Book genera
+   - **Email istituzionale** (consigliato — se assente, Cadenza genera
      un placeholder e l'admin la modificherà al primo accesso)
    - **Codice corso** o **Descrizione corso** (consigliato)
    - **Stato** (Iscritto / Cessato / Sospeso) per discriminare attivi vs
@@ -49,7 +49,7 @@ Le procedure variano leggermente fra release Isidata; il flusso tipico è:
 
 ---
 
-## 2. Caricare il file in Aula Book
+## 2. Caricare il file in Cadenza
 
 Vai in **Admin → Import Isidata** (sidebar `/admin/integrations/isidata`).
 
@@ -59,7 +59,7 @@ Vai in **Admin → Import Isidata** (sidebar `/admin/integrations/isidata`).
 3. Premi **Anteprima**.
 
 Il backend NON modifica nulla in questa fase: legge il file, calcola il
-diff e lo persiste solo in `os.tmpdir()/aulabook-imports/` per 10 minuti.
+diff e lo persiste solo in `os.tmpdir()/cadenza-imports/` per 10 minuti.
 
 ---
 
@@ -67,7 +67,7 @@ diff e lo persiste solo in `os.tmpdir()/aulabook-imports/` per 10 minuti.
 
 L'anteprima mostra tre sezioni colorate:
 
-- **Verde — Da creare**: utenti presenti nel file ma non in Aula Book.
+- **Verde — Da creare**: utenti presenti nel file ma non in Cadenza.
   Verranno creati con `status='pending'` (l'admin li approva
   esplicitamente dopo).
 - **Blu — Da aggiornare**: utenti già esistenti i cui dati nel file
@@ -156,7 +156,7 @@ WHERE id = <runId>;
 
 ### "Matricole con leading zero diventano numeri"
 
-Excel converte le matricole tipo `00042` in `42`. Aula Book le tratta
+Excel converte le matricole tipo `00042` in `42`. Cadenza le tratta
 come stringhe (parser XLSX con `raw:false`), quindi i leading zero
 vengono preservati. Il diff engine inoltre normalizza `42` ≡ `00042`
 per il matching, evitando falsi update.

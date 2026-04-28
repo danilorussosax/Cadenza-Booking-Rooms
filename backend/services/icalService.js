@@ -11,7 +11,7 @@ const TYPE_LABEL = {
   altro: 'Prenotazione',
 };
 
-const APP_DOMAIN = 'aula-book.local';
+const APP_DOMAIN = 'cadenza.local';
 
 function toIcsArray(d) {
   const m = dayjs(d);
@@ -98,8 +98,8 @@ function bookingToEvent(entry) {
     description: bookingDescription(master),
     start: toIcsArray(master.startTime),
     end: toIcsArray(master.endTime),
-    productId: 'aula-book/ics',
-    calName: 'Aula Book',
+    productId: 'cadenza/ics',
+    calName: 'Cadenza',
     status: 'CONFIRMED',
   };
   if (isRecurring && count > 1) {
@@ -114,7 +114,7 @@ function bookingToEvent(entry) {
  * Restituisce stringa pronta da inviare con Content-Type: text/calendar.
  */
 function buildIcs(bookings, opts = {}) {
-  const calName = opts.calName || 'Aula Book';
+  const calName = opts.calName || 'Cadenza';
   const grouped = groupRecurrences(bookings);
   const events = grouped.map(bookingToEvent);
 
@@ -123,7 +123,7 @@ function buildIcs(bookings, opts = {}) {
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//aula-book//IT',
+      'PRODID:-//cadenza//IT',
       `X-WR-CALNAME:${calName}`,
       'METHOD:PUBLISH',
       'END:VCALENDAR',

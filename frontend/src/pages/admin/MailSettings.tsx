@@ -372,7 +372,7 @@ export default function AdminMailSettings() {
                 <Label htmlFor="m-from-name">Nome mittente</Label>
                 <Input
                   id="m-from-name"
-                  placeholder="Conservatorio Aula Book"
+                  placeholder="Conservatorio Cadenza"
                   {...register('fromName')}
                 />
               </div>

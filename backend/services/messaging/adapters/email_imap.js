@@ -6,7 +6,7 @@
 //
 // Setup (vedi docs/BOT-MESSAGING.md):
 //   1. Crea casella IMAP dedicata sul server di posta del Conservatorio.
-//   2. Configura su Aula Book (admin → messaging):
+//   2. Configura su Cadenza (admin → messaging):
 //      - host, port, secure (true per IMAPS porta 993)
 //      - user, password
 //      - pollIntervalSec (default 30s)
@@ -48,7 +48,7 @@ async function send(externalId, text, _config) {
   // dal mittente configurato in MailSettings.
   await sendSecurityEmail({
     to: externalId,
-    subject: 'Aula Book · risposta',
+    subject: 'Cadenza · risposta',
     html: `<pre style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif;font-size:14px;line-height:1.5;color:#1a2234;background:#f7f9fc;padding:16px;border-radius:8px;border:1px solid #e2e8f0;">${escapeHtml(text)}</pre>`,
   });
 }

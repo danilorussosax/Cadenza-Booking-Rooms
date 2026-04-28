@@ -38,7 +38,7 @@
  *     courseCode: string|null,      // codice corso (es. "CODI/21")
  *     courseName: string|null,      // descrittivo (fallback se code mancante)
  *     status: 'active'|'inactive',  // dal sistema sorgente; 'inactive' →
- *                                    // disattivato anche su Aula Book
+ *                                    // disattivato anche su Cadenza
  *     raw?: object,                 // riga sorgente (utile per debug)
  *   }
  */

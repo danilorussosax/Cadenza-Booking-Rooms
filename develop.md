@@ -1,4 +1,4 @@
-# Aula Book · Roadmap di sviluppo
+# Cadenza · Roadmap di sviluppo
 
 > Aggiornato al **29 aprile 2026** · ultimo ciclo: "Bot messaging Telegram + adapter pluggable WhatsApp/Signal/Email".
 > Documento operativo per il team di sviluppo. Il materiale strategico (mercato, pricing, go-to-market) è in [`/analisi.md`](../analisi.md). Il deck per i direttori è in [`docs/perDirettori.md`](docs/perDirettori.md).
@@ -164,7 +164,7 @@ Pattern UX moderno (Robin/Skedda): "il mio slot solito" → 1 click prenota.
 **Effort**: S-M (2-3 gg).
 
 ```prompt
-Aggiungi booking templates a Aula Book:
+Aggiungi booking templates a Cadenza:
 1) Modello BookingTemplate (userId, name, roomId, dayOfWeek 0-6,
    startMinutes, durationMinutes, type, purpose, isFavorite).
    UNIQUE (userId, name).
@@ -220,7 +220,7 @@ Implementa embed pubblico concerti:
 2) Header X-Frame-Options: ALLOWALL solo su /embed/* (CSP frame-ancestors *).
 3) Stile minimale + responsive: card per concerto con titolo, data,
    edificio, esecutori. Design "neutro" per integrarsi in qualunque sito.
-4) Documentazione: <iframe src="https://aulabook.example.it/embed/concerts" />.
+4) Documentazione: <iframe src="https://cadenza.example.it/embed/concerts" />.
 5) Cache pubblica 5 minuti (Cache-Control: public, max-age=300).
 ```
 
@@ -286,7 +286,7 @@ Critico per accreditamento bandi PNRR e per i conservatori grandi che lo richied
 **Effort**: L (3-4 sett dev + 2-3 mesi processo AgID per service provider registration).
 
 ```prompt
-Aggiungi login SPID/CIE a Aula Book:
+Aggiungi login SPID/CIE a Cadenza:
 1) Install spid-passport (o equivalente certificato AgID).
 2) Configura metadata SPID (entityID, contactPerson, organizationName)
    gestiti via UI /admin/oauth-settings (sezione SPID).
@@ -305,7 +305,7 @@ Aggiungi login SPID/CIE a Aula Book:
 ### 🔵 2.10 PEC integration (P3 — obbligo PA per comunicazioni ufficiali)
 
 ```prompt
-Aggiungi supporto PEC a Aula Book:
+Aggiungi supporto PEC a Cadenza:
 1) Estendi MailSettings con flag `isPec` + `pecProvider`
    (Aruba, Legalmail, InfoCert).
 2) Quando isPec=true, le email "ufficiali" (es. approvazione iscrizione,
@@ -430,7 +430,7 @@ Lo scaffold base è in produzione (Telegram pieno, gli altri scaffold). Restano:
 Oggi `preSyncMigrations.js` è il compat layer (idempotente). Migrazione a `sequelize-cli` per migrations versionate up/down.
 
 ```prompt
-Migra Aula Book a sequelize-cli:
+Migra Cadenza a sequelize-cli:
 1) npm install --save-dev sequelize-cli
 2) npx sequelize-cli init
 3) Genera migration baseline dal dump SQL → 0000_initial.js
@@ -477,7 +477,7 @@ Granularità maggiore dell'attuale (oggi si traccia POST/PUT/DELETE su admin, no
 ## 4. Confronto sintetico
 
 ```
-                              Asimut  Skedda  Robin   Aula Book
+                              Asimut  Skedda  Robin   Cadenza
 Room booking self-service       ✅      ✅      ✅      ✅
 Custom rules + quotas           ✅      ✅      ✅      ✅
 Auto-cancel ghost               ✅      ◐       ◐       ✅
@@ -504,7 +504,7 @@ Accesso fisico RFID             ✅      —       ✅      — (§2.14)
 ✅ disponibile  ◐ parziale  — assente  ? non documentato pubblicamente
 ```
 
-**Sintesi**: Aula Book ha **parità o superiorità** su tutte le aree in scope. Gap principale strutturale: **task management eventi** (§ 2.1, effort L) — l'unico documentato pubblicamente sul sito ASIMUT. Le aree fuori scope (lezioni 1:1, group calendars) restano una scelta esplicita di prodotto. Le integrazioni PA italiana (SPID/PEC/ANIS — §§ 2.9-2.12) sono **vantaggio competitivo decisivo** una volta completate, perché nessun competitor estero le offre.
+**Sintesi**: Cadenza ha **parità o superiorità** su tutte le aree in scope. Gap principale strutturale: **task management eventi** (§ 2.1, effort L) — l'unico documentato pubblicamente sul sito ASIMUT. Le aree fuori scope (lezioni 1:1, group calendars) restano una scelta esplicita di prodotto. Le integrazioni PA italiana (SPID/PEC/ANIS — §§ 2.9-2.12) sono **vantaggio competitivo decisivo** una volta completate, perché nessun competitor estero le offre.
 
 ---
 

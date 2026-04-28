@@ -132,7 +132,7 @@ router.post(
 // Helper: genera challenge 2FA, salva in DB, manda email all'utente.
 // Restituisce { ok, sentTo, expiresInMinutes } o { ok: false, error }.
 async function issueAndSendTwoFaCode(user, purpose) {
-  const issuer = process.env.TWO_FA_ISSUER || 'Aula Book';
+  const issuer = process.env.TWO_FA_ISSUER || 'Cadenza';
   const { code, record } = await twoFa.createChallenge(purpose);
   user.twoFaChallenge = record;
   await user.save();

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Servizio email per Aula Book.
+ * Servizio email per Cadenza.
  * La configurazione SMTP viene letta da DB (tabella mail_settings)
  * gestita via UI admin. Fallback alle env SMTP_* se la tabella è vuota
  * o disabilitata (utile in sviluppo).
@@ -42,7 +42,7 @@ async function loadConfig() {
     secure = process.env.SMTP_SECURE === 'true';
     user = process.env.SMTP_USER;
     pass = process.env.SMTP_PASS;
-    from = process.env.SMTP_FROM || 'Aula Book <noreply@aulabook.local>';
+    from = process.env.SMTP_FROM || 'Cadenza <noreply@cadenza.local>';
   } else {
     if (!warned) {
       console.warn('[email] Nessuna configurazione SMTP (né DB né env) → email disattivate.');
@@ -61,7 +61,7 @@ async function loadConfig() {
 
   cache = {
     transporter,
-    from: from || 'Aula Book <noreply@aulabook.local>',
+    from: from || 'Cadenza <noreply@cadenza.local>',
     replyTo,
     expiresAt: Date.now() + CACHE_TTL_MS,
   };
@@ -84,7 +84,7 @@ async function getTransporter() {
 
 async function senderFrom() {
   const cfg = await loadConfig();
-  return cfg?.from || 'Aula Book <noreply@aulabook.local>';
+  return cfg?.from || 'Cadenza <noreply@cadenza.local>';
 }
 
 const baseStyles = `
@@ -153,9 +153,9 @@ async function buildBookingContext({ user, booking, extra }) {
     },
     building: { name: building.name || '' },
     institute: {
-      name: inst?.name || 'Aula Book',
+      name: inst?.name || 'Cadenza',
       copyright:
-        inst?.copyright || 'Aula Book · Per disattivare le notifiche email vai sul tuo profilo.',
+        inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
     },
     now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
     // Campo libero per dati specifici del kind (es. claim_waitlist passa
@@ -283,9 +283,9 @@ async function sendTestEmail({ to, subject, message }) {
       from: cfg.from,
       to,
       replyTo: cfg.replyTo,
-      subject: subject || 'Test invio email · Aula Book',
+      subject: subject || 'Test invio email · Cadenza',
       html: `<!doctype html><html><body style="font-family:-apple-system,sans-serif;padding:24px">
-        <h2 style="color:#3762aa">Aula Book · email di test</h2>
+        <h2 style="color:#3762aa">Cadenza · email di test</h2>
         <p>${escapeHtml(
           message ||
             'Questo è un messaggio di test inviato dalla pagina amministrazione del server di posta. Se lo ricevi, la configurazione SMTP è corretta.',
