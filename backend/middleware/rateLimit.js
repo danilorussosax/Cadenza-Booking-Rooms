@@ -70,10 +70,16 @@ const registerLimiter = rateLimit({
   handler: buildHandler({ logHint: 'auth_register' }),
 });
 
+// Default per /api/*: 300 req/min/IP. Volutamente generoso perché l'app è
+// usata in modo interattivo (griglia Monte Ore = molti click consecutivi che
+// generano 3-4 fetch/click, cataloghi che invalidano molte query, ecc.).
+// Il limite serve come barriera contro gli script abusivi, non per limitare
+// l'uso normale da browser. Gli endpoint sensibili (login/register/gdpr)
+// hanno limiter dedicati molto più stringenti.
 const apiDefaultLimiter = rateLimit({
   ...baseOptions,
   windowMs: 60 * 1000,
-  limit: 60,
+  limit: Number(process.env.RATE_LIMIT_API_PER_MIN) || 300,
   handler: buildHandler({ logHint: 'api_default' }),
 });
 

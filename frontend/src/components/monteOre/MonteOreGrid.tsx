@@ -75,7 +75,27 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
             : 'Richiesta inviata al coordinatore',
         );
       }
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // Aggiornamento "ottimistico" mirato: patcho lo slot nella cache locale
+      // invece di rifare un fetch completo. Questo riduce drasticamente le
+      // richieste API quando il docente clicca rapidamente molte celle.
+      if (data.slot) {
+        const updatedSlot = data.slot;
+        qc.setQueryData<{ slots: MonteOreSlot[] }>(['monte-ore', 'me', 'slots'], (old) =>
+          old
+            ? {
+                ...old,
+                slots: old.slots.map((s) => (s.id === updatedSlot.id ? updatedSlot : s)),
+              }
+            : old,
+        );
+      } else {
+        // Fallback: amendment senza slot aggiornato → invalida lo slots query
+        void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+      }
+      // Se è stato creato un amendment, refresha la lista (light)
+      if (data.amendment) {
+        void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
+      }
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
