@@ -470,15 +470,33 @@ async function seed() {
     },
   ];
 
-  const courseCount = await Course.count();
-  if (courseCount === 0) {
-    // Il setter del modello Course gestisce JSON.stringify dei levels: passiamo l'array diretto.
-    for (const c of afamCourses) {
-      await Course.create(c);
+  // Idempotente: findOrCreate per code (paranoid:false trova anche i
+  // soft-deleted), e se trovato soft-deleted lo restora — così il
+  // catalogo AFAM resta sempre visibile dopo un riavvio.
+  let createdCount = 0;
+  let restoredCount = 0;
+  for (const c of afamCourses) {
+    const [course, created] = await Course.findOrCreate({
+      where: { code: c.code },
+      defaults: c,
+      paranoid: false,
+    });
+    if (created) {
+      createdCount += 1;
+    } else if (course.deletedAt) {
+      await course.restore();
+      restoredCount += 1;
     }
-    console.log(`  ✓ ${afamCourses.length} corsi AFAM creati (primo avvio)`);
-  } else {
-    console.log(`  → ${courseCount} corsi già presenti, seed AFAM saltato`);
+  }
+  if (createdCount > 0) {
+    console.log(`  ✓ ${createdCount} corsi AFAM creati`);
+  }
+  if (restoredCount > 0) {
+    console.log(`  ✓ ${restoredCount} corsi AFAM ripristinati (erano soft-deleted)`);
+  }
+  if (createdCount === 0 && restoredCount === 0) {
+    const total = await Course.count();
+    console.log(`  → ${total} corsi già presenti, seed AFAM saltato`);
   }
 
   // ==========================================
