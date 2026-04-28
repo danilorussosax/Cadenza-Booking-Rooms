@@ -338,10 +338,14 @@ function SidebarBrand({
         alt="Cadenza"
         className="h-10 w-10 shrink-0 rounded-lg object-contain"
       />
-      <p className="truncate font-display text-lg leading-tight tracking-tight">
-        <span className="font-normal text-muted-foreground">Aula</span>
-        <span className="font-semibold text-primary"> Book</span>
-      </p>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate font-display text-lg font-semibold tracking-tight text-primary">
+          Cadenza
+        </p>
+        <p className="truncate text-[11px] leading-tight text-muted-foreground">
+          Prenotazione Aule
+        </p>
+      </div>
     </div>
   );
 }

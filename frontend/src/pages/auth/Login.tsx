@@ -189,9 +189,8 @@ export default function Login() {
                     className="h-11 w-11 shrink-0 rounded-lg object-contain"
                   />
                   <div className="flex flex-col items-start leading-tight">
-                    <p className="font-display text-2xl leading-tight tracking-tight">
-                      <span className="font-normal text-foreground">Aula</span>
-                      <span className="font-semibold text-primary"> Book</span>
+                    <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-primary">
+                      Cadenza
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {t('app.subtitle')}
