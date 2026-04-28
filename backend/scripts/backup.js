@@ -109,6 +109,8 @@ async function backupSqlite(stagingDir) {
   await sequelize.query(`VACUUM INTO '${targetDb.replace(/'/g, "''")}'`);
 }
 
+const { resolvePgDump } = require('../lib/pgBin');
+
 async function backupPostgres(stagingDir) {
   const host = process.env.DB_HOST || 'localhost';
   const port = process.env.DB_PORT || '5432';
@@ -119,26 +121,38 @@ async function backupPostgres(stagingDir) {
     throw new Error('DB_USER e DB_NAME devono essere definiti per il backup Postgres');
   }
   const sqlPath = path.join(stagingDir, 'database.sql');
-  await spawnPromise(
-    'pg_dump',
-    [
-      '-h',
-      host,
-      '-p',
-      String(port),
-      '-U',
-      user,
-      '-d',
-      database,
-      '--no-owner',
-      '--no-acl',
-      '--clean',
-      '--if-exists',
-      '-f',
-      sqlPath,
-    ],
-    { env: { ...process.env, PGPASSWORD: password || '' } },
-  );
+  const pgDump = resolvePgDump();
+  try {
+    await spawnPromise(
+      pgDump,
+      [
+        '-h',
+        host,
+        '-p',
+        String(port),
+        '-U',
+        user,
+        '-d',
+        database,
+        '--no-owner',
+        '--no-acl',
+        '--clean',
+        '--if-exists',
+        '-f',
+        sqlPath,
+      ],
+      { env: { ...process.env, PGPASSWORD: password || '' } },
+    );
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      const e = new Error(
+        `pg_dump non trovato. Imposta PG_DUMP_PATH nell'env per indicarne il path completo (es. /Library/PostgreSQL/18/bin/pg_dump), oppure aggiungi la directory bin di Postgres al PATH del processo Node.`,
+      );
+      e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────

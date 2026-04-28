@@ -20,6 +20,7 @@ const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const logger = require('../lib/logger');
+const { resolvePsql } = require('../lib/pgBin');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -139,25 +140,35 @@ async function performRestore({ archivePath, dryRun = false }) {
         throw new Error('DB_USER e DB_NAME richiesti per restore Postgres');
       }
       logger.info({ host, port, database }, '[restore] avvio psql restore');
-      await spawnPromise(
-        'psql',
-        [
-          '-h',
-          host,
-          '-p',
-          String(port),
-          '-U',
-          user,
-          '-d',
-          database,
-          '-v',
-          'ON_ERROR_STOP=1',
-          '-q',
-          '-f',
-          sqlPath,
-        ],
-        { env: { ...process.env, PGPASSWORD: password || '' } },
-      );
+      const psql = resolvePsql();
+      try {
+        await spawnPromise(
+          psql,
+          [
+            '-h',
+            host,
+            '-p',
+            String(port),
+            '-U',
+            user,
+            '-d',
+            database,
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-q',
+            '-f',
+            sqlPath,
+          ],
+          { env: { ...process.env, PGPASSWORD: password || '' } },
+        );
+      } catch (err) {
+        if (err.code === 'ENOENT' || /ENOENT/.test(err.message || '')) {
+          throw new Error(
+            "psql non trovato. Imposta PSQL_PATH nell'env per indicarne il path completo (es. /Library/PostgreSQL/18/bin/psql), oppure aggiungi la directory bin di Postgres al PATH del processo Node.",
+          );
+        }
+        throw err;
+      }
       restoredDb = true;
       // Per Postgres NON salviamo un .pre-restore: la dump conteneva DROP+CREATE.
       // L'unica salvaguardia è eseguire un backup PRIMA del restore (vedi route).
