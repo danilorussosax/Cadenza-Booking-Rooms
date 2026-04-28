@@ -10,6 +10,8 @@ import {
   Trash2,
   AlertCircle,
   Pencil,
+  GraduationCap,
+  CalendarClock,
 } from 'lucide-react';
 import {
   monteOreApi,
@@ -166,7 +168,10 @@ export default function MonteOre() {
       {/* Riepilogo + range */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Anno accademico {proposal.academicYear}</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-primary" />
+            Anno accademico {proposal.academicYear}
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
@@ -257,7 +262,10 @@ export default function MonteOre() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg">Pianificazione settimanale</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Pianificazione settimanale
+            </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Aggiungi una riga per ogni "fascia ricorrente" (es. ogni lunedì 14–17 in Aula 102).
             </p>

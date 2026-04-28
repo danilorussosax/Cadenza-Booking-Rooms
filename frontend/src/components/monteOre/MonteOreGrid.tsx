@@ -338,11 +338,11 @@ function DayCell({
             type="button"
             disabled={disabled || locked}
             onClick={() => onToggle(s.id)}
-            className={`rounded-md px-1.5 py-1 text-[11px] tabular-nums transition ${
+            className={`rounded-md px-1.5 py-1 text-[11px] font-medium tabular-nums transition ${
               locked
                 ? 'cursor-not-allowed bg-destructive/10 text-destructive'
                 : active
-                  ? 'bg-primary/15 text-primary hover:bg-primary/25 ring-1 ring-primary/40'
+                  ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-primary hover:bg-primary/90'
                   : 'border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
             }`}
             title={`${s.startTime}–${s.endTime}${locked && s.lockReason ? ` (${s.lockReason})` : ''}`}
