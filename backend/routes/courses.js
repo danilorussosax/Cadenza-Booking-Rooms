@@ -13,6 +13,8 @@ const router = express.Router();
 // (extra columns ignored). Matching is case-insensitive on header.
 // =====================================================
 function parseCoursesCsv(csv) {
+  // Strip UTF-8 BOM se presente (Excel salva CSV con BOM by default).
+  if (csv.charCodeAt(0) === 0xfeff) csv = csv.slice(1);
   const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length === 0) return { headers: [], rows: [] };
 
@@ -21,7 +23,7 @@ function parseCoursesCsv(csv) {
     .map((d) => ({ d, n: headerLine.split(d).length }))
     .sort((a, b) => b.n - a.n)[0].d;
 
-  const headers = headerLine.split(delim).map((h) => h.trim().toLowerCase());
+  const headers = headerLine.split(delim).map((h) => h.trim().replace(/^﻿/, '').toLowerCase());
   const sadIdx = headers.findIndex((h) => h === 'sad' || h === 'codice' || h === 'code');
   const nameIdx = headers.findIndex((h) => h === 'denominazione' || h === 'nome' || h === 'name');
   if (sadIdx === -1 || nameIdx === -1) {
@@ -90,29 +92,53 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
 
   let created = 0;
   let updated = 0;
+  let restored = 0;
   const errors = [];
+
+  // Helper: estrae messaggio significativo da errori Sequelize.
+  const formatSeqError = (err) => {
+    if (
+      err?.name === 'SequelizeValidationError' &&
+      Array.isArray(err.errors) &&
+      err.errors.length
+    ) {
+      return err.errors.map((e) => `${e.path}: ${e.message}`).join('; ');
+    }
+    if (err?.name === 'SequelizeUniqueConstraintError') {
+      const fields = Array.isArray(err.errors)
+        ? err.errors.map((e) => e.path).join(', ')
+        : Object.keys(err.fields || {}).join(', ');
+      return `Vincolo unique violato (${fields || '?'}). Probabile duplicato di un record soft-deleted.`;
+    }
+    return err?.message || 'Errore';
+  };
 
   for (const row of parsed.rows) {
     if (!row.sad || !row.denominazione) {
       errors.push({ row: row.lineNumber, message: 'SAD o Denominazione mancante' });
       continue;
     }
+    // Sanity: il modello limita code a STRING(20), name a STRING(250). Tronca
+    // (non è bello ma evita un fail muto su CSV con stringhe lunghe).
+    const code = String(row.sad).slice(0, 20);
+    const name = String(row.denominazione).slice(0, 250);
     try {
-      const existing = await Course.findOne({ where: { code: row.sad } });
+      // paranoid:false → trova anche corsi soft-deleted con stesso code.
+      const existing = await Course.findOne({ where: { code }, paranoid: false });
       if (existing) {
-        await existing.update({ name: row.denominazione, isActive: true });
-        updated += 1;
+        if (existing.deletedAt) {
+          await existing.restore();
+          restored += 1;
+        } else {
+          updated += 1;
+        }
+        await existing.update({ name, isActive: true });
       } else {
-        await Course.create({
-          code: row.sad,
-          name: row.denominazione,
-          isActive: true,
-          levels: [],
-        });
+        await Course.create({ code, name, isActive: true, levels: [] });
         created += 1;
       }
     } catch (err) {
-      errors.push({ row: row.lineNumber, message: err.message || 'Errore' });
+      errors.push({ row: row.lineNumber, message: formatSeqError(err) });
     }
   }
 
@@ -121,6 +147,7 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
       rowsTotal: parsed.rows.length,
       created,
       updated,
+      restored,
       errors,
     },
   });
