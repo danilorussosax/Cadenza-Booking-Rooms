@@ -860,8 +860,13 @@ adminRouter.post('/:id/reject', authenticate, requireRole('admin'), async (req, 
 
 adminRouter.post('/:id/generate', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
+    // includePast (opzionale, body): se true il generator materializza anche
+    // le occorrenze già trascorse — usato per AA arretrati o ricostruzione
+    // storico contabile. Default false: si genera solo dal momento in poi.
+    const includePast = req.body?.includePast === true;
     const result = await monteOreService.generateBookingsForProposal(Number(req.params.id), {
       actorUser: req.user,
+      includePast,
     });
     // Reload proposta aggiornata per la risposta
     const fresh = await MonteOreProposal.findByPk(req.params.id);

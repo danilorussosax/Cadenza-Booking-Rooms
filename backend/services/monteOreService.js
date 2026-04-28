@@ -108,7 +108,7 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
  * Booking creabili passano, o nessuno (ma i giorni con conflitto NON
  * causano rollback — sono skippati come per la POST /recurring).
  */
-async function generateBookingsForProposal(proposalId, { actorUser } = {}) {
+async function generateBookingsForProposal(proposalId, { actorUser, includePast = false } = {}) {
   const proposal = await MonteOreProposal.findByPk(proposalId, {
     include: [
       { model: User, as: 'user' },
@@ -186,8 +186,14 @@ async function generateBookingsForProposal(proposalId, { actorUser } = {}) {
             //     molte occorrenze sono oltre maxAdvanceDays. La validazione
             //     temporale è già stata fatta dal coordinatore in fase di
             //     approvazione della proposta.
+            //   - bypassPastDates: opt-in. Quando l'admin genera a metà AA,
+            //     le occorrenze già trascorse sarebbero saltate ("non puoi
+            //     prenotare nel passato"). Con `includePast=true` il generator
+            //     materializza anche quelle (utile per piani contabili e
+            //     storico monte ore già svolto).
             bypassQuotas: !!actorUser && actorUser.role === 'admin',
             bypassAdvance: !!actorUser && actorUser.role === 'admin',
+            bypassPastDates: includePast,
             transaction: t,
           });
           if (!validation.valid) {

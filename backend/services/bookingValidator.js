@@ -40,6 +40,7 @@ async function validateBooking({
   ignoreBookingId = null,
   bypassQuotas = false,
   bypassAdvance = false,
+  bypassPastDates = false,
   transaction = null,
 }) {
   const errors = [];
@@ -64,7 +65,7 @@ async function validateBooking({
   if (end.isSameOrBefore(start)) {
     errors.push("L'orario di fine deve essere successivo a quello di inizio");
   }
-  if (start.isBefore(now)) {
+  if (start.isBefore(now) && !bypassPastDates) {
     errors.push('Non puoi prenotare nel passato');
   }
 

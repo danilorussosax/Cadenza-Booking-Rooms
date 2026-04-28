@@ -222,13 +222,11 @@ function DetailDialog({
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
   const generateMutation = useMutation({
-    mutationFn: () => monteOreAdminApi.generate(id),
+    mutationFn: (includePast: boolean) => monteOreAdminApi.generate(id, { includePast }),
     onSuccess: (data) => {
       toast.success(
         `Prenotazioni create: ${data.result.created}` +
-          (data.result.skipped.length
-            ? ` (${data.result.skipped.length} saltate per conflitto)`
-            : ''),
+          (data.result.skipped.length ? ` (${data.result.skipped.length} saltate)` : ''),
       );
       refresh();
     },
@@ -247,6 +245,8 @@ function DetailDialog({
   const [adding, setAdding] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [confirmReject, setConfirmReject] = useState(false);
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [includePast, setIncludePast] = useState(false);
 
   return (
     <Dialog
@@ -428,7 +428,10 @@ function DetailDialog({
                 )}
                 {proposal.status === 'approved' && (
                   <Button
-                    onClick={() => generateMutation.mutate()}
+                    onClick={() => {
+                      setIncludePast(false);
+                      setConfirmGenerate(true);
+                    }}
                     disabled={
                       generateMutation.isPending ||
                       proposal.schedules.length === 0 ||
@@ -463,6 +466,50 @@ function DetailDialog({
               existing={editingSchedule}
               onSaved={refresh}
             />
+
+            {/* Generate confirmation dialog (con opzione "includi date passate") */}
+            <Dialog open={confirmGenerate} onOpenChange={setConfirmGenerate}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Crea prenotazioni dal monte ore</DialogTitle>
+                  <DialogDescription>
+                    Verranno create prenotazioni ricorrenti per ogni occorrenza del pattern nel
+                    range di validità della proposta.
+                  </DialogDescription>
+                </DialogHeader>
+                <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4"
+                    checked={includePast}
+                    onChange={(e) => setIncludePast(e.target.checked)}
+                  />
+                  <div className="text-sm">
+                    <div className="font-medium">Includi anche le date già trascorse</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Materializza in Booking anche le occorrenze del pattern che cadono prima di
+                      oggi (utile per ricostruire monte ore arretrato a metà AA, o per registrazione
+                      contabile dell'attività già svolta).
+                    </div>
+                  </div>
+                </label>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmGenerate(false)}>
+                    Annulla
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      generateMutation.mutate(includePast);
+                      setConfirmGenerate(false);
+                    }}
+                    disabled={generateMutation.isPending}
+                  >
+                    <Zap className="h-4 w-4" />
+                    Genera
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Reject reason dialog */}
             <Dialog open={confirmReject} onOpenChange={setConfirmReject}>

@@ -274,12 +274,12 @@ export const monteOreAdminApi = {
       body: reason ? { reason } : {},
     }),
 
-  generate: (id: number) =>
+  generate: (id: number, opts: { includePast?: boolean } = {}) =>
     api<{ result: GenerateResult; proposal: MonteOreProposal }>(
       `/api/admin/monte-ore/${id}/generate`,
       {
         method: 'POST',
-        body: {},
+        body: opts.includePast ? { includePast: true } : {},
       },
     ),
 
