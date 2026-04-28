@@ -140,10 +140,24 @@ async function safeShutdown(code = 0) {
   shuttingDown = true;
   console.log('\n→ Chiusura in corso…');
   try {
+    // Step 1: ferma gli scheduler (timer cron interni). Devono essere fermati
+    // PRIMA di chiudere il pool DB, altrimenti un tick a metà transazione
+    // lascia 'idle in transaction' lato server Postgres → lock orfani.
+    try {
+      require('./services/reminderScheduler').stop();
+      require('./services/retentionScheduler').stop();
+      require('./services/backupScheduler').stop();
+      console.log('  ✓ Scheduler fermati');
+    } catch (e) {
+      console.warn('  ⚠ Errore stop scheduler:', e.message);
+    }
+    // Step 2: smetti di accettare nuove richieste HTTP, attendi le in-flight.
     if (httpServer && httpServer.listening) {
       await new Promise((res) => httpServer.close(res));
       console.log('  ✓ HTTP server fermato');
     }
+    // Step 3: chiudi pool DB. sequelize.close() draina automaticamente le
+    // connessioni idle ma se ci sono query in volo aspetta che finiscano.
     if (sequelize.connectionManager && !sequelize.connectionManager.pool?.destroyed) {
       await sequelize.close();
       console.log('  ✓ Connessioni DB chiuse');

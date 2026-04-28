@@ -56,44 +56,45 @@ async function regenerateSlotsFromPattern(proposalId, { transaction = null } = {
   const suspensions = await getSuspensions(proposal.academicYear, settings.instituteId);
   const weeks = computeWeeks(settings, suspensions);
 
-  // Cancella slot precedenti
+  // Cancella slot precedenti (in tx)
   await MonteOreSlot.destroy({ where: { proposalId }, ...tx });
 
-  let created = 0;
+  // Costruisci payload in memoria, poi UN solo bulkCreate (era N+1 prima).
+  // Su 4 schedules × 50 settimane = 200 slot questo passa da 200 INSERT
+  // sequenziali a 1 batch INSERT — riduce drasticamente il rischio di pool
+  // exhaustion e velocizza ~10×.
+  const payloads = [];
   let locked = 0;
+  let created = 0;
   for (const sched of proposal.schedules) {
     for (const week of weeks) {
       const day = week.days.find((d) => d.dayOfWeek === sched.dayOfWeek);
-      if (!day) continue; // sched.dayOfWeek non in Lun-Ven
+      if (!day) continue;
       const isLocked = day.isLocked;
-      // Logica "additiva": tutti gli slot nascono INATTIVI. Il docente li
-      // seleziona uno ad uno cliccando sulla griglia, e il totale ore si
-      // somma. Gli slot lockati restano isActive=false comunque (non
-      // possono essere selezionati dal docente).
-      await MonteOreSlot.create(
-        {
-          proposalId,
-          scheduleId: sched.id,
-          date: day.date,
-          dayOfWeek: day.dayOfWeek,
-          startTime: sched.startTime,
-          endTime: sched.endTime,
-          isActive: false,
-          isLocked,
-          lockReason: day.lockReason,
-          // originalActive verrà settato a snapshot della selezione corrente
-          // al momento dell'approve (vedi snapshotOriginalActive); qui parte
-          // false perché lo slot non è ancora stato scelto.
-          originalActive: false,
-        },
-        { transaction },
-      );
+      payloads.push({
+        proposalId,
+        scheduleId: sched.id,
+        date: day.date,
+        dayOfWeek: day.dayOfWeek,
+        startTime: sched.startTime,
+        endTime: sched.endTime,
+        // Logica "additiva": tutti nascono INATTIVI. Il docente seleziona
+        // cliccando le celle. originalActive parte false; verrà
+        // snapshottato dall'approve admin.
+        isActive: false,
+        isLocked,
+        lockReason: day.lockReason,
+        originalActive: false,
+      });
       if (isLocked) locked++;
       else created++;
     }
   }
+  if (payloads.length > 0) {
+    await MonteOreSlot.bulkCreate(payloads, { transaction });
+  }
 
-  // Aggiorna conteggi sulla proposta
+  // Aggiorna conteggi sulla proposta (dentro la stessa tx)
   await recomputeTotals(proposalId, { transaction });
 
   return { created, locked, total: created + locked };

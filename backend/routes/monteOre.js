@@ -25,6 +25,7 @@ const express = require('express');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const {
+  sequelize,
   MonteOreProposal,
   MonteOreSchedule,
   User,
@@ -354,7 +355,11 @@ router.get('/me/calendar', authenticate, requireApproved, async (req, res, next)
 router.post('/me/regenerate-slots', authenticate, requireApproved, async (req, res, next) => {
   try {
     const proposal = await findOwnProposalEditable(req.user.id);
-    const result = await slotService.regenerateSlotsFromPattern(proposal.id);
+    // Atomico: destroy + bulkCreate + recomputeTotals in una sola transazione.
+    // Senza tx un crash a metà lasciava la proposta con metà degli slot persi.
+    const result = await sequelize.transaction(async (t) =>
+      slotService.regenerateSlotsFromPattern(proposal.id, { transaction: t }),
+    );
     res.json({ result });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
@@ -411,42 +416,60 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
     }
     // Stati che richiedono amendment workflow
     if (['approved', 'generated'].includes(proposal.status)) {
-      // Verifica limite annuale
-      const settings = await MonteOreSettings.findOne({
-        where: { academicYear: proposal.academicYear },
-      });
-      const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-      if (proposal.amendmentCount >= maxAmend) {
-        return res.status(400).json({
-          error: `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
-          code: 'AMENDMENT_LIMIT_REACHED',
+      // Tutto in transazione (SERIALIZABLE su Postgres per evitare race su
+      // amendmentCount; default su SQLite/MySQL che non lo supportano nativamente).
+      const txOpts =
+        sequelize.getDialect() === 'postgres'
+          ? { isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+          : {};
+      const result = await sequelize.transaction(txOpts, async (t) => {
+        const p = await MonteOreProposal.findByPk(slot.proposalId, { transaction: t });
+        const s = await MonteOreSlot.findByPk(slot.id, { transaction: t });
+        // Limite annuale (verificato dentro tx con valore fresco)
+        const settings = await MonteOreSettings.findOne({
+          where: { academicYear: p.academicYear },
+          transaction: t,
         });
-      }
-      const kind = slot.isActive ? 'toggle_off' : 'toggle_on';
-      const decided = slotService.classifyAmendment(slot, kind);
-      const amendment = await MonteOreAmendment.create({
-        proposalId: proposal.id,
-        requesterId: req.user.id,
-        slotId: slot.id,
-        kind,
-        payload: { from: slot.isActive, to: !slot.isActive },
-        status: decided,
-        requestNotes: req.body.notes ?? null,
-        decidedAt: decided === 'auto_approved' ? new Date() : null,
+        const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+        if ((p.amendmentCount || 0) >= maxAmend) {
+          const e = new Error(
+            `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
+          );
+          e.status = 400;
+          e.code = 'AMENDMENT_LIMIT_REACHED';
+          throw e;
+        }
+        const kind = s.isActive ? 'toggle_off' : 'toggle_on';
+        const decided = slotService.classifyAmendment(s, kind);
+        const amendment = await MonteOreAmendment.create(
+          {
+            proposalId: p.id,
+            requesterId: req.user.id,
+            slotId: s.id,
+            kind,
+            payload: { from: s.isActive, to: !s.isActive },
+            status: decided,
+            requestNotes: req.body.notes ?? null,
+            decidedAt: decided === 'auto_approved' ? new Date() : null,
+          },
+          { transaction: t },
+        );
+        if (decided === 'auto_approved') {
+          await slotService.toggleSlot(s.id, { force: true, transaction: t });
+          await p.increment('amendmentCount', { by: 1, transaction: t });
+        }
+        await s.reload({ transaction: t });
+        return { amendment, slot: s };
       });
-      // Auto-approve: applica subito + se generated cancella/ricrea booking
-      if (decided === 'auto_approved') {
-        await slotService.toggleSlot(slot.id, { force: true });
-        await proposal.update({ amendmentCount: proposal.amendmentCount + 1 });
-      }
       return res
         .status(201)
-        .json({ amendment: amendment.toJSON(), slot: (await slot.reload()).toJSON() });
+        .json({ amendment: result.amendment.toJSON(), slot: result.slot.toJSON() });
     }
     return res.status(400).json({ error: 'Stato non gestito' });
   } catch (err) {
-    if (err.code === 'SLOT_LOCKED')
-      return res.status(400).json({ error: err.message, code: err.code });
+    if (err.code === 'SLOT_LOCKED' || err.code === 'AMENDMENT_LIMIT_REACHED')
+      return res.status(err.status || 400).json({ error: err.message, code: err.code });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -610,28 +633,29 @@ adminRouter.post('/suspensions', authenticate, requireRole('admin'), async (req,
     if (settings) instituteId = settings.instituteId;
     else instituteId = await resolveDefaultInstituteId();
 
-    // Opzionale: se l'admin chiede di propagare il blocco anche alle
-    // prenotazioni regolari (booking_rule_exceptions), creiamo prima
-    // l'exception e poi linkiamo la suspension.
-    let bookingRuleExceptionId = null;
-    if (req.body.applyToAllBookings === true) {
-      const ex = await BookingRuleException.create({
-        role: 'all',
-        name: data.name,
-        kind: 'block',
-        dateFrom: data.dateFrom,
-        dateTo: data.dateTo,
-        isActive: true,
-        notes: `Generata automaticamente dalla sospensione monte ore (${year})`,
-      });
-      bookingRuleExceptionId = ex.id;
-    }
-
-    const susp = await MonteOreSuspension.create({
-      instituteId,
-      academicYear: year,
-      bookingRuleExceptionId,
-      ...data,
+    // Atomico: o entrambi (exception + suspension) sono creati, o nessuno —
+    // così non restano BookingRuleException orfane se la suspension fallisce.
+    const susp = await sequelize.transaction(async (t) => {
+      let bookingRuleExceptionId = null;
+      if (req.body.applyToAllBookings === true) {
+        const ex = await BookingRuleException.create(
+          {
+            role: 'all',
+            name: data.name,
+            kind: 'block',
+            dateFrom: data.dateFrom,
+            dateTo: data.dateTo,
+            isActive: true,
+            notes: `Generata automaticamente dalla sospensione monte ore (${year})`,
+          },
+          { transaction: t },
+        );
+        bookingRuleExceptionId = ex.id;
+      }
+      return MonteOreSuspension.create(
+        { instituteId, academicYear: year, bookingRuleExceptionId, ...data },
+        { transaction: t },
+      );
     });
     res.status(201).json({ suspension: susp.toJSON() });
   } catch (err) {
@@ -835,27 +859,41 @@ adminRouter.delete(
 
 adminRouter.post('/:id/approve', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const proposal = await MonteOreProposal.findByPk(req.params.id);
-    if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-    if (!['submitted', 'rejected'].includes(proposal.status)) {
-      return res
-        .status(400)
-        .json({ error: 'Solo submitted/rejected possono essere approvate', code: 'INVALID_STATE' });
-    }
-    await proposal.update({
-      status: 'approved',
-      approvedAt: new Date(),
-      approverId: req.user.id,
-      rejectedAt: null,
-      rejectionReason: null,
-      coordinatorNotes: req.body.notes ?? proposal.coordinatorNotes,
+    // Atomico: status approved + snapshotOriginalActive in una sola
+    // transazione. Se crash a metà, niente è scritto → l'admin riprova.
+    const proposal = await sequelize.transaction(async (t) => {
+      const p = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
+      if (!p) {
+        const e = new Error('Proposta non trovata');
+        e.status = 404;
+        throw e;
+      }
+      if (!['submitted', 'rejected'].includes(p.status)) {
+        const e = new Error('Solo submitted/rejected possono essere approvate');
+        e.status = 400;
+        e.code = 'INVALID_STATE';
+        throw e;
+      }
+      await p.update(
+        {
+          status: 'approved',
+          approvedAt: new Date(),
+          approverId: req.user.id,
+          rejectedAt: null,
+          rejectionReason: null,
+          coordinatorNotes: req.body.notes ?? p.coordinatorNotes,
+        },
+        { transaction: t },
+      );
+      // Congela isActive → originalActive: serve a classifyAmendment per
+      // distinguere modifiche su giorni "già nel piano" (auto-approve) da
+      // riattivazione/aggiunta di giorni nuovi (pending).
+      await slotService.snapshotOriginalActive(p.id, { transaction: t });
+      return p;
     });
-    // Congela isActive → originalActive: serve a classifyAmendment per
-    // distinguere modifiche su giorni "già nel piano" (auto-approve) da
-    // riattivazione/aggiunta di giorni nuovi (pending).
-    await slotService.snapshotOriginalActive(proposal.id);
     res.json({ proposal: proposal.toJSON() });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -903,17 +941,34 @@ adminRouter.post('/:id/generate', authenticate, requireRole('admin'), async (req
 
 adminRouter.post('/:id/unlock', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const proposal = await MonteOreProposal.findByPk(req.params.id);
-    if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-    if (proposal.status !== 'generated') {
-      return res
-        .status(400)
-        .json({ error: 'Solo generated può essere unlocked', code: 'INVALID_STATE' });
-    }
-    const cleared = await monteOreService.clearGeneratedBookings(Number(req.params.id));
-    await proposal.update({ status: 'approved', generatedAt: null, generationSummary: null });
-    res.json({ proposal: proposal.toJSON(), cleared });
+    // Atomico: clear booking + status update. Se crash a metà, lo stato resta
+    // 'generated' coerente. Senza tx, restavano booking cancellati ma
+    // proposta ancora in 'generated' → impossibile rigenerare.
+    const result = await sequelize.transaction(async (t) => {
+      const proposal = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
+      if (!proposal) {
+        const e = new Error('Proposta non trovata');
+        e.status = 404;
+        throw e;
+      }
+      if (proposal.status !== 'generated') {
+        const e = new Error('Solo generated può essere unlocked');
+        e.status = 400;
+        e.code = 'INVALID_STATE';
+        throw e;
+      }
+      const cleared = await monteOreService.clearGeneratedBookings(Number(req.params.id), {
+        transaction: t,
+      });
+      await proposal.update(
+        { status: 'approved', generatedAt: null, generationSummary: null },
+        { transaction: t },
+      );
+      return { proposal, cleared };
+    });
+    res.json({ proposal: result.proposal.toJSON(), cleared: result.cleared });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -944,40 +999,75 @@ adminRouter.post(
   requireRole('admin'),
   async (req, res, next) => {
     try {
-      const proposal = await MonteOreProposal.findByPk(req.params.id);
-      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-      const amendment = await MonteOreAmendment.findOne({
-        where: { id: req.params.aid, proposalId: proposal.id },
-      });
-      if (!amendment) return res.status(404).json({ error: 'Variazione non trovata' });
-      if (amendment.status !== 'pending') {
-        return res.status(400).json({ error: 'Variazione già decisa', code: 'INVALID_STATE' });
-      }
-      // Applica la modifica allo slot bersaglio
-      if (amendment.slotId) {
-        const slot = await MonteOreSlot.findByPk(amendment.slotId);
-        if (slot) {
-          if (amendment.kind === 'toggle_off' || amendment.kind === 'toggle_on') {
-            await slot.update({ isActive: amendment.kind === 'toggle_on' });
-          } else if (amendment.kind === 'change_time' && amendment.payload) {
-            const upd = {};
-            if (amendment.payload.startTime)
-              upd.startTime = String(amendment.payload.startTime).slice(0, 5);
-            if (amendment.payload.endTime)
-              upd.endTime = String(amendment.payload.endTime).slice(0, 5);
-            await slot.update(upd);
+      // Atomico in transazione: lookup + update slot + update amendment +
+      // increment amendmentCount + recompute totali. Senza transazione,
+      // un crash tra slot.update e amendment.update lasciava lo slot
+      // modificato ma l'amendment ancora 'pending'.
+      const amendment = await sequelize.transaction(async (t) => {
+        const proposal = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
+        if (!proposal) {
+          const e = new Error('Proposta non trovata');
+          e.status = 404;
+          throw e;
+        }
+        const a = await MonteOreAmendment.findOne({
+          where: { id: req.params.aid, proposalId: proposal.id },
+          transaction: t,
+        });
+        if (!a) {
+          const e = new Error('Variazione non trovata');
+          e.status = 404;
+          throw e;
+        }
+        if (a.status !== 'pending') {
+          const e = new Error('Variazione già decisa');
+          e.status = 400;
+          e.code = 'INVALID_STATE';
+          throw e;
+        }
+        // Verifica limite annuale anche qui (era controllato solo lato docente
+        // sul toggle): se l'admin sta forzando l'approvazione manuale, il
+        // counter si incrementa, e bisogna garantire che non si superi
+        // maxAmendmentsPerYear.
+        const settings = await MonteOreSettings.findOne({
+          where: { academicYear: proposal.academicYear },
+          transaction: t,
+        });
+        const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+        if ((proposal.amendmentCount || 0) >= maxAmend) {
+          const e = new Error(
+            `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
+          );
+          e.status = 400;
+          e.code = 'AMENDMENT_LIMIT_REACHED';
+          throw e;
+        }
+        // Applica la modifica allo slot bersaglio
+        if (a.slotId) {
+          const slot = await MonteOreSlot.findByPk(a.slotId, { transaction: t });
+          if (slot) {
+            if (a.kind === 'toggle_off' || a.kind === 'toggle_on') {
+              await slot.update({ isActive: a.kind === 'toggle_on' }, { transaction: t });
+            } else if (a.kind === 'change_time' && a.payload) {
+              const upd = {};
+              if (a.payload.startTime) upd.startTime = String(a.payload.startTime).slice(0, 5);
+              if (a.payload.endTime) upd.endTime = String(a.payload.endTime).slice(0, 5);
+              await slot.update(upd, { transaction: t });
+            }
           }
         }
-      }
-      await amendment.update({
-        status: 'approved',
-        decidedAt: new Date(),
-        decidedBy: req.user.id,
+        await a.update(
+          { status: 'approved', decidedAt: new Date(), decidedBy: req.user.id },
+          { transaction: t },
+        );
+        await slotService.recomputeTotals(proposal.id, { transaction: t });
+        // Increment atomico (evita lost update su approvazioni concorrenti).
+        await proposal.increment('amendmentCount', { by: 1, transaction: t });
+        return a;
       });
-      await slotService.recomputeTotals(proposal.id);
-      await proposal.update({ amendmentCount: (proposal.amendmentCount || 0) + 1 });
       res.json({ amendment: amendment.toJSON() });
     } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
       next(err);
     }
   },

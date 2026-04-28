@@ -83,6 +83,7 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
   if (allIds.length === 0) return { cleared: 0 };
 
   const now = new Date();
+  // Cancella i booking confermati & non checkin & futuri
   const cleared = await Booking.update(
     { status: 'cancelled', cancelledAt: now, cancelReason: 'Rigenerazione monte ore' },
     {
@@ -95,9 +96,19 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
       ...tx,
     },
   );
-  // Reset ids
+  // I booking PRESERVATI (passati / checkin) restano referenziati nello
+  // schedule.generatedBookingIds così la regen successiva sa di non
+  // ricrearli (evita duplicati). Cancellati = rimossi dal set.
+  // Ricaricamento dei booking sopravvissuti per scheduleId:
+  const survivors = await Booking.findAll({
+    where: { id: { [Op.in]: allIds } },
+    attributes: ['id'],
+    ...tx,
+  });
+  const survivorSet = new Set(survivors.map((b) => b.id));
   for (const s of schedules) {
-    await s.update({ generatedBookingIds: [] }, { transaction });
+    const keep = (s.generatedBookingIds || []).filter((id) => survivorSet.has(id));
+    await s.update({ generatedBookingIds: keep }, { transaction });
   }
   return { cleared: cleared[0] || 0 };
 }

@@ -54,7 +54,7 @@ async function tryAdminLogin(browser, page) {
   if (!json.token) return null;
   // Inietta il token nel localStorage prima del navigate.
   await page.evaluateOnNewDocument((tok) => {
-    localStorage.setItem('aulabook_token', tok);
+    localStorage.setItem('conservatory_token', tok);
   }, json.token);
   return json.token;
 }

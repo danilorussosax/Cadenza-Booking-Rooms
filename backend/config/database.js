@@ -94,6 +94,16 @@ if (dialect === 'sqlite') {
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
     };
   }
+  if (dialect === 'postgres') {
+    // Timeout server-side per evitare query stuck (planner cattivo, lock
+    // GiST, deadlock SERIALIZABLE) che esauriscano il pool. Override via env.
+    //   statement_timeout: kill della query dopo N ms
+    //   idle_in_transaction_session_timeout: kill se la tx resta idle
+    dialectOptions.statement_timeout = Number(process.env.DB_STATEMENT_TIMEOUT_MS || 30000);
+    dialectOptions.idle_in_transaction_session_timeout = Number(
+      process.env.DB_IDLE_IN_TX_TIMEOUT_MS || 60000,
+    );
+  }
   if (dialect === 'mysql' || dialect === 'mariadb') {
     dialectOptions.dateStrings = false;
     dialectOptions.connectTimeout = Number(process.env.DB_CONNECT_TIMEOUT || 20000);

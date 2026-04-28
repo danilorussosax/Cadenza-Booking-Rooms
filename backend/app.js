@@ -249,8 +249,28 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/users/me/bot-bindings', require('./routes/botBindings'));
   app.use('/api/messaging', require('./routes/messagingWebhook'));
 
+  // Liveness: il processo è vivo (sempre 200, no DB call). Per Kubernetes
+  // livenessProbe (riavvio container).
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Readiness: il processo può servire traffico (DB raggiungibile, schema OK).
+  // Per Kubernetes readinessProbe (instradare/no instradare traffico) e per
+  // load balancer di front. Risponde 503 se la connessione DB è giù.
+  app.get('/api/ready', async (req, res) => {
+    try {
+      const { sequelize } = require('./models');
+      await sequelize.query('SELECT 1');
+      res.json({ status: 'ready', timestamp: new Date().toISOString() });
+    } catch (err) {
+      res.status(503).json({
+        status: 'not_ready',
+        error: 'database_unreachable',
+        message: err?.message?.slice(0, 200),
+        timestamp: new Date().toISOString(),
+      });
+    }
   });
 
   // SPA fallback (saltato quando serveFrontend === false)
