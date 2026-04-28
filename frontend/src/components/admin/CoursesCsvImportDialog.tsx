@@ -28,6 +28,7 @@ interface ImportResult {
   rowsTotal: number;
   created: number;
   updated: number;
+  unchanged?: number;
   restored?: number;
   errors: { row: number; message: string }[];
 }
@@ -111,6 +112,9 @@ export function CoursesCsvImportDialog({ open, onOpenChange }: Props) {
                   <li>Righe processate: {result.rowsTotal}</li>
                   <li>Corsi creati: {result.created}</li>
                   <li>Corsi aggiornati: {result.updated}</li>
+                  {result.unchanged !== undefined && result.unchanged > 0 && (
+                    <li>Già aggiornati (no-op): {result.unchanged}</li>
+                  )}
                   {result.restored !== undefined && result.restored > 0 && (
                     <li>Corsi ripristinati: {result.restored}</li>
                   )}

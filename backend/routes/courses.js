@@ -92,6 +92,7 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
 
   let created = 0;
   let updated = 0;
+  let unchanged = 0;
   let restored = 0;
   const errors = [];
 
@@ -129,10 +130,18 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
         if (existing.deletedAt) {
           await existing.restore();
           restored += 1;
+          await existing.update({ name, isActive: true });
         } else {
-          updated += 1;
+          // Verifica se i dati sono effettivamente cambiati: se name e
+          // isActive sono già quelli del CSV, è un no-op informativo.
+          const isChanged = existing.name !== name || existing.isActive !== true;
+          if (isChanged) {
+            await existing.update({ name, isActive: true });
+            updated += 1;
+          } else {
+            unchanged += 1;
+          }
         }
-        await existing.update({ name, isActive: true });
       } else {
         await Course.create({ code, name, isActive: true, levels: [] });
         created += 1;
@@ -147,6 +156,7 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
       rowsTotal: parsed.rows.length,
       created,
       updated,
+      unchanged,
       restored,
       errors,
     },

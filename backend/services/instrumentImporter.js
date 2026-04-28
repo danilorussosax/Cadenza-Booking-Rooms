@@ -153,22 +153,25 @@ async function importInstruments({ csv }) {
       // Se non ci sono discriminanti oltre al nome, match strict su nome
       // con brand/model/serialNumber tutti NULL (preserva l'idempotenza
       // per record con solo "name").
+      // paranoid:false → trova anche record soft-deleted (altrimenti il
+      // vincolo unique sul code scatta sulla create successiva).
       let existing = null;
       if (code) {
-        existing = await Instrument.findOne({ where: { code } });
+        existing = await Instrument.findOne({ where: { code }, paranoid: false });
       }
       if (!existing) {
         const where = { name };
         where.brand = brand ?? null;
         where.model = model ?? null;
         where.serialNumber = serialNumber ?? null;
-        existing = await Instrument.findOne({ where });
+        existing = await Instrument.findOne({ where, paranoid: false });
       }
 
       const payload = { name, family, brand, model, serialNumber, condition, isLoanable, notes };
       if (code) payload.code = code;
 
       if (existing) {
+        if (existing.deletedAt) await existing.restore();
         await existing.update(payload);
         result.updated += 1;
       } else {
@@ -176,12 +179,21 @@ async function importInstruments({ csv }) {
         result.created += 1;
       }
     } catch (err) {
-      // duplicate key sul code → potremmo essere in race condition
-      if (err.name === 'SequelizeUniqueConstraintError') {
-        result.errors.push({ row: line, message: 'Codice già usato' });
-      } else {
-        result.errors.push({ row: line, message: err.message || 'Errore' });
+      // Estrai dettagli da errori Sequelize per non mostrare solo "Validation error"
+      let msg = err?.message || 'Errore';
+      if (err?.name === 'SequelizeUniqueConstraintError') {
+        const fields = Array.isArray(err.errors)
+          ? err.errors.map((e) => e.path).join(', ')
+          : Object.keys(err.fields || {}).join(', ');
+        msg = `Vincolo unique violato (${fields || 'code'})`;
+      } else if (
+        err?.name === 'SequelizeValidationError' &&
+        Array.isArray(err.errors) &&
+        err.errors.length
+      ) {
+        msg = err.errors.map((e) => `${e.path}: ${e.message}`).join('; ');
       }
+      result.errors.push({ row: line, message: msg });
       result.skipped += 1;
     }
   }

@@ -165,8 +165,11 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res, next
       const email = r.email.toLowerCase().trim();
 
       try {
-        const existing = await User.findOne({ where: { email } });
+        // paranoid:false → trova anche utenti soft-deleted con stessa email
+        // (altrimenti scatta unique violation sull'INSERT successivo).
+        const existing = await User.findOne({ where: { email }, paranoid: false });
         if (existing) {
+          if (existing.deletedAt) await existing.restore();
           await existing.update({
             firstName: r.firstName,
             lastName: r.lastName,
@@ -191,12 +194,29 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res, next
             courseId,
             status,
             isActive: parseBoolUser(r.isActive, true),
-            password: hash,
+            // Il modello User ha campo `passwordHash` (non `password`). Bug
+            // pre-esistente: gli utenti importati avevano passwordHash NULL
+            // e non potevano loggare nemmeno con reset.
+            passwordHash: hash,
           });
           result.created++;
         }
       } catch (err) {
-        lineMsg(err.message || 'Errore creazione/aggiornamento');
+        // Estrai dettagli da errori Sequelize per non mostrare solo "Validation error"
+        let msg = err?.message || 'Errore creazione/aggiornamento';
+        if (
+          err?.name === 'SequelizeValidationError' &&
+          Array.isArray(err.errors) &&
+          err.errors.length
+        ) {
+          msg = err.errors.map((e) => `${e.path}: ${e.message}`).join('; ');
+        } else if (err?.name === 'SequelizeUniqueConstraintError') {
+          const fields = Array.isArray(err.errors)
+            ? err.errors.map((e) => e.path).join(', ')
+            : Object.keys(err.fields || {}).join(', ');
+          msg = `Vincolo unique violato (${fields || '?'})`;
+        }
+        lineMsg(msg);
         result.skipped++;
       }
     }
