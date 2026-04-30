@@ -6,6 +6,9 @@ const { body, validationResult } = require('express-validator');
 const dayjs = require('dayjs');
 const ics = require('ics');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { getJwtSecret } = require('../lib/secrets');
+const { icalLimiter } = require('../middleware/rateLimit');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -76,18 +79,28 @@ async function notifyAdminsOfPendingBooking(booking) {
 // Auth: query string ?token=<icalToken> (sola lettura) OPPURE Bearer JWT classico.
 // Registrato PRIMA di /:id per evitare match come id="ical".
 // =====================================================
-router.get('/ical', async (req, res, next) => {
+router.get('/ical', icalLimiter, async (req, res, next) => {
   try {
     let user = null;
     const queryToken = typeof req.query.token === 'string' ? req.query.token.trim() : '';
-    if (queryToken) {
-      user = await User.findOne({ where: { icalToken: queryToken } });
-    } else {
+    // Lunghezza token validata prima del lookup: scarta input arbitrari (e
+    // limita timing differences nel matching). Il token reale è 48-char hex.
+    if (queryToken && queryToken.length >= 32 && queryToken.length <= 128) {
+      // Lookup PRIMARIO via hash SHA-256 (campo unique → index hit costante,
+      // niente full scan, niente leak del plain in caso di DB dump).
+      const hash = crypto.createHash('sha256').update(queryToken).digest('hex');
+      user = await User.findOne({ where: { icalTokenHash: hash } });
+      // Fallback per token preesistenti il cui backfill non è ancora avvenuto
+      // (es. boot in corso). Verrà rimosso in una release successiva.
+      if (!user) {
+        user = await User.findOne({ where: { icalToken: queryToken } });
+      }
+    } else if (!queryToken) {
       const auth = req.headers.authorization || '';
       const m = auth.match(/^Bearer\s+(.+)$/i);
       if (m) {
         try {
-          const payload = jwt.verify(m[1], process.env.JWT_SECRET || 'dev-secret-change-me');
+          const payload = jwt.verify(m[1], getJwtSecret());
           user = await User.findByPk(payload.id);
         } catch {
           user = null;
@@ -140,17 +153,29 @@ const WRITE_ISOLATION = Transaction.ISOLATION_LEVELS.SERIALIZABLE;
 router.get('/', authenticate, async (req, res) => {
   const where = {};
 
-  if (req.query.from) where.startTime = { [Op.gte]: new Date(req.query.from) };
-  if (req.query.to) {
-    where.endTime = { ...(where.endTime || {}), [Op.lte]: new Date(req.query.to) };
+  // Date di range: scartiamo silenziosamente input non parsabili per evitare
+  // 500 da Sequelize (`Invalid Date` ⇒ "invalid input syntax for type
+  // timestamp"). Il filtro semplicemente non si applica se la data è invalida.
+  if (req.query.from) {
+    const d = new Date(req.query.from);
+    if (!Number.isNaN(d.getTime())) where.startTime = { [Op.gte]: d };
   }
-  if (req.query.roomId) where.roomId = req.query.roomId;
-  if (req.query.status) where.status = req.query.status;
+  if (req.query.to) {
+    const d = new Date(req.query.to);
+    if (!Number.isNaN(d.getTime())) where.endTime = { [Op.lte]: d };
+  }
+  // ID numerici: cast esplicito; se non è un intero, ignoriamo il filtro.
+  if (req.query.roomId) {
+    const n = Number.parseInt(req.query.roomId, 10);
+    if (Number.isInteger(n)) where.roomId = n;
+  }
+  if (req.query.status) where.status = String(req.query.status);
 
   if (req.query.mine === 'true') {
     where.userId = req.user.id;
   } else if (req.query.userId && req.user.role === 'admin') {
-    where.userId = req.query.userId;
+    const n = Number.parseInt(req.query.userId, 10);
+    if (Number.isInteger(n)) where.userId = n;
   }
 
   const bookings = await Booking.findAll({
@@ -999,13 +1024,18 @@ router.get('/usage/me', authenticate, async (req, res, next) => {
 });
 
 router.get('/availability/:roomId', authenticate, async (req, res) => {
-  const date = req.query.date ? dayjs(req.query.date) : dayjs();
+  const roomId = Number.parseInt(req.params.roomId, 10);
+  if (!Number.isInteger(roomId)) {
+    return res.status(400).json({ error: 'roomId non valido' });
+  }
+  const parsed = req.query.date ? dayjs(req.query.date) : dayjs();
+  const date = parsed.isValid() ? parsed : dayjs();
   const dayStart = date.startOf('day').toDate();
   const dayEnd = date.endOf('day').toDate();
 
   const bookings = await Booking.findAll({
     where: {
-      roomId: req.params.roomId,
+      roomId,
       status: 'confirmed',
       startTime: { [Op.gte]: dayStart, [Op.lte]: dayEnd },
     },
@@ -1102,8 +1132,27 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     });
   }
 
-  booking.checkedInAt = new Date();
-  await booking.save();
+  // Atomic UPDATE WHERE: due check-in concorrenti non passano entrambi.
+  // L'`affected===0` significa che un'altra request ha vinto la race
+  // (oppure lo status è cambiato nel frattempo).
+  const checkedInAt = new Date();
+  const [affected] = await Booking.update(
+    { checkedInAt },
+    {
+      where: {
+        id: booking.id,
+        checkedInAt: null,
+        status: 'confirmed',
+      },
+    },
+  );
+  if (affected === 0) {
+    return res.status(409).json({
+      error: 'Check-in già effettuato',
+      code: 'ALREADY_CHECKED_IN',
+    });
+  }
+  booking.checkedInAt = checkedInAt;
   res.json({ booking, message: 'Check-in registrato' });
 });
 

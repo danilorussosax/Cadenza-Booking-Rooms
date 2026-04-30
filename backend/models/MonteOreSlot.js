@@ -86,6 +86,22 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      // Campi per slot "fuori pattern" creati da amendment add_new_day:
+      // quando scheduleId è NULL questi danno le info per materializzare il
+      // Booking. Quando scheduleId è valorizzato sono ignorati (le info
+      // arrivano dallo schedule).
+      roomId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      bookingType: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+      },
+      purpose: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
     },
     {
       tableName: 'monte_ore_slots',
@@ -95,7 +111,20 @@ module.exports = (sequelize) => {
         { fields: ['scheduleId'] },
         { fields: ['date'] },
         { fields: ['proposalId', 'date'] },
+        { fields: ['roomId'] },
       ],
+      validate: {
+        // Lo slot deve sempre poter risalire a roomId+bookingType per
+        // materializzare un Booking: o tramite il pattern (scheduleId)
+        // o tramite i campi diretti (slot fuori-pattern).
+        consistentBookingSource() {
+          if (this.scheduleId == null) {
+            if (this.roomId == null || this.bookingType == null) {
+              throw new Error('MonteOreSlot fuori-pattern: roomId e bookingType obbligatori');
+            }
+          }
+        },
+      },
     },
   );
 

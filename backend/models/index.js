@@ -307,6 +307,10 @@ MonteOreSchedule.hasMany(MonteOreSlot, {
 MonteOreSlot.belongsTo(MonteOreSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
 Booking.hasOne(MonteOreSlot, { foreignKey: 'bookingId', as: 'monteOreSlot', onDelete: 'SET NULL' });
 MonteOreSlot.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking' });
+// roomId valorizzato solo per slot fuori-pattern (creati da add_new_day):
+// abbiamo bisogno della FK reale per evitare orfani su Room.destroy.
+Room.hasMany(MonteOreSlot, { foreignKey: 'roomId', as: 'monteOreSlots', onDelete: 'SET NULL' });
+MonteOreSlot.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
 MonteOreProposal.hasMany(MonteOreAmendment, {
   foreignKey: 'proposalId',
   as: 'amendments',

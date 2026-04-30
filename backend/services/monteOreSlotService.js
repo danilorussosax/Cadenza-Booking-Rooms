@@ -169,13 +169,30 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
   if (!proposal || proposal.status !== 'generated') {
     return { action: 'noop', reason: 'proposal_not_generated' };
   }
-  const schedule = await MonteOreSchedule.findByPk(slot.scheduleId, { ...tx });
-  if (!schedule) return { action: 'noop', reason: 'schedule_not_found' };
 
-  // Costruisco gli istanti come fa il generator
-  const dayjs = require('dayjs');
-  const [sh, sm] = schedule.startTime.split(':').map(Number);
-  const [eh, em] = schedule.endTime.split(':').map(Number);
+  // Origine info booking: lo schedule (slot dentro pattern) oppure i campi
+  // sullo slot stesso (slot fuori pattern, nato da amendment add_new_day).
+  let roomId, bookingType, purpose, notes;
+  let schedule = null;
+  if (slot.scheduleId) {
+    schedule = await MonteOreSchedule.findByPk(slot.scheduleId, { ...tx });
+    if (!schedule) return { action: 'noop', reason: 'schedule_not_found' };
+    roomId = schedule.roomId;
+    bookingType = schedule.bookingType;
+    purpose = schedule.purpose || null;
+    notes = schedule.notes || null;
+  } else {
+    if (!slot.roomId || !slot.bookingType) {
+      return { action: 'noop', reason: 'slot_missing_room_or_type' };
+    }
+    roomId = slot.roomId;
+    bookingType = slot.bookingType;
+    purpose = slot.purpose || null;
+    notes = null;
+  }
+
+  const [sh, sm] = slot.startTime.split(':').map(Number);
+  const [eh, em] = slot.endTime.split(':').map(Number);
   const startTime = dayjs(slot.date).hour(sh).minute(sm).second(0).millisecond(0).toDate();
   const endTime = dayjs(slot.date).hour(eh).minute(em).second(0).millisecond(0).toDate();
 
@@ -185,7 +202,7 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
     const existing = await Booking.findOne({
       where: {
         userId: proposal.userId,
-        roomId: schedule.roomId,
+        roomId,
         startTime,
         status: 'confirmed',
       },
@@ -195,10 +212,10 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
       return { action: 'noop', reason: 'already_exists', affectedBookingId: existing.id };
     const validation = await validateBooking({
       user: await require('../models').User.findByPk(proposal.userId, { ...tx }),
-      roomId: schedule.roomId,
+      roomId,
       startTime,
       endTime,
-      type: schedule.bookingType,
+      type: bookingType,
       bypassQuotas: !!actorUser && actorUser.role === 'admin',
       bypassAdvance: !!actorUser && actorUser.role === 'admin',
       bypassDuration: !!actorUser && actorUser.role === 'admin',
@@ -213,21 +230,26 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
     const b = await Booking.create(
       {
         userId: proposal.userId,
-        roomId: schedule.roomId,
+        roomId,
         startTime,
         endTime,
-        type: schedule.bookingType,
-        purpose: schedule.purpose || null,
-        notes: schedule.notes || null,
+        type: bookingType,
+        purpose,
+        notes,
         status: 'confirmed',
       },
       { transaction },
     );
-    // Aggiorna generatedBookingIds della schedule (append)
-    const ids = Array.isArray(schedule.generatedBookingIds) ? schedule.generatedBookingIds : [];
-    if (!ids.includes(b.id)) {
-      await schedule.update({ generatedBookingIds: [...ids, b.id] }, { transaction });
+    // Aggiorna generatedBookingIds della schedule (append) solo se lo slot
+    // proviene da un pattern. Per slot fuori-pattern salviamo il bookingId
+    // sullo slot stesso.
+    if (schedule) {
+      const ids = Array.isArray(schedule.generatedBookingIds) ? schedule.generatedBookingIds : [];
+      if (!ids.includes(b.id)) {
+        await schedule.update({ generatedBookingIds: [...ids, b.id] }, { transaction });
+      }
     }
+    await slot.update({ bookingId: b.id }, { transaction });
     return { action: 'created', affectedBookingId: b.id };
   }
   // Caso "toggle_off" → cancella il Booking se esiste e non è checked-in/passato
@@ -235,7 +257,7 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
   const target = await Booking.findOne({
     where: {
       userId: proposal.userId,
-      roomId: schedule.roomId,
+      roomId,
       startTime,
       status: 'confirmed',
     },
@@ -272,25 +294,17 @@ async function snapshotOriginalActive(proposalId, { transaction = null } = {}) {
 }
 
 /**
- * Classificazione amendment richiesta dalla spec:
- *   - se la modifica `isActive` riguarda uno slot che ERA attivo nel piano
- *     originale (`originalActive=true`) → AUTO-APPROVE
- *   - se riguarda uno slot/giorno NUOVO (originalmente non attivo) →
- *     PENDING (richiede approvazione manuale)
- *
- * @param {MonteOreSlot} slot - lo slot bersaglio dell'amendment
- * @param {string} kind - tipo amendment ('toggle_off' | 'toggle_on' | ...)
- * @returns 'auto_approved' | 'pending'
+ * Auto-approve se la modifica resta dentro il pattern settimanale già
+ * approvato (stesso dayOfWeek+orario, scheduleId valorizzato), o se è una
+ * deselezione (libero ore = sempre lecito). Tutto il resto richiede il
+ * coordinatore.
  */
 function classifyAmendment(slot, kind) {
-  // Disattivazione di un giorno già approvato: auto-approve
-  if (kind === 'toggle_off' && slot.originalActive) return 'auto_approved';
-  // Riattivazione di un giorno che era nel piano originale: auto-approve
-  if (kind === 'toggle_on' && slot.originalActive) return 'auto_approved';
-  // Cambio orario di un giorno già approvato: auto-approve
+  if (kind === 'toggle_off') return 'auto_approved';
+  if (kind === 'toggle_on') {
+    return slot.scheduleId ? 'auto_approved' : 'pending';
+  }
   if (kind === 'change_time' && slot.originalActive) return 'auto_approved';
-  // Aggiunta giorno nuovo / riattivazione di giorno NON nel piano originale:
-  // richiede approvazione manuale
   return 'pending';
 }
 

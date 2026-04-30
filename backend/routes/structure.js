@@ -246,28 +246,49 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res, next
 // anche a utenti non autenticati (art. 13 GDPR).
 // (PRIMA di /institutes/:id altrimenti :id matcherebbe "public")
 router.get('/institutes/public', async (req, res) => {
-  const inst = await Institute.findOne({
-    order: [['id', 'ASC']],
-    attributes: [
-      'id',
-      'name',
-      'code',
-      'logoUrl',
-      'address',
-      'city',
-      'country',
-      'copyright',
-      'legalName',
-      'vatNumber',
-      'fiscalCode',
-      'pecEmail',
-      'contactEmail',
-      'dpoName',
-      'dpoEmail',
-      'jurisdictionCity',
-      'subProcessors',
-    ],
-  });
+  // Set base di colonne sempre richieste. I module flag sono richiesti in
+  // un secondo SELECT difensivo: se il DB non li ha ancora (preSync non
+  // eseguito su un'installazione legacy), facciamo fallback al default
+  // true invece di crashare l'intero endpoint.
+  const baseAttrs = [
+    'id',
+    'name',
+    'code',
+    'logoUrl',
+    'address',
+    'city',
+    'country',
+    'copyright',
+    'legalName',
+    'vatNumber',
+    'fiscalCode',
+    'pecEmail',
+    'contactEmail',
+    'dpoName',
+    'dpoEmail',
+    'jurisdictionCity',
+    'subProcessors',
+  ];
+  let inst;
+  try {
+    inst = await Institute.findOne({
+      order: [['id', 'ASC']],
+      attributes: [...baseAttrs, 'moduleMonteOreEnabled', 'moduleInstrumentLoansEnabled'],
+    });
+  } catch {
+    // Schema legacy senza le colonne module*: degrada con default true.
+    const fallback = await Institute.findOne({
+      order: [['id', 'ASC']],
+      attributes: baseAttrs,
+    });
+    if (fallback) {
+      const plain = fallback.toJSON();
+      plain.moduleMonteOreEnabled = true;
+      plain.moduleInstrumentLoansEnabled = true;
+      return res.json({ institute: plain });
+    }
+    inst = null;
+  }
   res.json({ institute: inst });
 });
 
@@ -322,7 +343,7 @@ router.post(
     const errs = validationResult(req);
     if (!errs.isEmpty())
       return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
-    const institute = await Institute.create(req.body);
+    const institute = await Institute.create(pickInstituteFields(req.body));
     res.status(201).json({ institute });
   },
 );
@@ -330,9 +351,44 @@ router.post(
 router.put('/institutes/:id', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findByPk(req.params.id);
   if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
-  await inst.update(req.body);
+  await inst.update(pickInstituteFields(req.body));
   res.json({ institute: inst });
 });
+
+// Whitelist esplicita dei campi assegnabili da admin via REST. Evita che
+// future colonne aggiunte al modello (es. flag interni) siano modificabili
+// di default — vanno scelte volontariamente.
+const INSTITUTE_FIELDS = [
+  'name',
+  'code',
+  'address',
+  'city',
+  'country',
+  'timezone',
+  'description',
+  'logoUrl',
+  'copyright',
+  'legalName',
+  'vatNumber',
+  'fiscalCode',
+  'pecEmail',
+  'contactEmail',
+  'dpoName',
+  'dpoEmail',
+  'jurisdictionCity',
+  'subProcessors',
+  'checkInRequireInstituteNetwork',
+  'instituteNetworkCidrs',
+  'moduleMonteOreEnabled',
+  'moduleInstrumentLoansEnabled',
+];
+function pickInstituteFields(body) {
+  const out = {};
+  for (const f of INSTITUTE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(body, f)) out[f] = body[f];
+  }
+  return out;
+}
 
 // =========================================================
 // Check-in security policy: GET/PUT toggle + CIDR allowlist.
@@ -415,6 +471,49 @@ router.put('/checkin-settings', authenticate, requireRole('admin'), async (req, 
     checkInRequireInstituteNetwork: inst.checkInRequireInstituteNetwork,
     instituteNetworkCidrs: inst.instituteNetworkCidrs,
     warnings,
+  });
+});
+
+// =========================================================
+// Module flags — toggle "presentational" della sidebar.
+// Il backend resta sempre attivo: questi toggle servono soltanto a
+// mostrare o nascondere i link "Monte ore" e "Strumenti" in UI.
+// Singleton sull'unico Institute.
+// =========================================================
+router.get('/module-settings', authenticate, requireRole('admin'), async (req, res) => {
+  const inst = await Institute.findOne({
+    attributes: ['id', 'moduleMonteOreEnabled', 'moduleInstrumentLoansEnabled'],
+    order: [['id', 'ASC']],
+  });
+  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+  res.json({
+    moduleMonteOreEnabled: !!inst.moduleMonteOreEnabled,
+    moduleInstrumentLoansEnabled: !!inst.moduleInstrumentLoansEnabled,
+  });
+});
+
+router.put('/module-settings', authenticate, requireRole('admin'), async (req, res) => {
+  const inst = await Institute.findOne({ order: [['id', 'ASC']] });
+  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+
+  const { moduleMonteOreEnabled, moduleInstrumentLoansEnabled } = req.body || {};
+  const update = {};
+  if (typeof moduleMonteOreEnabled === 'boolean') {
+    update.moduleMonteOreEnabled = moduleMonteOreEnabled;
+  }
+  if (typeof moduleInstrumentLoansEnabled === 'boolean') {
+    update.moduleInstrumentLoansEnabled = moduleInstrumentLoansEnabled;
+  }
+  if (Object.keys(update).length === 0) {
+    return res.status(400).json({
+      error: 'Nessun flag valido nel body',
+      code: 'VALIDATION',
+    });
+  }
+  await inst.update(update);
+  res.json({
+    moduleMonteOreEnabled: !!inst.moduleMonteOreEnabled,
+    moduleInstrumentLoansEnabled: !!inst.moduleInstrumentLoansEnabled,
   });
 });
 

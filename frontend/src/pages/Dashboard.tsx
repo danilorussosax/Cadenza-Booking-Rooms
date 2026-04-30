@@ -9,9 +9,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Clock,
   DoorOpen,
   FileDown,
+  GitPullRequest,
   Hourglass,
   PackageOpen,
   Sparkles,
@@ -21,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingsApi } from '@/api/bookings';
 import { loansApi } from '@/api/instruments';
+import { monteOreAdminApi } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { dayjs, formatDate } from '@/lib/date';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
@@ -59,9 +62,18 @@ function greetingKey() {
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  // Vista settimanale: salviamo il lunedì (isoWeek) della settimana corrente.
-  const [weekStart, setWeekStart] = useState<string>(() =>
-    dayjs().startOf('isoWeek').format('YYYY-MM-DD'),
+  // Vista giornaliera: salviamo la data del giorno mostrato (YYYY-MM-DD).
+  // Inizializziamo a oggi; con i bottoni "Precedente / Oggi / Successivo"
+  // navighiamo a passi di 1 giorno. La WeeklyRoomTimetable supporta già una
+  // singola colonna giorno tramite daysCount={1}, quindi riusiamo il
+  // componente con `weekStart=dayStart`.
+  const [dayStart, setDayStart] = useState<string>(() => dayjs().format('YYYY-MM-DD'));
+  // Inizio della settimana ISO che contiene `dayStart` — usato dal PDF di
+  // export settimanale (che resta su scala settimanale, indipendente dalla
+  // vista in-dashboard).
+  const weekStart = useMemo(
+    () => dayjs(dayStart).startOf('isoWeek').format('YYYY-MM-DD'),
+    [dayStart],
   );
   const [buildingTab, setBuildingTab] = useState<string>('');
   const [createState, setCreateState] = useState<{
@@ -111,14 +123,35 @@ export default function Dashboard() {
     staleTime: 30_000,
   });
 
-  // All bookings (any user) for the selected calendar week — populates the
-  // weekly timetable. Range: lun 00:00 → sab 23:59 (6 giorni utili).
+  // Solo per admin: conteggio code di approvazione (prenotazioni standard +
+  // variazioni monte ore) per le card della dashboard. Polling 60s coerente
+  // col badge della sidebar.
+  const isAdmin = user?.role === 'admin';
+  const adminBookingsPendingQuery = useQuery({
+    queryKey: ['admin', 'bookings', 'pending', 'count'],
+    queryFn: () => bookingsApi.pendingCount(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    enabled: isAdmin,
+  });
+  const adminAmendmentsPendingQuery = useQuery({
+    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    enabled: isAdmin,
+  });
+  const bookingsPendingCount = adminBookingsPendingQuery.data?.count ?? 0;
+  const amendmentsPendingCount = adminAmendmentsPendingQuery.data?.count ?? 0;
+
+  // All bookings (any user) for the selected calendar day — populates the
+  // daily timetable. Range: 00:00 → 23:59 del giorno selezionato.
   const calendarBookingsQuery = useQuery({
-    queryKey: ['bookings', 'week', weekStart],
+    queryKey: ['bookings', 'day', dayStart],
     queryFn: () =>
       bookingsApi.list({
-        from: dayjs(weekStart).startOf('day').toISOString(),
-        to: dayjs(weekStart).add(5, 'day').endOf('day').toISOString(),
+        from: dayjs(dayStart).startOf('day').toISOString(),
+        to: dayjs(dayStart).endOf('day').toISOString(),
         status: 'confirmed',
       }),
   });
@@ -186,7 +219,7 @@ export default function Dashboard() {
   const selectedBuilding = buildingsMap.get(Number(buildingTab));
   const calendarRooms = selectedBuilding?.rooms ?? [];
 
-  const stats = [
+  const stats: StatTile[] = [
     {
       label: t('dashboard.stats.active_bookings'),
       value: upcomingQuery.data?.bookings.length ?? '—',
@@ -194,7 +227,37 @@ export default function Dashboard() {
       hint: t('dashboard.stats.active_bookings_hint'),
       tone: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
     },
-    {
+  ];
+
+  if (isAdmin) {
+    // Admin layout: 1) Prenotazioni attive, 2) Aule disponibili,
+    // 3) Prenotazioni da approvare, 4) Variazioni monte ore. Le ultime due
+    // card (cliccabili) puntano alle code di approvazione.
+    stats.push({
+      label: t('dashboard.stats.available_rooms'),
+      value: roomsQuery.data?.rooms.length ?? '—',
+      icon: DoorOpen,
+      hint: t('dashboard.stats.available_rooms_hint'),
+      tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
+    });
+    stats.push({
+      label: t('dashboard.stats.pending_bookings_approvals'),
+      value: adminBookingsPendingQuery.isLoading ? '—' : bookingsPendingCount,
+      icon: ClipboardCheck,
+      hint: t('dashboard.stats.pending_bookings_approvals_hint'),
+      tone: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+      to: '/admin/approvals',
+    });
+    stats.push({
+      label: t('dashboard.stats.pending_amendments'),
+      value: adminAmendmentsPendingQuery.isLoading ? '—' : amendmentsPendingCount,
+      icon: GitPullRequest,
+      hint: t('dashboard.stats.pending_amendments_hint'),
+      tone: 'bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-400',
+      to: '/admin/monte-ore',
+    });
+  } else {
+    stats.push({
       label: t('dashboard.stats.weekly_remaining_hours'),
       value: usageQuery.isLoading ? '—' : usageDisplay.value,
       icon: Hourglass,
@@ -204,15 +267,15 @@ export default function Dashboard() {
           .endOf('isoWeek')
           .format('D MMM')}`,
       tone: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-    },
-    {
+    });
+    stats.push({
       label: t('dashboard.stats.available_rooms'),
       value: roomsQuery.data?.rooms.length ?? '—',
       icon: DoorOpen,
       hint: t('dashboard.stats.available_rooms_hint'),
       tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-    },
-    {
+    });
+    stats.push({
       label: t('dashboard.stats.next_session'),
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       value: next ? dayjs(next.startTime).fromNow() : '—',
@@ -222,8 +285,8 @@ export default function Dashboard() {
         ? formatDate(next.startTime, 'ddd D MMM, HH:mm')
         : t('dashboard.stats.next_session_none'),
       tone: 'bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-400',
-    },
-  ];
+    });
+  }
 
   if (showLoansCard) {
     stats.push({
@@ -261,8 +324,8 @@ export default function Dashboard() {
     }
   };
 
-  const thisWeekStart = dayjs().startOf('isoWeek').format('YYYY-MM-DD');
-  const isCurrentWeek = weekStart === thisWeekStart;
+  const today = dayjs().format('YYYY-MM-DD');
+  const isToday = dayStart === today;
 
   // Blocchi della weekly view (per la sola tab edificio selezionata).
   const weeklyBlocks = useMemo(
@@ -423,33 +486,11 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 + i * 0.04 }}
-          >
-            <Card>
-              <CardContent className="flex items-start gap-3 p-5">
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${s.tone}`}
-                >
-                  <s.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {s.label}
-                  </p>
-                  <p className="font-display text-2xl font-medium">{s.value}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{s.hint}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <StatTileCard key={s.label} tile={s} delay={0.05 + i * 0.04} />
         ))}
       </div>
 
-      {/* Calendar / Timetable settimanale (Lun–Sab) per edificio selezionato */}
+      {/* Calendar / Timetable giornaliero per edificio selezionato */}
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -460,19 +501,19 @@ export default function Dashboard() {
             <Button
               variant="outline"
               size="icon"
-              title={t('dashboard.prev_week')}
+              title={t('dashboard.prev_day')}
               onClick={() => {
-                setWeekStart(dayjs(weekStart).subtract(7, 'day').format('YYYY-MM-DD'));
+                setDayStart(dayjs(dayStart).subtract(1, 'day').format('YYYY-MM-DD'));
               }}
             >
               <ChevronLeft className="h-4 w-4 text-primary" />
             </Button>
             <Input
               type="date"
-              value={weekStart}
+              value={dayStart}
               onChange={(e) => {
                 if (!e.target.value) return;
-                setWeekStart(dayjs(e.target.value).startOf('isoWeek').format('YYYY-MM-DD'));
+                setDayStart(dayjs(e.target.value).format('YYYY-MM-DD'));
               }}
               className="w-auto"
             />
@@ -480,18 +521,18 @@ export default function Dashboard() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setWeekStart(thisWeekStart);
+                setDayStart(today);
               }}
-              disabled={isCurrentWeek}
+              disabled={isToday}
             >
-              {t('dashboard.this_week')}
+              {t('dashboard.today')}
             </Button>
             <Button
               variant="outline"
               size="icon"
-              title={t('dashboard.next_week')}
+              title={t('dashboard.next_day')}
               onClick={() => {
-                setWeekStart(dayjs(weekStart).add(7, 'day').format('YYYY-MM-DD'));
+                setDayStart(dayjs(dayStart).add(1, 'day').format('YYYY-MM-DD'));
               }}
             >
               <ChevronRight className="h-4 w-4 text-primary" />
@@ -524,15 +565,15 @@ export default function Dashboard() {
           )}
 
           <p className="font-display text-base capitalize">
-            {dayjs(weekStart).format('D MMM')} –{' '}
-            {dayjs(weekStart).add(5, 'day').format('D MMM YYYY')}
+            {dayjs(dayStart).format('dddd D MMMM YYYY')}
           </p>
 
           {roomsQuery.isLoading || calendarBookingsQuery.isLoading ? (
             <Skeleton className="h-[520px] w-full" />
           ) : (
             <WeeklyRoomTimetable
-              weekStart={weekStart}
+              weekStart={dayStart}
+              daysCount={1}
               rooms={calendarRooms}
               blocks={weeklyBlocks.filter((blk) => calendarRooms.some((r) => r.id === blk.roomId))}
               onSlotRangeSelect={handleSlotRangeSelect}
@@ -685,5 +726,59 @@ function LoanDashboardRow({ loan }: { loan: InstrumentLoan }) {
         </p>
       </div>
     </div>
+  );
+}
+
+interface StatTile {
+  label: string;
+  value: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
+  hint: string;
+  tone: string;
+  to?: string;
+}
+
+function StatTileCard({ tile, delay }: { tile: StatTile; delay: number }) {
+  const card = (
+    <Card
+      className={
+        tile.to
+          ? 'h-full transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/20'
+          : 'h-full'
+      }
+    >
+      <CardContent className="flex items-start gap-3 p-5">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tile.tone}`}
+        >
+          <tile.icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">{tile.label}</p>
+          <p className="font-display text-2xl font-medium">{tile.value}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{tile.hint}</p>
+        </div>
+        {tile.to && <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </CardContent>
+    </Card>
+  );
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="h-full"
+    >
+      {tile.to ? (
+        <Link
+          to={tile.to}
+          className="block h-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {card}
+        </Link>
+      ) : (
+        card
+      )}
+    </motion.div>
   );
 }

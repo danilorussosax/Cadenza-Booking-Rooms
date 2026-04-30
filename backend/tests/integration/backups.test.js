@@ -271,4 +271,45 @@ describe('Backup endpoints', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('restore: rifiuto tarball malevoli', () => {
+    if (!TAR_AVAILABLE) {
+      it.skip('skipped: tar non disponibile', () => {});
+      return;
+    }
+    const { performRestore } = require('../../services/backupRestore');
+    const os = require('os');
+
+    function makeMaliciousTarball({ withSymlink = false, withAbsolute = false } = {}) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-evil-'));
+      // Manifest minimale + DB stub
+      fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ dialect: 'sqlite' }));
+      fs.writeFileSync(path.join(dir, 'conservatory.sqlite'), 'fake-db');
+      if (withSymlink) {
+        fs.symlinkSync('/etc/passwd', path.join(dir, 'evil-link'));
+      }
+      const tarPath = path.join(TMP_BACKUP_DIR, `backup-evil-${Date.now()}.tar.gz`);
+      const args = withAbsolute
+        ? ['-czPf', tarPath, '-C', dir, 'manifest.json', 'conservatory.sqlite']
+        : ['-czf', tarPath, '-C', dir, '.'];
+      execSync(`tar ${args.map((a) => `'${a}'`).join(' ')}`);
+      // Cleanup: rimuovi il symlink dalla dir di staging (la presenza nel tar
+      // basta) per evitare problemi di rmSync ricorsivo sul link
+      if (withSymlink) {
+        try {
+          fs.unlinkSync(path.join(dir, 'evil-link'));
+        } catch {
+          /* noop */
+        }
+      }
+      fs.rmSync(dir, { recursive: true, force: true });
+      return tarPath;
+    }
+
+    it('rifiuta tarball con symlink', async () => {
+      const tarPath = makeMaliciousTarball({ withSymlink: true });
+      await expect(performRestore({ archivePath: tarPath })).rejects.toThrow(/symlink|hardlink/i);
+      fs.rmSync(tarPath, { force: true });
+    });
+  });
 });

@@ -23,7 +23,7 @@
 
 const express = require('express');
 const dayjs = require('dayjs');
-const { Op } = require('sequelize');
+const { Op, Transaction } = require('sequelize');
 const {
   sequelize,
   MonteOreProposal,
@@ -420,26 +420,23 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
       // amendmentCount; default su SQLite/MySQL che non lo supportano nativamente).
       const txOpts =
         sequelize.getDialect() === 'postgres'
-          ? { isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+          ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
           : {};
       const result = await sequelize.transaction(txOpts, async (t) => {
         const p = await MonteOreProposal.findByPk(slot.proposalId, { transaction: t });
         const s = await MonteOreSlot.findByPk(slot.id, { transaction: t });
-        // Limite annuale (verificato dentro tx con valore fresco)
-        const settings = await MonteOreSettings.findOne({
-          where: { academicYear: p.academicYear },
-          transaction: t,
-        });
-        const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-        if ((p.amendmentCount || 0) >= maxAmend) {
-          const e = new Error(
-            `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
-          );
-          e.status = 400;
-          e.code = 'AMENDMENT_LIMIT_REACHED';
-          throw e;
-        }
         const kind = s.isActive ? 'toggle_off' : 'toggle_on';
+        // Le deselezioni (toggle_off) liberano ore e non consumano il budget
+        // annuale di variazioni: il counter sale solo sulle aggiunte.
+        const consumesBudget = kind !== 'toggle_off';
+        let maxAmend = 3;
+        if (consumesBudget) {
+          const settings = await MonteOreSettings.findOne({
+            where: { academicYear: p.academicYear },
+            transaction: t,
+          });
+          maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+        }
         const decided = slotService.classifyAmendment(s, kind);
         const amendment = await MonteOreAmendment.create(
           {
@@ -455,6 +452,31 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
           { transaction: t },
         );
         if (decided === 'auto_approved') {
+          if (consumesBudget) {
+            // Atomic conditional increment: cross-dialect race-safe (no
+            // dipendenza da SERIALIZABLE). Se affected=0 il limite è già
+            // stato raggiunto (concorrentemente o prima).
+            const qcol =
+              sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
+            const [affected] = await MonteOreProposal.update(
+              { amendmentCount: sequelize.literal(`${qcol} + 1`) },
+              {
+                where: {
+                  id: p.id,
+                  amendmentCount: { [Op.lt]: maxAmend },
+                },
+                transaction: t,
+              },
+            );
+            if (affected === 0) {
+              const e = new Error(
+                `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
+              );
+              e.status = 400;
+              e.code = 'AMENDMENT_LIMIT_REACHED';
+              throw e;
+            }
+          }
           await slotService.toggleSlot(s.id, { force: true, transaction: t });
           // Sync booking↔slot solo se la proposta è 'generated' (i booking
           // sono già stati materializzati). In 'approved' lo slot toggle
@@ -465,7 +487,6 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
               transaction: t,
             });
           }
-          await p.increment('amendmentCount', { by: 1, transaction: t });
         }
         await s.reload({ transaction: t });
         return { amendment, slot: s };
@@ -479,6 +500,82 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
     if (err.code === 'SLOT_LOCKED' || err.code === 'AMENDMENT_LIMIT_REACHED')
       return res.status(err.status || 400).json({ error: err.message, code: err.code });
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    next(err);
+  }
+});
+
+/**
+ * Richiesta di un nuovo giorno FUORI dal pattern settimanale approvato.
+ * Crea un `MonteOreAmendment` kind='add_new_day' status='pending' che dovrà
+ * essere approvato dal coordinatore. L'effettivo `MonteOreSlot` (e l'eventuale
+ * Booking) viene creato solo all'approvazione.
+ *
+ * Body atteso: { date: "YYYY-MM-DD", startTime: "HH:MM", endTime: "HH:MM",
+ *                roomId: number, bookingType?: string, notes?: string,
+ *                purpose?: string }
+ */
+router.post('/me/amendments/add-new-day', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const year = req.body.year || currentAcademicYearLabel();
+    const proposal = await MonteOreProposal.findOne({
+      where: { userId: req.user.id, academicYear: year },
+    });
+    if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
+    if (!['approved', 'generated'].includes(proposal.status)) {
+      return res.status(400).json({ error: 'La proposta non è approvata', code: 'INVALID_STATE' });
+    }
+    const { date, startTime, endTime, roomId, bookingType, notes, purpose } = req.body || {};
+    if (!date || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Campi obbligatori: date, startTime, endTime' });
+    }
+    const isoDate = String(date).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+      return res.status(400).json({ error: 'Formato data non valido (YYYY-MM-DD)' });
+    }
+    const sT = String(startTime).slice(0, 5);
+    const eT = String(endTime).slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(sT) || !/^\d{2}:\d{2}$/.test(eT)) {
+      return res.status(400).json({ error: 'Formato orario non valido (HH:MM)' });
+    }
+    if (sT >= eT) {
+      return res.status(400).json({ error: 'startTime deve essere prima di endTime' });
+    }
+    // roomId opzionale: il coordinatore la assegna in fase di approve.
+    // Esistenza convalidata in approve (FK + lookup), non qui.
+    const roomIdNum =
+      roomId !== undefined && roomId !== null && roomId !== '' ? Number(roomId) : null;
+
+    // Verifica limite annuale prima di creare l'amendment
+    const settings = await MonteOreSettings.findOne({
+      where: { academicYear: proposal.academicYear },
+    });
+    const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+    if ((proposal.amendmentCount || 0) >= maxAmend) {
+      return res.status(400).json({
+        error: `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
+        code: 'AMENDMENT_LIMIT_REACHED',
+      });
+    }
+
+    const amendment = await MonteOreAmendment.create({
+      proposalId: proposal.id,
+      requesterId: req.user.id,
+      slotId: null,
+      kind: 'add_new_day',
+      payload: {
+        date: isoDate,
+        startTime: sT,
+        endTime: eT,
+        roomId: roomIdNum, // null se non specificata: la assegnerà l'admin
+        bookingType: bookingType ? String(bookingType).slice(0, 40) : 'lezione',
+        purpose: purpose ? String(purpose).slice(0, 255) : null,
+      },
+      status: 'pending',
+      requestNotes: notes ? String(notes).slice(0, 2000) : null,
+    });
+
+    res.status(201).json({ amendment: amendment.toJSON() });
+  } catch (err) {
     next(err);
   }
 });
@@ -733,6 +830,22 @@ adminRouter.get('/amendments', authenticate, requireRole('admin'), async (req, r
     next(err);
   }
 });
+
+// Conteggio (badge sidebar / dashboard tile): evita di trasferire l'intera
+// lista di amendment quando serve solo il numero.
+adminRouter.get(
+  '/amendments/pending/count',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const count = await MonteOreAmendment.count({ where: { status: 'pending' } });
+      res.json({ count });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 adminRouter.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
@@ -1034,22 +1147,25 @@ adminRouter.post(
           e.code = 'INVALID_STATE';
           throw e;
         }
-        // Verifica limite annuale anche qui (era controllato solo lato docente
-        // sul toggle): se l'admin sta forzando l'approvazione manuale, il
-        // counter si incrementa, e bisogna garantire che non si superi
-        // maxAmendmentsPerYear.
-        const settings = await MonteOreSettings.findOne({
-          where: { academicYear: proposal.academicYear },
-          transaction: t,
-        });
-        const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-        if ((proposal.amendmentCount || 0) >= maxAmend) {
-          const e = new Error(
-            `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
-          );
-          e.status = 400;
-          e.code = 'AMENDMENT_LIMIT_REACHED';
-          throw e;
+        // Le deselezioni non consumano il budget annuale; il limite si
+        // applica solo alle aggiunte (toggle_on, add_new_day, change_time).
+        const consumesBudget = a.kind !== 'toggle_off';
+        let maxAmend = 3;
+        if (consumesBudget) {
+          const settings = await MonteOreSettings.findOne({
+            where: { academicYear: proposal.academicYear },
+            transaction: t,
+          });
+          maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+          // Check rapido fail-fast: il check atomico finale è nell'UPDATE qui sotto.
+          if ((proposal.amendmentCount || 0) >= maxAmend) {
+            const e = new Error(
+              `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
+            );
+            e.status = 400;
+            e.code = 'AMENDMENT_LIMIT_REACHED';
+            throw e;
+          }
         }
         // Applica la modifica allo slot bersaglio
         if (a.slotId) {
@@ -1072,14 +1188,93 @@ adminRouter.post(
               });
             }
           }
+        } else if (a.kind === 'add_new_day' && a.payload) {
+          // Variazione "add_new_day": crea lo slot fuori-pattern (scheduleId
+          // NULL) e, se la proposta è già generated, materializza il booking
+          // via syncBookingForSlot (che legge le info dai campi sullo slot).
+          //
+          // L'admin può fornire/sovrascrivere il roomId in fase di approvazione
+          // (req.body.roomId): è obbligatorio se il docente non l'aveva
+          // indicato; opzionalmente sovrascrive la preferenza del docente.
+          const p = a.payload;
+          if (!p.date || !p.startTime || !p.endTime) {
+            const e = new Error('Payload add_new_day incompleto');
+            e.status = 400;
+            throw e;
+          }
+          const overrideRoomId =
+            req.body &&
+            req.body.roomId !== undefined &&
+            req.body.roomId !== null &&
+            req.body.roomId !== ''
+              ? Number(req.body.roomId)
+              : null;
+          const finalRoomId = overrideRoomId ?? (p.roomId ? Number(p.roomId) : null);
+          if (!finalRoomId) {
+            const e = new Error(
+              'Aula obbligatoria per approvare: il docente non ne ha indicata una',
+            );
+            e.status = 400;
+            e.code = 'ROOM_REQUIRED';
+            throw e;
+          }
+          const dow = dayjs(p.date).day();
+          const newSlot = await MonteOreSlot.create(
+            {
+              proposalId: proposal.id,
+              scheduleId: null,
+              date: String(p.date).slice(0, 10),
+              dayOfWeek: dow,
+              startTime: String(p.startTime).slice(0, 5),
+              endTime: String(p.endTime).slice(0, 5),
+              isActive: true,
+              isLocked: false,
+              originalActive: false,
+              roomId: finalRoomId,
+              bookingType: p.bookingType || 'lezione',
+              purpose: p.purpose || null,
+            },
+            { transaction: t },
+          );
+          // Linka l'amendment allo slot creato; se l'admin ha sovrascritto
+          // l'aula, salviamo il valore finale anche nel payload per traccia.
+          const updatedPayload = overrideRoomId
+            ? { ...p, roomId: finalRoomId, roomIdAssignedBy: 'admin' }
+            : p;
+          await a.update({ slotId: newSlot.id, payload: updatedPayload }, { transaction: t });
+          if (proposal.status === 'generated') {
+            await slotService.syncBookingForSlot(newSlot.id, {
+              actorUser: { id: req.user.id, role: 'admin' },
+              transaction: t,
+            });
+          }
         }
         await a.update(
           { status: 'approved', decidedAt: new Date(), decidedBy: req.user.id },
           { transaction: t },
         );
         await slotService.recomputeTotals(proposal.id, { transaction: t });
-        // Increment atomico (evita lost update su approvazioni concorrenti).
-        await proposal.increment('amendmentCount', { by: 1, transaction: t });
+        // Increment atomico CON check del limite nello stesso UPDATE: se due
+        // approvazioni concorrenti tentano di superare maxAmend, solo una
+        // affected=1; l'altra ottiene affected=0 e fallisce qui sotto.
+        if (consumesBudget) {
+          const qcol = sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
+          const [affected] = await MonteOreProposal.update(
+            { amendmentCount: sequelize.literal(`${qcol} + 1`) },
+            {
+              where: { id: proposal.id, amendmentCount: { [Op.lt]: maxAmend } },
+              transaction: t,
+            },
+          );
+          if (affected === 0) {
+            const e = new Error(
+              `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
+            );
+            e.status = 400;
+            e.code = 'AMENDMENT_LIMIT_REACHED';
+            throw e;
+          }
+        }
         return a;
       });
       res.json({ amendment: amendment.toJSON() });

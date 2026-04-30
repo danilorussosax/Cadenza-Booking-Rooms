@@ -3,8 +3,9 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const sentry = require('../lib/sentry');
+const { getJwtSecret } = require('../lib/secrets');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_SECRET = getJwtSecret();
 
 /**
  * Verifica il JWT presente nell'header Authorization: Bearer <token>

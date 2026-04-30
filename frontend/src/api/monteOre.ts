@@ -100,7 +100,9 @@ export interface MonteOreSuspension {
 export interface MonteOreSlot {
   id: number;
   proposalId: number;
-  scheduleId: number;
+  // Slot dentro pattern settimanale: scheduleId valorizzato. Slot fuori
+  // pattern (creati da amendment add_new_day approvato): scheduleId=null.
+  scheduleId: number | null;
   date: string; // "YYYY-MM-DD"
   dayOfWeek: number;
   startTime: string;
@@ -110,6 +112,10 @@ export interface MonteOreSlot {
   lockReason: string | null;
   originalActive: boolean;
   bookingId: number | null;
+  // Valorizzati solo per slot fuori-pattern (scheduleId=null)
+  roomId: number | null;
+  bookingType: string | null;
+  purpose: string | null;
 }
 
 export interface CalendarWeek {
@@ -235,6 +241,23 @@ export const monteOreApi = {
     api<{ amendments: MonteOreAmendment[] }>('/api/monte-ore/me/amendments', {
       query: year ? { year } : undefined,
     }),
+
+  // Richiesta di un nuovo giorno fuori dal pattern settimanale approvato.
+  // Crea sempre un amendment pending (richiede approvazione del coordinatore).
+  // Se roomId è omesso, il coordinatore assegnerà l'aula in fase di approve.
+  requestNewDay: (payload: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    roomId?: number;
+    bookingType?: BookingType;
+    purpose?: string | null;
+    notes?: string | null;
+  }) =>
+    api<{ amendment: MonteOreAmendment }>('/api/monte-ore/me/amendments/add-new-day', {
+      method: 'POST',
+      body: payload,
+    }),
 };
 
 // ============================================================
@@ -344,13 +367,18 @@ export const monteOreAdminApi = {
       query: { ...params },
     }),
 
+  pendingAmendmentsCount: () =>
+    api<{ count: number }>('/api/admin/monte-ore/amendments/pending/count'),
+
   listProposalAmendments: (id: number) =>
     api<{ amendments: MonteOreAmendment[] }>(`/api/admin/monte-ore/${id}/amendments`),
 
-  approveAmendment: (id: number, aid: number) =>
+  // Per amendments `add_new_day` l'admin può fornire/sovrascrivere l'aula
+  // in fase di approvazione; per gli altri kind l'argomento è ignorato.
+  approveAmendment: (id: number, aid: number, opts: { roomId?: number } = {}) =>
     api<{ amendment: MonteOreAmendment }>(`/api/admin/monte-ore/${id}/amendments/${aid}/approve`, {
       method: 'POST',
-      body: {},
+      body: opts,
     }),
 
   rejectAmendment: (id: number, aid: number, reason?: string) =>
@@ -362,3 +390,17 @@ export const monteOreAdminApi = {
 
 // Re-export per chi consuma il modulo
 export type { Booking };
+
+/**
+ * Etichetta sintetica "data + orario" di un amendment, leggendo lo slot
+ * collegato o, per gli `add_new_day` ancora pending (slot non ancora creato),
+ * il payload della richiesta.
+ */
+export function amendmentSummary(a: MonteOreAmendment): string {
+  if (a.slot) return `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}`;
+  if (a.kind === 'add_new_day') {
+    const p = a.payload as { date?: string; startTime?: string; endTime?: string };
+    if (p.date && p.startTime && p.endTime) return `${p.date} ${p.startTime}–${p.endTime}`;
+  }
+  return '—';
+}

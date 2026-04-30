@@ -348,8 +348,8 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
     return res.status(400).json({ error: 'isActive deve essere boolean', code: 'INVALID_FIELD' });
   }
 
-  // Se viene resettata la password
-  if (req.body.newPassword && req.body.newPassword.length >= 8) {
+  // Se viene resettata la password (validato esplicitamente: typeof string)
+  if (typeof req.body.newPassword === 'string' && req.body.newPassword.length >= 8) {
     updates.passwordHash = req.body.newPassword;
   }
 

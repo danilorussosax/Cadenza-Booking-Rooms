@@ -77,6 +77,23 @@ module.exports = (sequelize) => {
       tableName: 'monte_ore_amendments',
       paranoid: false,
       indexes: [{ fields: ['proposalId'] }, { fields: ['status'] }, { fields: ['requesterId'] }],
+      validate: {
+        // Schema del payload dipendente da `kind`. Senza questo, una richiesta
+        // malformata viene accettata e crasha solo all'approvazione.
+        payloadShape() {
+          const p = this.payload || {};
+          if (this.kind === 'add_new_day') {
+            if (!p.date || !p.startTime || !p.endTime) {
+              throw new Error("Payload 'add_new_day' richiede {date, startTime, endTime}");
+            }
+          } else if (this.kind === 'change_time') {
+            if (!p.startTime && !p.endTime) {
+              throw new Error("Payload 'change_time' richiede startTime o endTime");
+            }
+          }
+          // toggle_on/toggle_off: payload libero (debug only)
+        },
+      },
     },
   );
 

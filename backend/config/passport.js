@@ -7,6 +7,7 @@ const ExtractJwt = require('passport-jwt').ExtractJwt;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const { User } = require('../models');
+const { getJwtSecret } = require('../lib/secrets');
 
 // =============================================
 // Strategy: Local (email + password)
@@ -43,7 +44,7 @@ passport.use(
   new JwtStrategy(
     {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET || 'dev-secret-change-me',
+      secretOrKey: getJwtSecret(),
     },
     async (payload, done) => {
       try {

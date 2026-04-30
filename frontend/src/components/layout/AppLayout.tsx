@@ -134,17 +134,37 @@ export function AppLayout() {
 
   const showAdmin = hasRole('admin');
 
+  // Module flags arrivano dal public-institute endpoint: quando il flag è
+  // false la voce di sidebar viene nascosta, ma le rotte e le API restano
+  // sempre attive (i bookmark esistenti continuano a funzionare).
+  const monteOreEnabled = institute?.moduleMonteOreEnabled ?? true;
+  const instrumentLoansEnabled = institute?.moduleInstrumentLoansEnabled ?? true;
+
+  const visibleNav = NAV.filter((n) => {
+    if (!monteOreEnabled && n.to === '/monte-ore') return false;
+    if (!instrumentLoansEnabled && (n.to === '/instruments' || n.to === '/my-loans')) return false;
+    return true;
+  });
+
+  const visibleAdminNav = ADMIN_NAV.filter((n) => {
+    if (!monteOreEnabled && n.to === '/admin/monte-ore') return false;
+    if (!instrumentLoansEnabled && n.to === '/admin/instruments') return false;
+    return true;
+  });
+
   // Title from current path (best-effort; pages can also override via document.title)
   const currentItem =
+    visibleNav.find((n) => location.pathname.startsWith(n.to)) ??
+    visibleAdminNav.find((n) => location.pathname.startsWith(n.to)) ??
     NAV.find((n) => location.pathname.startsWith(n.to)) ??
     ADMIN_NAV.find((n) => location.pathname.startsWith(n.to));
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="flex min-h-dvh bg-muted/30">
       {/* Sidebar (desktop) */}
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
         <SidebarBrand institute={institute} />
-        <SidebarNav showAdmin={showAdmin} />
+        <SidebarNav showAdmin={showAdmin} navItems={visibleNav} adminNavItems={visibleAdminNav} />
         <SidebarFooter user={user} onLogout={handleLogout} />
       </aside>
 
@@ -168,7 +188,7 @@ export function AppLayout() {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card lg:hidden"
+              className="safe-pt safe-pb fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card lg:hidden"
             >
               <div className="flex items-center justify-between p-4">
                 <SidebarBrand institute={institute} compact />
@@ -184,6 +204,8 @@ export function AppLayout() {
               </div>
               <SidebarNav
                 showAdmin={showAdmin}
+                navItems={visibleNav}
+                adminNavItems={visibleAdminNav}
                 onNavigate={() => {
                   setMobileOpen(false);
                 }}
@@ -196,8 +218,9 @@ export function AppLayout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-20 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:px-8">
+        {/* Topbar — sticky con safe-area top per iPhone con notch.
+         * Altezza ridotta su mobile (h-14) per liberare spazio. */}
+        <header className="safe-pt sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur sm:h-16 sm:gap-3 sm:px-4 lg:h-20 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -208,22 +231,26 @@ export function AppLayout() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20 sm:flex sm:h-11 sm:w-11">
               {institute?.logoUrl ? (
-                <img src={institute.logoUrl} alt="" className="h-8 w-8 object-contain" />
+                <img
+                  src={institute.logoUrl}
+                  alt=""
+                  className="h-6 w-6 object-contain sm:h-8 sm:w-8"
+                />
               ) : (
-                <Music4 className="h-5 w-5 text-primary" />
+                <img src="/cadenza.png" alt="" className="h-6 w-6 object-contain sm:h-8 sm:w-8" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <p
-                className="truncate text-[11px] font-semibold uppercase tracking-wider"
+                className="truncate text-[10px] font-semibold uppercase tracking-wider sm:text-[11px]"
                 style={{ color: 'rgb(55 98 170)' }}
               >
                 {institute?.name ?? t('app.institute_default')}
               </p>
-              <h1 className="truncate font-display text-lg font-semibold leading-tight text-foreground sm:text-xl">
+              <h1 className="truncate font-display text-base font-semibold leading-tight text-foreground sm:text-lg lg:text-xl">
                 {currentItem ? t(currentItem.labelKey) : t('app.subtitle')}
               </h1>
             </div>
@@ -307,8 +334,8 @@ export function AppLayout() {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        {/* Page content — safe-area orizzontale su iPhone landscape (notch laterale) */}
+        <main className="safe-pl safe-pr flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-8 lg:py-8">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
@@ -318,7 +345,7 @@ export function AppLayout() {
             <Outlet />
           </motion.div>
         </main>
-        <AppFooter className="border-t" />
+        <AppFooter className="safe-pb border-t" />
       </div>
       <ConsentGate />
     </div>
@@ -334,7 +361,7 @@ function SidebarBrand({
   return (
     <div className={cn('flex items-center gap-3 px-5', compact ? 'py-1' : 'py-5')}>
       <img
-        src="/assets/icona.svg"
+        src="/cadenza.png"
         alt="Cadenza"
         className="h-10 w-10 shrink-0 rounded-lg object-contain"
       />
@@ -350,12 +377,22 @@ function SidebarBrand({
   );
 }
 
-function SidebarNav({ showAdmin, onNavigate }: { showAdmin: boolean; onNavigate?: () => void }) {
+function SidebarNav({
+  showAdmin,
+  navItems,
+  adminNavItems,
+  onNavigate,
+}: {
+  showAdmin: boolean;
+  navItems: NavItem[];
+  adminNavItems: NavItem[];
+  onNavigate?: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-2">
       <ul className="space-y-1">
-        {NAV.map((item) => (
+        {navItems.map((item) => (
           <NavRow key={item.to} item={item} onNavigate={onNavigate} />
         ))}
       </ul>
@@ -365,7 +402,7 @@ function SidebarNav({ showAdmin, onNavigate }: { showAdmin: boolean; onNavigate?
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {t('common.administration')}
           </p>
-          <AdminNavList onNavigate={onNavigate} />
+          <AdminNavList items={adminNavItems} onNavigate={onNavigate} />
         </>
       )}
     </nav>
@@ -376,7 +413,7 @@ function SidebarNav({ showAdmin, onNavigate }: { showAdmin: boolean; onNavigate?
  * Render del blocco admin con badge counter sulla voce "Approvazioni":
  * polling ogni 60s di /api/bookings/pending/count, rosso se > 0.
  */
-function AdminNavList({ onNavigate }: { onNavigate?: () => void }) {
+function AdminNavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   const pendingQuery = useQuery({
     queryKey: ['admin', 'bookings', 'pending', 'count'],
     queryFn: () => bookingsApi.pendingCount(),
@@ -386,7 +423,7 @@ function AdminNavList({ onNavigate }: { onNavigate?: () => void }) {
   const pendingCount = pendingQuery.data?.count ?? 0;
   return (
     <ul className="space-y-1">
-      {ADMIN_NAV.map((item) => (
+      {items.map((item) => (
         <NavRow
           key={item.to}
           item={item}

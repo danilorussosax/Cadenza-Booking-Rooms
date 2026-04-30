@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -19,6 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import {
   monteOreAdminApi,
+  amendmentSummary,
   type MonteOreProposal,
   type MonteOreSchedule,
   type SchedulePayload,
@@ -125,10 +126,11 @@ export default function AdminMonteOre() {
   // Counter per badge "richieste in attesa" sulla tab
   const pendingCountQuery = useQuery({
     queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
-    queryFn: () => monteOreAdminApi.listAmendments({ status: 'pending' }),
-    refetchInterval: 30_000,
+    queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
-  const pendingCount = pendingCountQuery.data?.amendments?.length ?? 0;
+  const pendingCount = pendingCountQuery.data?.count ?? 0;
 
   const proposals = listQuery.data?.proposals ?? [];
   const activeTab = MACRO_TABS.find((t) => t.value === macroTab) ?? MACRO_TABS[0];
@@ -296,6 +298,223 @@ const AMENDMENT_KIND_LABEL_LOCAL: Record<MonteOreAmendment['kind'], string> = {
   add_new_day: 'Nuovo giorno',
 };
 
+/**
+ * Bottoni di azione su un amendment pending (Approva / Rifiuta).
+ * Per `add_new_day` apre un dialog che permette di assegnare/sovrascrivere
+ * l'aula prima di approvare.
+ */
+function AmendmentActions({
+  amendment,
+  onApprove,
+  onReject,
+  isApproving,
+  isRejecting,
+}: {
+  amendment: MonteOreAmendment;
+  onApprove: (opts: { roomId?: number }) => void;
+  onReject: (reason: string) => void;
+  isApproving: boolean;
+  isRejecting: boolean;
+}) {
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const isAddNewDay = amendment.kind === 'add_new_day';
+
+  const handleApprove = () => {
+    if (isAddNewDay) setApproveOpen(true);
+    else onApprove({});
+  };
+
+  return (
+    <>
+      <div className="inline-flex gap-1">
+        <Button size="sm" variant="outline" onClick={handleApprove} disabled={isApproving}>
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Approva
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-destructive hover:bg-destructive/10"
+          onClick={() => setRejectOpen(true)}
+          disabled={isRejecting}
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          Rifiuta
+        </Button>
+      </div>
+      {isAddNewDay && approveOpen && (
+        <ApproveNewDayDialog
+          amendment={amendment}
+          onClose={() => setApproveOpen(false)}
+          onSubmit={(roomId) => {
+            onApprove({ roomId });
+            setApproveOpen(false);
+          }}
+          isPending={isApproving}
+        />
+      )}
+      {rejectOpen && (
+        <RejectAmendmentDialog
+          onClose={() => setRejectOpen(false)}
+          onSubmit={(reason) => {
+            onReject(reason);
+            setRejectOpen(false);
+          }}
+          isPending={isRejecting}
+        />
+      )}
+    </>
+  );
+}
+
+function RejectAmendmentDialog({
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+  isPending: boolean;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Rifiuta variazione</DialogTitle>
+          <DialogDescription>
+            Inserisci una motivazione (opzionale): verrà mostrata al docente.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          rows={3}
+          maxLength={1024}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Es. aula non disponibile per lavori"
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Annulla
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => onSubmit(reason.trim())}
+            disabled={isPending}
+          >
+            Rifiuta
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ApproveNewDayDialog({
+  amendment,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  amendment: MonteOreAmendment;
+  onClose: () => void;
+  onSubmit: (roomId: number) => void;
+  isPending: boolean;
+}) {
+  const payload = (amendment.payload || {}) as {
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    roomId?: number | null;
+    bookingType?: string;
+  };
+  const [roomId, setRoomId] = useState<number | null>(payload.roomId ?? null);
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'bookable'],
+    queryFn: () => roomsApi.list({ bookable: true }),
+    staleTime: 60_000,
+  });
+  const sortedRooms = sortRoomsCrossBuilding(roomsQuery.data?.rooms ?? []);
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Approva richiesta nuovo giorno</DialogTitle>
+          <DialogDescription>
+            {payload.date && payload.startTime && payload.endTime
+              ? `${payload.date} · ${payload.startTime}–${payload.endTime}`
+              : 'Richiesta giorno fuori pattern'}
+            {payload.bookingType ? ` · ${payload.bookingType}` : ''}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (roomId) onSubmit(roomId);
+          }}
+        >
+          {amendment.requestNotes && (
+            <div className="rounded-md border bg-muted/20 p-2 text-xs">
+              <div className="text-muted-foreground">Note del docente:</div>
+              <div className="mt-1">{amendment.requestNotes}</div>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Aula assegnata</Label>
+            <Select
+              value={roomId ? String(roomId) : ''}
+              onValueChange={(v) => setRoomId(v ? Number(v) : null)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="— scegli aula —" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedRooms.map((r) => (
+                  <SelectItem key={r.id} value={String(r.id)}>
+                    {r.name}
+                    {r.building?.name ? ` · ${r.building.name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {payload.roomId ? (
+              <p className="text-[11px] text-muted-foreground">
+                Aula proposta dal docente preselezionata. Puoi sovrascriverla.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Il docente non ha indicato l'aula: scegline una.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={!roomId || isPending}>
+              Approva
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AmendmentsRequestsTab() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
@@ -306,8 +525,8 @@ function AmendmentsRequestsTab() {
   });
 
   const approve = useMutation({
-    mutationFn: ({ pid, aid }: { pid: number; aid: number }) =>
-      monteOreAdminApi.approveAmendment(pid, aid),
+    mutationFn: ({ pid, aid, roomId }: { pid: number; aid: number; roomId?: number }) =>
+      monteOreAdminApi.approveAmendment(pid, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
       void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments'] });
@@ -386,7 +605,7 @@ function AmendmentsRequestsTab() {
                       </td>
                       <td className="px-3 py-2">{AMENDMENT_KIND_LABEL_LOCAL[a.kind]}</td>
                       <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
-                        {a.slot ? `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}` : '—'}
+                        {amendmentSummary(a)}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground max-w-[260px]">
                         {a.requestNotes || (
@@ -411,30 +630,17 @@ function AmendmentsRequestsTab() {
                       </td>
                       <td className="px-3 py-2 text-right">
                         {a.status === 'pending' && (
-                          <div className="inline-flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => approve.mutate({ pid: a.proposalId, aid: a.id })}
-                              disabled={approve.isPending}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Approva
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() => {
-                                const reason = prompt('Motivo del rifiuto (opzionale):') ?? '';
-                                reject.mutate({ pid: a.proposalId, aid: a.id, reason });
-                              }}
-                              disabled={reject.isPending}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              Rifiuta
-                            </Button>
-                          </div>
+                          <AmendmentActions
+                            amendment={a}
+                            onApprove={(opts) =>
+                              approve.mutate({ pid: a.proposalId, aid: a.id, roomId: opts.roomId })
+                            }
+                            onReject={(reason) =>
+                              reject.mutate({ pid: a.proposalId, aid: a.id, reason })
+                            }
+                            isApproving={approve.isPending}
+                            isRejecting={reject.isPending}
+                          />
                         )}
                       </td>
                     </tr>
@@ -852,17 +1058,16 @@ function ScheduleEditDialog({
     purpose: existing?.purpose ?? '',
   }));
 
-  useMemo(() => {
-    if (open) {
-      setForm({
-        roomId: existing?.roomId ?? null,
-        dayOfWeek: existing?.dayOfWeek ?? 1,
-        startTime: existing?.startTime ?? '14:00',
-        endTime: existing?.endTime ?? '16:00',
-        bookingType: existing?.bookingType ?? 'lezione',
-        purpose: existing?.purpose ?? '',
-      });
-    }
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      roomId: existing?.roomId ?? null,
+      dayOfWeek: existing?.dayOfWeek ?? 1,
+      startTime: existing?.startTime ?? '14:00',
+      endTime: existing?.endTime ?? '16:00',
+      bookingType: existing?.bookingType ?? 'lezione',
+      purpose: existing?.purpose ?? '',
+    });
   }, [open, existing]);
 
   const saveMutation = useMutation({
@@ -1027,7 +1232,8 @@ function AmendmentsSection({
   });
 
   const approveMutation = useMutation({
-    mutationFn: (aid: number) => monteOreAdminApi.approveAmendment(proposalId, aid),
+    mutationFn: ({ aid, roomId }: { aid: number; roomId?: number }) =>
+      monteOreAdminApi.approveAmendment(proposalId, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
       void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments', proposalId] });
@@ -1082,7 +1288,7 @@ function AmendmentsSection({
                 <tr key={a.id} className="border-b last:border-0">
                   <td className="px-3 py-2">{AMENDMENT_KIND_LABEL[a.kind]}</td>
                   <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
-                    {a.slot ? `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}` : '—'}
+                    {amendmentSummary(a)}
                   </td>
                   <td className="px-3 py-2">
                     <Badge
@@ -1102,30 +1308,15 @@ function AmendmentsSection({
                   </td>
                   <td className="px-3 py-2 text-right">
                     {a.status === 'pending' && (
-                      <div className="inline-flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => approveMutation.mutate(a.id)}
-                          disabled={approveMutation.isPending}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Approva
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            const reason = prompt('Motivo del rifiuto (opzionale):') ?? undefined;
-                            rejectMutation.mutate({ aid: a.id, reason: reason ?? '' });
-                          }}
-                          disabled={rejectMutation.isPending}
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          Rifiuta
-                        </Button>
-                      </div>
+                      <AmendmentActions
+                        amendment={a}
+                        onApprove={(opts) =>
+                          approveMutation.mutate({ aid: a.id, roomId: opts.roomId })
+                        }
+                        onReject={(reason) => rejectMutation.mutate({ aid: a.id, reason })}
+                        isApproving={approveMutation.isPending}
+                        isRejecting={rejectMutation.isPending}
+                      />
                     )}
                   </td>
                 </tr>

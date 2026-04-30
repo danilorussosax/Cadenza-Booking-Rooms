@@ -9,7 +9,12 @@ const passport = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
-const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const {
+  loginLimiter,
+  registerLimiter,
+  tfaVerifyLimiter,
+  tfaResendLimiter,
+} = require('../middleware/rateLimit');
 const twoFa = require('../services/twoFa');
 const { sendSecurityEmail } = require('../services/emailService');
 
@@ -23,11 +28,21 @@ const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const ALLOWED_PHOTO_MIME = ['image/png', 'image/jpeg', 'image/webp'];
+const ALLOWED_PHOTO_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+// Mappa MIME → extension canonica: l'estensione del file salvato deriva dal
+// MIME (verificato), non da `originalname` (controllabile dall'attaccante).
+const MIME_TO_EXT = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+};
 const photoUpload = multer({
   storage: multer.diskStorage({
     destination: UPLOADS_DIR,
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase() || '.png';
+      // Estensione decisa dal MIME (server-side), non da originalname:
+      // evita upload di `evil.html` con MIME image/png che servirebbe HTML.
+      const ext = MIME_TO_EXT[file.mimetype] ?? '.png';
       cb(null, `user-${req.user.id}-${Date.now()}${ext}`);
     },
   }),
@@ -35,6 +50,12 @@ const photoUpload = multer({
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_PHOTO_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG o WEBP)'));
+    }
+    // Doppia verifica: anche l'estensione di originalname deve essere
+    // immagine (difesa-in-profondità contro upload con MIME spoofato).
+    const claimedExt = path.extname(file.originalname || '').toLowerCase();
+    if (claimedExt && !ALLOWED_PHOTO_EXT.has(claimedExt)) {
+      return cb(new Error('Estensione non valida'));
     }
     cb(null, true);
   },
@@ -174,12 +195,15 @@ router.post('/login', loginLimiter, (req, res, next) => {
   passport.authenticate('local', { session: false }, async (err, user, info) => {
     if (err) return res.status(500).json({ error: 'Errore interno' });
     if (!user) {
-      // Mappa il messaggio di Passport (it) a un code stabile
-      const message = info?.message || 'Credenziali non valide';
-      let code = 'INVALID_CREDENTIALS';
-      if (message.includes('disabilitato')) code = 'ACCOUNT_DISABLED';
-      else if (message.includes('OAuth')) code = 'OAUTH_ONLY';
-      return res.status(401).json({ error: message, code });
+      // Risposta uniforme per tutti i casi di failure (password sbagliata,
+      // email non registrata, account disabilitato, account OAuth-only):
+      // codici/messaggi distinti permettevano di enumerare email registrate
+      // e account SSO (target per phishing). Lato server l'esito reale viene
+      // comunque loggato dal passport-local strategy.
+      return res.status(401).json({
+        error: 'Email o password non validi',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
 
     // 2FA — se l'utente ha attivato la verifica in due passaggi via email,
@@ -187,17 +211,17 @@ router.post('/login', loginLimiter, (req, res, next) => {
     // Restituiamo tempToken (5min) + maschera email + scadenza.
     if (user.twoFaEnabled) {
       const send = await issueAndSendTwoFaCode(user, 'login');
-      const tempToken = twoFa.signPre2faToken(user.id);
       if (!send.ok) {
-        // L'utente DEVE ricevere il codice. Restituiamo errore esplicito così
-        // la UI può mostrare un retry o spiegare il problema (es. SMTP down).
+        // SMTP down: NON emettiamo tempToken. Senza di esso l'attaccante
+        // non ha materiale di sessione su cui iterare /verify o /resend.
+        // L'utente legittimo riproverà il login appena la mail risale.
         return res.status(503).json({
           error: 'Impossibile inviare il codice 2FA. Riprova tra qualche istante.',
           code: 'TWO_FA_SEND_FAILED',
-          tempToken,
           sentTo: twoFa.maskEmail(user.email),
         });
       }
+      const tempToken = twoFa.signPre2faToken(user.id);
       return res.json({
         needsTwoFa: true,
         tempToken,
@@ -240,7 +264,9 @@ router.patch(
     body('notifyOnConfirmation').optional().isBoolean(),
     body('notifyOnReminder').optional().isBoolean(),
     body('notifyOnCancellation').optional().isBoolean(),
-    body('role').optional().isIn(['docente', 'studente']),
+    // role NON è qui: il cambio ruolo passa sempre da /api/users/:id (admin).
+    // Permettere il flip da /me era una liability per gli account pending
+    // (un docente in coda poteva diventare studente e auto-approvarsi).
   ],
   async (req, res) => {
     const errs = validationResult(req);
@@ -256,7 +282,6 @@ router.patch(
       notifyOnConfirmation,
       notifyOnReminder,
       notifyOnCancellation,
-      role,
     } = req.body;
 
     if (courseId) {
@@ -284,13 +309,6 @@ router.patch(
     if (typeof notifyOnReminder === 'boolean') req.user.notifyOnReminder = notifyOnReminder;
     if (typeof notifyOnCancellation === 'boolean')
       req.user.notifyOnCancellation = notifyOnCancellation;
-
-    // Cambio ruolo consentito solo se l'account NON è già approvato
-    // (un utente in attesa può ancora scegliere/cambiare il ruolo).
-    // Gli admin non passano da qui per modificare il ruolo: usano /api/users/:id.
-    if (role && req.user.role !== 'admin' && req.user.status !== 'approved') {
-      req.user.role = role;
-    }
 
     // Transizione di stato dopo la compilazione del profilo:
     //   - studente con matricola + corso              → approved (auto)
@@ -360,11 +378,25 @@ router.delete('/me/photo', authenticate, async (req, res) => {
 // POST /api/auth/ical-token - Rigenera il token (invalida il precedente)
 // Token a sola lettura, senza scadenza, legato a userId.
 // =====================================================
+function sha256Hex(s) {
+  return crypto.createHash('sha256').update(s).digest('hex');
+}
+
 async function ensureIcalToken(user) {
-  if (user.icalToken) return user.icalToken;
-  user.icalToken = crypto.randomBytes(32).toString('hex');
+  if (user.icalToken) {
+    // Token preesistente: assicura che l'hash sia popolato (utenti
+    // migrati dal vecchio schema potrebbero avere solo il plain).
+    if (!user.icalTokenHash) {
+      user.icalTokenHash = sha256Hex(user.icalToken);
+      await user.save();
+    }
+    return user.icalToken;
+  }
+  const plain = crypto.randomBytes(32).toString('hex');
+  user.icalToken = plain;
+  user.icalTokenHash = sha256Hex(plain);
   await user.save();
-  return user.icalToken;
+  return plain;
 }
 
 router.get('/ical-token', authenticate, async (req, res) => {
@@ -373,9 +405,11 @@ router.get('/ical-token', authenticate, async (req, res) => {
 });
 
 router.post('/ical-token', authenticate, async (req, res) => {
-  req.user.icalToken = crypto.randomBytes(32).toString('hex');
+  const plain = crypto.randomBytes(32).toString('hex');
+  req.user.icalToken = plain;
+  req.user.icalTokenHash = sha256Hex(plain);
   await req.user.save();
-  res.json({ token: req.user.icalToken });
+  res.json({ token: plain });
 });
 
 // =====================================================
@@ -472,7 +506,7 @@ router.post('/2fa/setup', authenticate, async (req, res, next) => {
 // POST /api/auth/2fa/resend — rigenera codice e manda di nuovo l'email.
 // Duale: con Bearer (resend in fase di enrollment) oppure body.tempToken
 // (resend in fase di login step 2).
-router.post('/2fa/resend', async (req, res, next) => {
+router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
   try {
     const { tempToken } = req.body ?? {};
     let user;
@@ -514,7 +548,7 @@ router.post('/2fa/resend', async (req, res, next) => {
 // POST /api/auth/2fa/verify — duale:
 //   - body.tempToken + body.code|recoveryCode  → step 2 del login
 //   - Bearer + body.code                       → enrollment confirm
-router.post('/2fa/verify', async (req, res, next) => {
+router.post('/2fa/verify', tfaVerifyLimiter, async (req, res, next) => {
   try {
     const { code, recoveryCode, tempToken } = req.body ?? {};
 
@@ -730,7 +764,10 @@ router.get(
       req.user.status === 'pending' ||
       !req.user.courseId ||
       (req.user.role === 'studente' && !req.user.matricola);
-    res.redirect(`${FRONTEND_URL}/oauth-callback.html?token=${token}&needsProfile=${needsProfile}`);
+    // Token nel fragment (#) invece che in query string (?): i fragment NON
+    // vengono inviati al server, NON appaiono negli access log, NON sono
+    // inclusi nel header Referer di richieste successive.
+    res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
   },
 );
 
@@ -760,7 +797,10 @@ router.get(
       req.user.status === 'pending' ||
       !req.user.courseId ||
       (req.user.role === 'studente' && !req.user.matricola);
-    res.redirect(`${FRONTEND_URL}/oauth-callback.html?token=${token}&needsProfile=${needsProfile}`);
+    // Token nel fragment (#) invece che in query string (?): i fragment NON
+    // vengono inviati al server, NON appaiono negli access log, NON sono
+    // inclusi nel header Referer di richieste successive.
+    res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
   },
 );
 

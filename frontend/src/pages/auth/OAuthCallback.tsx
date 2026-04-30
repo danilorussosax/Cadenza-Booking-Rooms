@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LoaderCircle, ShieldAlert } from 'lucide-react';
@@ -8,15 +8,24 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 
 export default function OAuthCallback() {
+  // Il token arriva nel fragment (#token=...) per non finire in log/Referer/history.
+  // Manteniamo la lettura da query string come fallback per backward compat
+  // con eventuali link esterni vecchi.
   const [params] = useSearchParams();
+  const hashParams = useMemo(() => new URLSearchParams(window.location.hash.replace(/^#/, '')), []);
   const navigate = useNavigate();
   const { setSessionToken } = useAuth();
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = params.get('token');
-    const needsProfile = params.get('needsProfile') === 'true';
+    const token = hashParams.get('token') ?? params.get('token');
+    const needsProfile = (hashParams.get('needsProfile') ?? params.get('needsProfile')) === 'true';
+
+    // Pulisci il fragment dalla URL per evitare che resti in history/back
+    if (hashParams.get('token')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
 
     if (!token) {
       setError(t('auth.oauth_callback.missing_token'));
@@ -43,7 +52,7 @@ export default function OAuthCallback() {
     return () => {
       cancelled = true;
     };
-  }, [params, navigate, setSessionToken, t]);
+  }, [params, hashParams, navigate, setSessionToken, t]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

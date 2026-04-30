@@ -1,10 +1,20 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Check, ClipboardCheck, Clock, LoaderCircle, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  ClipboardCheck,
+  Clock,
+  GitPullRequest,
+  LoaderCircle,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { bookingsApi } from '@/api/bookings';
+import { monteOreAdminApi } from '@/api/monteOre';
 import { httpErrorMessage } from '@/lib/api';
 import { dayjs, formatDate, formatTime } from '@/lib/date';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +44,14 @@ export default function AdminApprovals() {
     queryFn: () => bookingsApi.pending(),
     staleTime: 15_000,
   });
+
+  const amendmentsPendingQuery = useQuery({
+    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const amendmentsCount = amendmentsPendingQuery.data?.count ?? 0;
 
   const invalidateAll = () => {
     void qc.invalidateQueries({ queryKey: ['admin', 'bookings', 'pending'] });
@@ -72,6 +90,34 @@ export default function AdminApprovals() {
         </h1>
         <p className="text-sm text-muted-foreground">{t('admin.approvals.subtitle')}</p>
       </header>
+
+      {/* Variazioni monte ore: coda separata, link diretto a /admin/monte-ore. */}
+      <Link
+        to="/admin/monte-ore"
+        className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <Card className="transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/20">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-400">
+              <GitPullRequest className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{t('admin.approvals.amendments_link.title')}</p>
+                {amendmentsCount > 0 && (
+                  <Badge variant="secondary">
+                    {t('admin.approvals.amendments_link.badge', { count: amendmentsCount })}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t('admin.approvals.amendments_link.subtitle')}
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
 
       {query.isLoading && (
         <div className="space-y-3">

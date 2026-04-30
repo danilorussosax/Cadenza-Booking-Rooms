@@ -105,7 +105,7 @@ describe('POST /api/auth/login', () => {
     expect(res.body.code).toBe('INVALID_CREDENTIALS');
   });
 
-  it('401 per utente disabilitato', async () => {
+  it('401 per utente disabilitato (codice generico anti-enumeration)', async () => {
     await createUser({
       email: 'disabled@test.invalid',
       password: 'Password123!',
@@ -117,7 +117,23 @@ describe('POST /api/auth/login', () => {
       .send({ email: 'disabled@test.invalid', password: 'Password123!' });
 
     expect(res.status).toBe(401);
-    expect(res.body.code).toBe('ACCOUNT_DISABLED');
+    // Anti user-enumeration: stesso code di password sbagliata o email
+    // sconosciuta. Un attaccante non può distinguere account esistenti.
+    expect(res.body.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('login: stesso code per email inesistente vs password errata (anti-enumeration)', async () => {
+    await createUser({ email: 'real@test.invalid', password: 'Password123!' });
+    const r1 = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'real@test.invalid', password: 'Wrong!' });
+    const r2 = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ghost@test.invalid', password: 'Wrong!' });
+    expect(r1.status).toBe(401);
+    expect(r2.status).toBe(401);
+    expect(r1.body.code).toBe(r2.body.code);
+    expect(r1.body.error).toBe(r2.body.error);
   });
 });
 
@@ -207,5 +223,53 @@ describe('POST /api/auth/change-password', () => {
       .send({ currentPassword: 'WrongCurrent!', newPassword: 'NewPassword1!' });
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('WRONG_PASSWORD');
+  });
+});
+
+describe('iCal token: hash at rest', () => {
+  const crypto = require('crypto');
+  const { User } = require('../../models');
+  const { createAuthedUser } = require('../factories');
+
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+  });
+
+  it('GET /ical-token genera plain + hash; lookup avviene per hash', async () => {
+    const { authHeader, user } = await createAuthedUser({ role: 'docente' });
+    const r1 = await request(app).get('/api/auth/ical-token').set('Authorization', authHeader);
+    expect(r1.status).toBe(200);
+    const plain = r1.body.token;
+    expect(typeof plain).toBe('string');
+    expect(plain.length).toBeGreaterThanOrEqual(32);
+
+    // DB: l'hash deve combaciare con sha256(plain), il plain è ancora salvato.
+    const reloaded = await User.findByPk(user.id);
+    const expectedHash = crypto.createHash('sha256').update(plain).digest('hex');
+    expect(reloaded.icalTokenHash).toBe(expectedHash);
+    expect(reloaded.icalToken).toBe(plain);
+
+    // Endpoint /api/bookings/ical accetta il token (lookup via hash).
+    const ok = await request(app).get(`/api/bookings/ical?token=${plain}`);
+    expect(ok.status).toBe(200);
+
+    // Token random invalido → 401
+    const bad = await request(app).get(`/api/bookings/ical?token=${'a'.repeat(64)}`);
+    expect(bad.status).toBe(401);
+  });
+
+  it('POST /ical-token rigenera token (vecchio non più valido)', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'docente' });
+    const r1 = await request(app).get('/api/auth/ical-token').set('Authorization', authHeader);
+    const oldToken = r1.body.token;
+
+    const r2 = await request(app).post('/api/auth/ical-token').set('Authorization', authHeader);
+    const newToken = r2.body.token;
+    expect(newToken).not.toBe(oldToken);
+
+    const oldRes = await request(app).get(`/api/bookings/ical?token=${oldToken}`);
+    expect(oldRes.status).toBe(401);
+    const newRes = await request(app).get(`/api/bookings/ical?token=${newToken}`);
+    expect(newRes.status).toBe(200);
   });
 });

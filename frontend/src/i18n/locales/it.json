@@ -114,7 +114,7 @@
     "admin_audit_log": "Registro attività",
     "admin_analytics": "Statistiche",
     "admin_announcements": "Annunci",
-    "admin_approvals": "Approvazioni",
+    "admin_approvals": "Approvazioni prenotazioni",
     "admin_bookings": "Prenotazioni",
     "admin_instruments": "Inventario strumenti",
     "admin_display": "Infopoint",
@@ -226,13 +226,14 @@
     "greeting_night": "Buonanotte",
     "hero_question": "Pronti per studiare oggi?",
     "today_welcome": "{{date}} · benvenuto nel sistema di prenotazione del Conservatorio.",
-    "calendar_title": "Calendario aule (settimanale)",
-    "calendar_help": "Prima colonna: aula · Prima riga: giorni Lun–Sab · Slot da 30 minuti (08:00–20:00). Clic su una fascia libera per prenotare.",
+    "calendar_title": "Calendario aule (giornaliero)",
+    "calendar_help": "Prima colonna: aula · Slot da 30 minuti (08:00–20:00). Clic o trascina su una fascia libera per prenotare.",
     "prev_day": "Giorno precedente",
     "next_day": "Giorno successivo",
     "prev_week": "Settimana precedente",
     "next_week": "Settimana successiva",
     "this_week": "Questa settimana",
+    "today": "Oggi",
     "export_weekly_pdf": "Esporta PDF Settimanale",
     "no_bookings_yet": "Nessuna prenotazione in agenda",
     "no_bookings_yet_subtitle": "Inizia prenotando un'aula per le tue prove o lezioni.",
@@ -247,7 +248,11 @@
       "next_session": "Prossima sessione",
       "next_session_none": "Nessuna in agenda",
       "active_loans": "Prestiti attivi",
-      "active_loans_hint": "{{pending}} in attesa di approvazione"
+      "active_loans_hint": "{{pending}} in attesa di approvazione",
+      "pending_bookings_approvals": "Prenotazioni da approvare",
+      "pending_bookings_approvals_hint": "Richieste su aule con approvazione",
+      "pending_amendments": "Variazioni monte ore",
+      "pending_amendments_hint": "Richieste docenti in attesa"
     },
     "kpi": {
       "next_booking": "Prossima prenotazione",
@@ -604,7 +609,20 @@
         "messaging_description": "Canali di messaggistica (Telegram, WhatsApp, Signal, IMAP) per notifiche e comandi bot.",
         "display_description": "Configurazione dell'Infopoint pubblico per la visualizzazione settimanale delle aule a rotazione.",
         "audit_log_description": "Tracciamento append-only delle azioni amministrative e gestione delle prenotazioni confermate.",
-        "backups_description": "Backup pianificati del database e ripristino da snapshot."
+        "backups_description": "Backup pianificati del database e ripristino da snapshot.",
+        "modules": "Moduli",
+        "modules_description": "Mostra o nascondi i moduli opzionali in sidebar. Le funzioni restano sempre attive lato backend: il toggle controlla solo la visibilità dei link in UI."
+      },
+      "modules": {
+        "title": "Moduli attivabili",
+        "subtitle": "Mostra o nascondi i moduli opzionali nella sidebar. La logica di backend resta sempre attiva: questi toggle agiscono solo sulla visibilità dei link in interfaccia.",
+        "monte_ore_label": "Monte Ore docenti",
+        "monte_ore_description": "Voci di sidebar \"Monte Ore\" (lato docente) e \"Gestione Monte Ore\" (lato admin). Spegnendo il toggle i link spariscono ma le rotte e le API restano funzionanti.",
+        "instrument_loans_label": "Prestito strumenti",
+        "instrument_loans_description": "Voci di sidebar \"Strumenti\" (catalogo) e \"I miei prestiti\" + sezione admin \"Inventario strumenti\". Spegnendo il toggle i link spariscono ma le rotte e le API restano funzionanti.",
+        "saved": "Modulo aggiornato",
+        "save_failed": "Impossibile aggiornare il modulo",
+        "backend_note": "I dati esistenti non vengono mai cancellati. Riattivando il modulo i link tornano subito visibili."
       }
     },
     "users": {
@@ -806,7 +824,9 @@
       "title": "Struttura del Conservatorio",
       "subtitle": "Gestisci istituti, edifici, aule e il catalogo delle dotazioni.",
       "tab_sedi": "Sedi",
+      "tab_sedi_description": "Anagrafica istituti, edifici e aule. Gestisci pian terra, primo piano, e capacità di ciascuna sala.",
       "tab_dotazioni": "Dotazioni",
+      "tab_dotazioni_description": "Catalogo riusabile delle dotazioni di aula (pianoforte, leggio, sistema audio…) — assegnabili poi alle singole aule.",
       "new_institute": "Nuovo istituto",
       "import_csv": "Importa CSV",
       "export_csv": "Esporta CSV",
@@ -1149,10 +1169,15 @@
       "subtitle": "Gestisci gli strumenti, le richieste di prestito e gli scaduti.",
       "tabs": {
         "inventory": "Inventario",
+        "inventory_description": "Catalogo degli strumenti del Conservatorio: famiglia, condizione, marca, posizione, stato di prestabilità.",
         "all_loans": "Tutti i prestiti",
+        "all_loans_description": "Storico completo delle richieste di prestito: in attesa, attive, restituite, scadute, rifiutate.",
         "overdue": "Scaduti",
+        "overdue_description": "Prestiti la cui data di restituzione è già passata. Da sollecitare o trasformare in restituzione.",
         "expiring": "In scadenza (2gg)",
-        "rules": "Regole prestito"
+        "expiring_description": "Prestiti che scadono nei prossimi 2 giorni. Buona finestra per inviare reminder.",
+        "rules": "Regole prestito",
+        "rules_description": "Regole e quote per i prestiti: durata massima, numero di prestiti contemporanei, eccezioni per famiglia."
       },
       "new_instrument": "Nuovo strumento",
       "search_placeholder": "Cerca per nome, codice, marca, modello…",
@@ -1418,10 +1443,15 @@
       }
     },
     "approvals": {
-      "title": "Approvazioni in attesa",
+      "title": "Approvazioni prenotazioni",
       "subtitle": "Richieste di prenotazione su aule che richiedono approvazione (sale concerti, auditorium…). Approva o rifiuta dalle azioni a destra.",
       "empty_title": "Nessuna richiesta in attesa",
       "empty_subtitle": "Quando un utente prenoterà un'aula soggetta ad approvazione, la richiesta apparirà qui.",
+      "amendments_link": {
+        "title": "Variazioni monte ore",
+        "subtitle": "Richieste di nuovi giorni o cambi di pattern dai docenti — gestione separata in Monte Ore.",
+        "badge": "{{count}} in attesa"
+      },
       "action": {
         "approve": "Approva",
         "reject": "Rifiuta"

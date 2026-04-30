@@ -182,9 +182,12 @@ async function validateBooking({
       errors.push(`Hai raggiunto il limite di ${rule.maxActiveBookings} prenotazioni attive`);
     }
 
-    // ---- Ore prenotate nella settimana ----
-    const weekStart = start.startOf('week');
-    const weekEnd = start.endOf('week');
+    // ---- Ore prenotate nella settimana (ISO: Lun-Dom) ----
+    // Coerente con quote check (riga 413) e con /usage/me lato frontend,
+    // che usano isoWeek. Senza questo allineamento, una prenotazione di
+    // domenica veniva contata in settimane diverse dai due check.
+    const weekStart = start.startOf('isoWeek');
+    const weekEnd = start.endOf('isoWeek');
     const weekBookings = await Booking.findAll({
       where: {
         userId: user.id,

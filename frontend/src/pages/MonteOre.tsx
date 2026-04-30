@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -180,9 +180,13 @@ export default function MonteOre() {
             </Label>
             <Input
               type="date"
-              value={proposal.validFrom}
+              defaultValue={proposal.validFrom}
               disabled={isLocked}
-              onChange={(e) => updateMutation.mutate({ validFrom: e.target.value })}
+              onBlur={(e) => {
+                if (e.target.value && e.target.value !== proposal.validFrom) {
+                  updateMutation.mutate({ validFrom: e.target.value });
+                }
+              }}
             />
           </div>
           <div>
@@ -191,9 +195,13 @@ export default function MonteOre() {
             </Label>
             <Input
               type="date"
-              value={proposal.validTo}
+              defaultValue={proposal.validTo}
               disabled={isLocked}
-              onChange={(e) => updateMutation.mutate({ validTo: e.target.value })}
+              onBlur={(e) => {
+                if (e.target.value && e.target.value !== proposal.validTo) {
+                  updateMutation.mutate({ validTo: e.target.value });
+                }
+              }}
             />
           </div>
           <div>
@@ -396,19 +404,18 @@ function ScheduleDialog({
     notes: existing?.notes ?? '',
   }));
 
-  // Reset form when opening for a different schedule
-  useMemo(() => {
-    if (open) {
-      setForm({
-        roomId: existing?.roomId ?? null,
-        dayOfWeek: existing?.dayOfWeek ?? 1,
-        startTime: existing?.startTime ?? '14:00',
-        endTime: existing?.endTime ?? '16:00',
-        bookingType: existing?.bookingType ?? 'lezione',
-        purpose: existing?.purpose ?? '',
-        notes: existing?.notes ?? '',
-      });
-    }
+  // Reset form quando il dialog si riapre su una schedule diversa.
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      roomId: existing?.roomId ?? null,
+      dayOfWeek: existing?.dayOfWeek ?? 1,
+      startTime: existing?.startTime ?? '14:00',
+      endTime: existing?.endTime ?? '16:00',
+      bookingType: existing?.bookingType ?? 'lezione',
+      purpose: existing?.purpose ?? '',
+      notes: existing?.notes ?? '',
+    });
   }, [open, existing]);
 
   const saveMutation = useMutation({

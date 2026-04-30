@@ -89,6 +89,9 @@ module.exports = (sequelize) => {
         { fields: ['actorId'] },
         { fields: ['targetType', 'targetId'] },
         { fields: ['action'] },
+        // Hot path "azioni di un utente nel tempo": senza l'indice composito
+        // il planner scansiona l'indice actorId e poi filesort su createdAt.
+        { fields: ['actorId', 'createdAt'] },
       ],
     },
   );

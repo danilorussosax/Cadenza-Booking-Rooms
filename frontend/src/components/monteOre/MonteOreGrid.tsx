@@ -1,19 +1,41 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarRange, RefreshCcw, AlertCircle, History } from 'lucide-react';
+import { CalendarRange, RefreshCcw, AlertCircle, History, CalendarPlus } from 'lucide-react';
 import {
   monteOreApi,
+  amendmentSummary,
   type CalendarWeek,
   type MonteOreSlot,
   type MonteOreAmendment,
 } from '@/api/monteOre';
+import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
+import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { BookingType } from '@/types';
 
 const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
 
@@ -37,6 +59,7 @@ interface Props {
  */
 export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) {
   const qc = useQueryClient();
+  const [newDayOpen, setNewDayOpen] = useState(false);
 
   const calendarQuery = useQuery({
     queryKey: ['monte-ore', 'me', 'calendar'],
@@ -200,6 +223,12 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
               Rigenera dalla Sezione A
             </Button>
           )}
+          {['approved', 'generated'].includes(proposalStatus) && (
+            <Button size="sm" variant="outline" onClick={() => setNewDayOpen(true)}>
+              <CalendarPlus className="h-4 w-4" />
+              Richiedi nuovo giorno
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -223,6 +252,20 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
               </AlertDescription>
             </Alert>
           )}
+        {['approved', 'generated'].includes(proposalStatus) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Per <strong>sostituire</strong> un giorno con un altro dello stesso pattern
+              settimanale, deseleziona la cella e seleziona la nuova: l'approvazione è automatica.
+              Per giorni o orari <strong>fuori pattern</strong>, invia una richiesta al
+              coordinatore.
+            </p>
+            <Button size="sm" variant="default" onClick={() => setNewDayOpen(true)}>
+              <CalendarPlus className="h-4 w-4" />
+              Richiedi nuovo giorno
+            </Button>
+          </div>
+        )}
 
         {weeks.length > 0 && (
           <div className="overflow-x-auto rounded-lg border">
@@ -258,6 +301,14 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
           <AmendmentList amendments={amendmentsQuery.data.amendments} />
         )}
       </CardContent>
+      {newDayOpen && (
+        <NewDayDialog
+          open={newDayOpen}
+          onClose={() => setNewDayOpen(false)}
+          minDate={settings.lessonsStartDate}
+          maxDate={settings.lessonsEndDate}
+        />
+      )}
     </Card>
   );
 }
@@ -338,7 +389,7 @@ function DayCell({
             type="button"
             disabled={disabled || locked}
             onClick={() => onToggle(s.id)}
-            className={`rounded-md px-1.5 py-1 text-[11px] font-medium tabular-nums transition ${
+            className={`min-h-[36px] rounded-md px-1.5 py-1.5 text-[11px] font-medium tabular-nums transition active:scale-95 sm:min-h-0 sm:py-1 ${
               locked
                 ? 'cursor-not-allowed bg-destructive/10 text-destructive'
                 : active
@@ -387,7 +438,8 @@ function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
                 {a.kind === 'toggle_on' && 'Riattivazione'}
                 {a.kind === 'change_time' && 'Cambio orario'}
                 {a.kind === 'add_new_day' && 'Nuovo giorno'}
-                {a.slot ? ` — ${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}` : ''}
+                {' — '}
+                {amendmentSummary(a)}
               </span>
               <Badge
                 variant={
@@ -408,5 +460,181 @@ function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
         </ul>
       )}
     </div>
+  );
+}
+
+const NEW_DAY_TYPES: { value: BookingType; label: string }[] = [
+  { value: 'lezione', label: 'Lezione' },
+  { value: 'studio_individuale', label: 'Studio individuale' },
+  { value: 'prova', label: 'Prova' },
+];
+
+function NewDayDialog({
+  open,
+  onClose,
+  minDate,
+  maxDate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  minDate: string;
+  maxDate: string;
+}) {
+  const qc = useQueryClient();
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('11:00');
+  const [roomId, setRoomId] = useState<number | null>(null);
+  const [bookingType, setBookingType] = useState<BookingType>('lezione');
+  const [notes, setNotes] = useState('');
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'bookable'],
+    queryFn: () => roomsApi.list({ bookable: true }),
+    staleTime: 60_000,
+    enabled: open,
+  });
+  const sortedRooms = sortRoomsCrossBuilding(roomsQuery.data?.rooms ?? []);
+
+  const submitMutation = useMutation({
+    mutationFn: () =>
+      monteOreApi.requestNewDay({
+        date,
+        startTime,
+        endTime,
+        roomId: roomId ?? undefined,
+        bookingType,
+        notes: notes || null,
+      }),
+    onSuccess: () => {
+      toast.success('Richiesta inviata al coordinatore');
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
+      onClose();
+      setDate('');
+      setNotes('');
+      setRoomId(null);
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const canSubmit =
+    !!date && !!startTime && !!endTime && startTime < endTime && !submitMutation.isPending;
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Richiedi un nuovo giorno</DialogTitle>
+          <DialogDescription>
+            Per giorni o orari fuori dal pattern settimanale approvato. La richiesta verrà inviata
+            al coordinatore.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitMutation.mutate();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="newday-date">Data</Label>
+            <Input
+              id="newday-date"
+              type="date"
+              min={minDate}
+              max={maxDate}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="newday-start">Inizio</Label>
+              <Input
+                id="newday-start"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newday-end">Fine</Label>
+              <Input
+                id="newday-end"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Aula preferita (opzionale)</Label>
+            <Select
+              value={roomId ? String(roomId) : 'any'}
+              onValueChange={(v) => setRoomId(v === 'any' ? null : Number(v))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">— il coordinatore deciderà —</SelectItem>
+                {sortedRooms.map((r) => (
+                  <SelectItem key={r.id} value={String(r.id)}>
+                    {r.name}
+                    {r.building?.name ? ` · ${r.building.name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Se non scegli, l'aula verrà assegnata dal coordinatore in fase di approvazione.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo attività</Label>
+            <Select value={bookingType} onValueChange={(v) => setBookingType(v as BookingType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {NEW_DAY_TYPES.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newday-notes">Motivazione (opzionale)</Label>
+            <Textarea
+              id="newday-notes"
+              rows={3}
+              maxLength={2000}
+              value={notes}
+              placeholder="Es. recupero lezione del 12 nov per malattia"
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={!canSubmit}>
+              Invia richiesta
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

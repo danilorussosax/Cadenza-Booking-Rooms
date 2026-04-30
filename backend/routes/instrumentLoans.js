@@ -2,7 +2,7 @@
 
 const express = require('express');
 const dayjs = require('dayjs');
-const { Op } = require('sequelize');
+const { Op, Transaction } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
@@ -45,9 +45,15 @@ router.get('/mine', authenticate, async (req, res) => {
 //   Filtri: status (requested|active|returned|overdue|rejected), userId, instrumentId
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   const where = {};
-  if (req.query.status) where.status = req.query.status;
-  if (req.query.userId) where.userId = req.query.userId;
-  if (req.query.instrumentId) where.instrumentId = req.query.instrumentId;
+  if (req.query.status) where.status = String(req.query.status);
+  if (req.query.userId) {
+    const n = Number.parseInt(req.query.userId, 10);
+    if (Number.isInteger(n)) where.userId = n;
+  }
+  if (req.query.instrumentId) {
+    const n = Number.parseInt(req.query.instrumentId, 10);
+    if (Number.isInteger(n)) where.instrumentId = n;
+  }
 
   const loans = await InstrumentLoan.findAll({
     where,
@@ -176,7 +182,7 @@ router.post(
     try {
       const txOpts =
         sequelize.getDialect() === 'postgres'
-          ? { isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+          ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
           : {};
       const loan = await sequelize.transaction(txOpts, async (t) => {
         const conflict = await InstrumentLoan.findOne({

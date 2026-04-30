@@ -96,9 +96,57 @@ const gdprLimiter = rateLimit({
   handler: buildHandler({ logHint: 'gdpr' }),
 });
 
+// 2FA: protezione brute-force. `verify` più stretto (10 / 15min) di `resend`
+// (5 / 15min) per evitare flood di email.
+// Chiave: prova prima ad estrarre `userId` dal pre2faToken (verifica firma
+// JWT, leggera) — un attaccante che ruota IP non aggira un limit per-utente.
+// Fallback su IP se il token manca/è invalido (es. richieste preliminari).
+function tfaKey(req, res) {
+  const t = req.body?.tempToken;
+  if (typeof t === 'string' && t.length > 0) {
+    try {
+      const { verifyPre2faToken } = require('../services/twoFa');
+      const payload = verifyPre2faToken(t);
+      return `tfa-u:${payload.id}`;
+    } catch {
+      /* token invalido / scaduto → fallback su IP */
+    }
+  }
+  return ipKeyGenerator(req, res);
+}
+
+const tfaVerifyLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: tfaKey,
+  handler: buildHandler({ logHint: 'auth_2fa_verify' }),
+});
+
+const tfaResendLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  keyGenerator: tfaKey,
+  handler: buildHandler({ logHint: 'auth_2fa_resend' }),
+});
+
+// iCal export per utente: 30 req/h sul token. Senza limite, una volta che il
+// token leak-a, può essere brute-forzato per cercare altri token. 30/h è
+// largo per un client calendar tipico (refresh ogni 1-6 ore).
+const icalLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  handler: buildHandler({ logHint: 'ical' }),
+});
+
 module.exports = {
   loginLimiter: wrap(loginLimiter),
   registerLimiter: wrap(registerLimiter),
   apiDefaultLimiter: wrap(apiDefaultLimiter),
   gdprLimiter: wrap(gdprLimiter),
+  tfaVerifyLimiter: wrap(tfaVerifyLimiter),
+  tfaResendLimiter: wrap(tfaResendLimiter),
+  icalLimiter: wrap(icalLimiter),
 };

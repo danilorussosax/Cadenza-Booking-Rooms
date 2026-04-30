@@ -10,11 +10,14 @@
 
 const crypto = require('crypto');
 
+const { getJwtSecret } = require('./secrets');
+
 let cachedKey = null;
 function getKey() {
   if (cachedKey) return cachedKey;
-  const secret =
-    process.env.SETTINGS_ENCRYPTION_KEY || process.env.JWT_SECRET || 'dev-secret-change-me';
+  // Preferiamo SETTINGS_ENCRYPTION_KEY dedicata; fallback su JWT_SECRET via
+  // helper, che fa fail-fast in produzione se non impostato.
+  const secret = process.env.SETTINGS_ENCRYPTION_KEY || getJwtSecret();
   cachedKey = crypto.scryptSync(secret, 'aulabook-settings-salt-v1', 32);
   return cachedKey;
 }

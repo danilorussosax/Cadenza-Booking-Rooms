@@ -1,6 +1,9 @@
 'use strict';
 
 require('dotenv').config();
+// Fail-fast in produzione se JWT_SECRET non è impostato o è il default
+// insicuro: meglio non partire che firmare token con un secret pubblico.
+require('./lib/secrets').assertProductionSecrets();
 // Sentry deve essere inizializzato PRIMA di qualunque altro require: l'auto
 // instrumentation di @sentry/node patch-a http/express/postgres/ecc. Se
 // SENTRY_DSN non è impostato, init() ritorna false e tutto è no-op.

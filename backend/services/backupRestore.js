@@ -46,6 +46,74 @@ function spawnPromise(cmd, args, opts = {}) {
   });
 }
 
+function spawnPromiseCapture(cmd, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+    let stdout = '';
+    let stderr = '';
+    p.stdout?.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    p.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    p.on('error', reject);
+    p.on('exit', (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`${cmd} exit ${code}: ${stderr.slice(0, 500)}`));
+    });
+  });
+}
+
+/**
+ * Valida i membri del tarball PRIMA di estrarli. Tar binario di per sé non
+ * difende contro:
+ *   - symlink che puntano fuori dalla destinazione (l'archive può contenere
+ *     `link -> /etc/passwd` + un file `link/foo` che scriverebbe in /etc)
+ *   - hardlink simili
+ *   - path assoluti (`/etc/cron.d/x`) — preserveremmo se passassimo `-P`
+ *   - path traversal con `..`
+ *
+ * Strategia: list verbose (`-tvzf`) per ottenere il TIPO di ogni entry
+ * (primo carattere della riga: `l`=symlink, `h`=hardlink, `-`=regular,
+ * `d`=directory). E list normale (`-tzf`) per i nomi affidabili. Se uno
+ * qualunque criterio fallisce → throw, niente extract.
+ */
+async function validateTarball(archivePath) {
+  const verbose = await spawnPromiseCapture('tar', ['-tvzf', archivePath]);
+  const verboseLines = verbose.split('\n').filter((l) => l.trim().length > 0);
+  for (const line of verboseLines) {
+    const type = line.charAt(0);
+    if (type === 'l') {
+      throw Object.assign(new Error('Tarball contiene symlink: rifiutato per sicurezza'), {
+        code: 'BACKUP_UNSAFE_SYMLINK',
+      });
+    }
+    if (type === 'h') {
+      throw Object.assign(new Error('Tarball contiene hardlink: rifiutato per sicurezza'), {
+        code: 'BACKUP_UNSAFE_HARDLINK',
+      });
+    }
+  }
+  const names = await spawnPromiseCapture('tar', ['-tzf', archivePath]);
+  const entries = names.split('\n').filter((l) => l.length > 0);
+  for (const entry of entries) {
+    if (entry.startsWith('/') || entry.startsWith('~')) {
+      throw Object.assign(new Error(`Tarball contiene path assoluto: ${entry}`), {
+        code: 'BACKUP_UNSAFE_PATH',
+      });
+    }
+    // path.normalize collassa `..` interni; confrontiamo che il risultato
+    // resti relativo (no leading `..`, nessun salto fuori).
+    const norm = path.normalize(entry);
+    if (norm.startsWith('..') || path.isAbsolute(norm)) {
+      throw Object.assign(new Error(`Tarball contiene path-traversal: ${entry}`), {
+        code: 'BACKUP_UNSAFE_PATH',
+      });
+    }
+  }
+}
+
 function ts() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -63,6 +131,29 @@ function ts() {
 /** Ritorna `true` se attualmente è in corso un restore (single-flight). */
 function isRestoreInProgress() {
   return restoreInProgress;
+}
+
+/**
+ * Walk ricorsivo che rifiuta qualunque symlink incontrato nell'albero.
+ * Difesa-in-profondità: validateTarball già lo rileva pre-extract, ma se
+ * mai un symlink venisse creato (es. tarball confeziato in modo da bypassare
+ * il list parsing), questo lo intercetta prima di un cpSync ricorsivo.
+ */
+function verifyTreeNoSymlinks(root) {
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isSymbolicLink()) {
+        throw Object.assign(new Error(`Symlink rilevato durante restore: ${full}`), {
+          code: 'BACKUP_UNSAFE_SYMLINK',
+        });
+      }
+      if (e.isDirectory()) stack.push(full);
+    }
+  }
 }
 
 /**
@@ -90,8 +181,23 @@ async function performRestore({ archivePath, dryRun = false }) {
   let savedDbBackup = null;
   let savedUploadsBackup = null;
   try {
+    logger.info({ archivePath }, '[restore] validazione contenuto archivio');
+    await validateTarball(archivePath);
     logger.info({ archivePath }, '[restore] avvio estrazione');
-    await spawnPromise('tar', ['-xzf', archivePath, '-C', stagingDir]);
+    // Flag di sicurezza:
+    //   --no-same-owner       : i file estratti non preservano UID/GID dell'archivio
+    //   --no-same-permissions : permessi normalizzati al umask del processo
+    // Senza `-P` (=preserve absolute paths), tar strippa lo slash iniziale
+    // dai path assoluti — comunque ridondante, validateTarball li ha già
+    // bloccati in pre-check.
+    await spawnPromise('tar', [
+      '-xzf',
+      archivePath,
+      '-C',
+      stagingDir,
+      '--no-same-owner',
+      '--no-same-permissions',
+    ]);
 
     let manifest = { dialect: 'sqlite' };
     const manifestPath = path.join(stagingDir, 'manifest.json');
@@ -114,6 +220,12 @@ async function performRestore({ archivePath, dryRun = false }) {
       if (!fs.existsSync(src)) {
         throw new Error('Archivio non contiene conservatory.sqlite');
       }
+      // Difesa-in-profondità: validateTarball già rifiuta symlink, ma in
+      // caso di bug nel parsing rilevamo qui un eventuale link prima di
+      // copiarne il contenuto.
+      if (fs.lstatSync(src).isSymbolicLink()) {
+        throw new Error('conservatory.sqlite è un symlink: rifiutato');
+      }
       const target = path.join(BACKEND_ROOT, 'data', 'conservatory.sqlite');
       if (fs.existsSync(target)) {
         const bak = `${target}.pre-restore-${stamp}`;
@@ -130,6 +242,9 @@ async function performRestore({ archivePath, dryRun = false }) {
       const sqlPath = path.join(stagingDir, 'database.sql');
       if (!fs.existsSync(sqlPath)) {
         throw new Error('Archivio non contiene database.sql');
+      }
+      if (fs.lstatSync(sqlPath).isSymbolicLink()) {
+        throw new Error('database.sql è un symlink: rifiutato');
       }
       const host = process.env.DB_HOST || 'localhost';
       const port = process.env.DB_PORT || '5432';
@@ -180,13 +295,21 @@ async function performRestore({ archivePath, dryRun = false }) {
     // ── Uploads restore ───────────────────────────────────────
     const srcUploads = path.join(stagingDir, 'uploads');
     if (fs.existsSync(srcUploads)) {
+      if (fs.lstatSync(srcUploads).isSymbolicLink()) {
+        throw new Error('uploads/ è un symlink: rifiutato');
+      }
       if (fs.existsSync(UPLOADS_DIR)) {
         const bak = `${UPLOADS_DIR}.pre-restore-${stamp}`;
         fs.renameSync(UPLOADS_DIR, bak);
         savedUploadsBackup = path.basename(bak);
         logger.info({ bak }, '[restore] uploads attuali salvati come .pre-restore');
       }
-      fs.cpSync(srcUploads, UPLOADS_DIR, { recursive: true });
+      // dereference: false è il default ma lo rendiamo esplicito — un
+      // symlink dentro uploads/ verrebbe copiato come symlink (non
+      // dereferenziato), ma `verifyTreeNoSymlinks` qui sotto rifiuta
+      // l'intero restore se ne trova uno.
+      verifyTreeNoSymlinks(srcUploads);
+      fs.cpSync(srcUploads, UPLOADS_DIR, { recursive: true, dereference: false });
       restoredUploads = true;
       logger.info({ UPLOADS_DIR }, '[restore] uploads ripristinati');
     }

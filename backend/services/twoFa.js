@@ -32,6 +32,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../lib/secrets');
 
 const PRE2FA_TTL = '5m';
 const RECOVERY_CODE_COUNT = 10;
@@ -135,11 +136,11 @@ function maskEmail(email) {
 
 /** JWT temporaneo "pre2fa" (TTL 5min, claim `tfa: 'pre'`). */
 function signPre2faToken(userId) {
-  return jwt.sign({ id: userId, tfa: 'pre' }, process.env.JWT_SECRET, { expiresIn: PRE2FA_TTL });
+  return jwt.sign({ id: userId, tfa: 'pre' }, getJwtSecret(), { expiresIn: PRE2FA_TTL });
 }
 
 function verifyPre2faToken(token) {
-  const payload = jwt.verify(token, process.env.JWT_SECRET);
+  const payload = jwt.verify(token, getJwtSecret());
   if (payload.tfa !== 'pre') {
     const err = new Error('Token pre2FA non valido');
     err.code = 'TWO_FA_BAD_TEMP_TOKEN';

@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { Music4 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { institutesApi } from '@/api/institutes';
@@ -49,7 +48,7 @@ export function AuthLayout({ children, quote, attribution }: Props) {
                 className="h-9 w-9 object-contain"
               />
             ) : (
-              <Music4 className="h-6 w-6" />
+              <img src="/cadenza.png" alt="" className="h-9 w-9 object-contain" />
             )}
           </div>
           <div>
@@ -99,7 +98,7 @@ export function AuthLayout({ children, quote, attribution }: Props) {
               {institute?.logoUrl ? (
                 <img src={institute.logoUrl} alt="" className="h-7 w-7 object-contain" />
               ) : (
-                <Music4 className="h-5 w-5" />
+                <img src="/cadenza.png" alt="" className="h-7 w-7 object-contain" />
               )}
             </div>
             <div>

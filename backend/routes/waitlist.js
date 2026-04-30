@@ -2,7 +2,7 @@
 
 const express = require('express');
 const dayjs = require('dayjs');
-const { Op } = require('sequelize');
+const { Op, Transaction } = require('sequelize');
 const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
 const { validateBooking } = require('../services/bookingValidator');
@@ -183,7 +183,7 @@ router.post(
       // Crea la booking + chiude la entry in una transazione SERIALIZABLE
       const result = await sequelize.transaction(
         {
-          isolationLevel: sequelize.Transaction?.ISOLATION_LEVELS?.SERIALIZABLE,
+          isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
         },
         async (t) => {
           const validation = await validateBooking({

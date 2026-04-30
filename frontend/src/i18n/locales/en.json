@@ -114,7 +114,7 @@
     "admin_audit_log": "Activity log",
     "admin_analytics": "Analytics",
     "admin_announcements": "Announcements",
-    "admin_approvals": "Approvals",
+    "admin_approvals": "Booking approvals",
     "admin_bookings": "Bookings",
     "admin_instruments": "Instruments inventory",
     "admin_display": "Infopoint",
@@ -226,13 +226,14 @@
     "greeting_night": "Good night",
     "hero_question": "Ready to practice today?",
     "today_welcome": "{{date}} · welcome to the Conservatory booking system.",
-    "calendar_title": "Rooms calendar (weekly)",
-    "calendar_help": "First column: room · First row: Mon–Sat · 30-min slots (08:00–20:00). Click an empty slot to book.",
+    "calendar_title": "Rooms calendar (daily)",
+    "calendar_help": "First column: room · 30-min slots (08:00–20:00). Click or drag an empty slot to book.",
     "prev_day": "Previous day",
     "next_day": "Next day",
     "prev_week": "Previous week",
     "next_week": "Next week",
     "this_week": "This week",
+    "today": "Today",
     "export_weekly_pdf": "Export weekly PDF",
     "no_bookings_yet": "No bookings on schedule",
     "no_bookings_yet_subtitle": "Get started by booking a room for your rehearsals or lessons.",
@@ -247,7 +248,11 @@
       "next_session": "Next session",
       "next_session_none": "Nothing on schedule",
       "active_loans": "Active loans",
-      "active_loans_hint": "{{pending}} awaiting approval"
+      "active_loans_hint": "{{pending}} awaiting approval",
+      "pending_bookings_approvals": "Bookings to approve",
+      "pending_bookings_approvals_hint": "Requests for rooms requiring approval",
+      "pending_amendments": "Monte ore amendments",
+      "pending_amendments_hint": "Pending teacher requests"
     },
     "kpi": {
       "next_booking": "Next booking",
@@ -604,7 +609,20 @@
         "messaging_description": "Messaging channels (Telegram, WhatsApp, Signal, IMAP) for notifications and bot commands.",
         "display_description": "Configure the public Infopoint for the weekly rotating room timetable.",
         "audit_log_description": "Append-only tracking of administrative actions and management of confirmed bookings.",
-        "backups_description": "Scheduled database backups and restore from snapshot."
+        "backups_description": "Scheduled database backups and restore from snapshot.",
+        "modules": "Modules",
+        "modules_description": "Show or hide optional modules in the sidebar. The functionality stays always active in the backend: the toggle only controls whether the link is visible in the UI."
+      },
+      "modules": {
+        "title": "Optional modules",
+        "subtitle": "Show or hide optional modules in the sidebar. The backend logic stays always active: these toggles only affect link visibility.",
+        "monte_ore_label": "Teacher hours plan (Monte Ore)",
+        "monte_ore_description": "Sidebar items \"Monte Ore\" (teacher view) and \"Monte Ore management\" (admin view). Turning the toggle off hides the links but the routes and APIs keep working.",
+        "instrument_loans_label": "Instrument loans",
+        "instrument_loans_description": "Sidebar items \"Instruments\" (catalogue) and \"My loans\" plus the admin \"Instrument inventory\" section. Turning the toggle off hides the links but the routes and APIs keep working.",
+        "saved": "Module updated",
+        "save_failed": "Could not update the module",
+        "backend_note": "Existing data is never deleted. Re-enabling the module brings the links back instantly."
       }
     },
     "users": {
@@ -806,7 +824,9 @@
       "title": "Conservatory structure",
       "subtitle": "Manage institutes, buildings, rooms and the equipment catalog.",
       "tab_sedi": "Sites",
+      "tab_sedi_description": "Manage institutes, buildings and rooms. Set floors, capacity and equipment for each room.",
       "tab_dotazioni": "Equipment",
+      "tab_dotazioni_description": "Reusable catalog of room equipment (piano, music stand, audio system…) — then assign each item to specific rooms.",
       "new_institute": "New institute",
       "import_csv": "Import CSV",
       "export_csv": "Export CSV",
@@ -1149,10 +1169,15 @@
       "subtitle": "Manage instruments, loan requests and overdue returns.",
       "tabs": {
         "inventory": "Inventory",
+        "inventory_description": "Conservatory instrument catalog: family, condition, brand, location, loanable status.",
         "all_loans": "All loans",
+        "all_loans_description": "Full history of loan requests: pending, active, returned, overdue, rejected.",
         "overdue": "Overdue",
+        "overdue_description": "Loans whose return date has already passed. To remind or close as returned.",
         "expiring": "Expiring (2 days)",
-        "rules": "Loan rules"
+        "expiring_description": "Loans expiring within the next 2 days. Good window to send reminders.",
+        "rules": "Loan rules",
+        "rules_description": "Rules and quotas for loans: max duration, concurrent loans, per-family exceptions."
       },
       "new_instrument": "New instrument",
       "search_placeholder": "Search by name, code, brand, model…",
@@ -1418,10 +1443,15 @@
       }
     },
     "approvals": {
-      "title": "Pending approvals",
+      "title": "Booking approvals",
       "subtitle": "Booking requests for rooms that require approval (concert halls, auditoriums…). Approve or reject from the actions on the right.",
       "empty_title": "No pending requests",
       "empty_subtitle": "When a user books a room that requires approval, the request will appear here.",
+      "amendments_link": {
+        "title": "Monte ore amendments",
+        "subtitle": "Teacher requests for new days or pattern changes — handled separately under Monte Ore.",
+        "badge": "{{count}} pending"
+      },
       "action": {
         "approve": "Approve",
         "reject": "Reject"

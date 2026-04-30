@@ -481,6 +481,16 @@ async function runPreSyncMigrations() {
     console.log('  ✓ Colonna institutes.instituteNetworkCidrs aggiunta');
   }
 
+  // Module flags (Monte Ore, Prestito strumenti) — toggle puramente di
+  // presentazione che governano la visibilità dei link in sidebar. Default
+  // true su istituti esistenti per non modificare il comportamento corrente.
+  if (await ensureBooleanColumn('institutes', 'moduleMonteOreEnabled', true)) {
+    console.log('  ✓ Colonna institutes.moduleMonteOreEnabled aggiunta');
+  }
+  if (await ensureBooleanColumn('institutes', 'moduleInstrumentLoansEnabled', true)) {
+    console.log('  ✓ Colonna institutes.moduleInstrumentLoansEnabled aggiunta');
+  }
+
   // Soft delete (paranoid): deletedAt nullable sulle tabelle core.
   // Sequelize aggiunge la colonna automaticamente alle tabelle nuove via sync()
   // ma su quelle preesistenti dobbiamo aggiungerla qui.
@@ -575,6 +585,46 @@ async function runPreSyncMigrations() {
   // Monte Ore — link opzionale tra sospensione e BookingRuleException
   // (per applicare il blocco anche alle prenotazioni regolari).
   await ensureNullableIntColumn('monte_ore_suspensions', 'bookingRuleExceptionId');
+
+  // Monte Ore — campi per slot "fuori pattern" creati da amendment
+  // add_new_day. Quando scheduleId è NULL queste colonne forniscono le
+  // informazioni necessarie per materializzare il Booking corrispondente.
+  await ensureNullableIntColumn('monte_ore_slots', 'roomId');
+  if (await ensureNullableStringColumn('monte_ore_slots', 'bookingType', 40)) {
+    console.log('  ✓ Colonna monte_ore_slots.bookingType aggiunta (slot fuori pattern)');
+  }
+  if (await ensureNullableStringColumn('monte_ore_slots', 'purpose', 255)) {
+    console.log('  ✓ Colonna monte_ore_slots.purpose aggiunta (slot fuori pattern)');
+  }
+
+  // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
+  // preesistenti in chiaro (zero-rottura per i client già subscribed).
+  if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {
+    console.log('  ✓ Colonna users.icalTokenHash aggiunta');
+  }
+  try {
+    const cryptoMod = require('crypto');
+    const { User } = require('../models');
+    const rows = await User.findAll({
+      where: {
+        icalToken: { [require('sequelize').Op.ne]: null },
+        icalTokenHash: null,
+      },
+      attributes: ['id', 'icalToken'],
+      paranoid: false,
+    });
+    for (const u of rows) {
+      const hash = cryptoMod.createHash('sha256').update(u.icalToken).digest('hex');
+      await User.update({ icalTokenHash: hash }, { where: { id: u.id }, paranoid: false });
+    }
+    if (rows.length > 0) {
+      console.log(`  ✓ Backfill icalTokenHash per ${rows.length} utenti esistenti`);
+    }
+  } catch (err) {
+    if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
+      console.warn(`  ⚠ Backfill icalTokenHash fallito: ${err.message}`);
+    }
+  }
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

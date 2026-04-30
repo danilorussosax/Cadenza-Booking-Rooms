@@ -118,6 +118,14 @@ function buildApp({ serveFrontend = true } = {}) {
     );
     next();
   });
+  // CORS: in produzione FRONTEND_URL DEVE essere impostato. Se manca,
+  // `origin: true` riflette l'Origin di QUALUNQUE sito + invia
+  // Access-Control-Allow-Credentials: true → qualsiasi pagina può chiamare
+  // l'API con i cookie di sessione dell'utente. In dev/test ammettiamo il
+  // wildcard per facilitare lo sviluppo.
+  if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+    throw new Error('FRONTEND_URL non impostato in produzione: CORS richiede un origin esplicito');
+  }
   app.use(
     cors({
       origin: process.env.FRONTEND_URL || true,
@@ -313,10 +321,13 @@ function buildApp({ serveFrontend = true } = {}) {
     if (process.env.NODE_ENV !== 'test') {
       console.error('Errore non gestito:', err);
     }
+    // Stack incluso solo in dev/test esplicito: se NODE_ENV è undefined
+    // (mis-config in produzione) NON esponiamo lo stack.
+    const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
     res.status(err.status || 500).json({
       error: err.message || 'Errore interno del server',
       ...(err.code && { code: err.code }),
-      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+      ...(isDevOrTest && { stack: err.stack }),
     });
   });
 
