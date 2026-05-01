@@ -5,9 +5,50 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { stringify: csvStringify } = require('csv-stringify/sync');
-const { sequelize, User, Course, Booking } = require('../models');
+const { sequelize, User, Course, Booking, MonteOreProposal, ContractType } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { parseCSV } = require('../services/structureImporter');
+const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
+
+/**
+ * Anti-lockout: previene la trasformazione dell'ULTIMO admin in non-admin
+ * (sia diretta — `role: 'docente'`, sia indiretta — `isActive: false`,
+ * `status: 'rejected'`). Senza questo check un'errore admin distratto può
+ * lasciare l'istituto senza alcun account amministratore, recuperabile solo
+ * da terminale lato server.
+ *
+ * Restituisce { ok: true } se l'operazione è sicura, oppure
+ * { ok: false, error, code } se va bloccata.
+ */
+async function checkAdminLockout(target, updates) {
+  const wouldStripAdmin =
+    target.role === 'admin' &&
+    ((updates.role !== undefined && updates.role !== 'admin') ||
+      updates.isActive === false ||
+      updates.status === 'rejected');
+  if (!wouldStripAdmin) return { ok: true };
+
+  // Conta gli admin ATTIVI e APPROVATI residui (escluso il target).
+  const otherActiveAdmins = await User.count({
+    where: {
+      role: 'admin',
+      isActive: true,
+      status: 'approved',
+      id: { [Op.ne]: target.id },
+    },
+  });
+  if (otherActiveAdmins === 0) {
+    return {
+      ok: false,
+      error:
+        "Operazione bloccata: questo è l'ultimo amministratore attivo. " +
+        'Promuovi prima un altro utente ad admin.',
+      code: 'LAST_ADMIN_LOCKOUT',
+    };
+  }
+  return { ok: true };
+}
 
 const router = express.Router();
 
@@ -272,19 +313,28 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
   res.status(201).json({ user: user.toSafeJSON() });
 });
 
-// Lista utenti (admin)
+// Lista utenti (admin) — paginated.
+// Query: ?role=, ?active=, ?status=, ?limit= (1-500, def 100), ?offset= (def 0).
+// Risposta: { users: User[] } + header X-Total-Count, X-Limit, X-Offset.
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   const where = {};
   if (req.query.role) where.role = req.query.role;
   if (req.query.active) where.isActive = req.query.active === 'true';
   if (req.query.status) where.status = req.query.status;
 
-  const users = await User.findAll({
+  const { limit, offset } = parsePagination(req.query);
+  const { rows, count } = await User.findAndCountAll({
     where,
     include: [{ model: Course, as: 'course' }],
     order: [['lastName', 'ASC']],
+    limit,
+    offset,
+    // distinct=true necessario quando si usa include + count, altrimenti
+    // count gonfia per ogni JOIN (es. utente con N corsi → contato N volte).
+    distinct: true,
   });
-  res.json({ users: users.map((u) => u.toSafeJSON()) });
+  setPaginationHeaders(res, count, limit, offset);
+  res.json({ users: rows.map((u) => u.toSafeJSON()) });
 });
 
 // Conteggio utenti in attesa di approvazione (admin) — usato per badge in UI.
@@ -320,41 +370,195 @@ router.get('/:id', authenticate, requireRole('admin'), async (req, res) => {
   res.json({ user: user.toSafeJSON() });
 });
 
+// =====================================================
+// Monte Ore — override individuale (admin)
+// PUT /api/users/:id/monte-ore-override
+// Body: {
+//   contractType?: string|null,  // ContractType.code (anagrafica dinamica) o null
+//   monteOreAnnualHoursOverride?: number|null,  // null = rimuove override
+//   monteOreBypassDayConstraint?: boolean,
+//   monteOreOverrideReason?: string|null,
+// }
+// Quando si imposta override hours o bypass, `monteOreOverrideReason` è
+// obbligatoria. Solo per utenti con role='docente'. L'audit log è gestito dal
+// middleware globale (pattern /api/users/:id).
+// =====================================================
+router.put(
+  '/:id/monte-ore-override',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const user = await User.findByPk(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+      }
+      if (user.role !== 'docente') {
+        return res.status(400).json({
+          error: 'Override Monte Ore valido solo per ruolo docente',
+          code: 'WRONG_ROLE',
+        });
+      }
+
+      const {
+        contractType: rawContractType,
+        monteOreAnnualHoursOverride: rawHours,
+        monteOreBypassDayConstraint: rawBypass,
+        monteOreOverrideReason: rawReason,
+      } = req.body || {};
+
+      // Normalizzazione
+      const contractType =
+        rawContractType === undefined
+          ? user.contractType
+          : rawContractType === '' || rawContractType === null
+            ? null
+            : String(rawContractType);
+      // Validazione cross-tabella: il code deve esistere in ContractType
+      // (anagrafica dinamica gestita dall'admin). Accettiamo anche tipi
+      // soft-deleted/disattivati: l'utente potrebbe averli già assegnati e
+      // dobbiamo permettere di salvare altre modifiche senza forzare un
+      // cambio di tipologia. I 4 code storici sono sempre accettati come
+      // fallback: in produzione sono garantiti dal seed, e questo evita
+      // regressioni in setup minimal che non eseguono il seeder.
+      const LEGACY_CONTRACT_CODES = ['titolare', 'contratto_orario', 'supplente', 'altro'];
+      if (contractType !== null && !LEGACY_CONTRACT_CODES.includes(contractType)) {
+        if (!/^[a-z0-9_]{1,40}$/.test(contractType)) {
+          return res.status(400).json({
+            error: 'contractType non valido (formato atteso: a-z, 0-9, _; max 40 char)',
+            code: 'INVALID_CONTRACT_TYPE',
+          });
+        }
+        const ct = await ContractType.findOne({
+          where: { code: contractType },
+          paranoid: false,
+        });
+        if (!ct) {
+          const validCodes = (
+            await ContractType.findAll({ attributes: ['code'], where: { isActive: true } })
+          )
+            .map((c) => c.code)
+            .join(', ');
+          return res.status(400).json({
+            error: `contractType "${contractType}" non trovato. Ammessi: ${validCodes || LEGACY_CONTRACT_CODES.join(', ')}`,
+            code: 'INVALID_CONTRACT_TYPE',
+          });
+        }
+      }
+
+      let hoursOverride = null;
+      if (rawHours !== undefined && rawHours !== null && rawHours !== '') {
+        const n = Number(rawHours);
+        if (!Number.isFinite(n) || n < 0 || n > 1500) {
+          return res.status(400).json({
+            error: 'Override ore deve essere un numero tra 0 e 1500',
+            code: 'OVERRIDE_OUT_OF_RANGE',
+          });
+        }
+        hoursOverride = n;
+      }
+
+      const bypass = rawBypass === true || rawBypass === 'true';
+      const reason = rawReason ? String(rawReason).trim().slice(0, 500) : null;
+
+      // Motivazione obbligatoria se si IMPOSTA almeno una deroga.
+      const settingOverride = hoursOverride != null || bypass === true;
+      if (settingOverride && !reason) {
+        return res.status(400).json({
+          error: 'Motivazione obbligatoria quando si imposta una deroga',
+          code: 'OVERRIDE_REASON_REQUIRED',
+        });
+      }
+
+      await user.update({
+        contractType: contractType || null,
+        monteOreAnnualHoursOverride: hoursOverride,
+        monteOreBypassDayConstraint: bypass,
+        // Se nessuna deroga è attiva, azzeriamo reason/setBy/setAt per pulizia.
+        monteOreOverrideReason: settingOverride ? reason : null,
+        monteOreOverrideSetAt: settingOverride ? new Date() : null,
+        monteOreOverrideSetBy: settingOverride ? req.user.id : null,
+      });
+
+      res.json({ user: user.toSafeJSON() });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // Modifica utente (admin: può cambiare ruolo, attivare/disattivare, ecc.)
-router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
-  const user = await User.findByPk(req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+    }
 
-  const allowed = ['firstName', 'lastName', 'role', 'matricola', 'courseId', 'isActive', 'status'];
-  const updates = {};
-  for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
-
-  // Whitelist enum: previene mass-assignment di valori arbitrari (es.
-  // role='superadmin' o status='god'). Il DB constraint scatterebbe comunque,
-  // ma con errore 500 generico — qui restituiamo 400 con messaggio chiaro.
-  if (updates.role !== undefined && !VALID_ROLES.includes(updates.role)) {
-    return res.status(400).json({
-      error: `Ruolo "${updates.role}" non valido. Ammessi: ${VALID_ROLES.join(', ')}`,
-      code: 'INVALID_ROLE',
+    // Whitelist + coercizione tipi: tutto il resto del body viene scartato
+    // silenziosamente (anti mass-assignment di campi sensibili tipo passwordHash,
+    // tokenVersion, twoFaSecretEncrypted, monteOreOverrideSetBy, …).
+    const updates = pickAllowed(req.body, {
+      firstName: { type: 'string', maxLength: 100 },
+      lastName: { type: 'string', maxLength: 100 },
+      matricola: { type: 'string', maxLength: 50, nullable: true },
+      courseId: { type: 'integer', nullable: true, min: 0 },
+      isActive: 'boolean',
+      role: { type: 'enum', values: VALID_ROLES },
+      status: { type: 'enum', values: VALID_STATUSES },
     });
-  }
-  if (updates.status !== undefined && !VALID_STATUSES.includes(updates.status)) {
-    return res.status(400).json({
-      error: `Stato "${updates.status}" non valido. Ammessi: ${VALID_STATUSES.join(', ')}`,
-      code: 'INVALID_STATUS',
-    });
-  }
-  if (updates.isActive !== undefined && typeof updates.isActive !== 'boolean') {
-    return res.status(400).json({ error: 'isActive deve essere boolean', code: 'INVALID_FIELD' });
-  }
 
-  // Se viene resettata la password (validato esplicitamente: typeof string)
-  if (typeof req.body.newPassword === 'string' && req.body.newPassword.length >= 8) {
-    updates.passwordHash = req.body.newPassword;
-  }
+    // Auto-protezione: l'admin non può cambiare il PROPRIO ruolo né disattivarsi
+    // né rifiutarsi (richiede l'azione di un altro admin). Evita lockout
+    // accidentale quando l'admin è loggato col proprio account e clicca per
+    // sbaglio "Disattiva" sul proprio profilo.
+    if (user.id === req.user.id) {
+      if (updates.role !== undefined && updates.role !== user.role) {
+        return res.status(400).json({
+          error: 'Non puoi cambiare il tuo stesso ruolo. Chiedi a un altro amministratore.',
+          code: 'CANNOT_SELF_ROLE_CHANGE',
+        });
+      }
+      if (updates.isActive === false) {
+        return res.status(400).json({
+          error: 'Non puoi disattivare il tuo stesso account.',
+          code: 'CANNOT_SELF_DEACTIVATE',
+        });
+      }
+      if (updates.status === 'rejected') {
+        return res.status(400).json({
+          error: 'Non puoi rifiutare il tuo stesso account.',
+          code: 'CANNOT_SELF_REJECT',
+        });
+      }
+    }
 
-  await user.update(updates);
-  res.json({ user: user.toSafeJSON() });
+    // Anti-lockout: blocca la rimozione dell'ULTIMO admin attivo.
+    const lockout = await checkAdminLockout(user, updates);
+    if (!lockout.ok) {
+      return res.status(409).json({ error: lockout.error, code: lockout.code });
+    }
+
+    // Reset password (gestito separatamente: NON è in pickAllowed perché viene
+    // sotto un nome diverso `newPassword` e ha la propria policy).
+    if (typeof req.body.newPassword === 'string' && req.body.newPassword.length >= 8) {
+      updates.passwordHash = req.body.newPassword;
+    } else if (typeof req.body.newPassword === 'string') {
+      // Stringa fornita ma troppo corta → errore esplicito (vs ignorare).
+      return res.status(400).json({
+        error: 'La password deve avere almeno 8 caratteri',
+        code: 'PASSWORD_TOO_SHORT',
+      });
+    }
+
+    await user.update(updates);
+    res.json({ user: user.toSafeJSON() });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
+    }
+    next(err);
+  }
 });
 
 // Elimina utente (cascade applicativo: rimuove anche le sue prenotazioni)
@@ -367,15 +571,32 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
         .status(400)
         .json({ error: 'Non puoi eliminare te stesso', code: 'CANNOT_DELETE_SELF' });
     }
+    // Anti-lockout: cancellare un admin equivale a un "demote totale".
+    const lockout = await checkAdminLockout(user, { isActive: false });
+    if (!lockout.ok) {
+      return res.status(409).json({ error: lockout.error, code: lockout.code });
+    }
     const result = await sequelize.transaction(async (t) => {
       const removedBookings = await Booking.destroy({
         where: { userId: user.id },
         transaction: t,
       });
+      // User è paranoid (soft-delete): la CASCADE dell'FK non scatta.
+      // Eliminiamo esplicitamente le proposte Monte Ore per evitare che
+      // restino orfane nella pagina "Gestione Monte ore" dopo la cancellazione.
+      // Schedules/slots/amendments seguono via CASCADE (tabelle non paranoid).
+      const removedMonteOreProposals = await MonteOreProposal.destroy({
+        where: { userId: user.id },
+        transaction: t,
+      });
       await user.destroy({ transaction: t });
-      return removedBookings;
+      return { removedBookings, removedMonteOreProposals };
     });
-    res.json({ message: 'Utente eliminato', removedBookings: result });
+    res.json({
+      message: 'Utente eliminato',
+      removedBookings: result.removedBookings,
+      removedMonteOreProposals: result.removedMonteOreProposals,
+    });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
       return res.status(409).json({
@@ -420,8 +641,31 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
         code: 'CANNOT_DELETE_SELF',
       });
     }
+    // Anti-lockout: la selezione bulk non deve azzerare gli admin attivi.
+    const adminsInSelection = await User.count({
+      where: { id: { [Op.in]: ids }, role: 'admin', isActive: true, status: 'approved' },
+    });
+    if (adminsInSelection > 0) {
+      const totalActiveAdmins = await User.count({
+        where: { role: 'admin', isActive: true, status: 'approved' },
+      });
+      if (totalActiveAdmins - adminsInSelection < 1) {
+        return res.status(409).json({
+          error:
+            "Operazione bloccata: la selezione lascerebbe l'istituto senza amministratori. " +
+            'Promuovi prima un altro utente ad admin o rimuovi gli admin dalla selezione.',
+          code: 'LAST_ADMIN_LOCKOUT',
+        });
+      }
+    }
     const result = await sequelize.transaction(async (t) => {
       const removedBookings = await Booking.destroy({
+        where: { userId: { [Op.in]: ids } },
+        transaction: t,
+      });
+      // Vedi nota in DELETE /:id: User paranoid → la CASCADE FK non scatta,
+      // serve eliminare a mano le proposte Monte Ore.
+      const removedMonteOreProposals = await MonteOreProposal.destroy({
         where: { userId: { [Op.in]: ids } },
         transaction: t,
       });
@@ -429,7 +673,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
         where: { id: { [Op.in]: ids } },
         transaction: t,
       });
-      return { deleted, removedBookings };
+      return { deleted, removedBookings, removedMonteOreProposals };
     });
     res.json(result);
   } catch (err) {

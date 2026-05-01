@@ -28,6 +28,11 @@ const UPLOADS_DIR = path.join(BACKEND_ROOT, 'uploads');
 const BACKUP_DIR = process.env.BACKUP_DIR
   ? path.resolve(process.env.BACKUP_DIR)
   : path.join(PROJECT_ROOT, 'backups');
+// P2-6: i safety-net `.pre-restore-*` ora sono raccolti in
+// `data/snapshots/` invece di sporcare la app dir (`uploads.pre-restore-*`)
+// e `data/` (`conservatory.sqlite.pre-restore-*`). Più facile da gitignore-are
+// e da pulire con un singolo `rm -rf`.
+const SNAPSHOTS_DIR = path.join(BACKEND_ROOT, 'data', 'snapshots');
 
 let restoreInProgress = false;
 
@@ -228,10 +233,13 @@ async function performRestore({ archivePath, dryRun = false }) {
       }
       const target = path.join(BACKEND_ROOT, 'data', 'conservatory.sqlite');
       if (fs.existsSync(target)) {
-        const bak = `${target}.pre-restore-${stamp}`;
+        // P2-6: snapshot raccolto in data/snapshots/db-<ts>.sqlite invece di
+        // restare accanto al DB live nella stessa dir.
+        fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+        const bak = path.join(SNAPSHOTS_DIR, `db-${stamp}.sqlite`);
         fs.renameSync(target, bak);
-        savedDbBackup = path.basename(bak);
-        logger.info({ bak }, '[restore] DB attuale salvato come .pre-restore');
+        savedDbBackup = path.relative(BACKEND_ROOT, bak);
+        logger.info({ bak }, '[restore] DB attuale spostato in snapshots/');
       } else {
         fs.mkdirSync(path.dirname(target), { recursive: true });
       }
@@ -299,10 +307,13 @@ async function performRestore({ archivePath, dryRun = false }) {
         throw new Error('uploads/ è un symlink: rifiutato');
       }
       if (fs.existsSync(UPLOADS_DIR)) {
-        const bak = `${UPLOADS_DIR}.pre-restore-${stamp}`;
+        // P2-6: snapshot uploads in data/snapshots/uploads-<ts>/ invece che
+        // accanto a /uploads (sporcando la app dir come `uploads.pre-restore-*`).
+        fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+        const bak = path.join(SNAPSHOTS_DIR, `uploads-${stamp}`);
         fs.renameSync(UPLOADS_DIR, bak);
-        savedUploadsBackup = path.basename(bak);
-        logger.info({ bak }, '[restore] uploads attuali salvati come .pre-restore');
+        savedUploadsBackup = path.relative(BACKEND_ROOT, bak);
+        logger.info({ bak }, '[restore] uploads attuali spostati in snapshots/');
       }
       // dereference: false è il default ma lo rendiamo esplicito — un
       // symlink dentro uploads/ verrebbe copiato come symlink (non

@@ -20,8 +20,11 @@
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('../models');
-const { sendBookingEmail, emailEnabled } = require('./emailService');
-const { sendInstrumentLoanEmail } = require('./instrumentLoanEmail');
+// Riferimento via oggetto-modulo (non destrutturato) per consentire ai test
+// di sostituire i metodi via vi.spyOn.
+const emailService = require('./emailService');
+const instrumentLoanEmail = require('./instrumentLoanEmail');
+const logger = require('../lib/logger');
 
 const TICK_MS = 5 * 60 * 1000; // 5 minuti
 const WINDOW_BEFORE_MS = 65 * 60 * 1000; // fino a 65 min nel futuro
@@ -32,7 +35,7 @@ const LOAN_REMINDER_DAYS_AHEAD = 2;
 let timer = null;
 
 async function tick() {
-  if (!(await emailEnabled())) return;
+  if (!(await emailService.emailEnabled())) return;
   try {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + WINDOW_BEFORE_MS);
@@ -59,14 +62,14 @@ async function tick() {
         await bk.update({ reminderSentAt: now });
         continue;
       }
-      await sendBookingEmail({ user: bk.user, booking: bk, kind: 'reminder' });
+      await emailService.sendBookingEmail({ user: bk.user, booking: bk, kind: 'reminder' });
       await bk.update({ reminderSentAt: now });
     }
     if (due.length > 0) {
-      console.log(`[reminder] ${due.length} promemoria inviati`);
+      logger.info({ count: due.length, scope: 'reminder.bookings' }, 'reminder bookings sent');
     }
   } catch (err) {
-    console.error('[reminder] errore tick:', err.message);
+    logger.error({ err: err.message, scope: 'reminder.bookings' }, 'reminder tick failed');
   }
 }
 
@@ -74,7 +77,7 @@ async function tick() {
 // Tick prestiti strumenti — reminder + overdue
 // =========================================================
 async function tickLoans() {
-  if (!(await emailEnabled())) return;
+  if (!(await emailService.emailEnabled())) return;
   const today = dayjs().startOf('day');
   const minRemind = today.add(1, 'day').format('YYYY-MM-DD'); // domani
   const maxRemind = today.add(LOAN_REMINDER_DAYS_AHEAD, 'day').format('YYYY-MM-DD');
@@ -98,11 +101,15 @@ async function tickLoans() {
         await loan.update({ reminderSentAt: new Date() });
         continue;
       }
-      await sendInstrumentLoanEmail({ user: loan.user, loan, kind: 'loan_reminder' });
+      await instrumentLoanEmail.sendInstrumentLoanEmail({
+        user: loan.user,
+        loan,
+        kind: 'loan_reminder',
+      });
       await loan.update({ reminderSentAt: new Date() });
     }
     if (due.length > 0) {
-      console.log(`[reminder][loans] ${due.length} promemoria scadenza inviati`);
+      logger.info({ count: due.length, scope: 'reminder.loans.due' }, 'reminder loans due sent');
     }
 
     // ---- Overdue (toDate < oggi, ancora active, mai notificato) ----
@@ -126,17 +133,20 @@ async function tickLoans() {
           { model: Instrument, as: 'instrument' },
         ],
       });
-      await sendInstrumentLoanEmail({
+      await instrumentLoanEmail.sendInstrumentLoanEmail({
         user: refreshed.user,
         loan: refreshed,
         kind: 'loan_overdue',
       });
     }
     if (overdue.length > 0) {
-      console.log(`[reminder][loans] ${overdue.length} prestiti marcati overdue + notificati`);
+      logger.info(
+        { count: overdue.length, scope: 'reminder.loans.overdue' },
+        'reminder loans overdue marked',
+      );
     }
   } catch (err) {
-    console.error('[reminder][loans] errore tick:', err.message);
+    logger.error({ err: err.message, scope: 'reminder.loans' }, 'reminder loans tick failed');
   }
 }
 
@@ -172,7 +182,7 @@ async function tickGhostCancel() {
     const due = candidates.filter((bk) => bk.room?.requireCheckIn !== false);
     if (due.length === 0) return;
 
-    const emailOn = await emailEnabled();
+    const emailOn = await emailService.emailEnabled();
     for (const bk of due) {
       await bk.update({
         status: 'cancelled',
@@ -188,16 +198,14 @@ async function tickGhostCancel() {
             { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
           ],
         });
-        sendBookingEmail({ user: fresh.user, booking: fresh, kind: 'ghost_cancellation' }).catch(
-          () => {},
-        );
+        emailService
+          .sendBookingEmail({ user: fresh.user, booking: fresh, kind: 'ghost_cancellation' })
+          .catch(() => {});
       }
     }
-    console.log(
-      `[reminder][ghost] ${due.length} prenotazioni auto-cancellate per mancato check-in`,
-    );
+    logger.info({ count: due.length, scope: 'reminder.ghost' }, 'ghost-cancel sweep done');
   } catch (err) {
-    console.error('[reminder][ghost] errore tick:', err.message);
+    logger.error({ err: err.message, scope: 'reminder.ghost' }, 'ghost-cancel tick failed');
   }
 }
 
@@ -212,9 +220,11 @@ async function tickWaitlist() {
   try {
     const { cleanupExpired } = require('./waitlistService');
     const n = await cleanupExpired();
-    if (n > 0) console.log(`[reminder][waitlist] processed ${n} expired entries`);
+    if (n > 0) {
+      logger.info({ count: n, scope: 'reminder.waitlist' }, 'waitlist expired entries processed');
+    }
   } catch (err) {
-    console.error('[reminder][waitlist] errore tick:', err.message);
+    logger.error({ err: err.message, scope: 'reminder.waitlist' }, 'waitlist tick failed');
   }
 }
 
@@ -242,4 +252,14 @@ function stop() {
   }
 }
 
-module.exports = { start, stop };
+module.exports = {
+  start,
+  stop,
+  // Esposti per test di integrazione (chiamare il tick deterministicamente
+  // invece di aspettare il setInterval). NON da usare in route handler.
+  tick,
+  tickLoans,
+  tickGhostCancel,
+  tickWaitlist,
+  tickAll,
+};

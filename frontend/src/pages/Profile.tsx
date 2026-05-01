@@ -8,7 +8,6 @@ import { Link } from 'react-router-dom';
 import {
   Bell,
   CheckCircle2,
-  Copyright,
   Download,
   Eye,
   EyeOff,
@@ -28,8 +27,6 @@ import { authApi } from '@/api/auth';
 import { TwoFaSection } from '@/components/profile/TwoFaSection';
 import { BotBindingsSection } from '@/components/profile/BotBindingsSection';
 import { coursesApi } from '@/api/courses';
-import { institutesApi } from '@/api/institutes';
-import { structureApi } from '@/api/structure';
 import { gdprApi } from '@/api/gdpr';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
 import { useTranslation } from 'react-i18next';
@@ -134,7 +131,6 @@ export default function Profile() {
       <PasswordSection isOAuthUser={!!(user.googleId ?? user.microsoftId)} />
       <TwoFaSection user={user} updateUser={updateUser} />
       <BotBindingsSection />
-      {user.role === 'admin' && <CopyrightSection />}
       <AccountSection user={user} />
       <PrivacySection user={user} />
     </div>
@@ -560,9 +556,6 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
 // Account meta info
 // =====================================================
 // =====================================================
-// Copyright section (admin only) — edit footer text shown app-wide
-// =====================================================
-// =====================================================
 // Notifications section — opt-in / opt-out email per tipologia
 // =====================================================
 function NotificationsSection({
@@ -691,105 +684,6 @@ function NotificationToggleRow({
       </div>
       <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} aria-label={title} />
     </div>
-  );
-}
-
-function CopyrightSection() {
-  const qc = useQueryClient();
-  const [serverError, setServerError] = useState<string | null>(null);
-
-  const instituteQuery = useQuery({
-    queryKey: ['institute', 'public'],
-    queryFn: () => institutesApi.public(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const institute = instituteQuery.data?.institute ?? null;
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { isSubmitting, isDirty },
-  } = useForm<{ copyright: string }>({
-    defaultValues: { copyright: '' },
-  });
-
-  useEffect(() => {
-    if (institute) reset({ copyright: institute.copyright ?? '' });
-  }, [institute, reset]);
-
-  const mutation = useMutation({
-    mutationFn: (values: { copyright: string }) => {
-      if (!institute?.id) throw new Error('Istituto non trovato');
-      return structureApi.updateInstitute(institute.id, {
-        copyright: values.copyright.trim() || null,
-      });
-    },
-    onSuccess: () => {
-      toast.success('Copyright aggiornato');
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
-    },
-    onError: (err) => {
-      setServerError(httpErrorMessage(err));
-    },
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 font-display text-xl">
-          <Copyright className="h-5 w-5 text-muted-foreground" />
-          Copyright applicazione
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={handleSubmit((v) => {
-            setServerError(null);
-            mutation.mutate(v);
-          })}
-          className="space-y-4"
-          noValidate
-        >
-          {serverError && (
-            <Alert variant="destructive">
-              <AlertDescription>{serverError}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="copyright-input">Testo del footer</Label>
-            <Input
-              id="copyright-input"
-              placeholder="Copyright © 2026 by Danilo Russo"
-              maxLength={255}
-              {...register('copyright')}
-            />
-            <p className="text-xs text-muted-foreground">
-              Visibile in fondo a tutte le pagine (login, area utente, kiosk monitor). Lascia vuoto
-              per mostrare il testo predefinito.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                reset({ copyright: institute?.copyright ?? '' });
-              }}
-              disabled={!isDirty || isSubmitting}
-            >
-              Reimposta
-            </Button>
-            <Button type="submit" disabled={!isDirty || isSubmitting}>
-              {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 'Salva'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
 

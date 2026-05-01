@@ -29,6 +29,7 @@ export default defineConfig({
       manifest: false, // manifest fornito staticamente da public/manifest.webmanifest
       includeAssets: [
         'manifest.webmanifest',
+        'cadenza.png',
         'icon-192.png',
         'icon-512.png',
         'icon-maskable-192.png',

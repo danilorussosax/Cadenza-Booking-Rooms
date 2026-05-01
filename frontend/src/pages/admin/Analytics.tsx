@@ -10,7 +10,6 @@ import {
   LineChart,
   Line,
   CartesianGrid,
-  Cell,
 } from 'recharts';
 import {
   Activity,
@@ -349,12 +348,7 @@ function TopRoomsChart({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
             labelFormatter={(_, p) => p[0]?.payload?.fullLabel ?? ''}
           />
-          <Bar dataKey="hours" radius={[0, 4, 4, 0]}>
-            {}
-            {chartData.map((_, i) => (
-              <Cell key={i} fill="#0ea5e9" />
-            ))}
-          </Bar>
+          <Bar dataKey="hours" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

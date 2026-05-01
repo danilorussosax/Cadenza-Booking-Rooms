@@ -339,7 +339,11 @@ export default function Display() {
                 className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
               />
             ) : (
-              <Music4 className="h-7 w-7 text-primary 2xl:h-10 2xl:w-10" />
+              <img
+                src="/cadenza.png"
+                alt=""
+                className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
+              />
             )}
           </div>
           <div>

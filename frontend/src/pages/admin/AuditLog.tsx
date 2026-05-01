@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CalendarRange, ChevronLeft, ChevronRight, ClipboardList, Search } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardList, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { auditLogApi, type AuditLogListParams } from '@/api/auditLog';
 import { dayjs } from '@/lib/date';
@@ -20,38 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { AdminBookingsContent } from '@/pages/admin/Bookings';
 import type { AuditLogEntry } from '@/types';
-
-// Macro-tab in stile pagina /admin/rules: card grandi con icona+label,
-// active state con bg-background + ring, sotto un header descrittivo.
-type ActivityTab = 'approvals' | 'log';
-interface ActivityTabDef {
-  value: ActivityTab;
-  labelKey: string;
-  descriptionKey: string;
-  icon: LucideIcon;
-  iconColor: string;
-  iconBg: string;
-}
-const ACTIVITY_TABS: ActivityTabDef[] = [
-  {
-    value: 'approvals',
-    labelKey: 'admin.activity.tab_approvals',
-    descriptionKey: 'admin.activity.tab_approvals_description',
-    icon: CalendarRange,
-    iconColor: 'text-primary',
-    iconBg: 'bg-primary/10',
-  },
-  {
-    value: 'log',
-    labelKey: 'admin.activity.tab_log',
-    descriptionKey: 'admin.activity.tab_log_description',
-    icon: ClipboardList,
-    iconColor: 'text-violet-600 dark:text-violet-400',
-    iconBg: 'bg-violet-100 dark:bg-violet-500/15',
-  },
-];
 
 const ACTION_VARIANT: Record<
   AuditLogEntry['action'],
@@ -66,77 +34,25 @@ const ACTION_VARIANT: Record<
 const PAGE_SIZE = 50;
 
 // =============================================================================
-// /admin/audit-log — pagina tabbed:
-//   1. Tab "Approvazioni"     → AdminBookingsContent (bulk-cancel prenotazioni
-//                                confermate; era la vecchia /admin/bookings)
-//   2. Tab "Registro attività" → tabella audit log filtri + paginazione
+// /admin/audit-log — Registro Log: tabella append-only delle azioni
+// amministrative su utenti/struttura/configurazioni. Filtri + paginazione.
 //
-// La rotta /admin/bookings ora redirige a questa pagina (vedi App.tsx) e la
-// voce di sidebar "Prenotazioni" è stata rimossa: tutto vive qui.
+// La gestione delle prenotazioni confermate (bulk-cancel) è stata estratta
+// nella pagina indipendente /admin/activity-log ("Registro attività"),
+// linkata in sidebar dopo "Approvazioni prenotazioni".
 // =============================================================================
 export default function AdminAuditLog() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<ActivityTab>('approvals');
-  const activeTab = ACTIVITY_TABS.find((tdef) => tdef.value === tab) ?? ACTIVITY_TABS[0];
-  const ActiveIcon = activeTab.icon;
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
           <ClipboardList className="h-6 w-6 text-violet-600 dark:text-violet-400" />
-          {t('admin.activity.title')}
+          {t('admin.audit_log.title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('admin.activity.subtitle')}</p>
+        <p className="text-sm text-muted-foreground">{t('admin.audit_log.subtitle')}</p>
       </header>
-
-      {/* Strip macro-tab in stile /admin/rules: card grandi con icona+label,
-          active state con bg-background + ring + colore icona acceso. */}
-      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
-        {ACTIVITY_TABS.map((tdef) => {
-          const Icon = tdef.icon;
-          const isActive = tdef.value === tab;
-          return (
-            <button
-              key={tdef.value}
-              type="button"
-              onClick={() => {
-                setTab(tdef.value);
-              }}
-              className={cn(
-                'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
-                isActive
-                  ? 'bg-background shadow-sm ring-1 ring-border'
-                  : 'text-muted-foreground hover:bg-background/60',
-              )}
-            >
-              <Icon className={cn('h-4 w-4', isActive ? tdef.iconColor : '')} />
-              <span className={cn('text-sm font-medium', isActive && 'text-foreground')}>
-                {t(tdef.labelKey)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Header descrittivo della tab attiva. */}
-      <Card>
-        <CardContent className="flex items-start gap-3 p-4">
-          <div className={cn('mt-0.5 rounded-lg p-2', activeTab.iconBg)}>
-            <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
-          </div>
-          <div className="space-y-0.5">
-            <h2 className="font-display text-lg font-medium leading-tight">
-              {t(activeTab.labelKey)}
-            </h2>
-            <p className="text-xs text-muted-foreground">{t(activeTab.descriptionKey)}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contenuti per tab */}
-      {tab === 'approvals' && <AdminBookingsContent />}
-      {tab === 'log' && <AuditLogTab />}
+      <AuditLogTab />
     </div>
   );
 }

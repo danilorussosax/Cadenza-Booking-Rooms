@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CalendarRange, Search, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, CalendarRange, Search, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { bookingsApi } from '@/api/bookings';
@@ -94,6 +94,23 @@ export function AdminBookingsContent() {
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
+  // Swap (Punto 1 ispirato a EasyRoom): scambio atomico room+orario tra
+  // due prenotazioni selezionate. Disponibile solo quando ne sono
+  // selezionate esattamente 2.
+  const swapMutation = useMutation({
+    mutationFn: () => {
+      const ids = Array.from(selected);
+      return bookingsApi.swap(ids[0], ids[1]);
+    },
+    onSuccess: () => {
+      toast.success('Prenotazioni scambiate');
+      void qc.invalidateQueries({ queryKey: ['admin', 'bookings'] });
+      void qc.invalidateQueries({ queryKey: ['bookings'] });
+      setSelected(new Set());
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
   return (
     <div className="space-y-6">
       <Card>
@@ -132,6 +149,26 @@ export function AdminBookingsContent() {
                 >
                   {t('admin.bookings.clear_selection')}
                 </Button>
+                {selected.size === 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          'Scambiare aula e orario tra le due prenotazioni selezionate?',
+                        )
+                      ) {
+                        swapMutation.mutate();
+                      }
+                    }}
+                    disabled={swapMutation.isPending}
+                    title="Scambia atomicamente aula e orario tra le due prenotazioni"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Scambia
+                  </Button>
+                )}
                 <Button
                   variant="destructive"
                   size="sm"

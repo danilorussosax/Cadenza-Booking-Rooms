@@ -8,16 +8,17 @@
  */
 
 const request = require('supertest');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 const { buildApp } = require('../../app');
 const { User } = require('../../models');
 const { createAdmin, createUser } = require('../factories');
 
-function buildXlsxBuffer(rows) {
-  const ws = xlsx.utils.aoa_to_sheet(rows);
-  const wb = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(wb, ws, 'Isidata');
-  return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+async function buildXlsxBuffer(rows) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Isidata');
+  rows.forEach((r) => ws.addRow(r));
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf);
 }
 
 describe('POST /api/admin/integrations/isidata-csv', () => {
@@ -56,7 +57,7 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
       externalId: '99999',
     });
 
-    const buf = buildXlsxBuffer([
+    const buf = await buildXlsxBuffer([
       ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo', 'Stato'],
       ['12345', 'Rossi', 'Mario', 'mario.rossi@conservatorio.it', 'studente', 'attivo'],
       ['77777', 'Bianchi', 'Anna', 'anna@conservatorio.it', 'studente', 'attivo'],
@@ -107,7 +108,7 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
       externalId: 'A200',
     });
 
-    const buf = buildXlsxBuffer([
+    const buf = await buildXlsxBuffer([
       ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
       ['A100', 'NewName', 'Old', 'foo@x.test', 'studente'],
       ['A300', 'Bianchi', 'Anna', 'anna@x.test', 'studente'],
@@ -161,7 +162,7 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
   it('apply: rifiuta con HASH_MISMATCH se il client manda un hash sbagliato', async () => {
     const { token: adminTok } = await createAdmin();
 
-    const buf = buildXlsxBuffer([
+    const buf = await buildXlsxBuffer([
       ['Matricola', 'Cognome', 'Nome'],
       ['B100', 'Test', 'Hash'],
     ]);
@@ -186,7 +187,7 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
     const { token: adminTokA } = await createAdmin();
     const { token: adminTokB } = await createAdmin();
 
-    const buf = buildXlsxBuffer([
+    const buf = await buildXlsxBuffer([
       ['Matricola', 'Cognome', 'Nome'],
       ['C1', 'Test', 'Sec'],
     ]);
@@ -210,7 +211,7 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
     const { token: studentTok } = await require('../factories').createAuthedUser({
       role: 'studente',
     });
-    const buf = buildXlsxBuffer([['Matricola'], ['1']]);
+    const buf = await buildXlsxBuffer([['Matricola'], ['1']]);
     const res = await request(app)
       .post('/api/admin/integrations/isidata-csv/preview')
       .set('Authorization', `Bearer ${studentTok}`)

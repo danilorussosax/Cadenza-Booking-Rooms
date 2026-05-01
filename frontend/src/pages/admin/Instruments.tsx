@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -29,7 +31,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -50,6 +52,60 @@ import type {
 } from '@/types';
 
 type Tab = 'inventory' | 'all_loans' | 'overdue' | 'expiring' | 'rules';
+
+interface TabDef {
+  value: Tab;
+  labelKey: string;
+  descriptionKey: string;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+}
+
+const TAB_DEFS: TabDef[] = [
+  {
+    value: 'inventory',
+    labelKey: 'admin.instruments.tabs.inventory',
+    descriptionKey: 'admin.instruments.tabs.inventory_description',
+    icon: Boxes,
+    iconColor: 'text-sky-600 dark:text-sky-400',
+    iconBg: 'bg-sky-100 dark:bg-sky-500/15',
+  },
+  {
+    value: 'all_loans',
+    labelKey: 'admin.instruments.tabs.all_loans',
+    descriptionKey: 'admin.instruments.tabs.all_loans_description',
+    icon: ArrowLeftRight,
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    iconBg: 'bg-violet-100 dark:bg-violet-500/15',
+  },
+  {
+    value: 'overdue',
+    labelKey: 'admin.instruments.tabs.overdue',
+    descriptionKey: 'admin.instruments.tabs.overdue_description',
+    icon: AlertTriangle,
+    iconColor: 'text-rose-600 dark:text-rose-400',
+    iconBg: 'bg-rose-100 dark:bg-rose-500/15',
+  },
+  {
+    value: 'expiring',
+    labelKey: 'admin.instruments.tabs.expiring',
+    descriptionKey: 'admin.instruments.tabs.expiring_description',
+    icon: Hourglass,
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-500/15',
+  },
+  {
+    value: 'rules',
+    labelKey: 'admin.instruments.tabs.rules',
+    descriptionKey: 'admin.instruments.tabs.rules_description',
+    icon: ShieldCheck,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconBg: 'bg-amber-100 dark:bg-amber-500/15',
+  },
+];
+
+const VALID_INSTR_TABS = TAB_DEFS.map((t) => t.value);
 
 const FAMILY_KEYS: InstrumentFamily[] = [
   'archi',
@@ -80,7 +136,19 @@ const STATUS_VARIANT: Record<LoanStatus, 'success' | 'secondary' | 'muted' | 'de
 
 export default function AdminInstruments() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('inventory');
+  const [params, setParams] = useSearchParams();
+  const initialTab = params.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    initialTab && VALID_INSTR_TABS.includes(initialTab as Tab) ? (initialTab as Tab) : 'inventory',
+  );
+  const activeTab = TAB_DEFS.find((td) => td.value === tab) ?? TAB_DEFS[0];
+  const ActiveIcon = activeTab.icon;
+  const onSelectTab = (next: Tab) => {
+    setTab(next);
+    const np = new URLSearchParams(params);
+    np.set('tab', next);
+    setParams(np, { replace: true });
+  };
   const [editTarget, setEditTarget] = useState<Instrument | null>(null);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -137,36 +205,52 @@ export default function AdminInstruments() {
         </div>
       </header>
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as Tab);
-        }}
-      >
-        <TabsList>
-          <TabsTrigger value="inventory" className="gap-1.5">
-            <Boxes className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
-            {t('admin.instruments.tabs.inventory')}
-          </TabsTrigger>
-          <TabsTrigger value="all_loans" className="gap-1.5">
-            <ArrowLeftRight className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-            {t('admin.instruments.tabs.all_loans')}
-          </TabsTrigger>
-          <TabsTrigger value="overdue" className="gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-            {t('admin.instruments.tabs.overdue')}
-          </TabsTrigger>
-          <TabsTrigger value="expiring" className="gap-1.5">
-            <Hourglass className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            {t('admin.instruments.tabs.expiring')}
-          </TabsTrigger>
-          <TabsTrigger value="rules" className="gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-            {t('admin.instruments.tabs.rules')}
-          </TabsTrigger>
-        </TabsList>
+      {/* Strip macro-tab in stile /admin/server-settings */}
+      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2 lg:grid-cols-5">
+        {TAB_DEFS.map((td) => {
+          const Icon = td.icon;
+          const isActive = td.value === tab;
+          return (
+            <button
+              key={td.value}
+              type="button"
+              onClick={() => {
+                onSelectTab(td.value);
+              }}
+              className={cn(
+                'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
+                isActive
+                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  : 'text-muted-foreground hover:bg-background/60',
+              )}
+            >
+              <Icon className={cn('h-4 w-4', isActive ? td.iconColor : '')} />
+              <span className={cn('text-sm font-medium', isActive && 'text-foreground')}>
+                {t(td.labelKey)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        <TabsContent value="inventory" className="space-y-4">
+      {/* Header descrittivo della tab attiva */}
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4">
+          <div className={cn('mt-0.5 rounded-lg p-2', activeTab.iconBg)}>
+            <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-display text-lg font-medium leading-tight">
+              {t(activeTab.labelKey)}
+            </h2>
+            <p className="text-xs text-muted-foreground">{t(activeTab.descriptionKey)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contenuti per tab */}
+      <div className="space-y-4">
+        {tab === 'inventory' && (
           <InventoryTab
             onEdit={(it) => {
               setEditTarget(it);
@@ -176,24 +260,12 @@ export default function AdminInstruments() {
               setDeleteTarget(it);
             }}
           />
-        </TabsContent>
-
-        <TabsContent value="all_loans" className="space-y-4">
-          <LoansTab kind="all" />
-        </TabsContent>
-
-        <TabsContent value="overdue" className="space-y-4">
-          <LoansTab kind="overdue" />
-        </TabsContent>
-
-        <TabsContent value="expiring" className="space-y-4">
-          <LoansTab kind="expiring" />
-        </TabsContent>
-
-        <TabsContent value="rules" className="space-y-4">
-          <InstrumentLoanRulesTab />
-        </TabsContent>
-      </Tabs>
+        )}
+        {tab === 'all_loans' && <LoansTab kind="all" />}
+        {tab === 'overdue' && <LoansTab kind="overdue" />}
+        {tab === 'expiring' && <LoansTab kind="expiring" />}
+        {tab === 'rules' && <InstrumentLoanRulesTab />}
+      </div>
 
       <InstrumentFormDialog open={creating} onOpenChange={setCreating} />
       <InstrumentFormDialog

@@ -20,6 +20,7 @@ import {
   PackageOpen,
   Scale,
   Server,
+  Tag,
   Users,
   UserRound,
   X,
@@ -37,6 +38,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { AppFooter } from '@/components/AppFooter';
 import { ConsentGate } from '@/components/legal/ConsentGate';
+import { useAppIcon } from '@/hooks/useAppIcon';
 import type { Role } from '@/types';
 
 interface NavItem {
@@ -77,12 +79,30 @@ const ADMIN_NAV: NavItem[] = [
   // le prenotazioni ricorrenti.
   { to: '/admin/monte-ore', labelKey: 'nav.admin_monte_ore', icon: Clock, roles: ['admin'] },
   { to: '/admin/rules', labelKey: 'nav.admin_rules', icon: Scale, roles: ['admin'] },
+  // Tipi prenotazione (catalog admin) — sotto Regole, semanticamente è
+  // configurazione del catalogo che alimenta il dropdown del booking form.
+  {
+    to: '/admin/booking-types',
+    labelKey: 'nav.admin_booking_types',
+    icon: Tag,
+    roles: ['admin'],
+  },
   // "Approvazioni" sotto "Regole" (richiesto dall'utente):
   // semanticamente l'approvazione è un'estensione delle regole.
   {
     to: '/admin/approvals',
     labelKey: 'nav.admin_approvals',
     icon: ClipboardCheck,
+    roles: ['admin'],
+  },
+  // "Registro attività" — promossa da sub-tab di /admin/audit-log a voce
+  // autonoma in sidebar (gestione prenotazioni confermate: ricerca,
+  // filtri, bulk-cancel, swap atomico). Posizionata subito dopo
+  // "Approvazione prenotazioni" come richiesto.
+  {
+    to: '/admin/activity-log',
+    labelKey: 'nav.admin_activity_log',
+    icon: ClipboardList,
     roles: ['admin'],
   },
   { to: '/admin/structure', labelKey: 'nav.admin_structure', icon: Building2, roles: ['admin'] },
@@ -114,6 +134,7 @@ function userInitials(firstName?: string, lastName?: string) {
 
 export function AppLayout() {
   const { user, logout, hasRole } = useAuth();
+  const appIcon = useAppIcon();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -240,7 +261,7 @@ export function AppLayout() {
                   className="h-6 w-6 object-contain sm:h-8 sm:w-8"
                 />
               ) : (
-                <img src="/cadenza.png" alt="" className="h-6 w-6 object-contain sm:h-8 sm:w-8" />
+                <img src={appIcon} alt="" className="h-6 w-6 object-contain sm:h-8 sm:w-8" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -358,13 +379,10 @@ function SidebarBrand({
   institute?: { name: string; logoUrl?: string | null } | null;
   compact?: boolean;
 }) {
+  const appIcon = useAppIcon();
   return (
     <div className={cn('flex items-center gap-3 px-5', compact ? 'py-1' : 'py-5')}>
-      <img
-        src="/cadenza.png"
-        alt="Cadenza"
-        className="h-10 w-10 shrink-0 rounded-lg object-contain"
-      />
+      <img src={appIcon} alt="Cadenza" className="h-10 w-10 shrink-0 rounded-lg object-contain" />
       <div className="min-w-0 leading-tight">
         <p className="truncate font-display text-lg font-semibold tracking-tight text-primary">
           Cadenza

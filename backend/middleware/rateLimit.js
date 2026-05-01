@@ -141,6 +141,19 @@ const icalLimiter = rateLimit({
   handler: buildHandler({ logHint: 'ical' }),
 });
 
+// Prenotazioni ricorrenti: una singola chiamata genera fino a 52 booking
+// con altrettante validate+insert. Senza limit dedicato un utente (o un
+// attaccante con credenziali) può saturare il pool DB con poche chiamate.
+// 5 chiamate/ora/utente: equivale a poter ri-pianificare 5 sessioni
+// ricorrenti distinte all'ora — più che sufficiente per uso umano.
+const recurringBookingLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  keyGenerator: (req, res) => (req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req, res)),
+  handler: buildHandler({ logHint: 'recurring_booking' }),
+});
+
 module.exports = {
   loginLimiter: wrap(loginLimiter),
   registerLimiter: wrap(registerLimiter),
@@ -149,4 +162,5 @@ module.exports = {
   tfaVerifyLimiter: wrap(tfaVerifyLimiter),
   tfaResendLimiter: wrap(tfaResendLimiter),
   icalLimiter: wrap(icalLimiter),
+  recurringBookingLimiter: wrap(recurringBookingLimiter),
 };

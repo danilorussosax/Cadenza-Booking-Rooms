@@ -46,6 +46,15 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      // Icona "app" (brand mark) usata su login, sidebar, schermi di benvenuto.
+      // Distinto dal logoUrl: quello è il logo dell'istituto (nel topbar);
+      // questo è la marca visiva di Cadenza scelta tra le icone disponibili
+      // in `frontend/public/logo-app/`. NULL = default (`/cadenza.png`).
+      // Solo gli admin possono modificarla (whitelist INSTITUTE_FIELDS).
+      appIconUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       // Testo di copyright mostrato nei footer dell'app (configurabile dagli admin)
       copyright: {
         type: DataTypes.STRING(255),
@@ -120,6 +129,21 @@ module.exports = (sequelize) => {
         type: DataTypes.JSON,
         allowNull: false,
         defaultValue: [],
+      },
+      // ===== Moduli attivabili =====
+      // Toggle puramente di presentazione: la logica di backend resta
+      // sempre attiva (le rotte e le tabelle continuano a funzionare),
+      // ma quando false la voce di menu corrispondente non viene mostrata
+      // nella sidebar. Default true per non rompere installazioni esistenti.
+      moduleMonteOreEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      moduleInstrumentLoansEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
       },
     },
     {

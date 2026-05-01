@@ -44,6 +44,35 @@ export interface User {
    *  server-side e non sono inclusi nelle response (toSafeJSON ne strippa). */
   twoFaEnabled?: boolean;
   twoFaActivatedAt?: string | null;
+  /** Monte Ore — deroga individuale (contratto orario / casi speciali). */
+  contractType?: ContractType | null;
+  monteOreAnnualHoursOverride?: number | null;
+  monteOreBypassDayConstraint?: boolean;
+  monteOreOverrideReason?: string | null;
+  monteOreOverrideSetAt?: string | null;
+  monteOreOverrideSetBy?: number | null;
+}
+
+// Tipologie di sistema (sempre presenti, non cancellabili). Le custom create
+// dall'admin sono semplici stringhe (slug) — il typing usa string per
+// compatibilità con valori arbitrari runtime.
+export type SystemContractType = 'titolare' | 'contratto_orario' | 'supplente' | 'altro';
+export type ContractType = SystemContractType | (string & {});
+
+/** Record runtime di una tipologia contrattuale (anagrafica admin). */
+export interface ContractTypeRow {
+  id: number;
+  instituteId: number;
+  code: string;
+  label: string;
+  defaultHours: number | null;
+  bypassDayConstraintDefault: boolean;
+  isSystem: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SubProcessor {
@@ -75,6 +104,8 @@ export interface Institute extends InstituteLegalFields {
   timezone?: string;
   description?: string | null;
   logoUrl?: string | null;
+  /** Icona app scelta dall'admin (file in /logo-app/). NULL = default `/cadenza.png`. */
+  appIconUrl?: string | null;
   copyright?: string | null;
 }
 
@@ -86,7 +117,13 @@ export interface PublicInstitute extends InstituteLegalFields {
   city?: string | null;
   country?: string | null;
   logoUrl?: string | null;
+  /** Icona app correntemente attiva — letta da tutti i client per propagare la scelta dell'admin. */
+  appIconUrl?: string | null;
   copyright?: string | null;
+  /** Module flag: mostra/nasconde la voce "Monte ore" nella sidebar. */
+  moduleMonteOreEnabled?: boolean;
+  /** Module flag: mostra/nasconde "Strumenti" e "I miei prestiti". */
+  moduleInstrumentLoansEnabled?: boolean;
 }
 
 export interface Building {
@@ -167,6 +204,24 @@ export interface Room {
 }
 
 export type BookingType = 'studio_individuale' | 'lezione' | 'prova' | 'concerto' | 'altro';
+
+/**
+ * Catalogo configurabile dei tipi prenotazione (gap #7 EasyRoom parity).
+ * I 5 valori `code` corrispondono a `BookingType` ENUM legacy backend; in
+ * questa release l'admin può personalizzare label/color/icon/sortOrder/...
+ * ma non aggiungere nuovi tipi (richiede migration ENUM formale).
+ */
+export interface BookingTypeCatalog {
+  code: BookingType;
+  label: string;
+  color: string; // #RRGGBB
+  icon: string; // nome icona lucide-react (es. 'GraduationCap', 'Mic', 'Music')
+  sortOrder: number;
+  isActive: boolean;
+  isSystem: boolean;
+  defaultDurationMinutes: number | null;
+  description: string | null;
+}
 export type BookingStatus =
   | 'confirmed'
   | 'cancelled'
@@ -233,6 +288,7 @@ export interface BookingRule {
   maxAdvanceDays: number;
   minAdvanceHours: number;
   cancellationDeadlineHours: number;
+  minIntervalBetweenBookingsMinutes: number;
   allowRecurring: boolean;
   allowNightHours: boolean;
   allowedStartTime: string;

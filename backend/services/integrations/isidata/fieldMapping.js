@@ -200,10 +200,25 @@ function applyMapping(row, headerMap) {
   const courseCode = pick(row, headerMap, 'courseCode');
   const courseName = pick(row, headerMap, 'courseName');
 
+  // Fallback externalId quando manca matricola/id ma c'è email: usiamo
+  // un prefisso `email_<sha-troncato>` invece di includere l'email cruda.
+  // L'email cruda finisce sintetizzata in `import-${externalId}@imported.local`
+  // dal route handler quando manca; un externalId tipo `email:foo@bar.com`
+  // generava un local-part con `:` e `@` interni → `isEmail` falliva.
+  let resolvedExternalId = externalId;
+  if (!resolvedExternalId && email) {
+    const tag = require('crypto')
+      .createHash('sha1')
+      .update(email.toLowerCase())
+      .digest('hex')
+      .slice(0, 12);
+    resolvedExternalId = `email_${tag}`;
+  }
+
   return {
     ok: true,
     user: {
-      externalId: externalId || (email ? `email:${email.toLowerCase()}` : null),
+      externalId: resolvedExternalId,
       email: email ? email.toLowerCase() : null,
       firstName: fn,
       lastName: ln,
@@ -217,6 +232,41 @@ function applyMapping(row, headerMap) {
   };
 }
 
+/**
+ * Valida e restituisce una versione "safe" di mappingOverrides ricevuto dal
+ * client. L'admin invia JSON arbitrario: non vogliamo fidarci della shape.
+ *
+ * Regole:
+ *   - dev'essere un plain object (no array, no null);
+ *   - solo le chiavi note (DEFAULT_ALIASES) sono accettate, le altre vengono
+ *     droppate silenziosamente — nessun pollution su targets sconosciuti;
+ *   - i valori devono essere stringhe non-vuote ≤ 100 char (header reale del
+ *     file); altri tipi vengono droppati;
+ *   - se l'input è null/undefined, restituiamo null (mapping default).
+ *
+ * Lancia un Error con `code='VALIDATION_FAILED'` se l'input non è null/object.
+ */
+function sanitizeOverrides(input) {
+  if (input === null || input === undefined) return null;
+  if (typeof input !== 'object' || Array.isArray(input)) {
+    const e = new Error('mappingOverrides deve essere un oggetto');
+    e.code = 'VALIDATION_FAILED';
+    throw e;
+  }
+  const out = {};
+  const allowed = Object.keys(DEFAULT_ALIASES);
+  for (const k of allowed) {
+    // Hasown via Object.prototype per gestire oggetti senza prototype.
+    if (!Object.prototype.hasOwnProperty.call(input, k)) continue;
+    const v = input[k];
+    if (typeof v !== 'string') continue;
+    const trimmed = v.trim();
+    if (!trimmed || trimmed.length > 100) continue;
+    out[k] = trimmed;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 module.exports = {
   normalizeHeader,
   resolveHeader,
@@ -224,5 +274,6 @@ module.exports = {
   applyMapping,
   coerceRole,
   coerceStatus,
+  sanitizeOverrides,
   DEFAULT_ALIASES,
 };

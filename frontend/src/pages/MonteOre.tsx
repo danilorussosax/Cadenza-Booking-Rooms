@@ -5,6 +5,7 @@ import {
   CalendarRange,
   CheckCircle2,
   Clock,
+  Info,
   Plus,
   Send,
   Trash2,
@@ -81,7 +82,18 @@ export default function MonteOre() {
     queryFn: () => monteOreApi.getMine(),
   });
 
+  // Soglia personalizzata (override) — null se l'utente non è un docente.
+  // Il banner viene mostrato solo se l'admin ha impostato un override (source
+  // === 'user_override') o se il bypass del vincolo 2-4 giorni è attivo.
+  const thresholdQuery = useQuery({
+    queryKey: ['monte-ore', 'me', 'threshold'],
+    queryFn: () => monteOreApi.getMyThreshold(),
+  });
+
   const proposal = proposalQuery.data?.proposal;
+  const threshold = thresholdQuery.data;
+  const hasIndividualOverride =
+    threshold?.source === 'user_override' || threshold?.bypassDayConstraint === true;
   const isLocked = proposal && !['draft', 'rejected'].includes(proposal.status);
 
   const updateMutation = useMutation({
@@ -165,6 +177,27 @@ export default function MonteOre() {
         </div>
       </header>
 
+      {hasIndividualOverride && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-medium">
+              Soglia Monte Ore personalizzata: {threshold.minHours} ore/anno
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {threshold.contractType === 'contratto_orario' && (
+                <>Tipo contratto: contratto orario · </>
+              )}
+              {threshold.contractType === 'supplente' && <>Tipo contratto: supplente · </>}
+              {threshold.contractType === 'altro' && <>Tipo contratto: altro · </>}
+              Vincolo 2-4 giorni/settimana:{' '}
+              {threshold.bypassDayConstraint ? 'NON applicato' : 'applicato'}.
+              {' Per modifiche contattare la Direzione.'}
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Riepilogo + range */}
       <Card>
         <CardHeader>
@@ -208,9 +241,32 @@ export default function MonteOre() {
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Ore totali (calcolate)
             </Label>
-            <p className="font-display text-2xl font-medium tabular-nums">
-              {proposal.totalHoursRequested.toFixed(1)} h
-            </p>
+            {threshold ? (
+              <div>
+                <p className="font-display text-2xl font-medium tabular-nums leading-tight">
+                  <span
+                    className={
+                      proposal.totalHoursRequested >= threshold.minHours
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }
+                  >
+                    {proposal.totalHoursRequested.toFixed(1)}
+                  </span>
+                  <span className="text-muted-foreground"> / {threshold.minHours} h</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {proposal.totalHoursRequested >= threshold.minHours
+                    ? '✓ Soglia raggiunta'
+                    : `Mancano ${(threshold.minHours - proposal.totalHoursRequested).toFixed(1)} h`}
+                  {threshold.source === 'user_override' && ' · soglia personalizzata'}
+                </p>
+              </div>
+            ) : (
+              <p className="font-display text-2xl font-medium tabular-nums">
+                {proposal.totalHoursRequested.toFixed(1)} h
+              </p>
+            )}
           </div>
           <div className="sm:col-span-3">
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -354,6 +410,8 @@ export default function MonteOre() {
       <MonteOreGrid
         proposalStatus={proposal.status}
         isPatternEmpty={proposal.schedules.length === 0}
+        minHoursOverride={threshold?.source === 'user_override' ? threshold.minHours : null}
+        isOverriddenThreshold={threshold?.source === 'user_override'}
       />
 
       {/* Dialog: aggiungi/modifica riga */}

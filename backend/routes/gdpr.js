@@ -34,6 +34,7 @@ const {
   Room,
   Building,
   Instrument,
+  MonteOreProposal,
 } = require('../models');
 const { authenticate, requireApproved } = require('../middleware/auth');
 const { gdprLimiter } = require('../middleware/rateLimit');
@@ -248,10 +249,22 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
         },
       );
 
+      // User è paranoid: la CASCADE FK non scatta. Eliminiamo a mano le
+      // proposte Monte Ore (con schedules/slots/amendments via CASCADE).
+      // Coerente con il diritto all'oblio: i piani didattici dell'utente
+      // anonimizzato non devono restare nella pagina "Gestione Monte ore".
+      const removedMonteOreProposals = await MonteOreProposal.destroy({
+        where: { userId },
+        transaction: t,
+      });
+
       // Soft-delete dell'utente (paranoid → deletedAt valorizzato).
       await user.destroy({ transaction: t });
 
-      return { cancelledFutureBookings: cancelledFuture[0] || 0 };
+      return {
+        cancelledFutureBookings: cancelledFuture[0] || 0,
+        removedMonteOreProposals,
+      };
     });
 
     await writeGdprAudit({

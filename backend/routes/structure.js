@@ -18,6 +18,62 @@ const {
 } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { importStructure } = require('../services/structureImporter');
+const { pickAllowed, ValidationError } = require('../lib/sanitize');
+
+// Whitelist dei campi assegnabili da admin via REST (anti mass-assignment).
+// Esclude esplicitamente: id, deletedAt, createdAt, updatedAt, qrToken (gestito
+// solo da endpoint dedicati /qr/regenerate).
+const BUILDING_ALLOWED = {
+  instituteId: { type: 'integer', min: 1 },
+  name: { type: 'string', maxLength: 100 },
+  code: { type: 'string', maxLength: 50, nullable: true },
+  address: { type: 'string', maxLength: 255, nullable: true },
+  floors: 'json', // array di stringhe; validazione di forma a livello model
+  description: { type: 'string', nullable: true },
+  displayEnabled: 'boolean',
+  displayIntervalSec: { type: 'integer', min: 5, max: 600 },
+  displayConcertsDays: { type: 'integer', min: 0, max: 365 },
+  displayConcertsEnabled: 'boolean',
+  displayConcertsCount: { type: 'integer', min: 0, max: 100 },
+  displayConcertsIntervalSec: { type: 'integer', min: 1, max: 600 },
+  displayBookingsEnabled: 'boolean',
+  displayAnnouncementsEnabled: 'boolean',
+  displayAnnouncementsCount: { type: 'integer', min: 0, max: 100 },
+  displayAnnouncementsIntervalSec: { type: 'integer', min: 1, max: 600 },
+  displayAnnouncementsPinnedOnly: 'boolean',
+};
+
+const ROOM_ALLOWED = {
+  buildingId: { type: 'integer', min: 1 },
+  name: { type: 'string', maxLength: 100 },
+  code: { type: 'string', maxLength: 50, nullable: true },
+  floor: { type: 'string', maxLength: 50, nullable: true },
+  capacity: { type: 'integer', min: 0, max: 10000, nullable: true },
+  type: {
+    type: 'enum',
+    values: ['studio', 'aula', 'concerto', 'ufficio', 'sala_prove', 'altro'],
+  },
+  allowedRoles: 'json',
+  allowedCourseIds: 'json',
+  isBookable: 'boolean',
+  requireCheckIn: 'boolean',
+  requiresApproval: 'boolean',
+  notes: { type: 'string', nullable: true },
+  // photoUrl: gestito da POST /rooms/:id/photo, NON da PUT
+  // qrToken: gestito da POST /rooms/:id/qr/regenerate, NON da PUT
+};
+
+const EQUIPMENT_ALLOWED = {
+  roomId: { type: 'integer', min: 1, nullable: true },
+  name: { type: 'string', maxLength: 100 },
+  type: { type: 'string', maxLength: 50, nullable: true },
+  brand: { type: 'string', maxLength: 100, nullable: true },
+  model: { type: 'string', maxLength: 100, nullable: true },
+  quantity: { type: 'integer', min: 0, max: 10000, nullable: true },
+  serialNumber: { type: 'string', maxLength: 100, nullable: true },
+  notes: { type: 'string', nullable: true },
+  isWorking: 'boolean',
+};
 
 // =========================================================
 // Multer: upload del logo istituto su backend/uploads
@@ -255,6 +311,7 @@ router.get('/institutes/public', async (req, res) => {
     'name',
     'code',
     'logoUrl',
+    'appIconUrl',
     'address',
     'city',
     'country',
@@ -367,6 +424,7 @@ const INSTITUTE_FIELDS = [
   'timezone',
   'description',
   'logoUrl',
+  'appIconUrl',
   'copyright',
   'legalName',
   'vatNumber',
@@ -645,9 +703,14 @@ router.post(
     if (!errs.isEmpty())
       return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
     try {
-      const building = await Building.create(req.body);
+      const building = await Building.create(pickAllowed(req.body, BUILDING_ALLOWED));
       res.status(201).json({ building });
     } catch (err) {
+      if (err instanceof ValidationError) {
+        return res
+          .status(err.status)
+          .json({ error: err.message, code: err.code, field: err.field });
+      }
       res.status(500).json({ error: 'Errore creazione edificio', details: err.message });
     }
   },
@@ -697,11 +760,18 @@ router.post(
   },
 );
 
-router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res) => {
-  const b = await Building.findByPk(req.params.id);
-  if (!b) return res.status(404).json({ error: 'Edificio non trovato' });
-  await b.update(req.body);
-  res.json({ building: b });
+router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const b = await Building.findByPk(req.params.id);
+    if (!b) return res.status(404).json({ error: 'Edificio non trovato' });
+    await b.update(pickAllowed(req.body, BUILDING_ALLOWED));
+    res.json({ building: b });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
+    }
+    next(err);
+  }
 });
 
 router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
@@ -916,20 +986,36 @@ router.post(
   authenticate,
   requireRole('admin'),
   [body('buildingId').isInt(), body('name').notEmpty().trim(), body('floor').notEmpty().trim()],
-  async (req, res) => {
-    const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
-    const room = await Room.create(req.body);
-    res.status(201).json({ room });
+  async (req, res, next) => {
+    try {
+      const errs = validationResult(req);
+      if (!errs.isEmpty())
+        return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+      const room = await Room.create(pickAllowed(req.body, ROOM_ALLOWED));
+      res.status(201).json({ room });
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return res
+          .status(err.status)
+          .json({ error: err.message, code: err.code, field: err.field });
+      }
+      next(err);
+    }
   },
 );
 
-router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res) => {
-  const r = await Room.findByPk(req.params.id);
-  if (!r) return res.status(404).json({ error: 'Aula non trovata' });
-  await r.update(req.body);
-  res.json({ room: r });
+router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const r = await Room.findByPk(req.params.id);
+    if (!r) return res.status(404).json({ error: 'Aula non trovata' });
+    await r.update(pickAllowed(req.body, ROOM_ALLOWED));
+    res.json({ room: r });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
+    }
+    next(err);
+  }
 });
 
 // =========================================================
@@ -1183,20 +1269,36 @@ router.post(
   authenticate,
   requireRole('admin'),
   [body('roomId').isInt(), body('name').notEmpty().trim()],
-  async (req, res) => {
-    const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
-    const eq = await Equipment.create(req.body);
-    res.status(201).json({ equipment: eq });
+  async (req, res, next) => {
+    try {
+      const errs = validationResult(req);
+      if (!errs.isEmpty())
+        return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+      const eq = await Equipment.create(pickAllowed(req.body, EQUIPMENT_ALLOWED));
+      res.status(201).json({ equipment: eq });
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return res
+          .status(err.status)
+          .json({ error: err.message, code: err.code, field: err.field });
+      }
+      next(err);
+    }
   },
 );
 
-router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res) => {
-  const e = await Equipment.findByPk(req.params.id);
-  if (!e) return res.status(404).json({ error: 'Attrezzatura non trovata' });
-  await e.update(req.body);
-  res.json({ equipment: e });
+router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const e = await Equipment.findByPk(req.params.id);
+    if (!e) return res.status(404).json({ error: 'Attrezzatura non trovata' });
+    await e.update(pickAllowed(req.body, EQUIPMENT_ALLOWED));
+    res.json({ equipment: e });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
+    }
+    next(err);
+  }
 });
 
 router.delete('/equipment/:id', authenticate, requireRole('admin'), async (req, res) => {

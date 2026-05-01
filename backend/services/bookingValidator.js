@@ -31,6 +31,33 @@ dayjs.extend(utc);
 // dal direttivo per evitare frammentazione delle aule in slot troppo brevi.
 const STUDIO_MIN_DURATION_MINUTES = 60;
 
+/**
+ * Crea un cache vuoto da passare a `validateBooking` quando si esegue la
+ * stessa validazione N volte ravvicinate (es. POST /bookings/recurring con
+ * 52 settimane). Memorizza:
+ *   - BookingRule (1 record per ruolo, invariante per tutto il batch)
+ *   - BookingQuota[] (lista record, invariante)
+ *   - BookingRuleException[] (lista record, invariante)
+ *   - Room (per roomId)
+ *   - Equipment[] per roomId (per scopeKind=equipmentType)
+ *   - Room.findAll per scope (roomType/building/equipmentType)
+ *
+ * Ogni chiamata a validateBooking che riceve `cache` evita di rifare quelle
+ * query, riducendo da ~10-15 query/call a ~3-5 query/call dopo la prima.
+ */
+function createValidationCache() {
+  return {
+    rule: new Map(), // role → BookingRule
+    quotas: new Map(), // role → BookingQuota[]
+    exceptions: new Map(), // role → BookingRuleException[] (incluso 'all')
+    room: new Map(), // roomId → Room
+    roomEquipmentTypes: new Map(), // roomId → Set<string>
+    roomsByType: new Map(), // type → number[] (room ids)
+    roomsByBuilding: new Map(), // buildingId → number[]
+    roomsByEquipment: new Map(), // equipmentType → number[]
+  };
+}
+
 async function validateBooking({
   user,
   roomId,
@@ -43,6 +70,7 @@ async function validateBooking({
   bypassPastDates = false,
   bypassDuration = false,
   transaction = null,
+  cache = null,
 }) {
   const errors = [];
   // Parallelo a `errors`: stesso indice → codice errore strutturato (o null
@@ -70,8 +98,14 @@ async function validateBooking({
     errors.push('Non puoi prenotare nel passato');
   }
 
-  // ---- Verifica esistenza stanza ----
-  const room = await Room.findByPk(roomId, tx);
+  // ---- Verifica esistenza stanza (cached) ----
+  let room;
+  if (cache?.room.has(roomId)) {
+    room = cache.room.get(roomId);
+  } else {
+    room = await Room.findByPk(roomId, tx);
+    if (cache) cache.room.set(roomId, room);
+  }
   if (!room) return { valid: false, errors: ['Aula non trovata'] };
   if (!room.isBookable) errors.push('Questa aula non è prenotabile');
 
@@ -94,8 +128,14 @@ async function validateBooking({
     errors.push('Il tuo corso non è abilitato a prenotare questa aula');
   }
 
-  // ---- Recupera le regole del ruolo ----
-  const rule = await BookingRule.findOne({ where: { role: user.role }, ...tx });
+  // ---- Recupera le regole del ruolo (cached) ----
+  let rule;
+  if (cache?.rule.has(user.role)) {
+    rule = cache.rule.get(user.role);
+  } else {
+    rule = await BookingRule.findOne({ where: { role: user.role }, ...tx });
+    if (cache) cache.rule.set(user.role, rule);
+  }
   if (!rule) {
     return { valid: false, errors: [`Nessuna regola configurata per il ruolo ${user.role}`] };
   }
@@ -166,6 +206,34 @@ async function validateBooking({
     push('Aula già prenotata in questa fascia oraria', 'BOOKING_CONFLICT');
   }
 
+  // ---- Conflitto logico utente cross-aula ----
+  // Stesso utente, sovrapposizione temporale, AULA DIVERSA: l'utente
+  // risulterebbe contemporaneamente in due aule. La constraint EXCLUDE su
+  // `bookings` copre la stessa aula (sopra), questo check copre il resto.
+  // Bypassato per admin che prenota per conto altrui (bypassQuotas) e
+  // per il generator monte ore — patterns concentrici dei docenti su più
+  // strumenti possono legittimamente sovrapporsi in batch automatici.
+  if (!bypassQuotas) {
+    const userOverlap = await Booking.findOne({
+      where: {
+        userId: user.id,
+        status: 'confirmed',
+        roomId: { [Op.ne]: roomId },
+        startTime: { [Op.lt]: end.toDate() },
+        endTime: { [Op.gt]: start.toDate() },
+        ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
+      },
+      attributes: ['id', 'roomId', 'startTime', 'endTime'],
+      ...tx,
+    });
+    if (userOverlap) {
+      push(
+        "Hai già una prenotazione in un'altra aula in questa fascia oraria",
+        'USER_LOGICAL_CONFLICT',
+      );
+    }
+  }
+
   // Gli admin bypassano i limiti quantitativi (max bookings/ore).
   // `bypassQuotas` permette ad un admin di prenotare per conto di un altro
   // utente saltando le quote del target (l'admin si assume la responsabilità).
@@ -195,6 +263,8 @@ async function validateBooking({
         startTime: { [Op.gte]: weekStart.toDate(), [Op.lte]: weekEnd.toDate() },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
+      // Riduciamo il payload: serve solo (start, end) per il calcolo minutes.
+      attributes: ['startTime', 'endTime'],
       ...tx,
     });
     const minutesThisWeek = weekBookings.reduce(
@@ -219,6 +289,8 @@ async function validateBooking({
         startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
+      // Solo (start, end) servono per la somma dei minuti.
+      attributes: ['startTime', 'endTime'],
       ...tx,
     });
     const minutesThisDay = dayBookings.reduce(
@@ -227,6 +299,52 @@ async function validateBooking({
     );
     if (minutesThisDay + durationMin > rule.maxHoursPerDay * 60) {
       errors.push(`Limite giornaliero superato: max ${rule.maxHoursPerDay}h al giorno`);
+    }
+
+    // ---- Intervallo minimo tra prenotazioni (cooldown) ----
+    // Impedisce di concatenare più prenotazioni di durata massima per
+    // aggirare il cap "ore al giorno" (es. cap 4h, durata max 2h →
+    // 14:00–16:00 + 16:00–18:00). Cerca la prenotazione confermata più
+    // vicina prima/dopo nella finestra [-cooldown, +cooldown] e verifica
+    // il gap. Calcolo cross-day sui minuti astronomici.
+    const cooldownMin = rule.minIntervalBetweenBookingsMinutes || 0;
+    if (cooldownMin > 0) {
+      const windowStart = start.subtract(cooldownMin, 'minute').toDate();
+      const windowEnd = end.add(cooldownMin, 'minute').toDate();
+      // Prenotazioni che potrebbero violare il cooldown: quelle che FINISCONO
+      // dopo windowStart (gap "prima") o INIZIANO prima di windowEnd (gap
+      // "dopo"). Usiamo l'AND per intersecare entrambi i criteri.
+      const nearby = await Booking.findAll({
+        where: {
+          userId: user.id,
+          status: 'confirmed',
+          endTime: { [Op.gt]: windowStart },
+          startTime: { [Op.lt]: windowEnd },
+          ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
+        },
+        attributes: ['startTime', 'endTime'],
+        ...tx,
+      });
+      for (const b of nearby) {
+        const bStart = dayjs(b.startTime);
+        const bEnd = dayjs(b.endTime);
+        // Le sovrapposizioni vere sono già gestite dal check
+        // USER_LOGICAL_CONFLICT (cross-aula) e BOOKING_CONFLICT (stessa
+        // aula). Qui valutiamo solo il gap tra prenotazioni adiacenti.
+        const overlap = bStart.isBefore(end) && bEnd.isAfter(start);
+        if (overlap) continue;
+        const gapMin = bEnd.isSameOrBefore(start)
+          ? start.diff(bEnd, 'minute')
+          : bStart.diff(end, 'minute');
+        if (gapMin < cooldownMin) {
+          push(
+            `Devono passare almeno ${cooldownMin} minuti tra una prenotazione e l'altra ` +
+              `(gap attuale: ${gapMin} min)`,
+            'MIN_INTERVAL_VIOLATED',
+          );
+          break;
+        }
+      }
     }
 
     // ---- Quote dinamiche per risorsa (BookingQuota) ----
@@ -240,17 +358,24 @@ async function validateBooking({
       start,
       ignoreBookingId,
       tx,
+      cache,
     });
     for (const q of quotaIssues) push(q.message, q.code);
 
-    // ---- Eccezioni alla regola generale (block / time_window) ----
-    const exceptions = await BookingRuleException.findAll({
-      where: {
-        isActive: true,
-        role: { [Op.in]: [user.role, 'all'] },
-      },
-      ...tx,
-    });
+    // ---- Eccezioni alla regola generale (block / time_window, cached) ----
+    let exceptions;
+    if (cache?.exceptions.has(user.role)) {
+      exceptions = cache.exceptions.get(user.role);
+    } else {
+      exceptions = await BookingRuleException.findAll({
+        where: {
+          isActive: true,
+          role: { [Op.in]: [user.role, 'all'] },
+        },
+        ...tx,
+      });
+      if (cache) cache.exceptions.set(user.role, exceptions);
+    }
 
     for (const exc of exceptions) {
       if (!exceptionAppliesToDate(exc, start)) continue;
@@ -275,6 +400,8 @@ async function validateBooking({
             startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
             ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
           },
+          // Solo (start, end) servono per minutesInsideWindow.
+          attributes: ['startTime', 'endTime'],
           ...tx,
         });
         const alreadyMinsInWindow = sameDayBookings.reduce((acc, b) => {
@@ -391,26 +518,45 @@ async function canCancel(user, booking) {
 // Gli admin sono già esclusi dal caller (questo blocco è dentro l'if
 // "user.role !== 'admin'"). Anche se un admin avesse quote attive, non
 // vengono applicate (coerente con BookingRule).
-async function checkResourceQuotas({ user, room, durationMin, start, ignoreBookingId, tx }) {
+async function checkResourceQuotas({
+  user,
+  room,
+  durationMin,
+  start,
+  ignoreBookingId,
+  tx,
+  cache = null,
+}) {
   const errors = [];
-  const quotas = await BookingQuota.findAll({
-    where: { role: user.role, isActive: true },
-    ...tx,
-  });
+
+  // Cache scope: BookingQuota per ruolo è invariante per tutta la request.
+  let quotas;
+  if (cache?.quotas.has(user.role)) {
+    quotas = cache.quotas.get(user.role);
+  } else {
+    quotas = await BookingQuota.findAll({
+      where: { role: user.role, isActive: true },
+      ...tx,
+    });
+    if (cache) cache.quotas.set(user.role, quotas);
+  }
   if (quotas.length === 0) return errors;
 
-  // L'aula della booking deve avere l'equipment caricato per il match
-  // su scopeKind=equipmentType. Lo carichiamo on-demand UNA volta sola.
-  let roomEquipmentTypes = null;
+  // Set di equipment-type della stanza, cachato per roomId. Risolve N+1 quando
+  // ci sono più quote scopeKind=equipmentType — finora era cachato solo
+  // intra-call, ora è cachato anche tra call successive nella stessa request.
   const ensureRoomEquipmentTypes = async () => {
-    if (roomEquipmentTypes !== null) return roomEquipmentTypes;
+    if (cache?.roomEquipmentTypes.has(room.id)) {
+      return cache.roomEquipmentTypes.get(room.id);
+    }
     const list = await Equipment.findAll({
       where: { roomId: room.id },
       attributes: ['type'],
       ...tx,
     });
-    roomEquipmentTypes = new Set(list.map((e) => e.type));
-    return roomEquipmentTypes;
+    const set = new Set(list.map((e) => e.type));
+    if (cache) cache.roomEquipmentTypes.set(room.id, set);
+    return set;
   };
 
   const weekStart = start.startOf('isoWeek').toDate();
@@ -457,33 +603,49 @@ async function checkResourceQuotas({ user, room, durationMin, start, ignoreBooki
     }
     if (!appliesToCurrent) continue;
 
-    // ---- 3) Stanze matching lo scope per il calcolo del consumo ----
+    // ---- 3) Stanze matching lo scope per il calcolo del consumo (cached) ----
     let matchingRoomIds = null; // null = "tutte"
     if (quota.scopeKind === 'roomType') {
-      const rooms = await Room.findAll({
-        where: { type: quota.scopeValue },
-        attributes: ['id'],
-        ...tx,
-      });
-      matchingRoomIds = rooms.map((r) => r.id);
+      if (cache?.roomsByType.has(quota.scopeValue)) {
+        matchingRoomIds = cache.roomsByType.get(quota.scopeValue);
+      } else {
+        const rooms = await Room.findAll({
+          where: { type: quota.scopeValue },
+          attributes: ['id'],
+          ...tx,
+        });
+        matchingRoomIds = rooms.map((r) => r.id);
+        if (cache) cache.roomsByType.set(quota.scopeValue, matchingRoomIds);
+      }
       if (matchingRoomIds.length === 0) continue;
     } else if (quota.scopeKind === 'room') {
       matchingRoomIds = [Number(quota.scopeValue)];
     } else if (quota.scopeKind === 'building') {
-      const rooms = await Room.findAll({
-        where: { buildingId: Number(quota.scopeValue) },
-        attributes: ['id'],
-        ...tx,
-      });
-      matchingRoomIds = rooms.map((r) => r.id);
+      const key = Number(quota.scopeValue);
+      if (cache?.roomsByBuilding.has(key)) {
+        matchingRoomIds = cache.roomsByBuilding.get(key);
+      } else {
+        const rooms = await Room.findAll({
+          where: { buildingId: key },
+          attributes: ['id'],
+          ...tx,
+        });
+        matchingRoomIds = rooms.map((r) => r.id);
+        if (cache) cache.roomsByBuilding.set(key, matchingRoomIds);
+      }
       if (matchingRoomIds.length === 0) continue;
     } else if (quota.scopeKind === 'equipmentType') {
-      const eqs = await Equipment.findAll({
-        where: { type: quota.scopeValue },
-        attributes: ['roomId'],
-        ...tx,
-      });
-      matchingRoomIds = [...new Set(eqs.map((e) => e.roomId))];
+      if (cache?.roomsByEquipment.has(quota.scopeValue)) {
+        matchingRoomIds = cache.roomsByEquipment.get(quota.scopeValue);
+      } else {
+        const eqs = await Equipment.findAll({
+          where: { type: quota.scopeValue },
+          attributes: ['roomId'],
+          ...tx,
+        });
+        matchingRoomIds = [...new Set(eqs.map((e) => e.roomId))];
+        if (cache) cache.roomsByEquipment.set(quota.scopeValue, matchingRoomIds);
+      }
       if (matchingRoomIds.length === 0) continue;
     }
 
@@ -591,4 +753,10 @@ function formatQuotaIssue(quota, kind, already) {
   };
 }
 
-module.exports = { validateBooking, canCancel, checkResourceQuotas, STUDIO_MIN_DURATION_MINUTES };
+module.exports = {
+  validateBooking,
+  canCancel,
+  checkResourceQuotas,
+  createValidationCache,
+  STUDIO_MIN_DURATION_MINUTES,
+};

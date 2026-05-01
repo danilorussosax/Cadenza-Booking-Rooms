@@ -14,6 +14,7 @@ dayjs.locale('it');
 const { decrypt } = require('../lib/crypto');
 const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');
+const logger = require('../lib/logger');
 
 let cache = null; // { transporter, from, replyTo, expiresAt }
 const CACHE_TTL_MS = 60_000;
@@ -45,7 +46,10 @@ async function loadConfig() {
     from = process.env.SMTP_FROM || 'Cadenza <noreply@cadenza.local>';
   } else {
     if (!warned) {
-      console.warn('[email] Nessuna configurazione SMTP (né DB né env) → email disattivate.');
+      logger.warn(
+        { scope: 'email.config' },
+        'no SMTP configuration (DB or env) — email delivery disabled',
+      );
       warned = true;
     }
     cache = { transporter: null, from: null, expiresAt: Date.now() + CACHE_TTL_MS };
@@ -239,7 +243,10 @@ async function sendBookingEmail({ user, booking, kind, extra }) {
       html: render(tpl.bodyHtml, ctx),
     });
   } catch (err) {
-    console.error('[email] errore invio:', err.message);
+    logger.error(
+      { err: err.message, to: user?.email, scope: 'email.sendBookingEmail' },
+      'email send failed',
+    );
   }
 }
 
@@ -325,7 +332,7 @@ async function sendSecurityEmail({ to, subject, html }) {
     });
     return { ok: true };
   } catch (err) {
-    console.error('[email-security] errore invio:', err.message);
+    logger.error({ err: err.message, to, scope: 'email.security' }, 'security email send failed');
     return { ok: false, error: smtpHumanError(err) };
   }
 }

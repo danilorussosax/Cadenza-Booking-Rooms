@@ -8,7 +8,8 @@ const ics = require('ics');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getJwtSecret } = require('../lib/secrets');
-const { icalLimiter } = require('../middleware/rateLimit');
+const { icalLimiter, recurringBookingLimiter } = require('../middleware/rateLimit');
+const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -29,7 +30,11 @@ const {
   requireCompleteProfile,
   requireApproved,
 } = require('../middleware/auth');
-const { validateBooking, canCancel } = require('../services/bookingValidator');
+const {
+  validateBooking,
+  canCancel,
+  createValidationCache,
+} = require('../services/bookingValidator');
 const { sendBookingEmail } = require('../services/emailService');
 const { buildIcs } = require('../services/icalService');
 const { extractClientIp, isIpInCidrList, normalizeIp } = require('../lib/network');
@@ -178,7 +183,11 @@ router.get('/', authenticate, async (req, res) => {
     if (Number.isInteger(n)) where.userId = n;
   }
 
-  const bookings = await Booking.findAll({
+  // Pagination: default 100, max 500. Su un anno accademico un Conservatorio
+  // medio genera 5-15k booking; senza limit la rotta caricava tutto in
+  // memoria e serializzava a JSON. Con limit=100 la richiesta è O(constante).
+  const { limit, offset } = parsePagination(req.query);
+  const { rows, count } = await Booking.findAndCountAll({
     where,
     include: [
       {
@@ -198,9 +207,12 @@ router.get('/', authenticate, async (req, res) => {
       { model: ConcertInfo, as: 'concertInfo', attributes: ['title'], required: false },
     ],
     order: [['startTime', 'ASC']],
+    limit,
+    offset,
+    distinct: true,
   });
-
-  res.json({ bookings });
+  setPaginationHeaders(res, count, limit, offset);
+  res.json({ bookings: rows });
 });
 
 // =====================================================
@@ -243,29 +255,61 @@ router.get('/checkin-candidates', authenticate, async (req, res) => {
   });
 });
 
+// GET /api/bookings/pending — lista in attesa (admin)
+// Registrata PRIMA di /:id per evitare il match dinamico (id="pending"
+// causerebbe Booking.findByPk('pending') → Postgres rifiuta integer e
+// l'async handler senza next() lascia la richiesta appesa).
+router.get('/pending', authenticate, requireRole('admin'), async (req, res) => {
+  const bookings = await Booking.findAll({
+    where: { status: 'pending_approval' },
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'matricola'],
+      },
+      { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+    ],
+    order: [['createdAt', 'ASC']],
+  });
+  res.json({ bookings });
+});
+
 // =====================================================
 // GET /api/bookings/:id
 // =====================================================
-router.get('/:id', authenticate, async (req, res) => {
-  const booking = await Booking.findByPk(req.params.id, {
-    include: [
-      { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'role'] },
-      {
-        model: Room,
-        as: 'room',
-        include: [
-          { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
-          { model: Equipment, as: 'equipment' },
-        ],
-      },
-    ],
-  });
-  if (!booking)
+router.get('/:id', authenticate, async (req, res, next) => {
+  // Guard: id deve essere intero. Senza questo, qualunque slug non numerico
+  // (es. una nuova rotta specifica registrata DOPO questa) farebbe esplodere
+  // findByPk con "invalid input syntax for integer" e — essendo l'handler
+  // async senza try/catch in Express 4 — la richiesta resterebbe appesa.
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
     return res.status(404).json({ error: 'Prenotazione non trovata', code: 'NOT_FOUND' });
-  if (booking.userId !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
   }
-  res.json({ booking });
+  try {
+    const booking = await Booking.findByPk(id, {
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'role'] },
+        {
+          model: Room,
+          as: 'room',
+          include: [
+            { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
+            { model: Equipment, as: 'equipment' },
+          ],
+        },
+      ],
+    });
+    if (!booking)
+      return res.status(404).json({ error: 'Prenotazione non trovata', code: 'NOT_FOUND' });
+    if (booking.userId !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
+    }
+    res.json({ booking });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // =====================================================
@@ -465,28 +509,104 @@ router.post('/bulk-cancel', authenticate, requireRole('admin'), async (req, res,
 });
 
 // =====================================================
+// POST /api/bookings/swap (admin)
+// Scambia atomicamente roomId/startTime/endTime tra due prenotazioni
+// confermate, future, non checked-in. Copre i 3 casi EasyRoom:
+//   - solo aule (stesso giorno+orario, aule diverse)
+//   - aula+orario (stessa giornata, durate uguali, orari diversi)
+//   - aula+giorno+orario (giorni diversi)
+// Body: { aId: number, bId: number }.
+// La constraint EXCLUDE su `bookings_no_overlap` garantisce che lo swap
+// non crei conflitti reali (rollback automatico). Per by-passare il
+// vincolo durante la fase intermedia (entrambe le prenotazioni con i
+// dati nuovi prima del commit) flippiamo temporaneamente status='cancelled'
+// sulla prima — la constraint è WHERE status='confirmed' AND deletedAt IS NULL
+// quindi cancelled non è considerata.
+// =====================================================
+router.post('/swap', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const aId = Number(req.body?.aId);
+    const bId = Number(req.body?.bId);
+    if (!aId || !bId || aId === bId) {
+      return res.status(400).json({
+        error: 'Servono due id distinti (aId e bId)',
+        code: 'VALIDATION_FAILED',
+      });
+    }
+
+    const result = await sequelize.transaction(async (t) => {
+      const [a, b] = await Promise.all([
+        Booking.findByPk(aId, { transaction: t, lock: t.LOCK.UPDATE }),
+        Booking.findByPk(bId, { transaction: t, lock: t.LOCK.UPDATE }),
+      ]);
+      if (!a || !b) {
+        const e = new Error('Prenotazione/i non trovate');
+        e.status = 404;
+        e.code = 'NOT_FOUND';
+        throw e;
+      }
+      if (a.status !== 'confirmed' || b.status !== 'confirmed') {
+        const e = new Error('Entrambe le prenotazioni devono essere confermate');
+        e.status = 400;
+        e.code = 'INVALID_STATE';
+        throw e;
+      }
+      const now = new Date();
+      if (new Date(a.startTime) <= now || new Date(b.startTime) <= now) {
+        const e = new Error('Non puoi scambiare prenotazioni iniziate o passate');
+        e.status = 400;
+        e.code = 'PAST_BOOKING';
+        throw e;
+      }
+      if (a.checkedInAt || b.checkedInAt) {
+        const e = new Error('Non puoi scambiare prenotazioni con check-in');
+        e.status = 400;
+        e.code = 'CHECKED_IN';
+        throw e;
+      }
+
+      const aOrig = { roomId: a.roomId, startTime: a.startTime, endTime: a.endTime };
+      const bOrig = { roomId: b.roomId, startTime: b.startTime, endTime: b.endTime };
+
+      // Step 1: parcheggia A in 'cancelled' temporaneamente (uscendo dalla
+      // EXCLUDE constraint che filtra su status='confirmed').
+      // Step 2: porta B sui dati di A (slot ora libero).
+      // Step 3: riporta A su confirmed con i dati di B.
+      // Se uno qualsiasi dei tre step viola constraint o validatori, la
+      // tx fa rollback e nessuna delle due viene modificata.
+      await a.update({ status: 'cancelled' }, { transaction: t });
+      await b.update(aOrig, { transaction: t });
+      await a.update({ ...bOrig, status: 'confirmed' }, { transaction: t });
+      return { a, b };
+    });
+
+    // Reload con join per la response (utile lato UI)
+    const [aFull, bFull] = await Promise.all([
+      fetchBookingFull(result.a.id),
+      fetchBookingFull(result.b.id),
+    ]);
+    res.json({ a: aFull, b: bFull });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message, code: err.code });
+    }
+    if (err.name === 'SequelizeExclusionConstraintError') {
+      return res.status(409).json({
+        error: "Lo scambio creerebbe un conflitto con un'altra prenotazione",
+        code: 'BOOKING_CONFLICT',
+      });
+    }
+    next(err);
+  }
+});
+
+// =====================================================
 // Workflow approvazione prenotazioni high-impact (sale concerti, ecc).
 // Solo admin. Le pending_approval non bloccano altri slot finché restano in
 // attesa (vedi services/bookingValidator.js): l'admin sceglie quale richiesta
 // confermare, ed eventuali concorrenti restano in attesa o vengono rifiutate.
+// (Nota: GET /pending è registrata sopra, prima di /:id, per ordering Express).
 // =====================================================
-
-// GET /api/bookings/pending — lista in attesa (admin)
-router.get('/pending', authenticate, requireRole('admin'), async (req, res) => {
-  const bookings = await Booking.findAll({
-    where: { status: 'pending_approval' },
-    include: [
-      {
-        model: User,
-        as: 'user',
-        attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'matricola'],
-      },
-      { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-    ],
-    order: [['createdAt', 'ASC']],
-  });
-  res.json({ bookings });
-});
 
 // GET /api/bookings/pending/count — solo conteggio per badge sidebar.
 // Esposto a admin (l'utente normale non lo vede).
@@ -781,102 +901,199 @@ router.post(
   authenticate,
   requireApproved,
   requireCompleteProfile,
+  recurringBookingLimiter,
+  // Validazione schema input via express-validator (uniforme col resto del file).
+  [
+    body('roomId').isInt({ min: 1 }).withMessage('roomId deve essere un intero positivo'),
+    body('startTime').isISO8601().withMessage('startTime deve essere ISO 8601'),
+    body('endTime').isISO8601().withMessage('endTime deve essere ISO 8601'),
+    body('type').optional().isString().isLength({ max: 40 }),
+    body('purpose').optional({ nullable: true }).isString().isLength({ max: 255 }),
+    body('notes').optional({ nullable: true }).isString().isLength({ max: 2000 }),
+    body('recurrence.weeks')
+      .isInt({ min: 2, max: 52 })
+      .withMessage('recurrence.weeks deve essere un intero tra 2 e 52'),
+  ],
   async (req, res, next) => {
-    const { roomId, startTime, endTime, type, purpose, notes, recurrence } = req.body || {};
-    const weeks = Number(recurrence?.weeks);
-    if (!roomId || !startTime || !endTime) {
-      return res
-        .status(400)
-        .json({ error: 'roomId, startTime e endTime obbligatori', code: 'VALIDATION_FAILED' });
-    }
-    if (!Number.isInteger(weeks) || weeks < 2 || weeks > 52) {
-      return res.status(400).json({
-        error: 'recurrence.weeks deve essere un intero tra 2 e 52',
-        code: 'VALIDATION_FAILED',
-      });
-    }
-
-    // Verifica se il ruolo permette ricorrenze
-    const rule = await BookingRule.findOne({ where: { role: req.user.role } });
-    if (rule && rule.allowRecurring === false) {
-      return res.status(403).json({
-        code: 'RECURRING_NOT_ALLOWED',
-        error: 'Il tuo ruolo non può creare prenotazioni ricorrenti.',
-      });
-    }
-
-    const created = [];
-    const skipped = [];
-
-    for (let i = 0; i < weeks; i++) {
-      const offset = i * 7 * 24 * 60 * 60 * 1000;
-      const s = new Date(new Date(startTime).getTime() + offset);
-      const e = new Date(new Date(endTime).getTime() + offset);
-      try {
-        const booking = await sequelize.transaction(
-          { isolationLevel: WRITE_ISOLATION },
-          async (t) => {
-            const validation = await validateBooking({
-              user: req.user,
-              roomId,
-              startTime: s,
-              endTime: e,
-              type: type || 'studio_individuale',
-              transaction: t,
-            });
-            if (!validation.valid) {
-              const err = new Error((validation.errors || []).join('; ') || 'Validazione fallita');
-              err.status = 400;
-              err.code = validation.codes?.find((c) => !!c) || 'BOOKING_INVALID';
-              throw err;
-            }
-            return Booking.create(
-              {
-                userId: req.user.id,
-                roomId,
-                startTime: s,
-                endTime: e,
-                purpose: purpose || null,
-                type: type || 'studio_individuale',
-                notes: notes || null,
-                status: 'confirmed',
-              },
-              { transaction: t },
-            );
-          },
-        );
-        created.push(booking.id);
-      } catch (err) {
-        skipped.push({
-          date: s.toISOString().slice(0, 10),
-          reason: err.message || 'Errore',
+    try {
+      const errs = validationResult(req);
+      if (!errs.isEmpty()) {
+        return res
+          .status(400)
+          .json({ error: 'Validazione fallita', code: 'VALIDATION_FAILED', details: errs.array() });
+      }
+      const { roomId, startTime, endTime, type, purpose, notes, recurrence } = req.body;
+      const weeks = Number(recurrence.weeks);
+      const baseStart = new Date(startTime);
+      const baseEnd = new Date(endTime);
+      if (baseStart >= baseEnd) {
+        return res.status(400).json({
+          error: 'startTime deve essere prima di endTime',
+          code: 'VALIDATION_FAILED',
         });
       }
-    }
 
-    // Email su ciascuna create (in batch, non bloccante)
-    if (created.length > 0) {
-      const list = await Booking.findAll({
-        where: { id: created },
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'firstName', 'lastName', 'email', 'emailNotifications'],
-          },
-          { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-        ],
-      });
-      for (const b of list) {
-        sendBookingEmail({ user: b.user, booking: b, kind: 'confirmation' }).catch(() => {});
+      // Verifica policy ruolo: ricorrenze abilitate. Una sola query.
+      const rule = await BookingRule.findOne({ where: { role: req.user.role } });
+      if (rule && rule.allowRecurring === false) {
+        return res.status(403).json({
+          code: 'RECURRING_NOT_ALLOWED',
+          error: 'Il tuo ruolo non può creare prenotazioni ricorrenti.',
+        });
       }
-    }
 
-    res.json({
-      created: created.length,
-      skipped,
-      bookingIds: created,
-    });
+      const bookingType = type || 'studio_individuale';
+
+      // FASE 1 — Validazione: SENZA transazione, in parallelo (5 alla volta
+      // per evitare di saturare il pool DB con 52 chiamate in flight).
+      // validateBooking è read-only, quindi è safe parallelizzare. Le booking
+      // generate dentro questo batch NON si vedranno tra loro al validator,
+      // ma weekly+7gg garantisce che non possano sovrapporsi tra di loro.
+      const occurrences = [];
+      for (let i = 0; i < weeks; i++) {
+        const offset = i * 7 * 24 * 60 * 60 * 1000;
+        occurrences.push({
+          index: i,
+          start: new Date(baseStart.getTime() + offset),
+          end: new Date(baseEnd.getTime() + offset),
+        });
+      }
+
+      // Cache request-scoped condivisa tra tutte le validate del batch:
+      // BookingRule, BookingQuota[], BookingRuleException[], Room (e
+      // Equipment per scopeKind=equipmentType) sono invarianti per la
+      // singola request → recuperate UNA volta sola dopo la prima validate.
+      // Senza cache: ~10 query × 52 = 520 query. Con cache: ~10 + 52 × 4 ≈ 220.
+      const cache = createValidationCache();
+
+      const CONCURRENCY = 5;
+      const validationResults = new Array(occurrences.length);
+      for (let i = 0; i < occurrences.length; i += CONCURRENCY) {
+        const batch = occurrences.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map(async (occ) => {
+            try {
+              const v = await validateBooking({
+                user: req.user,
+                roomId,
+                startTime: occ.start,
+                endTime: occ.end,
+                type: bookingType,
+                cache,
+              });
+              validationResults[occ.index] = { occ, validation: v };
+            } catch (err) {
+              validationResults[occ.index] = {
+                occ,
+                validation: {
+                  valid: false,
+                  errors: [err.message || 'Errore di validazione'],
+                  codes: ['VALIDATION_ERROR'],
+                },
+              };
+            }
+          }),
+        );
+      }
+
+      const validPayloads = [];
+      const skipped = [];
+      for (const r of validationResults) {
+        if (!r) continue; // safety
+        if (r.validation.valid) {
+          validPayloads.push({
+            userId: req.user.id,
+            roomId,
+            startTime: r.occ.start,
+            endTime: r.occ.end,
+            purpose: purpose || null,
+            type: bookingType,
+            notes: notes || null,
+            status: 'confirmed',
+          });
+        } else {
+          skipped.push({
+            date: r.occ.start.toISOString().slice(0, 10),
+            reason: (r.validation.errors || []).join('; ') || 'Validazione fallita',
+            code: r.validation.codes?.find((c) => !!c) || 'BOOKING_INVALID',
+          });
+        }
+      }
+
+      // FASE 2 — UNA SOLA transazione READ COMMITTED per tutti gli INSERT.
+      // L'EXCLUDE constraint Postgres `bookings_no_overlap` (vedi
+      // lib/preSyncMigrations.js) garantisce no-overlap a livello DB anche
+      // sotto race condition. Su SQLite/MySQL test, il validator + check
+      // applicativo sono sufficienti.
+      // Inseriamo singolarmente per poter gestire fallimenti per-occorrenza
+      // (race con altri utenti su EXCLUDE constraint) senza rollbackare tutto.
+      const created = [];
+      if (validPayloads.length > 0) {
+        await sequelize.transaction(async (t) => {
+          for (const payload of validPayloads) {
+            try {
+              const b = await Booking.create(payload, { transaction: t });
+              created.push(b.id);
+            } catch (err) {
+              // Race con altro utente: EXCLUDE constraint o unique violato.
+              // Sequelize wrapper sequelize.UniqueConstraintError o
+              // SequelizeDatabaseError (Postgres EXCLUDE → 23P01).
+              const isOverlapErr =
+                err?.name === 'SequelizeUniqueConstraintError' ||
+                err?.original?.code === '23P01' ||
+                /overlap|exclud/i.test(err?.message || '');
+              if (isOverlapErr) {
+                skipped.push({
+                  date: payload.startTime.toISOString().slice(0, 10),
+                  reason: 'Conflitto rilevato a livello DB',
+                  code: 'BOOKING_OVERLAP',
+                });
+              } else {
+                throw err; // errore non recuperabile → rollback intera tx
+              }
+            }
+          }
+        });
+      }
+
+      // FASE 3 — Email post-commit (fire-and-forget, fuori transazione)
+      if (created.length > 0) {
+        Booking.findAll({
+          where: { id: created },
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'firstName', 'lastName', 'email', 'emailNotifications'],
+            },
+            { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+          ],
+        })
+          .then((list) => {
+            for (const b of list) {
+              sendBookingEmail({ user: b.user, booking: b, kind: 'confirmation' }).catch((e) => {
+                if (e) {
+                  /* swallow: la booking è stata creata, l'email è best-effort */
+                }
+              });
+            }
+          })
+          .catch(() => {
+            /* swallow: notifica via email è fire-and-forget */
+          });
+      }
+
+      // Ordina skipped per data (può capitare out-of-order dai batch paralleli)
+      skipped.sort((a, b) => a.date.localeCompare(b.date));
+
+      res.json({
+        created: created.length,
+        skipped,
+        bookingIds: created,
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 );
 
@@ -893,9 +1110,11 @@ router.get('/usage/me', authenticate, async (req, res, next) => {
     const dayStart = dayjs().startOf('day').toDate();
     const dayEnd = dayjs().endOf('day').toDate();
 
-    // Base: tutte le booking dell'utente nell'arco settimana / giorno con
-    // l'aula caricata per poter raggrupare per scope. Una sola query per
-    // periodo evita N+1.
+    // P1-3: caricamento booking con `attributes` selettivi (riduce payload
+    // ~80% rispetto al fetch dei record completi) + `roomId` invece di
+    // include Room → faremo un singolo round-trip aggiuntivo per Room.type.
+    // Una query include con N JOIN per N booking è più costoso di 1 query
+    // base + 1 query Room IN (touchedRoomIds).
     const [weekBookings, dayBookings] = await Promise.all([
       Booking.findAll({
         where: {
@@ -903,7 +1122,7 @@ router.get('/usage/me', authenticate, async (req, res, next) => {
           status: 'confirmed',
           startTime: { [Op.gte]: weekStart, [Op.lte]: weekEnd },
         },
-        include: [{ model: Room, as: 'room', attributes: ['id', 'type'] }],
+        attributes: ['id', 'roomId', 'startTime', 'endTime'],
       }),
       Booking.findAll({
         where: {
@@ -911,62 +1130,108 @@ router.get('/usage/me', authenticate, async (req, res, next) => {
           status: 'confirmed',
           startTime: { [Op.gte]: dayStart, [Op.lte]: dayEnd },
         },
-        include: [{ model: Room, as: 'room', attributes: ['id', 'type'] }],
+        attributes: ['id', 'roomId', 'startTime', 'endTime'],
       }),
     ]);
 
-    const sumHours = (list) =>
-      Math.round(
-        list.reduce((acc, b) => acc + dayjs(b.endTime).diff(dayjs(b.startTime), 'minute'), 0) / 6,
-      ) / 10;
+    const minutesOf = (b) => dayjs(b.endTime).diff(dayjs(b.startTime), 'minute');
+    const round1 = (mins) => Math.round(mins / 6) / 10; // minuti → ore con 1 decimale
 
-    const weekUsed = sumHours(weekBookings);
-    const dayUsed = sumHours(dayBookings);
+    const weekUsed = round1(weekBookings.reduce((a, b) => a + minutesOf(b), 0));
+    const dayUsed = round1(dayBookings.reduce((a, b) => a + minutesOf(b), 0));
     const isAdmin = req.user.role === 'admin';
     const weekMax = rule?.maxHoursPerWeek ?? null;
     const dayMax = rule?.maxHoursPerDay ?? null;
 
     // -------- Quote per risorsa: aggregazione consumi per scope --------
-    // Recuperiamo le quote attive del ruolo e per ognuna calcoliamo il
-    // consumo (settimanale + giornaliero) restringendo le booking alle
-    // sole righe che ricadono nello scope.
+    // Recuperiamo le quote attive del ruolo e pre-aggreghiamo i consumi
+    // PER TIPO (room.type, equipment.type) UNA SOLA VOLTA. Le quote
+    // diventano lookup O(1) sulle Map invece di un O(N×Q) filter+reduce.
+    // Per un coordinatore admin con 200 booking/sett × 10 quote attive,
+    // passa da ~2000 iterazioni filter a 1 build + 10 lookup.
     const { BookingQuota, Equipment } = require('../models');
     const quotas = await BookingQuota.findAll({
       where: { role: req.user.role, isActive: true },
     });
 
-    // Pre-aggregazione: id stanza → set di equipment types presenti.
-    // Usiamo un'unica query che copre tutti gli equipment di tutte le
-    // stanze toccate dall'utente nei due periodi (settimana ∪ giorno).
-    const touchedRoomIds = [
-      ...new Set([...weekBookings.map((b) => b.roomId), ...dayBookings.map((b) => b.roomId)]),
-    ];
-    const equipByRoom = new Map();
-    if (touchedRoomIds.length > 0) {
-      const eqs = await Equipment.findAll({
-        where: { roomId: { [Op.in]: touchedRoomIds } },
-        attributes: ['roomId', 'type'],
-      });
-      for (const e of eqs) {
-        if (!equipByRoom.has(e.roomId)) equipByRoom.set(e.roomId, new Set());
-        equipByRoom.get(e.roomId).add(e.type);
+    // Solo se ci sono quote: altrimenti niente da aggregare.
+    let weekMinutesByRoomType = new Map();
+    let dayMinutesByRoomType = new Map();
+    let weekMinutesByEquipType = new Map();
+    let dayMinutesByEquipType = new Map();
+
+    if (quotas.length > 0) {
+      // Pre-fetch room types in batch per le stanze toccate.
+      const touchedRoomIds = [
+        ...new Set([...weekBookings.map((b) => b.roomId), ...dayBookings.map((b) => b.roomId)]),
+      ];
+      const roomTypeById = new Map();
+      const equipByRoom = new Map();
+      if (touchedRoomIds.length > 0) {
+        // 2 query parallele invece di 2 sequenziali.
+        const [rooms, eqs] = await Promise.all([
+          Room.findAll({
+            where: { id: { [Op.in]: touchedRoomIds } },
+            attributes: ['id', 'type'],
+          }),
+          Equipment.findAll({
+            where: { roomId: { [Op.in]: touchedRoomIds } },
+            attributes: ['roomId', 'type'],
+          }),
+        ]);
+        for (const r of rooms) roomTypeById.set(r.id, r.type);
+        for (const e of eqs) {
+          if (!equipByRoom.has(e.roomId)) equipByRoom.set(e.roomId, new Set());
+          equipByRoom.get(e.roomId).add(e.type);
+        }
       }
+
+      // Aggregazione single-pass: per ogni booking aggiungi i suoi minuti
+      // alle Map by-room-type e by-equipment-type. O(N booking × E equip/room),
+      // tipicamente E ≤ 5 → O(5N).
+      const aggregate = (bookings, mapRoomType, mapEquipType) => {
+        for (const b of bookings) {
+          const m = minutesOf(b);
+          const rt = roomTypeById.get(b.roomId);
+          if (rt) {
+            mapRoomType.set(rt, (mapRoomType.get(rt) ?? 0) + m);
+          }
+          const equipTypes = equipByRoom.get(b.roomId);
+          if (equipTypes) {
+            for (const et of equipTypes) {
+              mapEquipType.set(et, (mapEquipType.get(et) ?? 0) + m);
+            }
+          }
+        }
+      };
+      aggregate(weekBookings, weekMinutesByRoomType, weekMinutesByEquipType);
+      aggregate(dayBookings, dayMinutesByRoomType, dayMinutesByEquipType);
     }
 
-    const matchesScope = (booking, quota) => {
-      if (quota.scopeKind === 'global') return true;
-      if (quota.scopeKind === 'roomType') return booking.room?.type === quota.scopeValue;
-      if (quota.scopeKind === 'equipmentType') {
-        return equipByRoom.get(booking.roomId)?.has(quota.scopeValue) ?? false;
+    // Pre-calcolato fuori dalla closure per evitare di ricalcolarlo per ogni quota.
+    const totalWeekMinutes = weekBookings.reduce((a, b) => a + minutesOf(b), 0);
+    const totalDayMinutes = dayBookings.reduce((a, b) => a + minutesOf(b), 0);
+
+    // Lookup O(1) per scope. `global` somma tutto, `roomType`/`equipmentType`
+    // chiavato sulle Map pre-aggregate.
+    const minutesForQuotaScope = (quota, periodKind) => {
+      if (quota.scopeKind === 'global') {
+        return periodKind === 'week' ? totalWeekMinutes : totalDayMinutes;
       }
-      return false;
+      if (quota.scopeKind === 'roomType') {
+        const m = periodKind === 'week' ? weekMinutesByRoomType : dayMinutesByRoomType;
+        return m.get(quota.scopeValue) ?? 0;
+      }
+      if (quota.scopeKind === 'equipmentType') {
+        const m = periodKind === 'week' ? weekMinutesByEquipType : dayMinutesByEquipType;
+        return m.get(quota.scopeValue) ?? 0;
+      }
+      return 0;
     };
 
-    const sumMatching = (list, quota) => sumHours(list.filter((b) => matchesScope(b, quota)));
-
     const quotaUsage = quotas.map((q) => {
-      const usedWeek = q.maxHoursPerWeek > 0 ? sumMatching(weekBookings, q) : 0;
-      const usedDay = q.maxHoursPerDay > 0 ? sumMatching(dayBookings, q) : 0;
+      const usedWeek = q.maxHoursPerWeek > 0 ? round1(minutesForQuotaScope(q, 'week')) : 0;
+      const usedDay = q.maxHoursPerDay > 0 ? round1(minutesForQuotaScope(q, 'day')) : 0;
       return {
         id: q.id,
         scopeKind: q.scopeKind,

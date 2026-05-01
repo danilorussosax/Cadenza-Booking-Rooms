@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Calendar, Clock, FileText, MapPin, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Clock, Copy, FileText, MapPin, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -15,9 +15,14 @@ interface Props {
   booking: Booking;
   onCancel?: (booking: Booking) => void;
   cancelling?: boolean;
+  /** Quick-action "Duplica" (gap #1 EasyRoom parity): apre il
+   *  BookingFormDialog in modalità create pre-fillata coi dati di questa
+   *  booking ma con start/end +7gg. Nessun POST viene fatto da qui — il
+   *  parent gestisce l'apertura del dialog. */
+  onDuplicate?: (booking: Booking) => void;
 }
 
-export function BookingListItem({ booking, onCancel, cancelling }: Props) {
+export function BookingListItem({ booking, onCancel, cancelling, onDuplicate }: Props) {
   const { t } = useTranslation();
   const [concertOpen, setConcertOpen] = useState(false);
   const room = booking.room;
@@ -92,6 +97,19 @@ export function BookingListItem({ booking, onCancel, cancelling }: Props) {
           >
             <FileText className="h-4 w-4" />
             {t('concert.action_open')}
+          </Button>
+        )}
+        {onDuplicate && booking.status !== 'cancelled' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onDuplicate(booking);
+            }}
+            title={t('booking.action_duplicate_help')}
+          >
+            <Copy className="h-4 w-4" />
+            {t('booking.action_duplicate')}
           </Button>
         )}
         {onCancel && booking.status === 'confirmed' && (

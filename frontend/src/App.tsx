@@ -24,9 +24,11 @@ const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminCourses = lazy(() => import('@/pages/admin/Courses'));
 const AdminStructure = lazy(() => import('@/pages/admin/Structure'));
 const AdminRules = lazy(() => import('@/pages/admin/Rules'));
+const AdminBookingTypes = lazy(() => import('@/pages/admin/BookingTypes'));
 const AdminDisplayKiosk = lazy(() => import('@/pages/admin/DisplayKiosk'));
 const AdminMail = lazy(() => import('@/pages/admin/MailSettings'));
 const AdminAuditLog = lazy(() => import('@/pages/admin/AuditLog'));
+const AdminActivityLog = lazy(() => import('@/pages/admin/Activity'));
 const AdminAnalytics = lazy(() => import('@/pages/admin/Analytics'));
 const AdminInstruments = lazy(() => import('@/pages/admin/Instruments'));
 const AdminAnnouncements = lazy(() => import('@/pages/admin/Announcements'));
@@ -113,19 +115,24 @@ export default function App() {
               <Route path="structure" element={adminPage(<AdminStructure />)} />
               <Route path="instruments" element={adminPage(<AdminInstruments />)} />
               <Route path="rules" element={adminPage(<AdminRules />)} />
+              <Route path="booking-types" element={adminPage(<AdminBookingTypes />)} />
               {/* /admin/loan-rules è stato unificato in /admin/instruments → tab "Regole prestito".
                   Manteniamo un redirect per gli URL salvati nei browser/bookmark. */}
               <Route path="loan-rules" element={<Navigate to="/admin/instruments" replace />} />
               <Route path="display" element={adminPage(<AdminDisplayKiosk />)} />
               <Route path="mail" element={adminPage(<AdminMail />)} />
               <Route path="audit-log" element={adminPage(<AdminAuditLog />)} />
+              {/* /admin/activity-log — pagina indipendente "Registro attività"
+                  (ex sub-tab "Approvazioni" di /admin/audit-log). Voce di
+                  sidebar dopo "Approvazione prenotazioni". */}
+              <Route path="activity-log" element={adminPage(<AdminActivityLog />)} />
               <Route path="analytics" element={adminPage(<AdminAnalytics />)} />
               <Route path="announcements" element={adminPage(<AdminAnnouncements />)} />
               <Route path="approvals" element={adminPage(<AdminApprovals />)} />
-              {/* /admin/bookings (bulk-cancel prenotazioni confermate) è ora
-                  una tab dentro /admin/audit-log: redirect per chiunque abbia
-                  bookmarkato la rotta. Anche /admin/audit-log#approvals è ok. */}
-              <Route path="bookings" element={<Navigate to="/admin/audit-log" replace />} />
+              {/* /admin/bookings (bulk-cancel prenotazioni confermate): ora
+                  vive in /admin/activity-log come pagina autonoma. Redirect
+                  per chiunque abbia bookmarkato la vecchia rotta. */}
+              <Route path="bookings" element={<Navigate to="/admin/activity-log" replace />} />
               {/* La pagina dedicata resta importata e raggiungibile via
                   AdminBookings come componente, ma la rotta principale è
                   redirect. Per uso interno da link diretti: /admin/bookings-page */}

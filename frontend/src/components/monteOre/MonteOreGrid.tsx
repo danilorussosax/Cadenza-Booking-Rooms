@@ -48,6 +48,15 @@ function hoursOf(s: MonteOreSlot): number {
 interface Props {
   proposalStatus: 'draft' | 'submitted' | 'approved' | 'rejected' | 'generated';
   isPatternEmpty: boolean;
+  /**
+   * Soglia ore annue applicabile al docente. Se valorizzata, sostituisce
+   * `settings.minRequiredHours` (soglia istituzionale) — usato per docenti
+   * con override individuale (contratto orario, supplenti, part-time).
+   * Quando null/undefined si ricade sulla soglia istituzionale.
+   */
+  minHoursOverride?: number | null;
+  /** True se la soglia mostrata viene da override individuale: cambia la label. */
+  isOverriddenThreshold?: boolean;
 }
 
 /**
@@ -57,7 +66,12 @@ interface Props {
  * Ogni cella Lun-Ven mostra le ore previste per il pattern del giorno;
  * un click attiva/disattiva quella occorrenza.
  */
-export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) {
+export default function MonteOreGrid({
+  proposalStatus,
+  isPatternEmpty,
+  minHoursOverride,
+  isOverriddenThreshold,
+}: Props) {
   const qc = useQueryClient();
   const [newDayOpen, setNewDayOpen] = useState(false);
 
@@ -178,7 +192,9 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
 
   const settings = calendarQuery.data!.settings;
   const weeks = calendarQuery.data!.weeks;
-  const minRequired = settings.minRequiredHours;
+  // Se l'admin ha impostato una deroga per questo docente (override
+  // personalizzato), usiamo quella soglia. Altrimenti la soglia istituzionale.
+  const minRequired = minHoursOverride != null ? minHoursOverride : settings.minRequiredHours;
   const progress = Math.min(100, (totals.active / minRequired) * 100);
   const slots = slotsQuery.data?.slots ?? [];
   const slotsCount = slots.length;
@@ -211,6 +227,11 @@ export default function MonteOreGrid({ proposalStatus, isPatternEmpty }: Props) 
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {isOverriddenThreshold && (
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                soglia personalizzata
+              </p>
+            )}
           </div>
           {['draft', 'rejected'].includes(proposalStatus) && !hasPendingPattern && (
             <Button

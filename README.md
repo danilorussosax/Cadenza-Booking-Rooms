@@ -1,11 +1,8 @@
-
-
 # 🎵 Cadenza
 
 ### La piattaforma italiana per i Conservatori di Musica
 
 **Gestione aule · Strumenti musicali · Eventi · Compliance PA italiana**
-
 
 ---
 
@@ -55,7 +52,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Vista settimanale aule × giorni con export PDF A4 landscape per edificio
 - iCal export per ogni utente con token
 
-### 🎻 Inventario strumenti musicali *(esclusivo)*
+### 🎻 Inventario strumenti musicali _(esclusivo)_
 
 - Catalogo completo con famiglie (archi, fiati legni/ottoni, tastiere, percussioni…)
 - Modulo prestiti completo: workflow `requested → active → returned`, con auto-overdue
@@ -141,31 +138,31 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 
 ### Frontend
 
-| Tecnologia                    | Ruolo                                              |
-| ----------------------------- | -------------------------------------------------- |
-| React 18 + TypeScript         | UI                                                 |
-| Vite                          | Build tool / dev server con HMR                    |
-| Tailwind CSS 3                | Sistema di design utility-first                    |
-| shadcn/ui (Radix UI)          | Componenti accessibili                             |
-| Framer Motion                 | Animazioni di transizione                          |
-| Lucide React                  | Icone vettoriali                                   |
-| TanStack Query                | Cache e sincronizzazione dati server               |
-| React Router v6               | Routing client-side                                |
-| React Hook Form + Zod         | Form e validazione                                 |
-| Sonner                        | Notifiche toast                                    |
-| i18next + react-i18next       | Internazionalizzazione (it · en · es)              |
-| vite-plugin-pwa + Workbox     | Service Worker, precache, offline-soft kiosk       |
+| Tecnologia                | Ruolo                                        |
+| ------------------------- | -------------------------------------------- |
+| React 18 + TypeScript     | UI                                           |
+| Vite                      | Build tool / dev server con HMR              |
+| Tailwind CSS 3            | Sistema di design utility-first              |
+| shadcn/ui (Radix UI)      | Componenti accessibili                       |
+| Framer Motion             | Animazioni di transizione                    |
+| Lucide React              | Icone vettoriali                             |
+| TanStack Query            | Cache e sincronizzazione dati server         |
+| React Router v6           | Routing client-side                          |
+| React Hook Form + Zod     | Form e validazione                           |
+| Sonner                    | Notifiche toast                              |
+| i18next + react-i18next   | Internazionalizzazione (it · en · es)        |
+| vite-plugin-pwa + Workbox | Service Worker, precache, offline-soft kiosk |
 
 ### Infrastruttura
 
-| Componente   | Tecnologia                                                    |
-| ------------ | ------------------------------------------------------------- |
-| Database     | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)         |
-| Reverse proxy| nginx + Let's Encrypt (cert. via certbot)                     |
-| Deploy       | VPS Ubuntu 24.04 — script `install.sh` idempotente            |
-| Monitoring   | Sentry v10 (opt-in)                                           |
-| Testing      | Vitest 77 test backend + Playwright 4 E2E + 10 component test |
-| CI/CD        | GitHub Actions (backend + frontend + E2E gate)                |
+| Componente    | Tecnologia                                                    |
+| ------------- | ------------------------------------------------------------- |
+| Database      | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)         |
+| Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                     |
+| Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente            |
+| Monitoring    | Sentry v10 (opt-in)                                           |
+| Testing       | Vitest 77 test backend + Playwright 4 E2E + 10 component test |
+| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                |
 
 ---
 
@@ -263,13 +260,13 @@ Per un deploy completo su VPS Ubuntu 24.04 (con nginx + Let's Encrypt + schedule
 
 ### Comandi utili
 
-| Comando                                       | Effetto                                          |
-| --------------------------------------------- | ------------------------------------------------ |
-| `npm run dev` (backend)                       | Avvia con nodemon                                |
-| `DB_SYNC_MODE=alter npm run db:migrate`       | Applica modifiche allo schema (sviluppo)        |
-| `npm run seed` (backend)                      | Re-seed admin + livelli + regole                 |
-| `npm test` (backend)                          | Vitest backend (SQLite in-memory)                |
-| `npm run test:e2e` (frontend)                 | Playwright E2E                                   |
+| Comando                                 | Effetto                                  |
+| --------------------------------------- | ---------------------------------------- |
+| `npm run dev` (backend)                 | Avvia con nodemon                        |
+| `DB_SYNC_MODE=alter npm run db:migrate` | Applica modifiche allo schema (sviluppo) |
+| `npm run seed` (backend)                | Re-seed admin + livelli + regole         |
+| `npm test` (backend)                    | Vitest backend (SQLite in-memory)        |
+| `npm run test:e2e` (frontend)           | Playwright E2E                           |
 
 ---
 
@@ -336,28 +333,28 @@ AUTO_RESTART_ENABLED=false         # se true, abilita restart endpoint
 
 La cartella `docs/` contiene la documentazione tecnica e operativa completa:
 
-| Documento                                                          | Contenuto                                                                          |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                          | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti  |
-| [`SECURITY.md`](docs/SECURITY.md)                                  | 2FA email OTP — flusso, enforcement admin, recovery, riferimenti normativi         |
-| [`SSO.md`](docs/SSO.md)                                            | Setup SSO Microsoft 365 / Entra ID e Google Workspace passo-passo                  |
-| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)                        | Bot Telegram / WhatsApp / Signal / Email — setup, comandi, costi, sicurezza        |
-| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md)          | Import manuale anagrafiche da Isidata (CSV/XLSX) con preview + diff transazionale  |
-| [`BACKUP.md`](docs/BACKUP.md)                                      | Backup automatico, restore via UI admin, upload remoto (S3, Hetzner, rclone, GPG) |
-| [`db-constraints.md`](docs/db-constraints.md)                      | EXCLUDE constraint anti-overlap su PostgreSQL — debug e procedura emergenza       |
-| [`DEPLOY.md`](docs/DEPLOY.md)                                      | Procedure di deploy in produzione                                                  |
-| [`TESTING.md`](docs/TESTING.md)                                    | Strategia di test, copertura, esecuzione locale e CI                              |
-| [`install.md`](docs/install.md)                                    | Guida installazione VPS (esempio Hetzner) con `install.sh`                        |
+| Documento                                                 | Contenuto                                                                         |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                 | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti |
+| [`SECURITY.md`](docs/SECURITY.md)                         | 2FA email OTP — flusso, enforcement admin, recovery, riferimenti normativi        |
+| [`SSO.md`](docs/SSO.md)                                   | Setup SSO Microsoft 365 / Entra ID e Google Workspace passo-passo                 |
+| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)               | Bot Telegram / WhatsApp / Signal / Email — setup, comandi, costi, sicurezza       |
+| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md) | Import manuale anagrafiche da Isidata (CSV/XLSX) con preview + diff transazionale |
+| [`BACKUP.md`](docs/BACKUP.md)                             | Backup automatico, restore via UI admin, upload remoto (S3, Hetzner, rclone, GPG) |
+| [`db-constraints.md`](docs/db-constraints.md)             | EXCLUDE constraint anti-overlap su PostgreSQL — debug e procedura emergenza       |
+| [`DEPLOY.md`](docs/DEPLOY.md)                             | Procedure di deploy in produzione                                                 |
+| [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                              |
+| [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                        |
 
 ### Materiale strategico (interno)
 
-| Documento                                                   | Contenuto                                                                      |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`develop.md`](develop.md)                                  | Roadmap di sviluppo: stato attuale, sprint correnti, gap residui vs ASIMUT    |
-| [`develop-enterprise.md`](develop-enterprise.md)            | Roadmap enterprise: LDAP/AD, SAML/IDEM-GARR, sync Esse3, RFID badge           |
-| [`analisi.md`](analisi.md)                                  | Analisi competitiva (ASIMUT, EasyStaff, CINECA UP, NettunoPA), TAM/SAM/SOM    |
-| [`Cadenza_Presentazione_Prodotto.md`](Cadenza_Presentazione_Prodotto.md) | Deck di presentazione del prodotto (pricing, mercato, roadmap, rischi)        |
-| [`Proposta.md`](Proposta.md)                                | Proposta tecnico-commerciale per il sistema AFAM italiano                     |
+| Documento                                                                | Contenuto                                                                  |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| [`develop.md`](develop.md)                                               | Roadmap di sviluppo: stato attuale, sprint correnti, gap residui vs ASIMUT |
+| [`develop-enterprise.md`](develop-enterprise.md)                         | Roadmap enterprise: LDAP/AD, SAML/IDEM-GARR, sync Esse3, RFID badge        |
+| [`analisi.md`](analisi.md)                                               | Analisi competitiva (ASIMUT, EasyStaff, CINECA UP, NettunoPA), TAM/SAM/SOM |
+| [`Cadenza_Presentazione_Prodotto.md`](Cadenza_Presentazione_Prodotto.md) | Deck di presentazione del prodotto (pricing, mercato, roadmap, rischi)     |
+| [`Proposta.md`](Proposta.md)                                             | Proposta tecnico-commerciale per il sistema AFAM italiano                  |
 
 ---
 
@@ -450,6 +447,6 @@ Vedi [`Proposta.md`](Proposta.md) e [`Cadenza_Presentazione_Prodotto.md`](Cadenz
 
 **Cadenza · La musica merita il software migliore**
 
-*© 2026 Danilo Russo · Documento generato dalla sintesi della documentazione di progetto*
+_© 2026 Danilo Russo · Documento generato dalla sintesi della documentazione di progetto_
 
 </div>

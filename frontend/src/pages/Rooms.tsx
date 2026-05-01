@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building2,
   CalendarPlus,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Music2,
   Search,
@@ -17,7 +19,7 @@ import { EQUIPMENT_TYPE_OPTIONS, ROOM_TYPE_OPTIONS } from '@/api/structure';
 import { roomsApi } from '@/api/rooms';
 import { ROOM_TYPE_LABEL } from '@/lib/bookings';
 import { buildingColor } from '@/lib/buildingColor';
-import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
+import { sortRoomsCrossBuilding, sortRoomsForBuilding } from '@/lib/sortRooms';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -150,6 +152,49 @@ export default function Rooms() {
     });
     return sortRoomsCrossBuilding(items);
   }, [rawRooms, search]);
+
+  // Raggruppamento per edificio — stesso schema di /admin/structure: ogni
+  // gruppo ha header espandibile (chevron + tile colorato + conteggio aule
+  // + piani). I gruppi mantengono l'ordine derivato da sortRoomsCrossBuilding,
+  // le aule dentro ogni gruppo sono ordinate per piano+nome via
+  // sortRoomsForBuilding (consistente con la pagina admin).
+  const groups = useMemo(() => {
+    const map = new Map<number, { building: Building; rooms: typeof filteredRooms }>();
+    for (const r of filteredRooms) {
+      const existing = map.get(r.building.id);
+      if (existing) {
+        existing.rooms.push(r);
+      } else {
+        map.set(r.building.id, { building: r.building, rooms: [r] });
+      }
+    }
+    // Sort interno per piano+nome (numeric-aware), riusando l'helper admin.
+    for (const g of map.values()) {
+      g.rooms = sortRoomsForBuilding(g.rooms, g.building);
+    }
+    return Array.from(map.values());
+  }, [filteredRooms]);
+
+  // Stato espansione per gruppo. Default: tutti aperti la prima volta che
+  // arrivano dati (l'utente sta sfogliando, vuole vedere subito le aule).
+  // L'utente può poi richiudere singoli gruppi e lo stato persiste finché
+  // i building non cambiano (es. dopo un filtro che rimuove un edificio).
+  const [collapsedBuildings, setCollapsedBuildings] = useState<Set<number>>(new Set());
+  const [didInit, setDidInit] = useState(false);
+  useEffect(() => {
+    if (!didInit && groups.length > 0) {
+      setCollapsedBuildings(new Set());
+      setDidInit(true);
+    }
+  }, [groups.length, didInit]);
+  const toggleBuilding = (id: number) => {
+    setCollapsedBuildings((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const openFilters = () => {
     setDraftFilters(filters);
@@ -442,113 +487,166 @@ export default function Rooms() {
         </Card>
       )}
 
-      {/* Rooms grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredRooms.map((r, i) => (
-          <motion.div
-            key={r.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.02 * Math.min(i, 12) }}
-          >
-            <Card className="flex h-full flex-col overflow-hidden">
-              {/* Cover photo: aspect-ratio fissa 16:9 + object-fit:cover per
-                  garantire layout coerente anche con foto di proporzioni diverse.
-                  Se l'aula non ha photoUrl, usa l'illustrazione di default. */}
-              <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-                <img
-                  src={r.photoUrl ?? '/assets/room-default.svg'}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.src.endsWith('/assets/room-default.svg')) {
-                      img.src = '/assets/room-default.svg';
-                    }
-                  }}
-                />
-                <div className="absolute right-2 top-2">
-                  <Badge variant={r.isBookable ? 'success' : 'muted'}>
-                    {r.isBookable
-                      ? t('admin.structure.bookable')
-                      : t('admin.structure.not_bookable')}
-                  </Badge>
+      {/* Aule raggruppate per edificio — stesso schema di /admin/structure:
+          header con tile colorato + nome + conteggio aule + piani, e griglia
+          delle card aula al di sotto. Espansione/collasso con chevron. */}
+      <div className="space-y-4">
+        {groups.map((g) => {
+          const collapsed = collapsedBuildings.has(g.building.id);
+          const colors = buildingColor(g.building.id);
+          return (
+            <Card key={g.building.id} className="overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  toggleBuilding(g.building.id);
+                }}
+                className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+              >
+                {collapsed ? (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <div
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+                    colors.tile,
+                  )}
+                >
+                  <Building2 className="h-4 w-4" />
                 </div>
-              </div>
-
-              <CardContent className="flex flex-1 flex-col gap-3 p-5">
-                <div>
-                  <h3 className="font-display text-lg font-medium leading-tight">{r.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    <span className={cn('font-medium', buildingColor(r.building.id).text)}>
-                      {r.building.name}
-                    </span>
-                    {' · '}
-                    {r.floor}
+                <div className="min-w-0 flex-1">
+                  <p className={cn('truncate font-medium', colors.text)}>{g.building.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {t(
+                      g.rooms.length === 1
+                        ? 'admin.structure.rooms_count_one'
+                        : 'admin.structure.rooms_count_other',
+                      { count: g.rooms.length },
+                    )}
+                    {g.building.floors && g.building.floors.length > 0 && (
+                      <>
+                        {' · '}
+                        {g.building.floors.join(', ')}
+                      </>
+                    )}
                   </p>
                 </div>
+              </button>
 
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-                    <Music2 className="h-3 w-3" />
-                    {t(ROOM_TYPE_LABEL[r.type])}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-                    <Users className="h-3 w-3" />
-                    {t(
-                      r.capacity === 1
-                        ? 'admin.structure.seats_one'
-                        : 'admin.structure.seats_other',
-                      { count: r.capacity },
-                    )}
-                  </span>
-                </div>
+              {!collapsed && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden border-t bg-muted/20"
+                >
+                  <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {g.rooms.map((r, i) => (
+                      <motion.div
+                        key={r.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.02 * Math.min(i, 12) }}
+                      >
+                        <Card className="flex h-full flex-col overflow-hidden">
+                          <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                            <img
+                              src={r.photoUrl ?? '/assets/room-default.svg'}
+                              alt=""
+                              loading="lazy"
+                              className="absolute inset-0 h-full w-full object-cover"
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                if (!img.src.endsWith('/assets/room-default.svg')) {
+                                  img.src = '/assets/room-default.svg';
+                                }
+                              }}
+                            />
+                            <div className="absolute right-2 top-2">
+                              <Badge variant={r.isBookable ? 'success' : 'muted'}>
+                                {r.isBookable
+                                  ? t('admin.structure.bookable')
+                                  : t('admin.structure.not_bookable')}
+                              </Badge>
+                            </div>
+                          </div>
 
-                {r.equipment && r.equipment.length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('rooms.equipment_label')}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {r.equipment.slice(0, 4).map((e) => (
-                        <span
-                          key={e.id}
-                          className={cn(
-                            'rounded-md border bg-background px-1.5 py-0.5 text-[11px]',
-                            !e.isWorking && 'opacity-50 line-through',
-                          )}
-                        >
-                          {e.name}
-                          {e.quantity > 1 && ` ×${e.quantity}`}
-                        </span>
-                      ))}
-                      {r.equipment.length > 4 && (
-                        <span className="text-[11px] text-muted-foreground">
-                          {t('rooms.equipment_more', { count: r.equipment.length - 4 })}
-                        </span>
-                      )}
-                    </div>
+                          <CardContent className="flex flex-1 flex-col gap-3 p-5">
+                            <div>
+                              <h3 className="font-display text-lg font-medium leading-tight">
+                                {r.name}
+                              </h3>
+                              <p className="text-xs text-muted-foreground">{r.floor}</p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                                <Music2 className="h-3 w-3" />
+                                {t(ROOM_TYPE_LABEL[r.type])}
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                                <Users className="h-3 w-3" />
+                                {t(
+                                  r.capacity === 1
+                                    ? 'admin.structure.seats_one'
+                                    : 'admin.structure.seats_other',
+                                  { count: r.capacity },
+                                )}
+                              </span>
+                            </div>
+
+                            {r.equipment && r.equipment.length > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                  {t('rooms.equipment_label')}
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {r.equipment.slice(0, 4).map((e) => (
+                                    <span
+                                      key={e.id}
+                                      className={cn(
+                                        'rounded-md border bg-background px-1.5 py-0.5 text-[11px]',
+                                        !e.isWorking && 'opacity-50 line-through',
+                                      )}
+                                    >
+                                      {e.name}
+                                      {e.quantity > 1 && ` ×${e.quantity}`}
+                                    </span>
+                                  ))}
+                                  {r.equipment.length > 4 && (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {t('rooms.equipment_more', { count: r.equipment.length - 4 })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="mt-auto pt-2">
+                              <Button
+                                variant="outline"
+                                className="w-full"
+                                disabled={!r.isBookable}
+                                onClick={() => {
+                                  setBookingRoom(r);
+                                }}
+                              >
+                                <CalendarPlus className="h-4 w-4" />
+                                {t('rooms.book_room')}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
                   </div>
-                )}
-
-                <div className="mt-auto pt-2">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    disabled={!r.isBookable}
-                    onClick={() => {
-                      setBookingRoom(r);
-                    }}
-                  >
-                    <CalendarPlus className="h-4 w-4" />
-                    {t('rooms.book_room')}
-                  </Button>
-                </div>
-              </CardContent>
+                </motion.div>
+              )}
             </Card>
-          </motion.div>
-        ))}
+          );
+        })}
       </div>
 
       <BookingFormDialog

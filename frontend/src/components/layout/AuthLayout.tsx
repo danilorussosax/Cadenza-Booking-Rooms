@@ -5,6 +5,7 @@ import { institutesApi } from '@/api/institutes';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { AppFooter } from '@/components/AppFooter';
+import { useAppIcon } from '@/hooks/useAppIcon';
 import type { ReactNode } from 'react';
 
 interface Props {
@@ -12,10 +13,17 @@ interface Props {
   /** Subtitle / quote shown under the brand on the left panel */
   quote?: string;
   attribution?: string;
+  /**
+   * Immagine di sfondo per il pannello form (destra). Se valorizzata, viene
+   * renderizzata sfocata con un overlay theme-aware per garantire la
+   * leggibilità di input e testi sopra di essa. Solo /login la usa al momento.
+   */
+  formBgImage?: string;
 }
 
-export function AuthLayout({ children, quote, attribution }: Props) {
+export function AuthLayout({ children, quote, attribution, formBgImage }: Props) {
   const { t } = useTranslation();
+  const appIcon = useAppIcon();
   const { data } = useQuery({
     queryKey: ['institute', 'public'],
     queryFn: () => institutesApi.public(),
@@ -48,13 +56,10 @@ export function AuthLayout({ children, quote, attribution }: Props) {
                 className="h-9 w-9 object-contain"
               />
             ) : (
-              <img src="/cadenza.png" alt="" className="h-9 w-9 object-contain" />
+              <img src={appIcon} alt="" className="h-9 w-9 object-contain" />
             )}
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-primary-foreground/70">
-              {t('app.institute_default')}
-            </p>
             <p className="font-display text-lg font-medium leading-tight">
               {institute?.name ?? t('app.subtitle')}
             </p>
@@ -82,8 +87,21 @@ export function AuthLayout({ children, quote, attribution }: Props) {
       </motion.aside>
 
       {/* Form panel */}
-      <main className="relative flex items-center justify-center bg-background px-4 py-10 sm:px-6 lg:px-12">
-        <div className="absolute right-4 top-4 flex items-center gap-1 sm:right-6 sm:top-6">
+      <main className="relative flex items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6 lg:px-12">
+        {formBgImage && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 scale-105 bg-cover bg-center blur-sm saturate-110"
+              style={{ backgroundImage: `url(${formBgImage})` }}
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-background/70 dark:bg-background/80"
+            />
+          </>
+        )}
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-1 sm:right-6 sm:top-6">
           <LanguageToggle />
           <ThemeToggle />
         </div>
@@ -91,20 +109,17 @@ export function AuthLayout({ children, quote, attribution }: Props) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: 'easeOut', delay: 0.05 }}
-          className="w-full max-w-md"
+          className="relative z-10 w-full max-w-md"
         >
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               {institute?.logoUrl ? (
                 <img src={institute.logoUrl} alt="" className="h-7 w-7 object-contain" />
               ) : (
-                <img src="/cadenza.png" alt="" className="h-7 w-7 object-contain" />
+                <img src={appIcon} alt="" className="h-7 w-7 object-contain" />
               )}
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                {t('app.institute_default')}
-              </p>
               <p className="font-display text-base font-medium">
                 {institute?.name ?? t('app.subtitle')}
               </p>
@@ -112,7 +127,7 @@ export function AuthLayout({ children, quote, attribution }: Props) {
           </div>
           {children}
         </motion.div>
-        <AppFooter className="absolute inset-x-0 bottom-0" />
+        <AppFooter className="absolute inset-x-0 bottom-0 z-10" />
       </main>
     </div>
   );

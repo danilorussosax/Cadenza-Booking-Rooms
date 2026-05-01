@@ -8,6 +8,9 @@ export interface BookingsListParams {
   userId?: number;
   mine?: boolean;
   status?: BookingStatus;
+  /** Pagination opt-in (P1-2). Default backend: 100, max 500. */
+  limit?: number;
+  offset?: number;
 }
 
 export interface CreateBookingPayload {
@@ -124,5 +127,13 @@ export const bookingsApi = {
     api<{ cancelled: number; skipped: number }>('/api/bookings/bulk-cancel', {
       method: 'POST',
       body: { ids, reason },
+    }),
+
+  // Swap atomico admin: scambia room+orario tra due prenotazioni future
+  // confermate non checked-in. Usato per risolvere conflitti rapidamente.
+  swap: (aId: number, bId: number) =>
+    api<{ a: Booking; b: Booking }>('/api/bookings/swap', {
+      method: 'POST',
+      body: { aId, bId },
     }),
 };

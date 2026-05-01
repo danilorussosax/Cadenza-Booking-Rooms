@@ -140,6 +140,7 @@ async function createBookingRule(overrides = {}) {
     maxAdvanceDays: overrides.maxAdvanceDays ?? 30,
     minAdvanceHours: overrides.minAdvanceHours ?? 0,
     cancellationDeadlineHours: overrides.cancellationDeadlineHours ?? 0,
+    minIntervalBetweenBookingsMinutes: overrides.minIntervalBetweenBookingsMinutes ?? 0,
     allowRecurring: overrides.allowRecurring ?? true,
     allowNightHours: overrides.allowNightHours ?? true,
     allowedStartTime: overrides.allowedStartTime || '00:00',

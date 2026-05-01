@@ -10,6 +10,8 @@ const {
   Building,
   Room,
   Equipment,
+  BookingTypeCatalog,
+  ContractType,
 } = require('../models');
 
 async function seed() {
@@ -470,11 +472,14 @@ async function seed() {
     },
   ];
 
-  // Idempotente: findOrCreate per code (paranoid:false trova anche i
-  // soft-deleted), e se trovato soft-deleted lo restora — così il
-  // catalogo AFAM resta sempre visibile dopo un riavvio.
+  // Idempotente: findOrCreate per `code` con `paranoid:false` per non
+  // creare duplicati su righe soft-deleted (lo unique constraint scatterebbe
+  // comunque). I corsi eliminati esplicitamente dall'admin restano
+  // soft-deleted: NON vengono ripristinati automaticamente al riavvio,
+  // altrimenti l'admin non sarebbe mai libero di rimuovere voci dal
+  // catalogo AFAM. Per riportarne uno indietro l'admin lo ricrea dalla UI.
   let createdCount = 0;
-  let restoredCount = 0;
+  let skippedDeleted = 0;
   for (const c of afamCourses) {
     const [course, created] = await Course.findOrCreate({
       where: { code: c.code },
@@ -484,17 +489,17 @@ async function seed() {
     if (created) {
       createdCount += 1;
     } else if (course.deletedAt) {
-      await course.restore();
-      restoredCount += 1;
+      // Corso AFAM esistente ma eliminato dall'admin → rispetta la scelta.
+      skippedDeleted += 1;
     }
   }
   if (createdCount > 0) {
     console.log(`  ✓ ${createdCount} corsi AFAM creati`);
   }
-  if (restoredCount > 0) {
-    console.log(`  ✓ ${restoredCount} corsi AFAM ripristinati (erano soft-deleted)`);
+  if (skippedDeleted > 0) {
+    console.log(`  ⓘ ${skippedDeleted} corsi AFAM soft-deleted dall'admin: lasciati eliminati`);
   }
-  if (createdCount === 0 && restoredCount === 0) {
+  if (createdCount === 0 && skippedDeleted === 0) {
     const total = await Course.count();
     console.log(`  → ${total} corsi già presenti, seed AFAM saltato`);
   }
@@ -571,6 +576,125 @@ async function seed() {
       }
     }
     console.log(`  ✓ Istituto, edificio e ${sampleRooms.length} aule di esempio create`);
+  }
+
+  // ==========================================
+  // 6. Booking type catalog (gap #7 EasyRoom parity).
+  // Idempotente: findOrCreate per ogni code. I 5 system rows mirror dei
+  // valori ENUM `Booking.type`; admin può poi personalizzare label/color/...
+  // via /admin/booking-types ma non eliminarli (isSystem=true).
+  // ==========================================
+  const BOOKING_TYPE_SEED = [
+    {
+      code: 'lezione',
+      label: 'Lezione',
+      color: '#10b981',
+      icon: 'GraduationCap',
+      sortOrder: 0,
+      defaultDurationMinutes: 60,
+      description: 'Lezione individuale o di classe con docente.',
+    },
+    {
+      code: 'studio_individuale',
+      label: 'Studio individuale',
+      color: '#3b82f6',
+      icon: 'BookOpen',
+      sortOrder: 1,
+      defaultDurationMinutes: 60,
+      description: 'Studio autonomo dello studente in aula.',
+    },
+    {
+      code: 'prova',
+      label: 'Prova',
+      color: '#f59e0b',
+      icon: 'Mic',
+      sortOrder: 2,
+      defaultDurationMinutes: 90,
+      description: 'Prova di gruppo, ensemble, orchestra o coro.',
+    },
+    {
+      code: 'concerto',
+      label: 'Concerto',
+      color: '#a855f7',
+      icon: 'Music',
+      sortOrder: 3,
+      defaultDurationMinutes: 120,
+      description: 'Concerto, saggio o esibizione pubblica.',
+    },
+    {
+      code: 'altro',
+      label: 'Altro',
+      color: '#64748b',
+      icon: 'Calendar',
+      sortOrder: 4,
+      defaultDurationMinutes: null,
+      description: 'Altro impegno non riconducibile alle categorie standard.',
+    },
+  ];
+  let typesAdded = 0;
+  for (const row of BOOKING_TYPE_SEED) {
+    const [, created] = await BookingTypeCatalog.findOrCreate({
+      where: { code: row.code },
+      defaults: { ...row, isSystem: true, isActive: true },
+    });
+    if (created) typesAdded += 1;
+  }
+  if (typesAdded > 0) {
+    console.log(`  ✓ Catalog tipi prenotazione: seed ${typesAdded} tipi system`);
+  } else {
+    console.log('  → Catalog tipi prenotazione già presente (skip)');
+  }
+
+  // ============================================================
+  // Seed Tipologie contrattuali docenti — i 4 valori storici diventano
+  // record `isSystem: true` non cancellabili. Idempotente: se già presenti
+  // skip. Per ogni Institute esistente. Bind to first institute by id.
+  // ============================================================
+  const institutes = await Institute.findAll({ attributes: ['id'], order: [['id', 'ASC']] });
+  const CONTRACT_TYPE_SEED = [
+    {
+      code: 'titolare',
+      label: 'Titolare di cattedra',
+      defaultHours: 324,
+      bypassDayConstraintDefault: false,
+      sortOrder: 1,
+    },
+    {
+      code: 'contratto_orario',
+      label: 'Contratto orario',
+      defaultHours: null, // soglia individuale, no default
+      bypassDayConstraintDefault: true,
+      sortOrder: 2,
+    },
+    {
+      code: 'supplente',
+      label: 'Supplente',
+      defaultHours: null,
+      bypassDayConstraintDefault: false,
+      sortOrder: 3,
+    },
+    {
+      code: 'altro',
+      label: 'Altro',
+      defaultHours: null,
+      bypassDayConstraintDefault: false,
+      sortOrder: 4,
+    },
+  ];
+  let contractTypesAdded = 0;
+  for (const inst of institutes) {
+    for (const row of CONTRACT_TYPE_SEED) {
+      const [, created] = await ContractType.findOrCreate({
+        where: { instituteId: inst.id, code: row.code },
+        defaults: { ...row, instituteId: inst.id, isSystem: true, isActive: true },
+      });
+      if (created) contractTypesAdded += 1;
+    }
+  }
+  if (contractTypesAdded > 0) {
+    console.log(`  ✓ Tipologie contrattuali docenti: seed ${contractTypesAdded} tipi system`);
+  } else {
+    console.log('  → Tipologie contrattuali docenti già presenti (skip)');
   }
 
   console.log('--- Seed completato ---\n');

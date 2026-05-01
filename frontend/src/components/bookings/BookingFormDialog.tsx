@@ -14,6 +14,7 @@ import { waitlistApi } from '@/api/waitlist';
 import { useAuth } from '@/contexts/AuthContext';
 import { httpErrorMessage, HttpError } from '@/lib/api';
 import { BOOKING_TYPE_OPTIONS } from '@/lib/bookings';
+import { bookingTypesApi } from '@/api/bookingTypes';
 import { fromLocalInput, toLocalDateTimeInput } from '@/lib/date';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,13 @@ interface Props {
    *  dialog passa in modalità PATCH (PUT /api/bookings/:id) anziché POST.
    *  Nasconde le opzioni di ricorrenza (la booking esiste già). */
   booking?: Booking | null;
+  /** Duplicate mode (gap #1 EasyRoom parity): copia i campi (room, type,
+   *  purpose, notes) da una booking esistente, ma resetta startTime/endTime
+   *  a +7 giorni di default. Il dialog resta in modalità "create" → POST
+   *  /api/bookings normale, validator standard, eventuale waitlist su
+   *  conflitto. Il campo `booking` non deve essere valorizzato insieme a
+   *  `duplicateFrom`: prevale `booking` se entrambi presenti. */
+  duplicateFrom?: Booking | null;
 }
 
 export function BookingFormDialog({
@@ -97,6 +105,7 @@ export function BookingFormDialog({
   lockRoom,
   onCreated,
   booking,
+  duplicateFrom,
 }: Props) {
   const qc = useQueryClient();
   const { t } = useTranslation();
@@ -129,6 +138,16 @@ export function BookingFormDialog({
     enabled: open,
   });
 
+  // Catalog dinamico tipi prenotazione (gap #7 EasyRoom parity).
+  // Restituisce SOLO i tipi attivi, già ordinati per sortOrder. Se la query
+  // fallisce o è in caricamento, fallback a `BOOKING_TYPE_OPTIONS` statico.
+  const typesQuery = useQuery({
+    queryKey: ['booking-types', 'active'],
+    queryFn: () => bookingTypesApi.list(),
+    staleTime: 5 * 60_000, // catalog cambia raramente
+    enabled: open,
+  });
+
   // Lista utenti per il selettore "Prenota a nome di…" (admin only). Carico
   // solo utenti approved+active (gli unici che il backend accetta come owner).
   const usersQuery = useQuery({
@@ -149,6 +168,23 @@ export function BookingFormDialog({
         notes: booking.notes ?? '',
       };
     }
+    if (duplicateFrom) {
+      // Duplicate mode: copia campi semantici (room/type/purpose/notes)
+      // dalla booking sorgente. Sposta start/end di +7 giorni così l'utente
+      // vede subito una data plausibile (stesso giorno settimana successiva)
+      // ma può modificarla nel form prima del submit.
+      const SHIFT_MS = 7 * 24 * 60 * 60 * 1000;
+      const newStart = new Date(new Date(duplicateFrom.startTime).getTime() + SHIFT_MS);
+      const newEnd = new Date(new Date(duplicateFrom.endTime).getTime() + SHIFT_MS);
+      return {
+        roomId: String(duplicateFrom.roomId),
+        startTime: toLocalDateTimeInput(newStart),
+        endTime: toLocalDateTimeInput(newEnd),
+        type: duplicateFrom.type,
+        purpose: duplicateFrom.purpose ?? '',
+        notes: duplicateFrom.notes ?? '',
+      };
+    }
     const start = defaultStart ?? new Date();
     const end = defaultEnd ?? new Date(start.getTime() + 60 * 60 * 1000);
     return {
@@ -159,7 +195,7 @@ export function BookingFormDialog({
       purpose: '',
       notes: '',
     };
-  }, [defaultRoomId, defaultStart, defaultEnd, booking]);
+  }, [defaultRoomId, defaultStart, defaultEnd, booking, duplicateFrom]);
 
   const {
     register,
@@ -309,9 +345,17 @@ export function BookingFormDialog({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {isEdit ? t('booking.form.title_edit') : t('booking.form.title_new')}
+              {isEdit
+                ? t('booking.form.title_edit')
+                : duplicateFrom
+                  ? t('booking.form.title_duplicate')
+                  : t('booking.form.title_new')}
             </DialogTitle>
-            <DialogDescription>{t('booking.form.title_description')}</DialogDescription>
+            <DialogDescription>
+              {duplicateFrom
+                ? t('booking.form.title_duplicate_description')
+                : t('booking.form.title_description')}
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
@@ -435,11 +479,27 @@ export function BookingFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BOOKING_TYPE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {t(o.labelKey)}
-                    </SelectItem>
-                  ))}
+                  {/* Catalog admin-personalizzato (gap #7): label/color/icon
+                      vengono dal DB e sono ridenominabili. Fallback alle
+                      label statiche i18n se il catalog non è ancora caricato. */}
+                  {typesQuery.data?.types && typesQuery.data.types.length > 0
+                    ? typesQuery.data.types.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: c.color }}
+                              aria-hidden="true"
+                            />
+                            {c.label}
+                          </span>
+                        </SelectItem>
+                      ))
+                    : BOOKING_TYPE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {t(o.labelKey)}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
             </div>

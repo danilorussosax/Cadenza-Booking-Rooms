@@ -107,6 +107,19 @@ fi
 # ───── 3) Restart
 cd "$BACKEND_DIR" || exit 1
 
+# ───── 3a) Migration sequelize-cli (transizione)
+# Applica le migration pending PRIMA di avviare il server. La baseline è
+# already-up, quindi su DB allineati è no-op rapido (~50ms). Se una
+# migration nuova fallisce, abortiamo lo start: meglio non servire un
+# backend con schema disallineato.
+if [[ -f "$BACKEND_DIR/.sequelizerc" ]]; then
+  log "🗃️  Applico migration sequelize-cli pending..."
+  if ! npx --no-install sequelize-cli db:migrate >> "${LOG_FILE:-/dev/null}" 2>&1; then
+    echo "❌ db:migrate fallito. Vedi log: ${LOG_FILE:-stderr}" >&2
+    exit 1
+  fi
+fi
+
 if [[ $BG -eq 1 ]]; then
   log "🚀 Avvio backend in background → log: $LOG_FILE"
   nohup node server.js > "$LOG_FILE" 2>&1 &

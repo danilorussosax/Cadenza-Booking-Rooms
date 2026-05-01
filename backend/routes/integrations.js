@@ -19,8 +19,17 @@ const {
 const { authenticate, requireRole } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
-const { buildHeaderMap, applyMapping } = require('../services/integrations/isidata/fieldMapping');
+const {
+  buildHeaderMap,
+  applyMapping,
+  sanitizeOverrides,
+} = require('../services/integrations/isidata/fieldMapping');
 const { computeDiff } = require('../services/integrations/diffEngine');
+
+// Token formato: `${adminId}-${Date.now()}-${hex16}${ext}` con ext `.csv|.xlsx|...`.
+// Stringere la regex impedisce che varianti tipo `1-foo.csv` (senza Date e
+// senza hex random) passino il filtro pre-readTempFile.
+const TOKEN_REGEX = /^\d+-\d+-[a-f0-9]{16}\.[a-z0-9]{1,8}$/i;
 
 const router = express.Router();
 
@@ -43,6 +52,11 @@ function ensureTmpDir() {
 ensureTmpDir();
 
 // Cleanup periodico dei file scaduti (best-effort, non bloccante).
+// Esposto via module.exports e chiamato dal retentionScheduler ogni 24h
+// — no setInterval locale (P1-4: il pattern `setInterval(..., 5min)` con
+// `unref?.()` ottimistico tratteneva il process se l'opt chaining falliva
+// silenziosamente in alcuni runtime, e duplicava il timer ad ogni
+// `require()` del modulo nei test).
 function cleanupExpiredTmpFiles() {
   try {
     const now = Date.now();
@@ -59,7 +73,6 @@ function cleanupExpiredTmpFiles() {
     /* noop */
   }
 }
-setInterval(cleanupExpiredTmpFiles, 5 * 60 * 1000).unref?.();
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -96,8 +109,18 @@ function persistTempFile(adminId, buffer, originalName) {
 }
 
 function readTempFile(token) {
-  const full = path.join(TMP_DIR, path.basename(token));
-  if (!full.startsWith(TMP_DIR)) return null; // path traversal guard
+  // Doppia difesa contro path traversal:
+  //   1. `path.basename(token)` strappa qualsiasi separatore (`/`, `..`, etc.)
+  //   2. `path.relative` containment check funziona uniformemente su Windows
+  //      e POSIX (il check `startsWith(TMP_DIR)` precedente poteva fallire su
+  //      Windows quando TMP_DIR usava `/` mixed con `\`, lasciando passare
+  //      casi tipo `D:\evil` se TMP_DIR=`D:\evil-prefix\tmp`).
+  const safeBase = path.basename(token);
+  if (!safeBase || safeBase === '.' || safeBase === '..') return null;
+  const tmpResolved = path.resolve(TMP_DIR);
+  const full = path.resolve(tmpResolved, safeBase);
+  const rel = path.relative(tmpResolved, full);
+  if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '') return null;
   try {
     const st = fs.statSync(full);
     if (Date.now() - st.mtimeMs > TMP_TTL_MS) {
@@ -147,8 +170,8 @@ async function resolveCourse({ code, name }, transaction) {
 // Costruisce gli ExternalUser dal buffer del file: parse + mapping.
 // Restituisce {externals, headers, warnings} senza toccare il DB.
 // =====================================================
-function buildExternals(buffer, filename, mimetype, mappingOverrides) {
-  const { rows, headers, warnings } = csvImporter.parse(buffer, filename, mimetype);
+async function buildExternals(buffer, filename, mimetype, mappingOverrides) {
+  const { rows, headers, warnings } = await csvImporter.parse(buffer, filename, mimetype);
   const headerMap = buildHeaderMap(headers, mappingOverrides);
 
   const externals = [];
@@ -163,7 +186,7 @@ function buildExternals(buffer, filename, mimetype, mappingOverrides) {
 
 // =====================================================
 // POST /api/admin/integrations/isidata-csv/preview
-// multipart/form-data: 'file', body { instituteId?, mappingOverrides? }
+// multipart/form-data: 'file', body { mappingOverrides? }
 // Risponde con il diff calcolato + token+hash da rimandare in /apply.
 // NON modifica DB.
 // =====================================================
@@ -181,22 +204,35 @@ router.post(
       }
       let mappingOverrides = null;
       if (req.body.mappingOverrides) {
+        const raw = req.body.mappingOverrides;
+        // Cap dimensione del JSON dell'admin: evita CPU-spike su parse di
+        // payload patologici. 4KB > 10× la dimensione di un override realistico.
+        if (typeof raw === 'string' && raw.length > 4096) {
+          return res
+            .status(400)
+            .json({ error: 'mappingOverrides troppo grande', code: 'VALIDATION_FAILED' });
+        }
+        let parsed;
         try {
-          mappingOverrides =
-            typeof req.body.mappingOverrides === 'string'
-              ? JSON.parse(req.body.mappingOverrides)
-              : req.body.mappingOverrides;
+          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
         } catch {
           return res
             .status(400)
             .json({ error: 'mappingOverrides JSON non valido', code: 'VALIDATION_FAILED' });
+        }
+        try {
+          mappingOverrides = sanitizeOverrides(parsed);
+        } catch (err) {
+          return res
+            .status(400)
+            .json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
         }
       }
 
       // Parse + mapping → ExternalUser[]
       let parsed;
       try {
-        parsed = buildExternals(
+        parsed = await buildExternals(
           req.file.buffer,
           req.file.originalname,
           req.file.mimetype,
@@ -318,8 +354,13 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
       .status(400)
       .json({ error: 'token e confirmedDiffHash sono obbligatori', code: 'VALIDATION_FAILED' });
   }
-  if (!/^[a-f0-9-]+\.[a-z0-9]+$/i.test(token)) {
+  if (typeof token !== 'string' || !TOKEN_REGEX.test(token)) {
     return res.status(400).json({ error: 'token non valido', code: 'TOKEN_INVALID' });
+  }
+  // Hash atteso: 64 char hex (SHA-256). Validare PRIMA del confronto evita
+  // chiamate a Buffer.from con input non normalizzato e dà un errore parlante.
+  if (typeof confirmedDiffHash !== 'string' || !/^[a-f0-9]{64}$/i.test(confirmedDiffHash)) {
+    return res.status(400).json({ error: 'hash non valido', code: 'VALIDATION_FAILED' });
   }
   // Solo l'admin che ha caricato può applicare: il prefisso del token
   // contiene il suo id.
@@ -330,6 +371,16 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
       .json({ error: "token non appartenente all'admin corrente", code: 'TOKEN_FOREIGN' });
   }
 
+  // Sanitizza eventuali overrides anche in apply: il client può passarli di
+  // nuovo per "rifinire" il diff. Senza sanitize l'apply userebbe un mapping
+  // diverso dalla preview se il client invia shape diversa.
+  let safeOverrides = null;
+  try {
+    safeOverrides = sanitizeOverrides(mappingOverrides ?? null);
+  } catch (err) {
+    return res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
+  }
+
   const buffer = readTempFile(token);
   if (!buffer) {
     return res.status(410).json({
@@ -338,7 +389,11 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
     });
   }
   const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
-  if (fileHash !== confirmedDiffHash) {
+  // Confronto in tempo costante: previene timing-attack sull'hash atteso
+  // (defense-in-depth — l'attaccante deve comunque possedere un token valido).
+  const a = Buffer.from(fileHash, 'hex');
+  const b = Buffer.from(confirmedDiffHash.toLowerCase(), 'hex');
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     return res
       .status(409)
       .json({ error: 'Hash file non coincide — ricarica la preview', code: 'HASH_MISMATCH' });
@@ -346,7 +401,7 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
 
   let parsed;
   try {
-    parsed = buildExternals(buffer, token, '', mappingOverrides ?? null);
+    parsed = await buildExternals(buffer, token, '', safeOverrides);
   } catch (err) {
     return res.status(400).json({ error: err.message, code: err.code || 'PARSE_FAILED' });
   }
@@ -412,10 +467,17 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
           const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
           // Email può essere null per studenti minorenni: in quel caso
           // generiamo un placeholder unique-safe (admin la modificherà a
-          // mano quando l'utente attiverà il profilo).
-          const email =
-            ext.email ||
-            `import-${ext.externalId || crypto.randomBytes(4).toString('hex')}@imported.local`;
+          // mano quando l'utente attiverà il profilo). Sanitiziamo l'externalId
+          // a `[a-z0-9._-]` per il local-part: il modello User ha validate
+          // isEmail e externalId arbitrari (con `:`, spazi, accenti) farebbero
+          // fallire la create con ValidationError.
+          const safeLocalPart =
+            String(ext.externalId || crypto.randomBytes(4).toString('hex'))
+              .toLowerCase()
+              .replace(/[^a-z0-9._-]+/g, '-')
+              .replace(/^-+|-+$/g, '')
+              .slice(0, 60) || crypto.randomBytes(4).toString('hex');
+          const email = ext.email || `import-${safeLocalPart}@imported.local`;
           await User.create(
             {
               email,
@@ -602,4 +664,8 @@ router.get('/runs', authenticate, requireRole('admin'), async (req, res, next) =
   }
 });
 
+// Esposto come property non-enumerable per non interferire con eventuali
+// itera-over su `module.exports`. Usato da `services/retentionScheduler.js`
+// per chiamare la pulizia tmp dentro il tick giornaliero.
 module.exports = router;
+module.exports.cleanupExpiredTmpFiles = cleanupExpiredTmpFiles;

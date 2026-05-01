@@ -64,6 +64,19 @@ module.exports = (sequelize) => {
         defaultValue: 2,
         validate: { min: 0 },
       },
+      // Intervallo minimo (in minuti) tra una prenotazione e la successiva
+      // dello stesso utente. Serve a evitare che il cap "max ore al giorno"
+      // venga aggirato concatenando più prenotazioni di durata massima:
+      // es. cap 4h/giorno con maxBookingDurationMinutes=120 — senza questo
+      // vincolo lo studente prenoterebbe 14:00–16:00 + 16:00–18:00. Con un
+      // cooldown di 60 min, deve aspettare almeno fino alle 17:00.
+      // Calcolo cross-day sui minuti astronomici tra fine e inizio.
+      // 0 = nessun cooldown (default, backward compatible).
+      minIntervalBetweenBookingsMinutes: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        validate: { min: 0 },
+      },
       // Permesso di prenotazioni ricorrenti
       allowRecurring: {
         type: DataTypes.BOOLEAN,

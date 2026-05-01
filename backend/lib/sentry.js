@@ -97,8 +97,27 @@ function init() {
     dsn,
     environment: process.env.NODE_ENV || 'development',
     release: process.env.SENTRY_RELEASE || undefined,
-    tracesSampleRate: 0.1,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.1),
+    // sendDefaultPii deliberatamente FALSE: usiamo scrubbing custom
+    // (beforeBreadcrumb + beforeSend) per controllo granulare (GDPR).
     sendDefaultPii: false,
+    attachStacktrace: true,
+    // Sentry Logs (v9.41.0+): integrazione con pino già installato.
+    enableLogs: true,
+    // Cattura i valori delle variabili locali nei stack frame — utile per
+    // debug post-mortem (no overhead percepibile in produzione).
+    includeLocalVariables: true,
+    // Errori "operativi" che ci aspettiamo (4xx applicativi, validazione,
+    // disconnessioni client) non sono bug e non devono saturare Sentry.
+    ignoreErrors: [
+      'ECONNRESET',
+      'ECONNABORTED',
+      'EPIPE',
+      'aborted',
+      'Request aborted',
+      // express-rate-limit usa codice 429: non è un errore di servizio
+      'RATE_LIMITED',
+    ],
     beforeBreadcrumb: scrubBreadcrumb,
     beforeSend: scrubEvent,
   });

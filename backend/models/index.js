@@ -54,6 +54,7 @@ const BookingRule = require('./BookingRule')(sequelize);
 const BookingRuleException = require('./BookingRuleException')(sequelize);
 const Booking = require('./Booking')(sequelize);
 const BookingTemplate = require('./BookingTemplate')(sequelize);
+const BookingTypeCatalog = require('./BookingTypeCatalog')(sequelize);
 const MailSettings = require('./MailSettings')(sequelize);
 const BackupSettings = require('./BackupSettings')(sequelize);
 const MailTemplate = require('./MailTemplate')(sequelize);
@@ -79,6 +80,7 @@ const MonteOreSettings = require('./MonteOreSettings')(sequelize);
 const MonteOreSuspension = require('./MonteOreSuspension')(sequelize);
 const MonteOreSlot = require('./MonteOreSlot')(sequelize);
 const MonteOreAmendment = require('./MonteOreAmendment')(sequelize);
+const ContractType = require('./ContractType')(sequelize);
 
 // ===========================================
 // Associazioni / Relazioni
@@ -184,43 +186,74 @@ Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
 // notificare il primo in coda d'attesa per quella room nello stesso slot.
 // Il service `waitlistService` viene importato lazy per evitare cicli di
 // dipendenza (waitlistService include i model qui sopra).
+//
+// CORRETTEZZA TRANSAZIONALE (P1-6):
+// I hook Sequelize vengono invocati durante la transazione, PRIMA del
+// commit. Se chiamiamo `notifyNextOnSlot()` direttamente dentro una
+// transazione che successivamente fa rollback, l'email "il tuo turno è
+// disponibile" sarebbe stata già inviata pur essendo annullata la
+// cancellazione → falso positivo per l'utente in coda.
+//
+// Soluzione: dispatch via `transaction.afterCommit()` quando l'hook è
+// invocato dentro una tx; sync diretta solo per chiamate fuori tx.
 // =========================================================
-Booking.afterDestroy(async (booking) => {
+
+// Utility: dispatcher che incapsula la chiamata waitlist + error handling.
+// Lazy require di waitlistService per evitare cicli a startup.
+function dispatchWaitlistNotification(booking) {
+  return (async () => {
+    try {
+      const { notifyNextOnSlot } = require('../services/waitlistService');
+      await notifyNextOnSlot({
+        roomId: booking.roomId,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+      });
+    } catch (err) {
+      // Mai propagare: la waitlist è best-effort.
+      // Logger lazy per evitare circolare a startup.
+      try {
+        require('../lib/logger').warn(
+          { err: err.message, bookingId: booking.id, roomId: booking.roomId },
+          'waitlist notification failed',
+        );
+      } catch {
+        /* logger non disponibile, swallow silenzioso */
+      }
+    }
+  })();
+}
+
+// Helper: se l'hook è dentro una transazione, registriamo su afterCommit
+// così la notifica parte SOLO se la tx committa effettivamente. Altrimenti
+// (no-tx) eseguiamo subito fire-and-forget.
+function scheduleWaitlistDispatch(booking, options) {
+  if (options?.transaction) {
+    options.transaction.afterCommit(() => {
+      dispatchWaitlistNotification(booking);
+    });
+  } else {
+    dispatchWaitlistNotification(booking);
+  }
+}
+
+Booking.afterDestroy((booking, options) => {
   // Anche per cancellazioni "soft" (status='cancelled') non passa da qui:
   // l'app usa booking.update({status:'cancelled'}) NON booking.destroy().
   // Quando passa da qui (es. paranoid destroy o hard delete) la slot
   // è effettivamente liberata.
-  try {
-    const { notifyNextOnSlot } = require('../services/waitlistService');
-    await notifyNextOnSlot({
-      roomId: booking.roomId,
-      startTime: booking.startTime,
-      endTime: booking.endTime,
-    });
-  } catch (err) {
-    // Mai bloccare la cancellazione per errori della waitlist
-    console.error('[waitlist] afterDestroy hook error:', err.message);
-  }
+  scheduleWaitlistDispatch(booking, options);
 });
 
 // L'app usa update(status='cancelled') per le cancellazioni utente (vedi
 // routes/bookings.js#delete). Aggiungiamo un afterUpdate che reagisce
 // quando lo status passa a 'cancelled' o 'no_show', equivalente alla
 // liberazione dello slot.
-Booking.afterUpdate(async (booking) => {
-  try {
-    if (!booking.changed('status')) return;
-    const newStatus = booking.status;
-    if (newStatus !== 'cancelled' && newStatus !== 'no_show') return;
-    const { notifyNextOnSlot } = require('../services/waitlistService');
-    await notifyNextOnSlot({
-      roomId: booking.roomId,
-      startTime: booking.startTime,
-      endTime: booking.endTime,
-    });
-  } catch (err) {
-    console.error('[waitlist] afterUpdate hook error:', err.message);
-  }
+Booking.afterUpdate((booking, options) => {
+  if (!booking.changed('status')) return;
+  const newStatus = booking.status;
+  if (newStatus !== 'cancelled' && newStatus !== 'no_show') return;
+  scheduleWaitlistDispatch(booking, options);
 });
 
 // Bot messaging: relazioni leggere
@@ -287,6 +320,12 @@ Institute.hasMany(MonteOreSettings, {
   onDelete: 'CASCADE',
 });
 MonteOreSettings.belongsTo(Institute, { foreignKey: 'instituteId', as: 'institute' });
+Institute.hasMany(ContractType, {
+  foreignKey: 'instituteId',
+  as: 'contractTypes',
+  onDelete: 'CASCADE',
+});
+ContractType.belongsTo(Institute, { foreignKey: 'instituteId', as: 'institute' });
 Institute.hasMany(MonteOreSuspension, {
   foreignKey: 'instituteId',
   as: 'monteOreSuspensions',
@@ -369,4 +408,6 @@ module.exports = {
   MonteOreSuspension,
   MonteOreSlot,
   MonteOreAmendment,
+  ContractType,
+  BookingTypeCatalog,
 };

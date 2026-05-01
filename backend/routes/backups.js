@@ -298,8 +298,24 @@ router.post('/restart', authenticate, requireRole('admin'), (_req, res) => {
     message: 'Riavvio programmato tra 1 secondo. Attendi qualche istante e ricarica la pagina.',
   });
   setTimeout(() => {
-    console.log('[restart] graceful shutdown richiesto via API admin');
-    process.exit(0);
+    // P1-7: invece di `process.exit(0)` (chiusura brutale che bypassa scheduler
+    // e pool DB), inviamo SIGTERM al nostro stesso PID. server.js ha già un
+    // signal handler che chiama `safeShutdown(0)` — quel path stoppa
+    // retentionScheduler/reminderScheduler/backupScheduler, drena le
+    // transazioni in volo e chiude il pool Sequelize prima di uscire.
+    // Su Windows `process.kill('SIGTERM')` è equivalente all'exit forzato; la
+    // feature di auto-restart richiede un process manager (systemd/pm2)
+    // che gira solo su Linux/macOS, quindi non degradiamo niente.
+    console.log('[restart] graceful shutdown richiesto via API admin (SIGTERM)');
+    try {
+      process.kill(process.pid, 'SIGTERM');
+    } catch (err) {
+      // Ultimissimo fallback: se per qualche ragione SIGTERM non arriva
+      // (es. handler removed via test), usciamo comunque per non lasciare
+      // l'utente in attesa indefinita.
+      console.error('[restart] SIGTERM fallito, exit forzato:', err.message);
+      process.exit(1);
+    }
   }, 1000);
 });
 

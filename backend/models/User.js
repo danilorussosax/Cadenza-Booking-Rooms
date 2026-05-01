@@ -205,6 +205,48 @@ module.exports = (sequelize) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      // ---- Monte Ore — tipologia contrattuale + override individuale ----
+      // Salvato come STRING(40) (no FK) — il valore deve corrispondere al
+      // ContractType.code di un record attivo per quell'istituto. La
+      // validazione cross-tabella è applicativa (in routes/users.js,
+      // routes/auth.js POST /register, e nei flussi di import Isidata).
+      // I 4 valori storici (`titolare`, `contratto_orario`, `supplente`,
+      // `altro`) sono garantiti dal seed in seeders/initial.js.
+      contractType: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+      },
+      // Override individuale del monte ore annuo. Se valorizzato (>0) sostituisce
+      // MonteOreSettings.minRequiredHours per QUESTO docente. Tipico per
+      // contratti orari (es. 60h, 120h, 180h) che hanno un monte concordato
+      // diverso dal CCNL standard 324h.
+      monteOreAnnualHoursOverride: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        validate: { min: 0, max: 1500 },
+      },
+      // Esenzione dal vincolo "2-4 giorni a settimana". Per contratti orari
+      // brevi (es. 30h) può aver senso concentrare tutto in un solo giorno.
+      monteOreBypassDayConstraint: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      // Motivazione obbligatoria quando si imposta override o bypass: es.
+      // "Contratto orario 60h - prot. 2026/123 del 15/09/2026". Esposta
+      // nell'audit log e visibile all'admin nel dettaglio utente.
+      monteOreOverrideReason: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
+      monteOreOverrideSetAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      monteOreOverrideSetBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
     },
     {
       tableName: 'users',

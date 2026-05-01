@@ -68,8 +68,32 @@ export function initSentry() {
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE ?? undefined,
     tracesSampleRate: 0.1,
+    // sendDefaultPii=false: scrubbing custom su beforeBreadcrumb/beforeSend
     sendDefaultPii: false,
+    attachStacktrace: true,
+    // Sentry Logs (v9.41.0+) per logs strutturati lato browser
+    enableLogs: true,
+    // Distributed tracing browser → backend: il header sentry-trace viene
+    // propagato sulle fetch verso questi target, collegando le span FE/BE.
+    tracePropagationTargets: [
+      'localhost',
+      /^\//, // stesso origin (l'app serve frontend e API dal backend)
+    ],
     integrations: [Sentry.browserTracingIntegration()],
+    // Rumore noto del browser non azionable: non sprechiamo quota.
+    ignoreErrors: [
+      'ResizeObserver loop limit exceeded',
+      'ResizeObserver loop completed with undelivered notifications',
+      'Non-Error promise rejection captured',
+      'Network request failed',
+      'NetworkError when attempting to fetch resource',
+      'Load failed',
+      // Estensioni browser che intercettano fetch e iniettano errori
+      'top.GLOBALS',
+      'chrome-extension://',
+      'moz-extension://',
+    ],
+    denyUrls: [/^chrome-extension:\/\//, /^moz-extension:\/\//, /^safari-extension:\/\//],
     beforeBreadcrumb(breadcrumb) {
       if (breadcrumb.data) {
         breadcrumb.data = scrubObject(breadcrumb.data) as Record<string, unknown>;

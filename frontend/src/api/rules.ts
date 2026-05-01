@@ -16,10 +16,33 @@ export interface UpsertRulePayload {
   maxAdvanceDays?: number;
   minAdvanceHours?: number;
   cancellationDeadlineHours?: number;
+  minIntervalBetweenBookingsMinutes?: number;
   allowRecurring?: boolean;
   allowNightHours?: boolean;
   allowedStartTime?: string;
   allowedEndTime?: string;
+}
+
+export interface OverlapBooking {
+  id: number;
+  startTime: string;
+  endTime: string;
+  purpose: string | null;
+  type: string | null;
+  checkedIn: boolean;
+  fromMonteOre: boolean;
+  user: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  } | null;
+  room: {
+    id: number;
+    name: string;
+    building: { id: number; name: string } | null;
+  } | null;
 }
 
 export interface UpsertExceptionPayload {
@@ -60,6 +83,18 @@ export const rulesApi = {
     }),
   deleteException: (id: number) =>
     api<{ message: string }>(`/api/rules/exceptions/${id}`, { method: 'DELETE' }),
+
+  // Sovrapposizioni storiche (kind='block') — anteprima e cancel batch.
+  previewOverlaps: (payload: UpsertExceptionPayload) =>
+    api<{ overlapping: OverlapBooking[] }>('/api/rules/exceptions/preview-overlaps', {
+      method: 'POST',
+      body: payload,
+    }),
+  cancelOverlapping: (id: number, reason?: string) =>
+    api<{ cancelled: number; ids: number[]; monteOreSlotsSynced: number }>(
+      `/api/rules/exceptions/${id}/cancel-overlapping`,
+      { method: 'POST', body: { reason } },
+    ),
 
   // Preview validatore (admin only). Restituisce il risultato del
   // validateBooking come se la prenotazione fosse fatta da un fake user

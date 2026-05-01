@@ -1,0 +1,44 @@
+'use strict';
+
+/**
+ * TEMPLATE — copia in `migrations/<timestamp>-<descrizione>.js` per nuove feature.
+ *
+ * Naming convenzione (sequelize-cli):
+ *   <YYYYMMDDHHMMSS>-<descrizione>.js
+ *   es. 20260501093000-add-user-phone.js
+ *
+ * Genera col CLI:
+ *   npx sequelize-cli migration:generate --name add-user-phone
+ *
+ * Regole:
+ *   - up(): operazione idempotente quando possibile (es. checkColumn prima)
+ *   - down(): rollback completo, sempre presente, testato in sviluppo
+ *   - usa transazione esplicita per multi-step
+ *   - non importare i model: usa solo queryInterface (i model possono cambiare
+ *     dopo la migration, le migration sono storia immutabile)
+ */
+
+/** @type {import('sequelize-cli').Migration} */
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    await queryInterface.sequelize.transaction(async (t) => {
+      await queryInterface.addColumn(
+        'users',
+        'phone',
+        { type: Sequelize.STRING(32), allowNull: true },
+        { transaction: t },
+      );
+      await queryInterface.addIndex('users', ['phone'], {
+        name: 'users_phone_idx',
+        transaction: t,
+      });
+    });
+  },
+
+  async down(queryInterface, _Sequelize) {
+    await queryInterface.sequelize.transaction(async (t) => {
+      await queryInterface.removeIndex('users', 'users_phone_idx', { transaction: t });
+      await queryInterface.removeColumn('users', 'phone', { transaction: t });
+    });
+  },
+};

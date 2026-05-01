@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingsApi } from '@/api/bookings';
 import { loansApi } from '@/api/instruments';
-import { monteOreAdminApi } from '@/api/monteOre';
+import { monteOreAdminApi, monteOreApi } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { dayjs, formatDate } from '@/lib/date';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
@@ -83,6 +83,8 @@ export default function Dashboard() {
     end?: Date;
   }>({ open: false });
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  // Quick-action "Duplica" (gap #1 EasyRoom parity).
+  const [duplicateTarget, setDuplicateTarget] = useState<Booking | null>(null);
   // Edit booking dialog target — admin può modificare qualsiasi prenotazione,
   // proprietario può modificare solo la propria. Apriamo il BookingFormDialog
   // in edit mode passando l'oggetto Booking come prop.
@@ -127,6 +129,27 @@ export default function Dashboard() {
   // variazioni monte ore) per le card della dashboard. Polling 60s coerente
   // col badge della sidebar.
   const isAdmin = user?.role === 'admin';
+  const isDocente = user?.role === 'docente';
+
+  // Per docenti con override Monte Ore individuale (contratto orario,
+  // supplenti, part-time): la quota settimanale di booking è poco
+  // significativa rispetto al monte ore annuale contrattuale. Sostituiamo
+  // il tile "Ore residue settimanali" con "Monte Ore: pianificate/soglia".
+  // Solo per role=docente; se non c'è override torna 'institute_settings'
+  // o 'default' e usiamo il flusso standard.
+  const monteOreThresholdQuery = useQuery({
+    queryKey: ['monte-ore', 'me', 'threshold'],
+    queryFn: () => monteOreApi.getMyThreshold(),
+    enabled: isDocente,
+    staleTime: 60_000,
+  });
+  const hasMonteOreOverride = monteOreThresholdQuery.data?.source === 'user_override';
+  const monteOreProposalQuery = useQuery({
+    queryKey: ['monte-ore', 'me'],
+    queryFn: () => monteOreApi.getMine(),
+    enabled: isDocente && hasMonteOreOverride,
+    staleTime: 60_000,
+  });
   const adminBookingsPendingQuery = useQuery({
     queryKey: ['admin', 'bookings', 'pending', 'count'],
     queryFn: () => bookingsApi.pendingCount(),
@@ -257,17 +280,47 @@ export default function Dashboard() {
       to: '/admin/monte-ore',
     });
   } else {
-    stats.push({
-      label: t('dashboard.stats.weekly_remaining_hours'),
-      value: usageQuery.isLoading ? '—' : usageDisplay.value,
-      icon: Hourglass,
-      hint:
-        usageDisplay.hint ||
-        `${dayjs().startOf('isoWeek').format('D MMM')} – ${dayjs()
-          .endOf('isoWeek')
-          .format('D MMM')}`,
-      tone: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-    });
+    // Tile "ore quota": per docenti con deroga Monte Ore individuale
+    // (contratto orario, supplenti, part-time) sostituiamo la quota
+    // settimanale di booking — che è meaningless rispetto al monte ore
+    // annuale contrattuale — con "Monte Ore: pianificate/soglia".
+    if (isDocente && hasMonteOreOverride && monteOreThresholdQuery.data) {
+      const minH = monteOreThresholdQuery.data.minHours;
+      const planned = monteOreProposalQuery.data?.proposal.totalHoursRequested ?? 0;
+      const meets = planned >= minH;
+      const ctLabel: Record<string, string> = {
+        titolare: 'titolare',
+        contratto_orario: 'contratto orario',
+        supplente: 'supplente',
+        altro: 'altro',
+      };
+      const ct = monteOreThresholdQuery.data.contractType;
+      const ctText = ct ? (ctLabel[ct] ?? 'individuale') : 'individuale';
+      stats.push({
+        label: 'Monte Ore annuali',
+        value: monteOreProposalQuery.isLoading ? '—' : `${planned.toFixed(1)} / ${minH} h`,
+        icon: Hourglass,
+        hint: meets
+          ? `✓ Soglia raggiunta · ${ctText}`
+          : `Mancano ${(minH - planned).toFixed(1)} h · ${ctText}`,
+        tone: meets
+          ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
+          : 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+        to: '/monte-ore',
+      });
+    } else {
+      stats.push({
+        label: t('dashboard.stats.weekly_remaining_hours'),
+        value: usageQuery.isLoading ? '—' : usageDisplay.value,
+        icon: Hourglass,
+        hint:
+          usageDisplay.hint ||
+          `${dayjs().startOf('isoWeek').format('D MMM')} – ${dayjs()
+            .endOf('isoWeek')
+            .format('D MMM')}`,
+        tone: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+      });
+    }
     stats.push({
       label: t('dashboard.stats.available_rooms'),
       value: roomsQuery.data?.rooms.length ?? '—',
@@ -640,6 +693,9 @@ export default function Dashboard() {
               onCancel={(book) => {
                 setCancelTarget(book);
               }}
+              onDuplicate={(book) => {
+                setDuplicateTarget(book);
+              }}
             />
           ))}
         </CardContent>
@@ -684,6 +740,14 @@ export default function Dashboard() {
           if (!open) setEditTarget(null);
         }}
         booking={editTarget}
+      />
+      {/* Duplicate dialog — pre-fill da booking esistente +7gg, POST come create. */}
+      <BookingFormDialog
+        open={duplicateTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateTarget(null);
+        }}
+        duplicateFrom={duplicateTarget}
       />
       <CancelBookingDialog
         booking={cancelTarget}

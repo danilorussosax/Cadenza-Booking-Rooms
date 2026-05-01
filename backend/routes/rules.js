@@ -5,6 +5,10 @@ const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { BookingRule, BookingRuleException } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const {
+  findOverlappingBookings,
+  cancelOverlappingBookings,
+} = require('../services/exceptionOverlapService');
 
 const router = express.Router();
 
@@ -105,6 +109,98 @@ router.post('/exceptions', authenticate, requireRole('admin'), async (req, res) 
   res.status(201).json({ exception: created });
 });
 
+// POST /api/rules/exceptions/preview-overlaps  (admin)
+// Anteprima delle prenotazioni esistenti che cadrebbero in un block
+// proposto (kind='block'). Body: stessa shape di POST /exceptions.
+// Risponde con { overlapping: Booking[] } — non scrive nulla.
+router.post(
+  '/exceptions/preview-overlaps',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const errs = validateExceptionPayload(req.body || {});
+      if (errs.length > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Validazione fallita', details: errs.map((m) => ({ message: m })) });
+      }
+      const def = normalizeException(req.body);
+      const overlapping = await findOverlappingBookings(def, { onlyFuture: true });
+      // Flag "originato da Monte Ore" per UI: cerchiamo gli slot che
+      // puntano a questi booking. Se c'è il link → è una booking generata
+      // dal monte ore (non manuale).
+      const ids = overlapping.map((b) => b.id);
+      const moSlots =
+        ids.length > 0
+          ? await require('../models').MonteOreSlot.findAll({
+              where: { bookingId: { [require('sequelize').Op.in]: ids } },
+              attributes: ['bookingId'],
+            })
+          : [];
+      const moBookingIds = new Set(moSlots.map((s) => s.bookingId));
+      res.json({
+        overlapping: overlapping.map((b) => ({
+          id: b.id,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          purpose: b.purpose,
+          type: b.type,
+          checkedIn: !!b.checkedInAt,
+          fromMonteOre: moBookingIds.has(b.id),
+          user: b.user
+            ? {
+                id: b.user.id,
+                firstName: b.user.firstName,
+                lastName: b.user.lastName,
+                email: b.user.email,
+                role: b.user.role,
+              }
+            : null,
+          room: b.room
+            ? {
+                id: b.room.id,
+                name: b.room.name,
+                building: b.room.building
+                  ? { id: b.room.building.id, name: b.room.building.name }
+                  : null,
+              }
+            : null,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/rules/exceptions/:id/cancel-overlapping  (admin)
+// Cancella in batch tutte le prenotazioni FUTURE non checked-in che cadono
+// nello scope dell'eccezione `block` salvata. Body opzionale: { reason }.
+router.post(
+  '/exceptions/:id/cancel-overlapping',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const exception = await BookingRuleException.findByPk(req.params.id);
+      if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
+      if (exception.kind !== 'block') {
+        return res.status(400).json({
+          error: 'Operazione disponibile solo per kind=block',
+          code: 'NOT_BLOCK_KIND',
+        });
+      }
+      const result = await cancelOverlappingBookings(exception, {
+        reason: req.body?.reason ? String(req.body.reason).slice(0, 200) : exception.name,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // PUT /api/rules/exceptions/:id  (admin)
 router.put('/exceptions/:id', authenticate, requireRole('admin'), async (req, res) => {
   const exception = await BookingRuleException.findByPk(req.params.id);
@@ -155,6 +251,7 @@ router.put(
     body('maxAdvanceDays').optional().isInt({ min: 0 }),
     body('minAdvanceHours').optional().isInt({ min: 0 }),
     body('cancellationDeadlineHours').optional().isInt({ min: 0 }),
+    body('minIntervalBetweenBookingsMinutes').optional().isInt({ min: 0 }),
     body('allowRecurring').optional().isBoolean(),
     body('allowNightHours').optional().isBoolean(),
     body('allowedStartTime')

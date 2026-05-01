@@ -17,6 +17,7 @@ const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { sendBookingEmail, emailEnabled } = require('./emailService');
+const logger = require('../lib/logger');
 
 const CLAIM_WINDOW_MINUTES = Math.max(5, Number(process.env.WAITLIST_CLAIM_MINUTES) || 30);
 
@@ -93,11 +94,20 @@ async function notifyNextOnSlot({ roomId, startTime, endTime }) {
       booking: next, // shape compatibile con il template (room, startTime, endTime)
       kind: 'claim_waitlist',
       extra: { claimUrl: `/waitlist/claim/${next.id}`, expiresAt: expires },
-    }).catch((e) => console.error('[waitlist] email error:', e.message));
+    }).catch((e) =>
+      logger.warn({ err: e.message, scope: 'waitlist.email' }, 'waitlist email failed'),
+    );
   }
 
-  console.log(
-    `[waitlist] notificato user=${next.userId} entry=${next.id} room=${roomId} (scade ${expires.toISOString()})`,
+  logger.info(
+    {
+      userId: next.userId,
+      entryId: next.id,
+      roomId,
+      expiresAt: expires.toISOString(),
+      scope: 'waitlist.notify',
+    },
+    'waitlist next notified',
   );
   return next;
 }
@@ -146,7 +156,10 @@ async function cleanupExpired() {
     });
   }
 
-  console.log(`[waitlist] expired ${expired.length} entries`);
+  logger.info(
+    { count: expired.length, scope: 'waitlist.cleanup' },
+    'waitlist expired entries processed',
+  );
   return expired.length;
 }
 

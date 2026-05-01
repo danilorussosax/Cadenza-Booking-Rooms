@@ -30,7 +30,15 @@
 const dayjs = require('dayjs');
 const isoWeek = require('dayjs/plugin/isoWeek');
 const { Op } = require('sequelize');
-const { sequelize, Booking, MonteOreProposal, MonteOreSchedule, User, Room } = require('../models');
+const {
+  sequelize,
+  Booking,
+  MonteOreProposal,
+  MonteOreSchedule,
+  MonteOreSlot,
+  User,
+  Room,
+} = require('../models');
 const { validateBooking } = require('./bookingValidator');
 const { withTransaction } = require('../lib/withTransaction');
 
@@ -76,9 +84,19 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
     where: { proposalId },
     ...tx,
   });
-  const allIds = schedules.flatMap((s) =>
+  const idsFromSchedules = schedules.flatMap((s) =>
     Array.isArray(s.generatedBookingIds) ? s.generatedBookingIds : [],
   );
+  // Slot fuori-pattern (scheduleId=null da add_new_day) hanno il bookingId
+  // solo sullo slot, NON in schedule.generatedBookingIds: vanno raccolti a
+  // parte altrimenti la regen lascia booking orfani.
+  const orphanSlots = await MonteOreSlot.findAll({
+    where: { proposalId, scheduleId: { [Op.is]: null }, bookingId: { [Op.ne]: null } },
+    attributes: ['id', 'bookingId'],
+    ...tx,
+  });
+  const idsFromSlots = orphanSlots.map((s) => s.bookingId);
+  const allIds = [...new Set([...idsFromSchedules, ...idsFromSlots])];
   if (allIds.length === 0) return { cleared: 0 };
 
   const now = new Date();
@@ -108,6 +126,13 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
   for (const s of schedules) {
     const keep = (s.generatedBookingIds || []).filter((id) => survivorSet.has(id));
     await s.update({ generatedBookingIds: keep }, { transaction });
+  }
+  // Stesso ragionamento per gli slot fuori-pattern: azzeriamo bookingId per
+  // i booking effettivamente cancellati (non per quelli sopravvissuti).
+  for (const slot of orphanSlots) {
+    if (!survivorSet.has(slot.bookingId)) {
+      await slot.update({ bookingId: null }, { transaction });
+    }
   }
   return { cleared: cleared[0] || 0 };
 }
@@ -178,14 +203,46 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
       }
     }
 
+    // Sorgente delle date da espandere:
+    //   - Se la proposta ha slot (MonteOreSettings configurate per l'AA →
+    //     griglia settimanale popolata): usiamo SOLO gli slot isActive=true
+    //     e isLocked=false. Questa è la "vera" selezione del docente,
+    //     fondamentale per docenti con override/bypassDayConstraint che
+    //     compongono pattern non-standard (1 giorno, 5 giorni) e usano la
+    //     griglia per scegliere settimane specifiche.
+    //   - Senza slot (modalità legacy senza settings): fallback all'iterazione
+    //     pattern + excludeDates come prima.
+    const slotsForProposal = await MonteOreSlot.findAll({
+      where: { proposalId, isActive: true, isLocked: false },
+      transaction: t,
+    });
+    const useSlotGrid = slotsForProposal.length > 0;
+    const slotsByScheduleId = new Map();
+    if (useSlotGrid) {
+      for (const slot of slotsForProposal) {
+        if (slot.scheduleId == null) continue; // slot fuori-pattern: gestiti dopo
+        if (!slotsByScheduleId.has(slot.scheduleId)) {
+          slotsByScheduleId.set(slot.scheduleId, []);
+        }
+        slotsByScheduleId.get(slot.scheduleId).push(slot);
+      }
+    }
+
     for (const sched of proposal.schedules) {
       const idsForThis = [];
-      for (const dateIso of iterateOccurrences(
-        proposal.validFrom,
-        proposal.validTo,
-        sched.dayOfWeek,
-        sched.excludeDates,
-      )) {
+      // Genera la lista di occorrenze: { dateIso, slot? } — slot valorizzato
+      // solo in modalità grid, così possiamo aggiornare slot.bookingId.
+      const occurrences = useSlotGrid
+        ? (slotsByScheduleId.get(sched.id) || []).map((s) => ({ dateIso: s.date, slot: s }))
+        : Array.from(
+            iterateOccurrences(
+              proposal.validFrom,
+              proposal.validTo,
+              sched.dayOfWeek,
+              sched.excludeDates,
+            ),
+          ).map((dateIso) => ({ dateIso, slot: null }));
+      for (const { dateIso, slot } of occurrences) {
         const startTime = combine(dateIso, sched.startTime);
         const endTime = combine(dateIso, sched.endTime);
         try {
@@ -243,6 +300,10 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
           );
           created.push(b.id);
           idsForThis.push(b.id);
+          // Modalità grid: link al slot per amendment / sync futuri.
+          if (slot) {
+            await slot.update({ bookingId: b.id }, { transaction: t });
+          }
         } catch (err) {
           errors.push({ date: dateIso, scheduleId: sched.id, message: err.message });
         }
@@ -251,6 +312,57 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
       // clear/regen futuro)
       await sched.update({ generatedBookingIds: idsForThis }, { transaction: t });
       bookingIdsByScheduleId.set(sched.id, idsForThis);
+    }
+
+    // Modalità grid: gestisce anche slot fuori-pattern (scheduleId=null,
+    // creati da amendment add_new_day post-approval). Solo durante una
+    // rigenerazione possono esistere; al primo generate non ce ne sono.
+    if (useSlotGrid) {
+      const orphanSlots = slotsForProposal.filter((s) => s.scheduleId == null);
+      for (const slot of orphanSlots) {
+        if (!slot.roomId || !slot.bookingType) continue; // slot incompleto
+        const startTime = combine(slot.date, slot.startTime);
+        const endTime = combine(slot.date, slot.endTime);
+        try {
+          const validation = await validateBooking({
+            user: proposal.user,
+            roomId: slot.roomId,
+            startTime,
+            endTime,
+            type: slot.bookingType,
+            bypassQuotas: !!actorUser && actorUser.role === 'admin',
+            bypassAdvance: !!actorUser && actorUser.role === 'admin',
+            bypassPastDates: includePast,
+            bypassDuration: !!actorUser && actorUser.role === 'admin',
+            transaction: t,
+          });
+          if (!validation.valid) {
+            skipped.push({
+              date: slot.date,
+              scheduleId: null,
+              slotId: slot.id,
+              reason: validation.errors[0] || 'validation_failed',
+            });
+            continue;
+          }
+          const b = await Booking.create(
+            {
+              userId: proposal.userId,
+              roomId: slot.roomId,
+              startTime,
+              endTime,
+              type: slot.bookingType,
+              purpose: slot.purpose || null,
+              status: 'confirmed',
+            },
+            { transaction: t },
+          );
+          created.push(b.id);
+          await slot.update({ bookingId: b.id }, { transaction: t });
+        } catch (err) {
+          errors.push({ date: slot.date, slotId: slot.id, message: err.message });
+        }
+      }
     }
 
     // Aggiorna proposta: stato + summary

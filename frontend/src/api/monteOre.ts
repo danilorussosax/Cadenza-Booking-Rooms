@@ -60,6 +60,12 @@ export interface MonteOreProposal {
     email: string;
     role: Role;
     matricola: string | null;
+    /** Tipo contrattuale del docente — per UI admin: badge accanto al nome. */
+    contractType?: 'titolare' | 'contratto_orario' | 'supplente' | 'altro' | null;
+    /** Soglia personalizzata override (se valorizzata sostituisce 324h CCNL). */
+    monteOreAnnualHoursOverride?: number | null;
+    monteOreBypassDayConstraint?: boolean;
+    monteOreOverrideReason?: string | null;
   };
   approver?: { id: number; firstName: string; lastName: string } | null;
   createdAt: string;
@@ -175,9 +181,24 @@ export interface GenerateResult {
 // Endpoints docente
 // ============================================================
 
+export interface MonteOreThresholdResponse {
+  academicYear: string;
+  minHours: number;
+  bypassDayConstraint: boolean;
+  contractType: 'titolare' | 'contratto_orario' | 'supplente' | 'altro' | null;
+  reason: string | null;
+  source: 'user_override' | 'institute_settings' | 'default';
+}
+
 export const monteOreApi = {
   getMine: (year?: string) =>
     api<{ proposal: MonteOreProposal }>('/api/monte-ore/me', {
+      query: year ? { year } : undefined,
+    }),
+
+  /** Risolve la soglia ore applicabile al docente corrente (override / settings). */
+  getMyThreshold: (year?: string) =>
+    api<MonteOreThresholdResponse>('/api/monte-ore/me/threshold', {
       query: year ? { year } : undefined,
     }),
 

@@ -344,36 +344,12 @@ async function runPreSyncMigrations() {
   }
 
   // Sistema check-in / anti ghost-booking
+  // (P2-5) `checkInToken` è dead code dalla v1.x: lasciamo creare la colonna
+  // sui DB legacy per non rompere lo schema (Sequelize la ignora se non è
+  // più nel model), ma RIMOSSO il backfill — i nuovi booking non ne hanno
+  // bisogno e quelli vecchi che hanno NULL restano NULL senza problemi.
   if (await ensureNullableStringColumn('bookings', 'checkInToken', 64)) {
-    console.log('  ✓ Colonna bookings.checkInToken aggiunta');
-  }
-  // Backfill SEPARATO dalla creazione colonna: idempotente per design.
-  // Se l'app crasha tra create-column e backfill, al restart la check
-  // `desc[name]` ritorna true (colonna esistente) ma le righe NULL restano.
-  // Eseguendo qui sempre, scopriamo le righe non backfillate e le sistemiamo.
-  // Sicuro perché filtra `checkInToken: null` → ricarica solo se serve.
-  try {
-    const crypto = require('crypto');
-    const { Booking } = require('../models');
-    const rows = await Booking.findAll({
-      where: { checkInToken: null },
-      attributes: ['id'],
-      paranoid: false,
-    });
-    if (rows.length > 0) {
-      for (const row of rows) {
-        await Booking.update(
-          { checkInToken: crypto.randomBytes(24).toString('hex') },
-          { where: { id: row.id }, paranoid: false },
-        );
-      }
-      console.log(`  ✓ Backfill checkInToken per ${rows.length} prenotazioni esistenti`);
-    }
-  } catch (err) {
-    // Best effort: se la tabella non c'è ancora (primo boot pre-sync) saltiamo.
-    if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
-      console.warn(`  ⚠ Backfill checkInToken fallito: ${err.message}`);
-    }
+    console.log('  ✓ Colonna bookings.checkInToken aggiunta (deprecated, non usata)');
   }
   if (await ensureNullableDateColumn('bookings', 'checkedInAt')) {
     console.log('  ✓ Colonna bookings.checkedInAt aggiunta');
@@ -491,6 +467,29 @@ async function runPreSyncMigrations() {
     console.log('  ✓ Colonna institutes.moduleInstrumentLoansEnabled aggiunta');
   }
 
+  // App icon scelta dall'admin: TEXT nullable. Idempotente. Default NULL =
+  // l'app ricade su `/cadenza.png` (il brand mark di default).
+  {
+    const qi = sequelize.getQueryInterface();
+    let desc;
+    try {
+      desc = await qi.describeTable('institutes');
+    } catch {
+      desc = null;
+    }
+    if (desc && !desc.appIconUrl) {
+      const dialect = sequelize.getDialect();
+      if (dialect === 'sqlite') {
+        await sequelize.query('ALTER TABLE institutes ADD COLUMN appIconUrl TEXT');
+      } else if (dialect === 'postgres') {
+        await sequelize.query('ALTER TABLE "institutes" ADD COLUMN "appIconUrl" TEXT');
+      } else {
+        await sequelize.query('ALTER TABLE institutes ADD COLUMN appIconUrl TEXT');
+      }
+      console.log('  ✓ Colonna institutes.appIconUrl aggiunta');
+    }
+  }
+
   // Soft delete (paranoid): deletedAt nullable sulle tabelle core.
   // Sequelize aggiunge la colonna automaticamente alle tabelle nuove via sync()
   // ma su quelle preesistenti dobbiamo aggiungerla qui.
@@ -510,6 +509,12 @@ async function runPreSyncMigrations() {
     if (await ensureNullableDateColumn(table, 'deletedAt')) {
       console.log(`  ✓ Colonna ${table}.deletedAt aggiunta (soft delete)`);
     }
+  }
+
+  // BookingRule — intervallo minimo tra prenotazioni dello stesso utente
+  // (cooldown). Default 0 = comportamento precedente, no rotture.
+  if (await ensureNotNullIntColumn('booking_rules', 'minIntervalBetweenBookingsMinutes', 0)) {
+    console.log('  ✓ Colonna booking_rules.minIntervalBetweenBookingsMinutes aggiunta (default 0)');
   }
 
   // Estensioni granulari BookingQuota (step 3 della roadmap quote).
@@ -554,6 +559,28 @@ async function runPreSyncMigrations() {
   // Solo Postgres: SQLite/MySQL non supportano EXCLUDE constraint.
   await ensureBookingsNoOverlapConstraint();
 
+  // Monte Ore — deroga individuale (contratto orario / casi speciali).
+  // Tutte additive con default sicuri: zero data loss, comportamento
+  // invariato per gli utenti esistenti finché l'admin non valorizza l'override.
+  if (await ensureNullableStringColumn('users', 'contractType', 40)) {
+    console.log('  ✓ Colonna users.contractType aggiunta (Monte Ore)');
+  }
+  if (await ensureNullableFloatColumn('users', 'monteOreAnnualHoursOverride')) {
+    console.log('  ✓ Colonna users.monteOreAnnualHoursOverride aggiunta');
+  }
+  if (await ensureBooleanColumn('users', 'monteOreBypassDayConstraint', false)) {
+    console.log('  ✓ Colonna users.monteOreBypassDayConstraint aggiunta');
+  }
+  if (await ensureNullableStringColumn('users', 'monteOreOverrideReason', 500)) {
+    console.log('  ✓ Colonna users.monteOreOverrideReason aggiunta');
+  }
+  if (await ensureNullableDateColumn('users', 'monteOreOverrideSetAt')) {
+    console.log('  ✓ Colonna users.monteOreOverrideSetAt aggiunta');
+  }
+  if (await ensureNullableIntColumn('users', 'monteOreOverrideSetBy')) {
+    console.log('  ✓ Colonna users.monteOreOverrideSetBy aggiunta');
+  }
+
   // Integrazioni esterne: campi su users + tabelle integration_*.
   // Le tabelle nuove vengono create da sequelize.sync() al primo avvio;
   // qui ci occupiamo SOLO delle nuove colonne su `users` (tabella già
@@ -569,6 +596,38 @@ async function runPreSyncMigrations() {
   }
   if (await ensureNullableDateColumn('users', 'lastExternalSyncAt')) {
     console.log('  ✓ Colonna users.lastExternalSyncAt aggiunta (integrazioni)');
+  }
+
+  // Monte Ore — pulizia delle proposte orfane: utenti soft-deleted (paranoid)
+  // di cui in passato non era stata cancellata la proposta dalla DELETE route.
+  // La cascade FK non scatta sul soft-delete, quindi i record restano orfani
+  // e compaiono in "Gestione Monte ore" con user=null. Hard-delete idempotente
+  // delle proposte i cui userId puntano a un utente con deletedAt valorizzato.
+  // Schedules/slots/amendments seguono via CASCADE FK (tabelle non paranoid).
+  try {
+    const { MonteOreProposal, User } = require('../models');
+    const orphans = await MonteOreProposal.findAll({
+      attributes: ['id'],
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id'],
+          paranoid: false,
+          required: true,
+          where: { deletedAt: { [require('sequelize').Op.ne]: null } },
+        },
+      ],
+    });
+    if (orphans.length > 0) {
+      const ids = orphans.map((o) => o.id);
+      await MonteOreProposal.destroy({ where: { id: ids } });
+      console.log(`  ✓ Rimosse ${ids.length} proposte Monte Ore orfane (utenti cancellati)`);
+    }
+  } catch (err) {
+    if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
+      console.warn(`  ⚠ Cleanup proposte Monte Ore orfane fallito: ${err.message}`);
+    }
   }
 
   // Monte Ore — nuove colonne su monte_ore_proposals (pattern + soglia + amendment).
@@ -625,6 +684,10 @@ async function runPreSyncMigrations() {
       console.warn(`  ⚠ Backfill icalTokenHash fallito: ${err.message}`);
     }
   }
+
+  // Booking type catalog (gap #7 EasyRoom parity): il seed dei 5 system
+  // rows è in `seeders/initial.js`, eseguito DOPO sequelize.sync() così la
+  // tabella esiste. Qui non c'è nulla da fare in preSyncMigrations.
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

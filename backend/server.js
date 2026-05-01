@@ -1,6 +1,10 @@
 'use strict';
 
 require('dotenv').config();
+// Validazione config centralizzata (P2-4): legge tutte le env critiche e fa
+// exit(1) con messaggio chiaro se una è invalida. Sostituisce il pattern
+// "Number(process.env.X) || default" sparso in 30+ file.
+require('./lib/config').validateConfig();
 // Fail-fast in produzione se JWT_SECRET non è impostato o è il default
 // insicuro: meglio non partire che firmare token con un secret pubblico.
 require('./lib/secrets').assertProductionSecrets();

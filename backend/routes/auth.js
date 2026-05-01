@@ -9,6 +9,7 @@ const passport = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
+const logger = require('../lib/logger');
 const {
   loginLimiter,
   registerLimiter,
@@ -72,34 +73,45 @@ function tryDeleteOldPhoto(photoUrl) {
 // =====================================================
 // POST /api/auth/register  - Registrazione locale
 // =====================================================
+// Password policy: minimo 10 caratteri, almeno una maiuscola E almeno un
+// numero. Resa più stringente delle 8 cifre originali per rispettare le
+// raccomandazioni AGID 2024 sui sistemi PA. Non richiediamo simboli
+// (UX trade-off: gli utenti tendono a scegliere `Password1!`).
+const PASSWORD_MIN_LEN = 10;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
+
 router.post(
   '/register',
   registerLimiter,
   [
     body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 8 }).withMessage('Password di almeno 8 caratteri'),
-    body('firstName').notEmpty().trim(),
-    body('lastName').notEmpty().trim(),
-    body('matricola').optional().trim(),
-    body('courseId').optional().isInt(),
+    body('password')
+      .isLength({ min: PASSWORD_MIN_LEN })
+      .withMessage(`Password di almeno ${PASSWORD_MIN_LEN} caratteri`)
+      .matches(PASSWORD_REGEX)
+      .withMessage('La password deve contenere almeno una maiuscola e un numero'),
+    body('firstName').notEmpty().trim().isLength({ max: 100 }),
+    body('lastName').notEmpty().trim().isLength({ max: 100 }),
+    body('matricola').optional({ nullable: true }).trim().isLength({ max: 50 }),
+    body('courseId').optional({ nullable: true }).isInt(),
     body('role').optional().isIn(['docente', 'studente']),
   ],
-  async (req, res) => {
-    const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
-
+  async (req, res, next) => {
     try {
-      const { email, password, firstName, lastName, matricola, courseId, role } = req.body;
-
-      const exists = await User.findOne({ where: { email } });
-      if (exists) {
-        return res
-          .status(409)
-          .json({ error: 'Email già registrata', code: 'EMAIL_ALREADY_REGISTERED' });
+      const errs = validationResult(req);
+      if (!errs.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validazione fallita',
+          code: 'VALIDATION_FAILED',
+          details: errs.array(),
+        });
       }
 
-      // Verifica corso (se fornito)
+      const { email, password, firstName, lastName, matricola, courseId, role } = req.body;
+
+      // Verifica corso (se fornito) — fast-fail se il corso non esiste/è inattivo.
+      // Il vincolo FK a livello DB scatterebbe comunque, ma con errore 500
+      // generico — qui restituiamo 400 con code esplicito per UX migliore.
       if (courseId) {
         const course = await Course.findByPk(courseId);
         if (!course || !course.isActive) {
@@ -107,42 +119,65 @@ router.post(
         }
       }
 
-      // Verifica matricola unica (se fornita)
-      if (matricola) {
-        const matExists = await User.findOne({ where: { matricola } });
-        if (matExists) {
-          return res
-            .status(409)
-            .json({ error: 'Matricola già registrata', code: 'MATRICOLA_ALREADY_USED' });
-        }
-      }
-
       // Stato iniziale:
-      //   - studente con profilo già completo (matricola + corso)  → approved
-      //   - studente con dati mancanti                              → pending (completerà profilo)
-      //   - docente                                                 → pending (richiede approvazione admin)
+      //   - studente con profilo già completo (matricola + corso) → approved
+      //   - studente con dati mancanti                            → pending (completerà profilo)
+      //   - docente                                               → pending (richiede approvazione admin)
       const finalRole = role || 'studente';
       let initialStatus = 'pending';
       if (finalRole === 'studente' && matricola && courseId) {
         initialStatus = 'approved';
       }
 
-      const user = await User.create({
-        email,
-        passwordHash: password, // verrà hashata dal hook beforeCreate
-        firstName,
-        lastName,
-        matricola: matricola || null,
-        courseId: courseId || null,
-        role: finalRole,
-        status: initialStatus,
-      });
+      // Affidiamo la verifica univocità a Sequelize/DB anziché a un
+      // findOne+create separati: elimina la race window (due richieste
+      // concorrenti con stessa email che superavano entrambe il check
+      // findOne e poi una falliva al create). Cattura SequelizeUniqueConstraintError
+      // sotto e mappa al codice corretto.
+      let user;
+      try {
+        user = await User.create({
+          email,
+          passwordHash: password, // hashata dal hook beforeCreate
+          firstName,
+          lastName,
+          matricola: matricola || null,
+          courseId: courseId || null,
+          role: finalRole,
+          status: initialStatus,
+        });
+      } catch (err) {
+        if (err?.name === 'SequelizeUniqueConstraintError') {
+          // Sequelize espone l'array `errors` con `path` del campo che ha
+          // collisionato. Distinguamo email vs matricola per UX.
+          const fields = Array.isArray(err.errors) ? err.errors.map((e) => e.path) : [];
+          if (fields.includes('email')) {
+            return res
+              .status(409)
+              .json({ error: 'Email già registrata', code: 'EMAIL_ALREADY_REGISTERED' });
+          }
+          if (fields.includes('matricola')) {
+            return res
+              .status(409)
+              .json({ error: 'Matricola già registrata', code: 'MATRICOLA_ALREADY_USED' });
+          }
+          return res.status(409).json({
+            error: 'Vincolo di unicità violato',
+            code: 'UNIQUE_CONSTRAINT',
+            fields,
+          });
+        }
+        throw err;
+      }
 
       const token = signToken(user);
       res.status(201).json({ token, user: user.toSafeJSON() });
     } catch (err) {
-      console.error('Errore registrazione:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      // Logger strutturato (pino) invece di console.error — finisce in Sentry
+      // e include request-id per correlation. Il middleware di errore globale
+      // gestisce la response (500 generico) preservando lo stack lato server.
+      logger.error({ err, route: '/api/auth/register' }, 'register failed');
+      next(err);
     }
   },
 );
@@ -256,14 +291,21 @@ router.patch(
   '/me',
   authenticate,
   [
+    // `.optional({ nullable: true })` su tutti i campi: il frontend invia
+    // esplicitamente `null` per rimuovere il valore (es. utente che svuota
+    // il campo Corso → courseId=null). Senza il flag, express-validator
+    // considera null come "valore presente" e fa fallire le validazioni
+    // tipate sotto (.isInt, .notEmpty, ...). Questo era un bug: il bottone
+    // "Salva modifiche" tornava 400 silenziosamente per gli utenti senza
+    // courseId (admin, alcuni docenti).
     body('matricola').optional({ nullable: true }).trim(),
-    body('courseId').optional().isInt(),
-    body('firstName').optional().trim().notEmpty(),
-    body('lastName').optional().trim().notEmpty(),
-    body('emailNotifications').optional().isBoolean(),
-    body('notifyOnConfirmation').optional().isBoolean(),
-    body('notifyOnReminder').optional().isBoolean(),
-    body('notifyOnCancellation').optional().isBoolean(),
+    body('courseId').optional({ nullable: true }).isInt(),
+    body('firstName').optional({ nullable: true }).trim().notEmpty(),
+    body('lastName').optional({ nullable: true }).trim().notEmpty(),
+    body('emailNotifications').optional({ nullable: true }).isBoolean(),
+    body('notifyOnConfirmation').optional({ nullable: true }).isBoolean(),
+    body('notifyOnReminder').optional({ nullable: true }).isBoolean(),
+    body('notifyOnCancellation').optional({ nullable: true }).isBoolean(),
     // role NON è qui: il cambio ruolo passa sempre da /api/users/:id (admin).
     // Permettere il flip da /me era una liability per gli account pending
     // (un docente in coda poteva diventare studente e auto-approvarsi).
@@ -488,7 +530,13 @@ router.post('/logout', authenticate, async (req, res) => {
 
 // POST /api/auth/2fa/setup — auth richiesta. Genera codice + manda email.
 // NON attiva: la conferma avviene su /2fa/verify.
-router.post('/2fa/setup', authenticate, async (req, res, next) => {
+//
+// Rate limit (P1-8): un attaccante con un Bearer legittimo (sessione rubata
+// o token leak via XSS) può chiamare /2fa/setup ripetutamente per generare
+// flood di email all'indirizzo della vittima — non attiva il 2FA, ma
+// "spam-as-a-feature" tramite il nostro SMTP. tfaResendLimiter applica lo
+// stesso budget di 5 tentativi/15min/utente già usato su /2fa/resend.
+router.post('/2fa/setup', authenticate, tfaResendLimiter, async (req, res, next) => {
   try {
     const send = await issueAndSendTwoFaCode(req.user, 'enroll');
     if (!send.ok) {

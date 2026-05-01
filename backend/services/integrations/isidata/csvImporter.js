@@ -22,10 +22,20 @@
  * Il parser è agnostico rispetto al MAPPING: applica quello via fieldMapping.js.
  */
 
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const MAX_RECORDS = 5000;
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+// Hard cap sul numero di righe iterate (incluse vuote) prima di costruire la
+// matrice. Un XLSX è uno ZIP: 10MB compressi possono espandere a sheet con
+// milioni di righe vuote. Iteriamo al massimo MAX_RECORDS * 4 righe poi
+// abbiamo abbastanza dati: un'eventuale "coda" oltre questo limite viene
+// ignorata con warning, evitando OOM su file maliziosi (XLSX bomb).
+const MAX_RAW_ROWS = MAX_RECORDS * 4;
+// Header che, se accettati come chiavi di un object literal, modificano il
+// prototype dell'oggetto stesso. Li scartiamo a livello di parser così
+// nessun consumer downstream (mapping, diff, persistenza) li riceve.
+const DANGEROUS_HEADERS = new Set(['__proto__', 'prototype', 'constructor']);
 
 /**
  * Decoder buffer → string.
@@ -128,19 +138,36 @@ function parseCsvText(text) {
  */
 function rowsToRecords(rows) {
   if (rows.length === 0) return { headers: [], records: [], warnings: [] };
-  const headers = rows[0].map((h) => String(h ?? '').trim());
-  const records = [];
   const warnings = [];
+  // Filtra header pericolosi e tieni traccia della corrispondenza colonna→header
+  // così le celle di colonne droppate non finiscono in altri campi.
+  const rawHeaders = rows[0].map((h) => String(h ?? '').trim());
+  const headers = [];
+  const colKeys = new Array(rawHeaders.length).fill(null);
+  for (let j = 0; j < rawHeaders.length; j++) {
+    const h = rawHeaders[j];
+    if (!h) continue;
+    if (DANGEROUS_HEADERS.has(h) || DANGEROUS_HEADERS.has(h.toLowerCase())) {
+      warnings.push({ row: 1, msg: `Header "${h}" ignorato (riservato)` });
+      continue;
+    }
+    headers.push(h);
+    colKeys[j] = h;
+  }
+  const records = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     // Salta righe completamente vuote (ne capitano in CSV mal copy-incollati).
     if (r.every((v) => v === null || v === undefined || String(v).trim() === '')) {
       continue;
     }
-    const obj = {};
-    for (let j = 0; j < headers.length; j++) {
-      const key = headers[j];
-      if (!key) continue; // colonne con header vuoto: ignorate
+    // Object.create(null): nessun prototype → set/lookup di chiavi come
+    // `__proto__` non interagiscono col prototype chain. Defense-in-depth
+    // contro file maliziosi anche se DANGEROUS_HEADERS li ha già filtrati.
+    const obj = Object.create(null);
+    for (let j = 0; j < colKeys.length; j++) {
+      const key = colKeys[j];
+      if (!key) continue;
       const v = r[j];
       obj[key] = v === null || v === undefined ? '' : String(v);
     }
@@ -187,7 +214,7 @@ function detectFormat(buffer, filename, mimeType) {
   return 'csv';
 }
 
-function parse(buffer, filename = '', mimeType = '') {
+async function parse(buffer, filename = '', mimeType = '') {
   if (!Buffer.isBuffer(buffer)) {
     throw new Error('parse(): atteso Buffer');
   }
@@ -203,28 +230,50 @@ function parse(buffer, filename = '', mimeType = '') {
   const fmt = detectFormat(buffer, filename, mimeType);
 
   if (fmt === 'xlsx') {
-    let wb;
+    const wb = new ExcelJS.Workbook();
     try {
-      wb = xlsx.read(buffer, { type: 'buffer' });
+      await wb.xlsx.load(buffer);
     } catch (err) {
       const e = new Error(`Impossibile leggere il file XLSX: ${err.message}`);
       e.code = 'PARSE_FAILED';
       throw e;
     }
-    if (!wb.SheetNames.length) {
+    const sheet = wb.worksheets[0];
+    if (!sheet) {
       return { rows: [], headers: [], warnings: [{ msg: 'workbook senza fogli' }] };
     }
-    // Primo foglio per default. Isidata mette gli utenti in un solo sheet.
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    // header:1 → restituisce array of arrays (matrice celle).
-    // raw:false → conversione a stringa coerente con CSV (numeri formattati,
-    //             date in stringa locale leggibile). Importante per matricole
-    //             che iniziano con 0 — Excel le converte in numero, qui le
-    //             trattiamo come stringhe.
-    // defval:'' → non saltare le celle vuote (mantiene allineamento colonne).
-    const matrix = xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    // Estraiamo una matrice 2D di stringhe (equivalente di xlsx
+    // sheet_to_json con header:1, raw:false, defval:''). Usiamo `cell.text`
+    // — la rappresentazione formattata vista in Excel — così le matricole
+    // con leading-zero restano stringhe e le date sono leggibili.
+    // Cap colonne: difesa contro file con `columnCount` patologico (ExcelJS
+    // riflette il valore dichiarato nel file, non sempre quello effettivamente
+    // popolato). 1024 colonne è ben oltre qualunque export Isidata reale.
+    const cols = Math.min(sheet.columnCount || 0, 1024);
+    const matrix = [];
+    const xlsxWarnings = [];
+    let truncated = false;
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      if (truncated) return;
+      if (matrix.length >= MAX_RAW_ROWS) {
+        truncated = true;
+        return;
+      }
+      const arr = [];
+      for (let c = 1; c <= cols; c++) {
+        const cell = row.getCell(c);
+        const t = cell.text;
+        arr.push(t == null ? '' : String(t));
+      }
+      matrix.push(arr);
+    });
+    if (truncated) {
+      xlsxWarnings.push({
+        msg: `File con più di ${MAX_RAW_ROWS} righe: lettura troncata per protezione DoS`,
+      });
+    }
     const { headers, records, warnings } = rowsToRecords(matrix);
-    return { rows: records, headers, warnings };
+    return { rows: records, headers, warnings: [...xlsxWarnings, ...warnings] };
   }
 
   // CSV
@@ -242,4 +291,5 @@ module.exports = {
   decodeBuffer,
   MAX_RECORDS,
   MAX_BYTES,
+  MAX_RAW_ROWS,
 };

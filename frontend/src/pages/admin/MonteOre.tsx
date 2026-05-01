@@ -14,6 +14,7 @@ import {
   CalendarRange,
   ListChecks,
   GitPullRequest,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -27,6 +28,7 @@ import {
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
+import { ContractTypesPanel } from '@/components/admin/ContractTypesPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,9 +81,63 @@ const STATUS_VARIANT: Record<
   generated: 'success',
 };
 
+const CONTRACT_LABEL: Record<
+  NonNullable<NonNullable<MonteOreProposal['user']>['contractType']>,
+  string
+> = {
+  titolare: 'Titolare',
+  contratto_orario: 'Contratto orario',
+  supplente: 'Supplente',
+  altro: 'Altro',
+};
+
+const CCNL_STANDARD_HOURS = 324;
+
+/**
+ * Risolve la soglia ore annue applicabile a un docente per la UI admin:
+ *   1. snapshot della proposta (immutabile, fissato al submit) →
+ *   2. override individuale corrente sul docente →
+ *   3. fallback CCNL standard 324h.
+ *
+ * `isCustom` distingue una soglia diversa dal CCNL standard (e quindi
+ * meritevole di evidenziazione), indipendentemente dalla fonte. Una proposta
+ * con snapshot=324 NON è "personalizzata" anche se la fonte è snapshot —
+ * è semplicemente la soglia istituzionale congelata al submit.
+ */
+function resolveProposalThreshold(p: MonteOreProposal): {
+  hours: number;
+  source: 'snapshot' | 'override' | 'ccnl';
+  isCustom: boolean;
+  contractType: NonNullable<MonteOreProposal['user']>['contractType'] | null;
+} {
+  const ct = p.user?.contractType ?? null;
+  // Lo snapshot è la "fotografia contrattuale" del momento del submit:
+  // resta valido anche se l'admin rimuove o modifica l'override in seguito.
+  if (p.minRequiredHoursSnapshot != null) {
+    const hours = p.minRequiredHoursSnapshot;
+    return {
+      hours,
+      source: 'snapshot',
+      isCustom: hours !== CCNL_STANDARD_HOURS,
+      contractType: ct,
+    };
+  }
+  // Proposta non ancora submitted: applichiamo l'override corrente del docente
+  // (se presente). Il valore mostrato è "previsionale" — diventerà snapshot al submit.
+  if (p.user?.monteOreAnnualHoursOverride != null) {
+    return {
+      hours: p.user.monteOreAnnualHoursOverride,
+      source: 'override',
+      isCustom: true,
+      contractType: ct,
+    };
+  }
+  return { hours: CCNL_STANDARD_HOURS, source: 'ccnl', isCustom: false, contractType: ct };
+}
+
 // Macro tab — stesso pattern di pages/admin/Rules.tsx (card con icona+colore).
 
-type MacroTab = 'proposals' | 'amendments';
+type MacroTab = 'proposals' | 'amendments' | 'contract-types';
 
 interface MacroTabDef {
   value: MacroTab;
@@ -108,6 +164,15 @@ const MACRO_TABS: MacroTabDef[] = [
     icon: GitPullRequest,
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBg: 'bg-amber-100 dark:bg-amber-500/15',
+  },
+  {
+    value: 'contract-types',
+    label: 'Tipologie docenti',
+    description:
+      'Anagrafica delle tipologie contrattuali (titolare, supplente, contratto orario, custom) con soglia ore di default per ciascuna.',
+    icon: Briefcase,
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
+    iconBg: 'bg-indigo-100 dark:bg-indigo-500/15',
   },
 ];
 
@@ -157,7 +222,7 @@ export default function AdminMonteOre() {
       </header>
 
       {/* Macro tab strip (stesso stile di Regole prenotazione) */}
-      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
+      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2 lg:grid-cols-3">
         {MACRO_TABS.map((tdef) => {
           const Icon = tdef.icon;
           const isActive = tdef.value === macroTab;
@@ -238,39 +303,66 @@ export default function AdminMonteOre() {
             </Card>
           ) : (
             <div className="grid gap-3">
-              {proposals.map((p) => (
-                <Card
-                  key={p.id}
-                  className="cursor-pointer transition hover:shadow-md"
-                  onClick={() => setSelectedId(p.id)}
-                >
-                  <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
-                    <div>
-                      <p className="font-medium">
-                        {p.user ? `${p.user.lastName} ${p.user.firstName}` : `User #${p.userId}`}
-                      </p>
+              {proposals.map((p) => {
+                const threshold = resolveProposalThreshold(p);
+                const meetsThreshold = p.totalHoursRequested >= threshold.hours;
+                return (
+                  <Card
+                    key={p.id}
+                    className="cursor-pointer transition hover:shadow-md"
+                    onClick={() => setSelectedId(p.id)}
+                  >
+                    <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+                      <div>
+                        <p className="font-medium flex items-center gap-2 flex-wrap">
+                          {p.user ? `${p.user.lastName} ${p.user.firstName}` : `User #${p.userId}`}
+                          {threshold.contractType && threshold.contractType !== 'titolare' && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {CONTRACT_LABEL[threshold.contractType]}
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          AA {p.academicYear} · {p.schedules.length} fasce ·{' '}
+                          <span
+                            className={
+                              meetsThreshold
+                                ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                                : 'text-amber-600 dark:text-amber-400 font-medium'
+                            }
+                          >
+                            {p.totalHoursRequested.toFixed(1)} / {threshold.hours} h
+                          </span>
+                          {threshold.isCustom && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              (
+                              {threshold.source === 'override'
+                                ? 'override · non ancora submitted'
+                                : 'soglia personalizzata'}
+                              )
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <Badge variant={STATUS_VARIANT[p.status]}>{STATUS_LABEL[p.status]}</Badge>
                       <p className="text-xs text-muted-foreground">
-                        AA {p.academicYear} · {p.schedules.length} fasce ·{' '}
-                        {p.totalHoursRequested.toFixed(1)} h totali
+                        Inviata:{' '}
+                        {p.submittedAt ? new Date(p.submittedAt).toLocaleDateString('it-IT') : '—'}
                       </p>
-                    </div>
-                    <Badge variant={STATUS_VARIANT[p.status]}>{STATUS_LABEL[p.status]}</Badge>
-                    <p className="text-xs text-muted-foreground">
-                      Inviata:{' '}
-                      {p.submittedAt ? new Date(p.submittedAt).toLocaleDateString('it-IT') : '—'}
-                    </p>
-                    <Button variant="outline" size="sm">
-                      Apri
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <Button variant="outline" size="sm">
+                        Apri
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </>
       )}
 
       {macroTab === 'amendments' && <AmendmentsRequestsTab />}
+      {macroTab === 'contract-types' && <ContractTypesPanel />}
 
       {/* Detail dialog */}
       {selectedId !== null && (
@@ -741,20 +833,92 @@ function DetailDialog({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between gap-3">
-                <span>
+                <span className="flex items-center gap-2 flex-wrap">
                   {proposal.user
                     ? `${proposal.user.lastName} ${proposal.user.firstName}`
                     : 'Proposta'}
+                  {(() => {
+                    const ct = proposal.user?.contractType;
+                    return ct && ct !== 'titolare' ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {CONTRACT_LABEL[ct]}
+                      </Badge>
+                    ) : null;
+                  })()}
                 </span>
                 <Badge variant={STATUS_VARIANT[proposal.status]}>
                   {STATUS_LABEL[proposal.status]}
                 </Badge>
               </DialogTitle>
               <DialogDescription>
-                AA {proposal.academicYear} · validità {proposal.validFrom} → {proposal.validTo} ·{' '}
-                {proposal.totalHoursRequested.toFixed(1)} h totali
+                AA {proposal.academicYear} · validità {proposal.validFrom} → {proposal.validTo}
               </DialogDescription>
             </DialogHeader>
+
+            {/* Riepilogo soglia ore: prominente, con confronto vs threshold. */}
+            {(() => {
+              const threshold = resolveProposalThreshold(proposal);
+              const meets = proposal.totalHoursRequested >= threshold.hours;
+              return (
+                <div
+                  className={`rounded-lg border p-3 text-sm ${
+                    meets
+                      ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20'
+                      : 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Ore proposte / soglia annua
+                      </Label>
+                      <p className="font-display text-2xl font-medium tabular-nums leading-tight">
+                        <span
+                          className={
+                            meets
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-amber-700 dark:text-amber-400'
+                          }
+                        >
+                          {proposal.totalHoursRequested.toFixed(1)}
+                        </span>
+                        <span className="text-muted-foreground"> / {threshold.hours} h</span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Origine soglia
+                      </p>
+                      <p className="text-sm font-medium">
+                        {threshold.source === 'snapshot' &&
+                          (threshold.isCustom
+                            ? 'Snapshot al submit · soglia personalizzata'
+                            : 'Snapshot al submit · CCNL 324h')}
+                        {threshold.source === 'override' &&
+                          'Deroga individuale (proposta non ancora submitted)'}
+                        {threshold.source === 'ccnl' && 'CCNL standard 324h'}
+                      </p>
+                      {threshold.isCustom && proposal.user?.monteOreOverrideReason && (
+                        <p className="mt-1 text-[11px] text-muted-foreground max-w-xs">
+                          {proposal.user.monteOreOverrideReason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {!meets && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                      Mancano {(threshold.hours - proposal.totalHoursRequested).toFixed(1)} h al
+                      raggiungimento della soglia.
+                    </p>
+                  )}
+                  {proposal.user?.monteOreBypassDayConstraint && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      ⓘ Esente dal vincolo 2-4 giorni/settimana.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {proposal.notes && (
               <div className="rounded-lg border bg-muted/30 p-3 text-sm">

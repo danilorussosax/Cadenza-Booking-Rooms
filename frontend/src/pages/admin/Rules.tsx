@@ -23,7 +23,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { rulesApi, type UpsertExceptionPayload } from '@/api/rules';
+import { rulesApi, type OverlapBooking, type UpsertExceptionPayload } from '@/api/rules';
 import { QuotasManager } from '@/components/admin/QuotasManager';
 import { LoanQuotasManager } from '@/components/admin/LoanQuotasManager';
 import { httpErrorMessage } from '@/lib/api';
@@ -69,6 +69,7 @@ const schema = z.object({
   maxAdvanceDays: z.coerce.number().int().min(0),
   minAdvanceHours: z.coerce.number().int().min(0),
   cancellationDeadlineHours: z.coerce.number().int().min(0),
+  minIntervalBetweenBookingsMinutes: z.coerce.number().int().min(0),
   allowRecurring: z.boolean(),
   allowNightHours: z.boolean(),
   allowedStartTime: z.string().regex(TIME_REGEX, 'Formato HH:mm'),
@@ -408,6 +409,13 @@ function RuleEditor({ role, help }: RuleEditorProps) {
                 register={register}
                 error={errors.maxBookingDurationMinutes?.message}
               />
+              <NumberField
+                label="Intervallo minimo tra prenotazioni (minuti)"
+                helper="Cooldown obbligatorio tra una prenotazione e l’altra dello stesso utente. 0 = disattivato."
+                name="minIntervalBetweenBookingsMinutes"
+                register={register}
+                error={errors.minIntervalBetweenBookingsMinutes?.message}
+              />
             </Section>
 
             <Section title="Anticipo & cancellazione">
@@ -583,6 +591,7 @@ function defaultsFor(): FormValues {
     maxAdvanceDays: 14,
     minAdvanceHours: 0,
     cancellationDeadlineHours: 2,
+    minIntervalBetweenBookingsMinutes: 0,
     allowRecurring: false,
     allowNightHours: false,
     allowedStartTime: '08:00',
@@ -600,6 +609,7 @@ function toFormValues(rule: BookingRule): FormValues {
     maxAdvanceDays: rule.maxAdvanceDays,
     minAdvanceHours: rule.minAdvanceHours,
     cancellationDeadlineHours: rule.cancellationDeadlineHours,
+    minIntervalBetweenBookingsMinutes: rule.minIntervalBetweenBookingsMinutes ?? 0,
     allowRecurring: rule.allowRecurring,
     allowNightHours: rule.allowNightHours,
     allowedStartTime: rule.allowedStartTime,
@@ -621,6 +631,12 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<BookingRuleException | null>(null);
   const [creating, setCreating] = useState(false);
+  // Stato del dialog "sovrapposizioni storiche": mostrato dopo il salvataggio
+  // di un'eccezione kind='block' che intercetta prenotazioni preesistenti.
+  const [overlapState, setOverlapState] = useState<{
+    exception: BookingRuleException;
+    overlapping: OverlapBooking[];
+  } | null>(null);
 
   const query = useQuery({
     queryKey: ['rules', 'exceptions', role ?? 'every'],
@@ -740,6 +756,21 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
           setCreating(false);
           setEditing(null);
         }}
+        onSaved={(saved, overlapping) => {
+          if (saved.kind === 'block' && overlapping.length > 0) {
+            setOverlapState({ exception: saved, overlapping });
+          }
+        }}
+      />
+
+      <OverlapDialog
+        state={overlapState}
+        onClose={() => {
+          setOverlapState(null);
+        }}
+        onCancelled={() => {
+          void qc.invalidateQueries({ queryKey: ['rules', 'exceptions'] });
+        }}
       />
     </div>
   );
@@ -827,11 +858,13 @@ function ExceptionDialog({
   existing,
   defaultRole,
   onClose,
+  onSaved,
 }: {
   open: boolean;
   existing: BookingRuleException | null;
   defaultRole: BookingRuleExceptionScope;
   onClose: () => void;
+  onSaved?: (saved: BookingRuleException, overlapping: OverlapBooking[]) => void;
 }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<ExceptionFormState>(() =>
@@ -847,12 +880,28 @@ function ExceptionDialog({
   }, [open, existing, defaultRole]);
 
   const mutation = useMutation({
-    mutationFn: (payload: UpsertExceptionPayload) =>
-      existing ? rulesApi.updateException(existing.id, payload) : rulesApi.createException(payload),
-    onSuccess: () => {
+    mutationFn: async (payload: UpsertExceptionPayload) => {
+      const saved = existing
+        ? await rulesApi.updateException(existing.id, payload)
+        : await rulesApi.createException(payload);
+      // Per i block carichiamo subito l'overlap così mostriamo il dialog
+      // di follow-up senza un round-trip aggiuntivo lato chiamante.
+      let overlapping: OverlapBooking[] = [];
+      if (payload.kind === 'block') {
+        try {
+          const r = await rulesApi.previewOverlaps(payload);
+          overlapping = r.overlapping;
+        } catch {
+          // Il preview è best-effort: se fallisce, salvo senza follow-up.
+        }
+      }
+      return { saved: saved.exception, overlapping };
+    },
+    onSuccess: ({ saved, overlapping }) => {
       toast.success(existing ? 'Eccezione aggiornata' : 'Eccezione creata');
       void qc.invalidateQueries({ queryKey: ['rules', 'exceptions'] });
       onClose();
+      onSaved?.(saved, overlapping);
     },
     onError: (err) => {
       setError(httpErrorMessage(err));
@@ -867,6 +916,16 @@ function ExceptionDialog({
         : [...f.daysOfWeek, d].sort(),
     }));
   };
+
+  // Avviso "range tutto nel passato": un block con dateTo < oggi non
+  // intercetterà mai prenotazioni future. Lo segnaliamo inline (non
+  // bloccante: l'admin potrebbe avere un motivo storico/audit).
+  const isPastOnlyRange = (() => {
+    if (form.kind !== 'block') return false;
+    const today = new Date().toISOString().slice(0, 10);
+    const effectiveDateTo = form.singleDate ? form.dateFrom : form.dateTo;
+    return !!effectiveDateTo && effectiveDateTo < today;
+  })();
 
   const submit = () => {
     setError(null);
@@ -1061,6 +1120,15 @@ function ExceptionDialog({
                 />
               )}
             </div>
+            {isPastOnlyRange && (
+              <Alert variant="destructive" className="text-xs">
+                <AlertDescription>
+                  Il periodo selezionato è già passato: questa eccezione non bloccherà nessuna
+                  prenotazione futura. Se vuoi annullare prenotazioni programmate, scegli un
+                  intervallo che includa date a partire da oggi.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1128,6 +1196,121 @@ function ExceptionDialog({
               'Salva'
             ) : (
               'Crea eccezione'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog di follow-up dopo il salvataggio di un'eccezione kind='block':
+ * elenca le prenotazioni preesistenti che cadono nello scope appena
+ * dichiarato e propone di cancellarle in batch (con motivazione = nome
+ * dell'eccezione). Coerente con il pattern EasyRoom "sovrapposizioni" al
+ * setup di una chiusura.
+ */
+function OverlapDialog({
+  state,
+  onClose,
+  onCancelled,
+}: {
+  state: { exception: BookingRuleException; overlapping: OverlapBooking[] } | null;
+  onClose: () => void;
+  onCancelled: () => void;
+}) {
+  const cancelMutation = useMutation({
+    mutationFn: (id: number) => rulesApi.cancelOverlapping(id),
+    onSuccess: (res) => {
+      const moPart =
+        res.monteOreSlotsSynced > 0
+          ? ` (${res.monteOreSlotsSynced} slot Monte Ore disattivati)`
+          : '';
+      toast.success(`${res.cancelled} prenotazioni cancellate${moPart}`);
+      onCancelled();
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  if (!state) return null;
+  const { exception, overlapping } = state;
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString('it-IT', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Ban className="h-5 w-5 text-destructive" />
+            Sovrapposizioni rilevate
+          </DialogTitle>
+        </DialogHeader>
+
+        <Alert variant="destructive">
+          <AlertDescription>
+            <strong>{overlapping.length}</strong> prenotazione/i futura/e cadono nello scope del
+            blocco "{exception.name}". Restano nell'agenda finché non vengono cancellate.
+          </AlertDescription>
+        </Alert>
+
+        <div className="max-h-72 overflow-y-auto rounded-lg border">
+          <ul className="divide-y">
+            {overlapping.map((b) => (
+              <li key={b.id} className="space-y-0.5 px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">
+                    {fmt(b.startTime)} → {fmt(b.endTime)}
+                  </p>
+                  {b.fromMonteOre && (
+                    <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                      Monte Ore
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-muted-foreground">
+                  {b.user
+                    ? `${b.user.lastName} ${b.user.firstName} (${roleLabel(b.user.role as Role)})`
+                    : 'Utente sconosciuto'}
+                  {' • '}
+                  {b.room
+                    ? `${b.room.name}${b.room.building ? ` (${b.room.building.name})` : ''}`
+                    : 'Aula sconosciuta'}
+                </p>
+                {b.purpose && <p className="italic text-muted-foreground">{b.purpose}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          La cancellazione tocca solo prenotazioni future non ancora effettuate (no check-in). Le
+          prenotazioni passate restano per integrità storica. Per le prenotazioni Monte Ore
+          disattiviamo anche lo slot collegato così la rigenerazione non le ricrea.
+        </p>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Lascia stare
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => cancelMutation.mutate(exception.id)}
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              `Cancella ${overlapping.length} prenotazion${overlapping.length === 1 ? 'e' : 'i'}`
             )}
           </Button>
         </DialogFooter>

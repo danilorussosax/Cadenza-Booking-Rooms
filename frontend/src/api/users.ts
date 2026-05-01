@@ -1,5 +1,12 @@
 import { api } from '@/lib/api';
-import type { Role, User, UserStatus } from '@/types';
+import type { ContractType, Role, User, UserStatus } from '@/types';
+
+export interface MonteOreOverridePayload {
+  contractType?: ContractType | null;
+  monteOreAnnualHoursOverride?: number | null;
+  monteOreBypassDayConstraint?: boolean;
+  monteOreOverrideReason?: string | null;
+}
 
 export interface UsersListParams {
   role?: Role;
@@ -49,6 +56,13 @@ export const usersApi = {
     api<{ changed: number; skipped: number }>('/api/users/bulk-approve', {
       method: 'POST',
       body: { ids, action },
+    }),
+
+  /** Imposta o rimuove la deroga Monte Ore individuale (admin). */
+  setMonteOreOverride: (id: number, payload: MonteOreOverridePayload) =>
+    api<{ user: User }>(`/api/users/${id}/monte-ore-override`, {
+      method: 'PUT',
+      body: payload,
     }),
 
   /** Esporta gli utenti in CSV. NON include password/2FA — solo email,

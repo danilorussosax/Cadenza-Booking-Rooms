@@ -526,12 +526,25 @@ function PreviewView({
   );
 }
 
+// I campi in `local`/`external` sono primitivi (string/number/boolean/null).
+// `formatPrimitive` proietta a stringa solo i primitivi: se per errore
+// arrivasse un oggetto annidato (mai oggi, ma robusto a evoluzioni schema)
+// emette '?' invece di '[object Object]'.
+function formatPrimitive(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') {
+    return v.toString();
+  }
+  return '?';
+}
+
 function changedSummary(u: ToUpdateItem): string {
+  const localRec = u.local as unknown as Record<string, unknown>;
+  const externalRec = u.external as unknown as Record<string, unknown>;
   const items: string[] = [];
   for (const f of u.fieldsChanged) {
-    const before = String((u.local as Record<string, unknown>)[f] ?? '—');
-    const after = String((u.external as unknown as Record<string, unknown>)[f] ?? '—');
-    items.push(`${f}: ${before} → ${after}`);
+    items.push(`${f}: ${formatPrimitive(localRec[f])} → ${formatPrimitive(externalRec[f])}`);
   }
   if (u.linkChanged) items.push('externalId');
   return items.length > 0 ? items.join(' · ') : '—';

@@ -42,6 +42,8 @@ const { authenticate, requireRole, requireApproved } = require('../middleware/au
 const monteOreService = require('../services/monteOreService');
 const slotService = require('../services/monteOreSlotService');
 const calendarService = require('../services/monteOreCalendarService');
+const { resolveAnnualThreshold } = require('../services/monteOreThresholdService');
+const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 
 const router = express.Router();
 
@@ -95,6 +97,23 @@ function serializeProposal(p) {
 // ============================================================
 // DOCENTE — endpoints "miei"
 // ============================================================
+
+/**
+ * GET /api/monte-ore/me/threshold — risolve la soglia ore applicabile
+ * all'utente corrente per l'AA passato (o quello in corso).
+ * Restituisce { minHours, bypassDayConstraint, source, contractType, reason }.
+ * Usato dal banner docente quando ha un override personalizzato.
+ */
+router.get('/me/threshold', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const year = req.query.year || currentAcademicYearLabel();
+    const resolved = await resolveAnnualThreshold(req.user.id, year);
+    res.json({ academicYear: year, ...resolved });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
 
 router.get('/me', authenticate, requireApproved, async (req, res, next) => {
   try {
@@ -280,18 +299,36 @@ router.post('/me/submit', authenticate, requireApproved, async (req, res, next) 
     const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
     let totalHours = 0;
     let minRequired = null;
+    let bypassDayConstraint = false;
+    let thresholdSource = 'default';
     if (settings) {
-      if (distinctDays.size < 2 || distinctDays.size > 4) {
+      // Risoluzione soglia per-docente: se l'admin ha impostato un override
+      // individuale (es. contratto orario 60h), quello vince sulla soglia
+      // istituzionale. Stessa logica per il bypass del vincolo 2-4 giorni.
+      const resolved = await resolveAnnualThreshold(req.user.id, year);
+      minRequired = resolved.minHours;
+      bypassDayConstraint = resolved.bypassDayConstraint;
+      thresholdSource = resolved.source;
+
+      if (!bypassDayConstraint && (distinctDays.size < 2 || distinctDays.size > 4)) {
         return res.status(400).json({
-          error: `Il monte ore richiede da 2 a 4 giorni lavorativi a settimana (impostati: ${distinctDays.size})`,
+          error:
+            `Il monte ore richiede da 2 a 4 giorni lavorativi a settimana ` +
+            `(impostati: ${distinctDays.size}). ` +
+            `Per docenti a contratto orario richiedi all'admin la deroga.`,
           code: 'WORKING_DAYS_OUT_OF_RANGE',
         });
       }
-      minRequired = settings.minRequiredHours ?? 324;
       totalHours = await slotService.recomputeTotals(proposal.id);
       if (totalHours < minRequired) {
+        const sourceMsg =
+          thresholdSource === 'user_override'
+            ? 'Soglia personalizzata per il tuo contratto.'
+            : 'Soglia istituzionale.';
         return res.status(400).json({
-          error: `Il monte ore deve essere almeno di ${minRequired} ore (attuali: ${totalHours.toFixed(1)} h)`,
+          error:
+            `Il monte ore deve essere almeno di ${minRequired} ore ` +
+            `(attuali: ${totalHours.toFixed(1)} h). ${sourceMsg}`,
           code: 'HOURS_BELOW_THRESHOLD',
         });
       }
@@ -301,11 +338,13 @@ router.post('/me/submit', authenticate, requireApproved, async (req, res, next) 
       submittedAt: new Date(),
     };
     if (settings) {
-      // workingDaysCount ha validator min:2 max:5 sul model, quindi lo
-      // valorizziamo solo nel nuovo flusso (dove distinctDays è stato
-      // validato 2-4 sopra).
-      updates.workingDaysCount = distinctDays.size;
+      // workingDaysCount: in modalità bypass (contratto orario monoday) può
+      // essere 1, fuori dal validator min:2 max:5 del model → lasciamo null.
+      updates.workingDaysCount = bypassDayConstraint ? null : distinctDays.size;
       updates.totalHoursRequested = totalHours;
+      // Snapshot del valore RISOLTO (override o istituzionale): se domani
+      // l'admin rimuove l'override, la proposta già submitted resta valida
+      // con la soglia originale.
       updates.minRequiredHoursSnapshot = minRequired;
     }
     await proposal.update(updates);
@@ -853,13 +892,33 @@ adminRouter.get('/', authenticate, requireRole('admin'), async (req, res, next) 
     if (req.query.status) where.status = req.query.status;
     if (req.query.academicYear) where.academicYear = req.query.academicYear;
     if (req.query.userId) where.userId = Number(req.query.userId);
-    const proposals = await MonteOreProposal.findAll({
+    const { limit, offset } = parsePagination(req.query);
+    const { rows, count } = await MonteOreProposal.findAndCountAll({
       where,
       include: [
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'matricola', 'courseId'],
+          // required: true → INNER JOIN: le proposte di utenti soft-deleted
+          // (paranoid) non compaiono. Difesa addizionale rispetto al cleanup
+          // applicativo nelle DELETE route.
+          required: true,
+          attributes: [
+            'id',
+            'firstName',
+            'lastName',
+            'email',
+            'role',
+            'matricola',
+            'courseId',
+            // Campi deroga Monte Ore: l'admin deve poter vedere a colpo
+            // d'occhio se un docente ha una soglia personalizzata e con quale
+            // motivazione, sia nella lista che nel dettaglio della proposta.
+            'contractType',
+            'monteOreAnnualHoursOverride',
+            'monteOreBypassDayConstraint',
+            'monteOreOverrideReason',
+          ],
         },
         {
           model: MonteOreSchedule,
@@ -868,8 +927,14 @@ adminRouter.get('/', authenticate, requireRole('admin'), async (req, res, next) 
         },
       ],
       order: [['updatedAt', 'DESC']],
+      limit,
+      offset,
+      // distinct=true: conteggio corretto in presenza di N include con
+      // associazioni hasMany (schedules). Senza, count gonfia per ogni JOIN.
+      distinct: true,
     });
-    res.json({ proposals: proposals.map(serializeProposal) });
+    setPaginationHeaders(res, count, limit, offset);
+    res.json({ proposals: rows.map(serializeProposal) });
   } catch (err) {
     next(err);
   }
@@ -882,7 +947,22 @@ adminRouter.get('/:id', authenticate, requireRole('admin'), async (req, res, nex
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'matricola', 'courseId'],
+          attributes: [
+            'id',
+            'firstName',
+            'lastName',
+            'email',
+            'role',
+            'matricola',
+            'courseId',
+            // Campi deroga Monte Ore: l'admin deve poter vedere a colpo
+            // d'occhio se un docente ha una soglia personalizzata e con quale
+            // motivazione, sia nella lista che nel dettaglio della proposta.
+            'contractType',
+            'monteOreAnnualHoursOverride',
+            'monteOreBypassDayConstraint',
+            'monteOreOverrideReason',
+          ],
         },
         {
           model: MonteOreSchedule,

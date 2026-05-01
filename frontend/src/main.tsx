@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { CookieBanner } from '@/components/legal/CookieBanner';
 import { InstallPwaPrompt } from '@/components/pwa/InstallPwaPrompt';
 import { initSentry } from '@/lib/sentry';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { bumpVisitCount, setupPwa } from '@/lib/pwa';
 import '@/i18n';
 import './index.css';
@@ -44,17 +45,19 @@ const queryClient = new QueryClient({
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <AuthProvider>
-            <App />
-            <Toaster />
-            <CookieBanner />
-            <InstallPwaPrompt />
-          </AuthProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <AuthProvider>
+              <App />
+              <Toaster />
+              <CookieBanner />
+              <InstallPwaPrompt />
+            </AuthProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   </React.StrictMode>,
 );

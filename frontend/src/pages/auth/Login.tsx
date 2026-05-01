@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -16,19 +15,14 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { institutesApi } from '@/api/institutes';
+import { useAppIcon } from '@/hooks/useAppIcon';
 import type { User } from '@/types';
 import { httpErrorMessage } from '@/lib/api';
+import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { Aphorism } from '@/components/Aphorism';
-import { AppFooter } from '@/components/AppFooter';
 import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
@@ -37,7 +31,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-// Translates a zod validation key into a localized message via i18n.
 function translateValidationKey(t: (k: string) => string, key?: string) {
   if (!key) return undefined;
   return t(`auth.validation.${key}`);
@@ -63,13 +56,7 @@ export default function Login() {
   const [twoFaUseRecovery, setTwoFaUseRecovery] = useState(false);
   const [twoFaSubmitting, setTwoFaSubmitting] = useState(false);
   const [twoFaResending, setTwoFaResending] = useState(false);
-
-  const { data: instituteData } = useQuery({
-    queryKey: ['institute', 'public'],
-    queryFn: () => institutesApi.public(),
-    staleTime: 5 * 60 * 1000,
-  });
-  const institute = instituteData?.institute ?? null;
+  const appIcon = useAppIcon();
 
   const {
     register,
@@ -148,137 +135,89 @@ export default function Login() {
     }
   };
 
+  // Layout adottato da /complete-profile: AuthLayout split-panel (brand a sx,
+  // form a dx). Le 3 viste (choices/email/2FA) restano come motion children
+  // dentro lo stesso slot. Il pannello form ha sfondo immagine sfocato
+  // (sfondo.png) con overlay theme-aware per garantire leggibilità.
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden">
-      {/* Background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/assets/sfondo.png)' }}
-        aria-hidden
-      />
-      {/* Overlay for readability — adapts to theme */}
-      <div
-        className="absolute inset-0 bg-background/40 backdrop-blur-sm dark:bg-background/60"
-        aria-hidden
-      />
-
-      {/* Top bar: brand left, language + theme toggle right */}
-      <header className="relative z-10 flex shrink-0 items-center justify-end gap-1 px-4 py-4 sm:px-6">
-        <LanguageToggle />
-        <ThemeToggle />
-      </header>
-
-      {/* Content */}
-      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6">
-        {/* Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: 'easeOut', delay: 0.05 }}
-          className="w-full max-w-md"
-        >
-          <Card className="shadow-xl">
-            <CardContent className="space-y-5 p-6 sm:p-8">
-              {/* App brand (Cadenza) con sottoetichetta accanto all'icona,
-                  nome istituto centrato sotto */}
-              <div className="flex flex-col items-center gap-1 text-center">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="/assets/icona.svg"
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-lg object-contain"
-                  />
-                  <div className="flex flex-col items-start leading-tight">
-                    <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-primary">
-                      Cadenza
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {t('app.subtitle')}
-                    </p>
-                  </div>
-                </div>
-                <p
-                  style={{ color: 'rgb(55 98 170)' }}
-                  className="truncate text-center text-sm font-medium leading-none"
-                >
-                  {institute?.name ?? t('app.institute_default')}
-                </p>
-              </div>
-
-              <Separator />
-
-              <AnimatePresence mode="wait" initial={false}>
-                {mode === 'choices' && (
-                  <ChoicesView
-                    key="choices"
-                    onUseEmail={() => {
-                      setMode('email');
-                      setServerError(null);
-                    }}
-                  />
-                )}
-                {mode === 'email' && (
-                  <EmailView
-                    key="email"
-                    onBack={() => {
-                      setMode('choices');
-                    }}
-                    register={register}
-                    handleSubmit={handleSubmit(onSubmit)}
-                    errors={errors}
-                    isSubmitting={isSubmitting}
-                    serverError={serverError}
-                    showPassword={showPassword}
-                    onTogglePassword={() => {
-                      setShowPassword((s) => !s);
-                    }}
-                  />
-                )}
-                {mode === 'twofa' && twoFa && (
-                  <TwoFaView
-                    key="twofa"
-                    code={twoFaCode}
-                    onCodeChange={setTwoFaCode}
-                    useRecovery={twoFaUseRecovery}
-                    onToggleRecovery={() => {
-                      setTwoFaUseRecovery((v) => !v);
-                      setTwoFaCode('');
-                    }}
-                    submitting={twoFaSubmitting}
-                    serverError={serverError}
-                    sentTo={twoFa.sentTo}
-                    expiresInMinutes={twoFa.expiresInMinutes}
-                    resending={twoFaResending}
-                    onResend={() => {
-                      void handleTwoFaResend();
-                    }}
-                    onSubmit={onSubmitTwoFa}
-                    onCancel={() => {
-                      setTwoFa(null);
-                      setTwoFaCode('');
-                      setMode('email');
-                      setServerError(null);
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* Aphorism rotator below buttons */}
-              <Separator />
-              <Aphorism />
-            </CardContent>
-          </Card>
-        </motion.div>
+    <AuthLayout formBgImage="/assets/sfondo.png">
+      {/* Brand block sopra le 3 viste: logo Cadenza + nome + tagline.
+          Persistente: presente in choices/email/twofa per coerenza.
+          Centrato orizzontalmente sul pannello form. */}
+      <div className="mb-7 flex items-center justify-center gap-3">
+        <img src={appIcon} alt="" className="h-12 w-12 shrink-0 rounded-lg object-contain" />
+        <div className="flex flex-col leading-tight">
+          <span className="font-display text-2xl font-semibold tracking-tight text-primary">
+            {t('app.name')}
+          </span>
+          <span className="text-sm text-muted-foreground">{t('app.tagline')}</span>
+        </div>
       </div>
 
-      {/* Footer copyright */}
-      <AppFooter className="relative z-10 text-foreground/70" />
-    </div>
+      <AnimatePresence mode="wait" initial={false}>
+        {mode === 'choices' && (
+          <ChoicesView
+            key="choices"
+            onUseEmail={() => {
+              setMode('email');
+              setServerError(null);
+            }}
+          />
+        )}
+        {mode === 'email' && (
+          <EmailView
+            key="email"
+            onBack={() => {
+              setMode('choices');
+            }}
+            register={register}
+            handleSubmit={handleSubmit(onSubmit)}
+            errors={errors}
+            isSubmitting={isSubmitting}
+            serverError={serverError}
+            showPassword={showPassword}
+            onTogglePassword={() => {
+              setShowPassword((s) => !s);
+            }}
+          />
+        )}
+        {mode === 'twofa' && twoFa && (
+          <TwoFaView
+            key="twofa"
+            code={twoFaCode}
+            onCodeChange={setTwoFaCode}
+            useRecovery={twoFaUseRecovery}
+            onToggleRecovery={() => {
+              setTwoFaUseRecovery((v) => !v);
+              setTwoFaCode('');
+            }}
+            submitting={twoFaSubmitting}
+            serverError={serverError}
+            sentTo={twoFa.sentTo}
+            expiresInMinutes={twoFa.expiresInMinutes}
+            resending={twoFaResending}
+            onResend={() => {
+              void handleTwoFaResend();
+            }}
+            onSubmit={onSubmitTwoFa}
+            onCancel={() => {
+              setTwoFa(null);
+              setTwoFaCode('');
+              setMode('email');
+              setServerError(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </AuthLayout>
   );
 }
 
 // ============================================================
 // Choices view (OAuth + email/registrati)
+//   Layout coerente con /complete-profile: titolo left-aligned,
+//   sottotitolo muted, niente "shield hero" (il pannello di sx
+//   già fornisce l'identità visiva del Conservatorio).
 // ============================================================
 function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
   const { t } = useTranslation();
@@ -288,17 +227,12 @@ function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 8 }}
       transition={{ duration: 0.2 }}
-      className="space-y-5"
+      className="space-y-6"
     >
-      {/* Shield icon */}
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:ring-amber-400/30">
-        <ShieldCheck className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-      </div>
-
-      <div className="space-y-2 text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+      <div className="space-y-2">
+        <h2 className="font-display text-3xl font-medium tracking-tight">
           {t('auth.login.title_choices')}
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">{t('auth.login.subtitle_choices')}</p>
       </div>
 
@@ -321,7 +255,7 @@ function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
       {/* Separator */}
       <div className="relative py-1 text-center">
         <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-border" />
-        <span className="bg-card px-3 text-xs uppercase tracking-wider text-muted-foreground">
+        <span className="bg-background px-3 text-xs uppercase tracking-wider text-muted-foreground">
           {t('common.or')}
         </span>
       </div>
@@ -391,10 +325,10 @@ function EmailView({
         {t('auth.login.back_to_options')}
       </button>
 
-      <div className="space-y-2 text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+      <div className="space-y-2">
+        <h2 className="font-display text-3xl font-medium tracking-tight">
           {t('auth.login.title')}
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">{t('auth.login.subtitle')}</p>
       </div>
 
@@ -567,18 +501,22 @@ function TwoFaView({
         {t('auth.login.back_to_options')}
       </button>
 
-      <div className="space-y-2 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-          <ShieldCheck className="h-6 w-6" />
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-display text-2xl font-medium tracking-tight">
+              {t('auth.twofa.title')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {useRecovery
+                ? t('auth.twofa.subtitle_recovery')
+                : t('auth.twofa.subtitle_email', { email: sentTo, minutes: expiresInMinutes })}
+            </p>
+          </div>
         </div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          {t('auth.twofa.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {useRecovery
-            ? t('auth.twofa.subtitle_recovery')
-            : t('auth.twofa.subtitle_email', { email: sentTo, minutes: expiresInMinutes })}
-        </p>
       </div>
 
       {serverError && (
@@ -607,7 +545,7 @@ function TwoFaView({
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={submitting || !code.trim()}>
+      <Button type="submit" size="lg" className="w-full" disabled={submitting || !code.trim()}>
         {submitting ? (
           <LoaderCircle className="h-4 w-4 animate-spin" />
         ) : (

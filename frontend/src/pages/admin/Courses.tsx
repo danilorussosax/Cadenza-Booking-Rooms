@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
@@ -34,11 +36,61 @@ import { CourseFormDialog } from '@/components/admin/CourseFormDialog';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { CoursesCsvImportDialog } from '@/components/admin/CoursesCsvImportDialog';
 import { CourseLevelsSection } from '@/components/admin/CourseLevelsSection';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import type { Course } from '@/types';
+
+// Macro-tab in stile /admin/server-settings: card grandi con icona+label.
+type CoursesTab = 'corsi' | 'livelli';
+
+interface CoursesTabDef {
+  value: CoursesTab;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+}
+
+const COURSES_TABS: CoursesTabDef[] = [
+  {
+    value: 'corsi',
+    label: 'Corsi',
+    description:
+      'Catalogo SAD dei corsi di studio attivi nel Conservatorio. Gestisci codici, livelli supportati, importazione CSV.',
+    icon: BookOpen,
+    iconColor: 'text-sky-600 dark:text-sky-400',
+    iconBg: 'bg-sky-100 dark:bg-sky-500/15',
+  },
+  {
+    value: 'livelli',
+    label: 'Livelli',
+    description:
+      'Catalogo dei livelli di studio (propedeutico, triennio, biennio, master, ...) usati dai corsi. Aggiungili una sola volta e riusali ovunque.',
+    icon: GraduationCap,
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    iconBg: 'bg-violet-100 dark:bg-violet-500/15',
+  },
+];
+
+const COURSES_VALID_TABS = COURSES_TABS.map((t) => t.value);
 
 export default function AdminCourses() {
   const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const initialTab = params.get('tab');
+  const [tab, setTab] = useState<CoursesTab>(
+    initialTab && COURSES_VALID_TABS.includes(initialTab as CoursesTab)
+      ? (initialTab as CoursesTab)
+      : 'corsi',
+  );
+  const activeTab = COURSES_TABS.find((td) => td.value === tab) ?? COURSES_TABS[0];
+  const ActiveIcon = activeTab.icon;
+  const onSelectTab = (next: CoursesTab) => {
+    setTab(next);
+    const np = new URLSearchParams(params);
+    np.set('tab', next);
+    setParams(np, { replace: true });
+  };
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -139,23 +191,52 @@ export default function AdminCourses() {
         </p>
       </header>
 
-      <Tabs defaultValue="corsi" className="w-full">
-        <TabsList>
-          <TabsTrigger value="corsi" className="gap-1.5">
-            <BookOpen className="h-3.5 w-3.5" />
-            Corsi
-          </TabsTrigger>
-          <TabsTrigger value="livelli" className="gap-1.5">
-            <GraduationCap className="h-3.5 w-3.5" />
-            Livelli
-          </TabsTrigger>
-        </TabsList>
+      {/* Strip macro-tab in stile /admin/server-settings */}
+      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
+        {COURSES_TABS.map((td) => {
+          const Icon = td.icon;
+          const isActive = td.value === tab;
+          return (
+            <button
+              key={td.value}
+              type="button"
+              onClick={() => {
+                onSelectTab(td.value);
+              }}
+              className={cn(
+                'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
+                isActive
+                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  : 'text-muted-foreground hover:bg-background/60',
+              )}
+            >
+              <Icon className={cn('h-4 w-4', isActive ? td.iconColor : '')} />
+              <span className={cn('text-sm font-medium', isActive && 'text-foreground')}>
+                {td.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        <TabsContent value="livelli">
-          <CourseLevelsSection />
-        </TabsContent>
+      {/* Header descrittivo della tab attiva */}
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4">
+          <div className={cn('mt-0.5 rounded-lg p-2', activeTab.iconBg)}>
+            <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-display text-lg font-medium leading-tight">{activeTab.label}</h2>
+            <p className="text-xs text-muted-foreground">{activeTab.description}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="corsi" className="space-y-6">
+      {/* Contenuti per tab */}
+      {tab === 'livelli' && <CourseLevelsSection />}
+
+      {tab === 'corsi' && (
+        <div className="space-y-6">
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
@@ -382,8 +463,8 @@ export default function AdminCourses() {
               </table>
             </div>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       <CourseFormDialog open={creating} onOpenChange={setCreating} />
       <CourseFormDialog

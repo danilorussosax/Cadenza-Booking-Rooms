@@ -209,6 +209,15 @@ function buildApp({ serveFrontend = true } = {}) {
   // Static frontend (saltato quando esplicitamente disattivato — vedi tests/)
   if (serveFrontend) {
     const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+    // Cartella icone app: serviamo direttamente dal SORGENTE
+    // `frontend/public/logo-app/` con precedenza su dist, così droppare un
+    // PNG nella cartella lo rende disponibile immediatamente — senza dover
+    // rilanciare `npm run build`. Path montato PRIMA dello static dist.
+    const FRONTEND_LOGO_APP = path.join(__dirname, '..', 'frontend', 'public', 'logo-app');
+    app.use(
+      '/logo-app',
+      express.static(FRONTEND_LOGO_APP, { maxAge: '5m', etag: true, fallthrough: true }),
+    );
     app.use(
       express.static(FRONTEND_DIST, {
         setHeaders: (res, filePath) => {
@@ -234,6 +243,14 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/admin/analytics', require('./routes/analytics'));
   app.use('/api/bookings/waitlist', require('./routes/waitlist'));
   app.use('/api/bookings/templates', require('./routes/bookingTemplates'));
+  // Booking type catalog (gap #7 EasyRoom parity): personalizzazione admin
+  // di label/color/icon/sortOrder per i 5 tipi prenotazione legacy ENUM.
+  // Montato PRIMA di /api/bookings/:id per evitare match come id="types".
+  {
+    const bt = require('./routes/bookingTypes');
+    app.use('/api/booking-types', bt.router);
+    app.use('/api/admin/booking-types', bt.adminRouter);
+  }
   app.use('/api/rules', require('./routes/rules'));
   app.use('/api/admin/rules', require('./routes/rulesPreview'));
   app.use('/api/bookings', require('./routes/bookings'));
@@ -256,6 +273,10 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/admin/monte-ore', monteOre.adminRouter);
   app.use('/api/users/me/bot-bindings', require('./routes/botBindings'));
   app.use('/api/messaging', require('./routes/messagingWebhook'));
+  // Listing dinamico delle icone app personalizzabili (Profilo → Icona app)
+  app.use('/api/app-icons', require('./routes/appIcons'));
+  // Tipologie contrattuali docenti (Monte Ore — gestione admin + lookup)
+  app.use('/api/contract-types', require('./routes/contractTypes'));
 
   // Liveness: il processo è vivo (sempre 200, no DB call). Per Kubernetes
   // livenessProbe (riavvio container).
@@ -280,6 +301,31 @@ function buildApp({ serveFrontend = true } = {}) {
       });
     }
   });
+
+  // Smoke test della pipeline Sentry — admin-only. Lancia un errore
+  // intenzionale e restituisce l'eventId. Utile per validare la
+  // configurazione (DSN, env, rete egress) una volta in produzione.
+  // Non è un endpoint di abuso: il rate è già limitato dal limiter API.
+  {
+    const { authenticate, requireRole } = require('./middleware/auth');
+    app.post('/api/admin/_sentry/test', authenticate, requireRole('admin'), (req, res) => {
+      if (!sentry.isInitialized()) {
+        return res.status(503).json({
+          ok: false,
+          message: 'Sentry non inizializzato (SENTRY_DSN non impostato)',
+        });
+      }
+      const Sentry = require('@sentry/node');
+      const err = new Error(`Sentry smoke test (intenzionale) — ${new Date().toISOString()}`);
+      err.code = 'SENTRY_SMOKE_TEST';
+      const eventId = Sentry.captureException(err);
+      res.json({
+        ok: true,
+        eventId,
+        message: "Errore inviato a Sentry. Cerca l'eventId nella dashboard del progetto.",
+      });
+    });
+  }
 
   // SPA fallback (saltato quando serveFrontend === false)
   if (serveFrontend) {

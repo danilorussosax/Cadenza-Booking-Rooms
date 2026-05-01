@@ -24,11 +24,18 @@ export default function MyBookings() {
   const [tab, setTab] = useState<Tab>('future');
   const [createOpen, setCreateOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  // Quick-action "Duplica" (gap #1 EasyRoom parity): apre lo stesso dialog
+  // di creazione ma pre-fillato dai dati di una booking esistente +7gg.
+  const [duplicateTarget, setDuplicateTarget] = useState<Booking | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
     queryKey: ['bookings', 'mine', 'all'],
-    queryFn: () => bookingsApi.list({ mine: true }),
+    // limit alto per MyBookings: l'utente vede TUTTE le sue bookings (storico
+    // completo) classificate poi client-side in future/past/cancelled. Senza
+    // limit alto, le bookings recenti sparivano per utenti con storico esteso
+    // (P1-2 ha portato il default backend a 100, ma per "le mie" serve il max).
+    queryFn: () => bookingsApi.list({ mine: true, limit: 500 }),
   });
 
   // Scarica il file .ics autenticandosi con il JWT corrente (no token in querystring).
@@ -181,6 +188,9 @@ export default function MyBookings() {
                     onCancel={(book) => {
                       setCancelTarget(book);
                     }}
+                    onDuplicate={(book) => {
+                      setDuplicateTarget(book);
+                    }}
                   />
                 ))}
               </motion.div>
@@ -192,6 +202,13 @@ export default function MyBookings() {
       <CalendarSubscriptionSection />
 
       <BookingFormDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <BookingFormDialog
+        open={duplicateTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateTarget(null);
+        }}
+        duplicateFrom={duplicateTarget}
+      />
       <CancelBookingDialog
         booking={cancelTarget}
         onClose={() => {

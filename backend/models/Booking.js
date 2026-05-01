@@ -1,6 +1,5 @@
 'use strict';
 
-const crypto = require('crypto');
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -57,17 +56,17 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       // Sistema check-in / anti ghost-booking.
-      // checkInToken: token opaco generato in beforeCreate; usato solo come
-      //   identificatore stabile, NON è una chiave segreta (la sicurezza viene
-      //   dall'autenticazione JWT sull'endpoint POST /:id/checkin).
       // checkedInAt: timestamp di conferma presenza; null finché non confermato.
       // autoCancelledAt: timestamp di auto-cancellazione da scheduler quando
       //   la grace period è scaduta senza check-in.
-      checkInToken: {
-        type: DataTypes.STRING(64),
-        allowNull: true,
-        unique: true,
-      },
+      //
+      // P2-5: il campo `checkInToken` è stato rimosso (dead code). Era
+      // generato a ogni create ma mai letto da nessun route handler — la
+      // sicurezza del check-in si basa esclusivamente sul `qrToken` della
+      // Room (rotabile da admin) + autenticazione JWT del docente.
+      // I DB legacy mantengono la colonna `checkInToken` con i valori
+      // backfillati al boot precedente: Sequelize la ignora se non è nel
+      // model, e nessuna query la legge → no-op funzionale.
       checkedInAt: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -99,12 +98,6 @@ module.exports = (sequelize) => {
     },
   );
 
-  // Genera un checkInToken al primo salvataggio se non già impostato.
-  Booking.beforeCreate((booking) => {
-    if (!booking.checkInToken) {
-      booking.checkInToken = crypto.randomBytes(24).toString('hex');
-    }
-  });
-
+  // (Rimosso il hook `beforeCreate` che generava `checkInToken` random — P2-5)
   return Booking;
 };

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,7 +30,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EquipmentTemplatesSection } from '@/components/admin/EquipmentTemplatesSection';
 import { InstituteFormDialog } from '@/components/admin/InstituteFormDialog';
 import { BuildingFormDialog } from '@/components/admin/BuildingFormDialog';
@@ -44,6 +45,41 @@ type DeleteTarget =
   | { kind: 'room'; entity: Room }
   | { kind: 'equipment'; entity: Equipment }
   | null;
+
+// Macro-tab in stile pagina /admin/server-settings: card grandi con icona+label,
+// active state con bg-background + ring + colore icona acceso, sotto un header
+// descrittivo con la stessa estetica.
+type StructureTab = 'sedi' | 'dotazioni';
+
+interface StructureTabDef {
+  value: StructureTab;
+  labelKey: string;
+  descriptionKey: string;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+}
+
+const STRUCTURE_TABS: StructureTabDef[] = [
+  {
+    value: 'sedi',
+    labelKey: 'admin.structure.tab_sedi',
+    descriptionKey: 'admin.structure.tab_sedi_description',
+    icon: Building2,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    iconBg: 'bg-blue-100 dark:bg-blue-500/15',
+  },
+  {
+    value: 'dotazioni',
+    labelKey: 'admin.structure.tab_dotazioni',
+    descriptionKey: 'admin.structure.tab_dotazioni_description',
+    icon: Cog,
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    iconBg: 'bg-violet-100 dark:bg-violet-500/15',
+  },
+];
+
+const STRUCTURE_VALID_TABS = STRUCTURE_TABS.map((t) => t.value);
 
 export default function AdminStructure() {
   const qc = useQueryClient();
@@ -212,6 +248,22 @@ export default function AdminStructure() {
     },
   });
 
+  const [params, setParams] = useSearchParams();
+  const initialTab = params.get('tab');
+  const [tab, setTab] = useState<StructureTab>(
+    initialTab && STRUCTURE_VALID_TABS.includes(initialTab as StructureTab)
+      ? (initialTab as StructureTab)
+      : 'sedi',
+  );
+  const activeTab = STRUCTURE_TABS.find((td) => td.value === tab) ?? STRUCTURE_TABS[0];
+  const ActiveIcon = activeTab.icon;
+  const onSelectTab = (next: StructureTab) => {
+    setTab(next);
+    const np = new URLSearchParams(params);
+    np.set('tab', next);
+    setParams(np, { replace: true });
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="space-y-1.5">
@@ -219,23 +271,54 @@ export default function AdminStructure() {
         <p className="text-sm text-muted-foreground">{t('admin.structure.subtitle')}</p>
       </header>
 
-      <Tabs defaultValue="sedi" className="w-full">
-        <TabsList>
-          <TabsTrigger value="sedi" className="gap-1.5">
-            <Building2 className="h-3.5 w-3.5" />
-            {t('admin.structure.tab_sedi')}
-          </TabsTrigger>
-          <TabsTrigger value="dotazioni" className="gap-1.5">
-            <Cog className="h-3.5 w-3.5" />
-            {t('admin.structure.tab_dotazioni')}
-          </TabsTrigger>
-        </TabsList>
+      {/* Strip macro-tab in stile /admin/server-settings */}
+      <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
+        {STRUCTURE_TABS.map((td) => {
+          const Icon = td.icon;
+          const isActive = td.value === tab;
+          return (
+            <button
+              key={td.value}
+              type="button"
+              onClick={() => {
+                onSelectTab(td.value);
+              }}
+              className={cn(
+                'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
+                isActive
+                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  : 'text-muted-foreground hover:bg-background/60',
+              )}
+            >
+              <Icon className={cn('h-4 w-4', isActive ? td.iconColor : '')} />
+              <span className={cn('text-sm font-medium', isActive && 'text-foreground')}>
+                {t(td.labelKey)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        <TabsContent value="dotazioni">
-          <EquipmentTemplatesSection />
-        </TabsContent>
+      {/* Header descrittivo della tab attiva */}
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4">
+          <div className={cn('mt-0.5 rounded-lg p-2', activeTab.iconBg)}>
+            <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-display text-lg font-medium leading-tight">
+              {t(activeTab.labelKey)}
+            </h2>
+            <p className="text-xs text-muted-foreground">{t(activeTab.descriptionKey)}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="sedi" className="space-y-6">
+      {/* Contenuti per tab */}
+      {tab === 'dotazioni' && <EquipmentTemplatesSection />}
+
+      {tab === 'sedi' && (
+        <div className="space-y-6">
           <div className="flex items-center justify-end">
             <Button
               onClick={() => {
@@ -330,8 +413,8 @@ export default function AdminStructure() {
               onToggleBuildingSelected={toggleBuildingSelected}
             />
           ))}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       <InstituteFormDialog
         open={instituteDialog.open}
