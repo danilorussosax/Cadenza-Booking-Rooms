@@ -74,5 +74,13 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.5",
     "workbox-window": "^7.4.0"
+  },
+  "overrides": {
+    "agent-base": "^7.1.4",
+    "ansi-regex": "^6.2.2",
+    "ansi-styles": "^6.2.3",
+    "commander": "^4.1.1",
+    "https-proxy-agent": "^7.0.6",
+    "rollup": "^4.60.2"
   }
 }
