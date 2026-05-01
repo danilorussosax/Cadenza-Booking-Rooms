@@ -29,6 +29,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { FullscreenToggle } from '@/components/FullscreenToggle';
 import { useFullscreen, useIdle } from '@/hooks/useFullscreen';
 import { useDisplayScale } from '@/hooks/useDisplayScale';
+import { useAppIcon } from '@/hooks/useAppIcon';
 import { WeeklyRoomTimetable, type WeeklyBlock } from '@/components/bookings/WeeklyRoomTimetable';
 import type { BookingType } from '@/types';
 
@@ -121,11 +122,20 @@ export default function Display() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Kiosk dedicato (aperto h24): l'admin che cambia logo/icona vuole vederlo
+  // sul display "subito", non dopo 5 minuti. staleTime + refetchInterval
+  // ridotti rispetto al pattern utente loggato (che è in `useAppIcon`).
   const instituteQuery = useQuery({
     queryKey: ['public', 'institute'],
     queryFn: () => publicApi.institute(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
   });
+  // Icona app dell'istituto (configurata da admin) come fallback al logo
+  // dell'edificio. Cade su `/cadenza.png` solo in ultima istanza, in modo
+  // coerente con AppLayout/AuthLayout. Risolve: "rimuovo il logo istituto
+  // → display mostra l'icona Cadenza generica anziché la mia icona app".
+  const appIcon = useAppIcon();
 
   // Vista settimanale (Lun→Sab) per coerenza con la dashboard. Il kiosk
   // ricalcola weekStart in base a `now` (chiave di refetch) così a mezzanotte
@@ -337,19 +347,22 @@ export default function Display() {
       <header className="flex shrink-0 flex-col gap-4 border-b px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-10 2xl:px-14 2xl:py-6">
         <div className="flex items-center gap-4 2xl:gap-6">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 2xl:h-20 2xl:w-20">
-            {institute?.logoUrl ? (
-              <img
-                src={institute.logoUrl}
-                alt=""
-                className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
-              />
-            ) : (
-              <img
-                src="/cadenza.png"
-                alt=""
-                className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
-              />
-            )}
+            <img
+              src={institute?.logoUrl?.trim() ? institute.logoUrl : appIcon}
+              alt=""
+              className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
+              onError={(e) => {
+                // logoUrl rotto/404: cade sull'icona app dell'istituto.
+                // Se anche quella fallisce, l'asset statico /cadenza.png è
+                // sempre presente in /public. Evita la broken-image al kiosk.
+                const target = e.currentTarget;
+                if (target.src !== window.location.origin + appIcon) {
+                  target.src = appIcon;
+                } else if (!target.src.endsWith('/cadenza.png')) {
+                  target.src = '/cadenza.png';
+                }
+              }}
+            />
           </div>
           <div>
             <h1 className="font-display text-2xl font-medium leading-tight lg:text-3xl xl:text-4xl 2xl:text-5xl">
