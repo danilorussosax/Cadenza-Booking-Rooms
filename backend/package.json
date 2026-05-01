@@ -1,7 +1,7 @@
 {
-  "name": "conservatory-booking-backend",
+  "name": "cadenza-backend",
   "version": "1.0.0",
-  "description": "Sistema di gestione e prenotazione aule per conservatorio musicale",
+  "description": "Cadenza — backend Express+Sequelize per la gestione e prenotazione aule del conservatorio.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

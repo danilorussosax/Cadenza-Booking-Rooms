@@ -225,16 +225,21 @@ Cadenza/
 
 ### Sviluppo
 
-```bash
-# Backend (porta 3000)
-cd backend
-npm install
-npm run dev
+Setup iniziale (una volta sola, dalla root del repo):
 
-# Frontend (porta 5173, /api proxied to :3000)
-cd frontend
-npm install
-npm run dev
+```bash
+npm install                       # devtool root: husky, lint-staged, commitlint, prettier
+npm --prefix backend install
+npm --prefix frontend install
+```
+
+Avvio dev combinato (backend nodemon su :3000 + frontend vite su :5173):
+
+```bash
+npm run dev                       # entrambi in parallelo nello stesso terminale
+# oppure, su due terminali separati:
+npm run dev:backend
+npm run dev:frontend
 ```
 
 Apri `http://localhost:5173`. Credenziali admin di default seedate:
@@ -249,24 +254,26 @@ password: Admin123!
 ### Produzione
 
 ```bash
-# Build frontend
-cd frontend && npm run build           # output in frontend/dist
-
-# Avvia backend (serve API + dist)
-cd backend && npm start
+npm run build                     # build frontend → frontend/dist
+npm run start                     # avvia backend (serve API + dist statico)
 ```
 
 Per un deploy completo su VPS Ubuntu 24.04 (con nginx + Let's Encrypt + scheduler) usare lo script `scripts/install.sh` (idempotente, supporta modalità domain HTTPS / IP-only / IP self-signed). Vedi [`docs/install.md`](docs/install.md) per la guida passo-passo (esempio Hetzner incluso).
 
-### Comandi utili
+### Comandi utili (dalla root)
 
-| Comando                                 | Effetto                                  |
-| --------------------------------------- | ---------------------------------------- |
-| `npm run dev` (backend)                 | Avvia con nodemon                        |
-| `DB_SYNC_MODE=alter npm run db:migrate` | Applica modifiche allo schema (sviluppo) |
-| `npm run seed` (backend)                | Re-seed admin + livelli + regole         |
-| `npm test` (backend)                    | Vitest backend (SQLite in-memory)        |
-| `npm run test:e2e` (frontend)           | Playwright E2E                           |
+| Comando                                                  | Effetto                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------- |
+| `npm run dev`                                            | Backend + frontend in parallelo (Ctrl+C ferma entrambi) |
+| `npm run dev:backend`                                    | Solo backend con nodemon                                |
+| `npm run dev:frontend`                                   | Solo frontend con vite                                  |
+| `npm run build`                                          | Build frontend (`frontend/dist`)                        |
+| `npm run start`                                          | Backend produzione (serve API + dist)                   |
+| `npm run test`                                           | Vitest backend + frontend                               |
+| `npm run lint`                                           | ESLint frontend                                         |
+| `npm run format`                                         | Prettier su tutto il monorepo                           |
+| `npm --prefix backend run seed`                          | Re-seed admin + livelli + regole                        |
+| `DB_SYNC_MODE=alter npm --prefix backend run db:migrate` | Applica modifiche allo schema (sviluppo)                |
 
 ---
 
