@@ -334,7 +334,8 @@
     "copied": "{{label}} copiato",
     "copy_failed": "Impossibile copiare automaticamente — seleziona e copia manualmente",
     "label_webcal": "Link webcal",
-    "label_https": "Link https"
+    "label_https": "Link https",
+    "retry": "Riprova"
   },
   "booking": {
     "title": "Prenota un'aula",

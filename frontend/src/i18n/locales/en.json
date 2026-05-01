@@ -334,7 +334,8 @@
     "copied": "{{label}} copied",
     "copy_failed": "Could not copy automatically — please select and copy manually",
     "label_webcal": "Webcal link",
-    "label_https": "Https link"
+    "label_https": "Https link",
+    "retry": "Retry"
   },
   "booking": {
     "title": "Book a room",

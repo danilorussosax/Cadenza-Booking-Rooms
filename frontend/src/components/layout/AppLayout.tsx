@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   BarChart3,
   Building2,
@@ -23,7 +24,6 @@ import {
   Tag,
   Users,
   UserRound,
-  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -140,6 +140,50 @@ export function AppLayout() {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Chiudi entrambi i menu quando cambia rotta. NavLink interno alla sidebar
+  // chiama già setMobileOpen(false), ma questo copre anche navigazioni via
+  // useNavigate o redirect — evita lo stato "drawer aperto dopo navigation".
+  useEffect(() => {
+    setMobileOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  // Quando la viewport diventa desktop (lg breakpoint), chiudi il drawer
+  // mobile: senza questo, ridimensionando la finestra mentre il drawer è
+  // aperto, il portal Radix resta visibile sopra il layout desktop.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setMobileOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // Click-outside + ESC per il menu profilo. Sostituisce il backdrop
+  // fullscreen che su iOS Safari intercettava il tap sul trigger generando
+  // un doppio evento (chiusura + immediata riapertura → menu sempre aperto).
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onPointer = (e: PointerEvent) => {
+      const el = userMenuRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUserMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [userMenuOpen]);
 
   const { data: instituteData } = useQuery({
     queryKey: ['institute', 'public'],
@@ -189,59 +233,37 @@ export function AppLayout() {
         <SidebarFooter user={user} onLogout={handleLogout} />
       </aside>
 
-      {/* Sidebar (mobile, animated) */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              key="overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-              onClick={() => {
-                setMobileOpen(false);
-              }}
-            />
-            <motion.aside
-              key="drawer"
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              className="safe-pt safe-pb fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card lg:hidden"
-            >
-              <div className="flex items-center justify-between p-4">
-                <SidebarBrand institute={institute} compact />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setMobileOpen(false);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <SidebarNav
-                showAdmin={showAdmin}
-                navItems={visibleNav}
-                adminNavItems={visibleAdminNav}
-                onNavigate={() => {
-                  setMobileOpen(false);
-                }}
-              />
-              <SidebarFooter user={user} onLogout={handleLogout} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Sidebar (mobile) — Radix Sheet: focus trap, scroll-lock, ESC e
+       * click-outside gestiti dalla primitive. Risolve i casi in cui due
+       * AnimatePresence concorrenti (drawer + page transition) si
+       * incastravano lasciando l'overlay in DOM dopo la navigazione. */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          className="safe-pt safe-pb flex w-72 max-w-[85vw] flex-col gap-0 border-r bg-card p-0 sm:max-w-xs"
+        >
+          <SidebarBrand institute={institute} compact />
+          <SidebarNav
+            showAdmin={showAdmin}
+            navItems={visibleNav}
+            adminNavItems={visibleAdminNav}
+            onNavigate={() => {
+              setMobileOpen(false);
+            }}
+          />
+          <SidebarFooter user={user} onLogout={handleLogout} />
+        </SheetContent>
+      </Sheet>
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar — sticky con safe-area top per iPhone con notch.
-         * Altezza ridotta su mobile (h-14) per liberare spazio. */}
-        <header className="safe-pt sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-sm sm:h-16 sm:gap-3 sm:px-4 lg:h-20 lg:px-8">
+        {/* Topbar — sticky con safe-area top+laterali per iPhone (notch in
+         * portrait E in landscape). `min-h-*` invece di `h-*` perché il
+         * `padding-top: env(safe-area-inset-top)` aggiunge altezza variabile
+         * sopra il contenuto: con `h-14` fisso il padding "schiacciava" gli
+         * elementi interni; `min-h-14` lascia all'header crescere quando il
+         * notch è presente, senza mai scendere sotto il minimo. */}
+        <header className="safe-pt safe-pl safe-pr sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-sm sm:min-h-16 sm:gap-3 sm:px-4 lg:min-h-20 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -280,9 +302,15 @@ export function AppLayout() {
           <LanguageToggle />
           <ThemeToggle />
 
-          {/* User menu */}
-          <div className="relative">
+          {/* User menu — chiusura via click-outside + ESC + cambio rotta
+           * (vedi useEffect sopra). Niente backdrop fullscreen perché su
+           * iOS Safari intercettava il tap sul trigger generando un doppio
+           * evento (chiusura + immediata riapertura del menu). */}
+          <div className="relative" ref={userMenuRef}>
             <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
               onClick={() => {
                 setUserMenuOpen((s) => !s);
               }}
@@ -304,52 +332,49 @@ export function AppLayout() {
               </Avatar>
               <ChevronDown className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
               {userMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
+                <motion.div
+                  key="user-menu"
+                  role="menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border bg-popover shadow-lg"
+                >
+                  <div className="border-b p-3">
+                    <p className="text-sm font-medium">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                    {user?.matricola && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t('profile.account.matricola')} · {user.matricola}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    to="/profile"
+                    role="menuitem"
                     onClick={() => {
                       setUserMenuOpen(false);
                     }}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border bg-popover shadow-lg"
+                    className="flex w-full items-center gap-2 border-b px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
                   >
-                    <div className="border-b p-3">
-                      <p className="text-sm font-medium">
-                        {user?.firstName} {user?.lastName}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-                      {user?.matricola && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {t('profile.account.matricola')} · {user.matricola}
-                        </p>
-                      )}
-                    </div>
-                    <Link
-                      to="/profile"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 border-b px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
-                    >
-                      <UserRound className="h-4 w-4" />
-                      {t('nav.profile')}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      {t('common.logout')}
-                    </button>
-                  </motion.div>
-                </>
+                    <UserRound className="h-4 w-4" />
+                    {t('nav.profile')}
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {t('common.logout')}
+                  </button>
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

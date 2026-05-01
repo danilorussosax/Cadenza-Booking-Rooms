@@ -14,12 +14,17 @@ import { Label } from '@/components/ui/label';
 export function CalendarSubscriptionSection() {
   const qc = useQueryClient();
   const { t } = useTranslation();
-  const [revealed, setRevealed] = useState(false);
+  // Default revealed=true: senza il token visibile l'input mostrava
+  // `webcal://…?token=••••••••` che alcuni utenti leggevano come un
+  // placeholder ("il token non è stato generato") anziché come un
+  // mascheramento. La sicurezza è già delegata all'Alert di warning.
+  const [revealed, setRevealed] = useState(true);
 
   const tokenQuery = useQuery({
     queryKey: ['auth', 'ical-token'],
     queryFn: () => authApi.getIcalToken(),
     staleTime: Infinity,
+    retry: 1,
   });
 
   const regenerateMutation = useMutation({
@@ -59,6 +64,23 @@ export function CalendarSubscriptionSection() {
 
         {tokenQuery.isLoading ? (
           <p className="text-xs text-muted-foreground">{t('calendar_subscription.loading')}</p>
+        ) : tokenQuery.isError ? (
+          <Alert variant="destructive">
+            <AlertDescription className="space-y-2 text-xs">
+              <p>{httpErrorMessage(tokenQuery.error)}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void tokenQuery.refetch();
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {t('calendar_subscription.retry')}
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
           <>
             <div className="space-y-1.5">
