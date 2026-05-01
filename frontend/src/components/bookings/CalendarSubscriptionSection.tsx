@@ -42,13 +42,48 @@ export function CalendarSubscriptionSection() {
   const httpUrl = token ? `${window.location.origin}/api/bookings/ical?token=${token}` : '';
   const webcalUrl = httpUrl.replace(/^https?:/, 'webcal:');
 
+  // Copia con fallback per HTTP / non-secure-context.
+  //
+  // navigator.clipboard.writeText richiede HTTPS o localhost (Secure Context).
+  // In HTTP nudo (es. VPS esposto su IP, niente cert) `navigator.clipboard`
+  // è `undefined` su Chromium/Firefox e l'await esplode → silent fail.
+  // execCommand('copy') è deprecato ma è ancora l'unico fallback affidabile
+  // in non-secure-context su browser moderni.
   const copy = async (value: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(value);
+      if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (!ok) throw new Error('execCommand copy returned false');
+      }
       toast.success(t('calendar_subscription.copied', { label }));
     } catch {
       toast.error(t('calendar_subscription.copy_failed'));
     }
+  };
+
+  // Quando l'input è mascherato (revealed=false) il `value` contiene `••••••••`.
+  // Se l'utente seleziona e fa Ctrl+C manualmente, copia i pallini → il backend
+  // riceve `token=••••••••` (8 char) e risponde INVALID_TOKEN. Intercettiamo
+  // l'evento onCopy e mettiamo nel clipboard il valore reale, indipendentemente
+  // da cosa è selezionato a video.
+  const handleMaskedCopy = (real: string) => (e: React.ClipboardEvent<HTMLInputElement>) => {
+    if (revealed) return; // input non mascherato: lascia il default del browser
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', real);
   };
 
   return (
@@ -96,6 +131,7 @@ export function CalendarSubscriptionSection() {
                   onFocus={(e) => {
                     e.target.select();
                   }}
+                  onCopy={handleMaskedCopy(webcalUrl)}
                   className="font-mono text-xs"
                 />
                 <Button
@@ -138,6 +174,7 @@ export function CalendarSubscriptionSection() {
                   onFocus={(e) => {
                     e.target.select();
                   }}
+                  onCopy={handleMaskedCopy(httpUrl)}
                   className="font-mono text-xs"
                 />
                 <Button
