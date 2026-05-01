@@ -18,10 +18,10 @@
     "test": "npm run test:backend && npm run test:frontend"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.5.0",
-    "@commitlint/config-conventional": "^19.5.0",
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "husky": "^9.1.6",
-    "lint-staged": "^15.2.10",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.3.3"
   },
   "lint-staged": {
