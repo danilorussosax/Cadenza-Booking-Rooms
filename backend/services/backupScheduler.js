@@ -81,7 +81,16 @@ async function loadEffectiveConfig() {
   };
 
   try {
-    const { BackupSettings } = require('../models');
+    const { sequelize, BackupSettings } = require('../models');
+    // Skip proattivo: durante safeShutdown il connection manager viene
+    // chiuso PRIMA che lo scheduler abbia drenato l'eventuale tick/start
+    // in volo. Un `findByPk` qui aprirebbe una nuova connessione e
+    // fallirebbe con "ConnectionManager was called after the connection
+    // manager was closed!". Cadiamo sulla cache (se c'è) o sul baseline
+    // senza emettere query: silenziosi e zero round-trip al DB.
+    if (sequelize?.connectionManager?.pool?.destroyed) {
+      return cachedConfig || (cachedConfig = baseline);
+    }
     const row = await BackupSettings.findByPk(1);
     if (row) {
       cachedConfig = {
@@ -97,8 +106,12 @@ async function loadEffectiveConfig() {
       return cachedConfig;
     }
   } catch (err) {
-    // DB non pronto (es. boot prima di sync) → usiamo env-only
-    logger.debug?.({ err: err.message }, '[backup] BackupSettings non leggibile, uso env');
+    // Difesa reattiva: la pool può chiudersi DOPO il check sopra (race tra
+    // shutdown e query in volo). In quel caso filtra il messaggio
+    // specifico — è atteso e il fallback env è già attivo.
+    if (!/connection manager was closed/i.test(err.message || '')) {
+      logger.debug?.({ err: err.message }, '[backup] BackupSettings non leggibile, uso env');
+    }
   }
   cachedConfig = baseline;
   return cachedConfig;
