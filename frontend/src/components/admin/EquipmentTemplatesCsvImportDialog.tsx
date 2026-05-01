@@ -88,7 +88,7 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
       <DialogContent className="max-w-[95vw] overflow-hidden sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Importa dotazioni da CSV</DialogTitle>
-          <DialogDescription className="break-words">
+          <DialogDescription className="wrap-break-word">
             File CSV con <strong>una sola colonna</strong>: il nome della dotazione (uno per riga).
             L’header è opzionale (es. <code>Dotazione</code>, <code>Nome</code>). I nomi duplicati
             vengono ignorati.
@@ -99,7 +99,7 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
           {serverError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="break-words">{serverError}</AlertDescription>
+              <AlertDescription className="wrap-break-word">{serverError}</AlertDescription>
             </Alert>
           )}
 
@@ -117,7 +117,7 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
                 {result.errors.length > 0 && (
                   <ul className="mt-2 list-disc pl-5 text-xs text-destructive">
                     {result.errors.slice(0, 6).map((e, i) => (
-                      <li key={i} className="break-words">
+                      <li key={i} className="wrap-break-word">
                         Riga {e.row}: {e.message}
                       </li>
                     ))}

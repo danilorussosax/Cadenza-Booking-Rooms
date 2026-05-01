@@ -499,7 +499,7 @@ export default function Display() {
         {slides.length > 1 && (
           <div
             className={cn(
-              'pointer-events-none absolute bottom-4 right-6 z-10 flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground shadow-sm backdrop-blur transition-opacity 2xl:bottom-6 2xl:right-10 2xl:text-xs',
+              'pointer-events-none absolute bottom-4 right-6 z-10 flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground shadow-xs backdrop-blur-sm transition-opacity 2xl:bottom-6 2xl:right-10 2xl:text-xs',
               hideUi && 'opacity-0',
             )}
           >
@@ -609,7 +609,7 @@ function DebugOverlay({ info }: { info: DebugInfo }) {
   const isOverride = info.themeStored !== 'system';
   return (
     <div
-      className="pointer-events-none fixed bottom-3 left-3 z-50 max-w-md rounded-lg border border-emerald-400/60 bg-black/80 px-3 py-2 font-mono text-[0.6875rem] leading-tight text-emerald-300 shadow-xl backdrop-blur"
+      className="pointer-events-none fixed bottom-3 left-3 z-50 max-w-md rounded-lg border border-emerald-400/60 bg-black/80 px-3 py-2 font-mono text-[0.6875rem] leading-tight text-emerald-300 shadow-xl backdrop-blur-sm"
       role="status"
       aria-live="off"
     >
@@ -937,9 +937,9 @@ function AnnouncementSlide({ announcement }: { announcement: PublicAnnouncement 
     .filter(Boolean);
   const published = dayjs(announcement.publishedAt);
   return (
-    <section className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-gradient-to-br from-rose-900 via-rose-700 to-amber-600 text-white">
-      <div className="absolute -right-24 -top-24 h-[26.25rem] w-[26.25rem] rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute -bottom-32 -left-32 h-[30rem] w-[30rem] rounded-full bg-amber-300/20 blur-3xl" />
+    <section className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-linear-to-br from-rose-900 via-rose-700 to-amber-600 text-white">
+      <div className="absolute -right-24 -top-24 h-105 w-105 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute -bottom-32 -left-32 h-120 w-120 rounded-full bg-amber-300/20 blur-3xl" />
 
       {/* Etichetta tipologia in alto a sinistra: stesso pattern usato per la
           slide concerto (badge pill ambra, posizione assoluta, ring shadow). */}

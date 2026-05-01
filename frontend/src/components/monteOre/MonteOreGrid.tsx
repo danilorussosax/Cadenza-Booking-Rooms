@@ -414,7 +414,7 @@ function DayCell({
               locked
                 ? 'cursor-not-allowed bg-destructive/10 text-destructive'
                 : active
-                  ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-primary hover:bg-primary/90'
+                  ? 'bg-primary text-primary-foreground shadow-xs ring-1 ring-primary hover:bg-primary/90'
                   : 'border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
             }`}
             title={`${s.startTime}–${s.endTime}${locked && s.lockReason ? ` (${s.lockReason})` : ''}`}

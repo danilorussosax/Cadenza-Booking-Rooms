@@ -91,7 +91,7 @@ export function UsersCsvImportDialog({
       <DialogContent className="max-w-[95vw] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importa utenti da CSV</DialogTitle>
-          <DialogDescription className="break-words">
+          <DialogDescription className="wrap-break-word">
             Carica un CSV con le colonne <strong>Email · Cognome · Nome · Ruolo</strong>{' '}
             (obbligatorie) più <em>Matricola · CodiceCorso · Stato · Attivo</em> (facoltative).
             Idempotente per email: gli utenti esistenti vengono aggiornati, i nuovi creati con una
@@ -103,7 +103,7 @@ export function UsersCsvImportDialog({
           {serverError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="break-words">{serverError}</AlertDescription>
+              <AlertDescription className="wrap-break-word">{serverError}</AlertDescription>
             </Alert>
           )}
 
@@ -125,7 +125,7 @@ export function UsersCsvImportDialog({
                     </p>
                     <ul className="mt-1 list-disc pl-5 text-destructive">
                       {result.errors.slice(0, 6).map((e, i) => (
-                        <li key={i} className="break-words">
+                        <li key={i} className="wrap-break-word">
                           Riga {e.line}: {e.msg}
                         </li>
                       ))}

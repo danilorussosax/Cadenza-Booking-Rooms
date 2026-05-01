@@ -153,9 +153,9 @@ export function DayCalendar({
                 animate={{ opacity: 1, y: 0 }}
                 onClick={() => onBookingClick?.(b)}
                 className={cn(
-                  'absolute left-1 right-1 overflow-hidden rounded-md border px-2 py-1 text-left text-[11px] shadow-sm ring-offset-background transition-all',
+                  'absolute left-1 right-1 overflow-hidden rounded-md border px-2 py-1 text-left text-[11px] shadow-xs ring-offset-background transition-all',
                   styles.soft,
-                  'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                   owned && cn('ring-2 ring-offset-2', styles.ring),
                 )}
                 style={{ top, height }}

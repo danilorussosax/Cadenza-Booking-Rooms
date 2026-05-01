@@ -286,7 +286,7 @@ export default function AdminStructure() {
               className={cn(
                 'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
                 isActive
-                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60',
               )}
             >
@@ -548,7 +548,7 @@ export default function AdminStructure() {
             transition={{ duration: 0.18 }}
             className="fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
           >
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary/30 bg-card/95 px-5 py-3 shadow-2xl backdrop-blur sm:rounded-full">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary/30 bg-card/95 px-5 py-3 shadow-2xl backdrop-blur-sm sm:rounded-full">
               {selectedBuildings.size > 0 && (
                 <>
                   <p className="text-sm">

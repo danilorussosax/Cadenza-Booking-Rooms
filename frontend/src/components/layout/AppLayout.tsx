@@ -241,7 +241,7 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar — sticky con safe-area top per iPhone con notch.
          * Altezza ridotta su mobile (h-14) per liberare spazio. */}
-        <header className="safe-pt sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur sm:h-16 sm:gap-3 sm:px-4 lg:h-20 lg:px-8">
+        <header className="safe-pt sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-sm sm:h-16 sm:gap-3 sm:px-4 lg:h-20 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -480,7 +480,7 @@ function NavRow({
         <item.icon className="h-4 w-4" />
         <span className="truncate">{t(item.labelKey)}</span>
         {badge !== undefined && badge > 0 && (
-          <span className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold tabular-nums text-destructive-foreground">
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold tabular-nums text-destructive-foreground">
             {badge > 99 ? '99+' : badge}
           </span>
         )}

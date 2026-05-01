@@ -551,7 +551,7 @@ export default function Rooms() {
                         transition={{ delay: 0.02 * Math.min(i, 12) }}
                       >
                         <Card className="flex h-full flex-col overflow-hidden">
-                          <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                          <div className="relative aspect-video w-full overflow-hidden bg-muted">
                             <img
                               src={r.photoUrl ?? '/assets/room-default.svg'}
                               alt=""

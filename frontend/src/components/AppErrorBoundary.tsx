@@ -44,7 +44,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children;
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background p-6">
-        <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
+        <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-xs">
           <h1 className="font-display text-xl font-semibold">Si è verificato un errore</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             La pagina non si è caricata correttamente. Ricarica per riprovare; se il problema

@@ -187,7 +187,7 @@ export default function AdminRules() {
               }}
               className={`flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all ${
                 isActive
-                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60'
               }`}
             >

@@ -836,7 +836,7 @@ function StatTileCard({ tile, delay }: { tile: StatTile; delay: number }) {
       {tile.to ? (
         <Link
           to={tile.to}
-          className="block h-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="block h-full rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {card}
         </Link>

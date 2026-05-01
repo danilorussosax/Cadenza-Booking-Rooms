@@ -84,7 +84,7 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
       <DialogContent className="max-w-[95vw] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importa struttura da CSV</DialogTitle>
-          <DialogDescription className="break-words">
+          <DialogDescription className="wrap-break-word">
             Carica un file CSV per popolare edifici, aule e strumentazione di{' '}
             <strong>{instituteName}</strong>. L’operazione è idempotente: i record esistenti vengono
             aggiornati per nome.
@@ -95,7 +95,7 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
           {serverError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="break-words">{serverError}</AlertDescription>
+              <AlertDescription className="wrap-break-word">{serverError}</AlertDescription>
             </Alert>
           )}
 
@@ -119,7 +119,7 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
                     </p>
                     <ul className="mt-1 list-disc pl-5 text-destructive">
                       {result.errors.slice(0, 6).map((e, i) => (
-                        <li key={i} className="break-words">
+                        <li key={i} className="wrap-break-word">
                           Riga {e.row}: {e.message}
                         </li>
                       ))}

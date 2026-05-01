@@ -190,7 +190,7 @@ function LoanRow({
     <Card>
       <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
         {/* Foto strumento 16:9 mini */}
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md bg-muted sm:w-40 sm:shrink-0">
+        <div className="relative aspect-video w-full overflow-hidden rounded-md bg-muted sm:w-40 sm:shrink-0">
           <img
             src={inst?.photoUrl ?? '/assets/instrument-default.svg'}
             alt=""

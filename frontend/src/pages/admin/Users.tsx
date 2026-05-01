@@ -369,7 +369,7 @@ export default function AdminUsers() {
             sticky thead per non perdere il riferimento delle colonne. */}
         <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs uppercase tracking-wider text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/70">
+            <thead className="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs uppercase tracking-wider text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-muted/70">
               <tr>
                 <th className="w-10 px-4 py-3">
                   <Checkbox

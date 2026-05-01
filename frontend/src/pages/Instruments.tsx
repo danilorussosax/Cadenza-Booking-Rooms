@@ -176,7 +176,7 @@ function InstrumentCard({
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       {/* Cover photo 16:9 — fallback default svg */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-video w-full overflow-hidden bg-muted">
         <img
           src={instrument.photoUrl ?? '/assets/instrument-default.svg'}
           alt=""

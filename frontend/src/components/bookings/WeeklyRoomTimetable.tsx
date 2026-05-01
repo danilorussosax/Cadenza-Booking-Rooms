@@ -420,7 +420,7 @@ export function WeeklyRoomTimetable({
                       const minutes = (b - a + 1) * slotMinutes;
                       return (
                         <div
-                          className="pointer-events-none absolute z-[5] flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/20 text-[0.625rem] font-semibold text-primary shadow-sm"
+                          className="pointer-events-none absolute z-5 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/20 text-[0.625rem] font-semibold text-primary shadow-xs"
                           style={{
                             left: `calc(${leftPct}% + 0.0625rem)`,
                             width: `calc(${widthPct}% - 0.125rem)`,

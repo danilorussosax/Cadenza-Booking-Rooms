@@ -258,7 +258,7 @@ export default function AdminServerSettings() {
               className={cn(
                 'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
                 isActive
-                  ? 'bg-background shadow-sm ring-1 ring-border'
+                  ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60',
               )}
             >
@@ -290,7 +290,7 @@ export default function AdminServerSettings() {
                 className={cn(
                   'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-all',
                   isActive
-                    ? 'bg-background font-medium shadow-sm ring-1 ring-border'
+                    ? 'bg-background font-medium shadow-xs ring-1 ring-border'
                     : 'text-muted-foreground hover:bg-background/70',
                 )}
               >

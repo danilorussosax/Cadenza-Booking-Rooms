@@ -139,7 +139,7 @@ export function MultiRoomTimetable({
               animate={{ opacity: 1, scale: 1 }}
               onClick={() => onBookingClick?.(b)}
               className={cn(
-                'relative z-10 m-px flex flex-col items-start justify-start overflow-hidden rounded-md p-1 text-left text-[10px] leading-tight shadow-sm transition-shadow hover:shadow-md',
+                'relative z-10 m-px flex flex-col items-start justify-start overflow-hidden rounded-md p-1 text-left text-[10px] leading-tight shadow-xs transition-shadow hover:shadow-md',
                 styles.solid,
                 owned && cn('ring-2 ring-offset-1', styles.ring),
               )}

@@ -377,14 +377,14 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
             </div>
 
             {/* Anteprima 16:9 (matches il rendering in /rooms) */}
-            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md border bg-muted/30">
+            <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted/30">
               <img
                 src={currentPhotoUrl ?? '/assets/room-default.svg'}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover"
               />
               {photoUploadMutation.isPending && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-xs">
                   <LoaderCircle className="h-6 w-6 animate-spin text-primary" />
                 </div>
               )}

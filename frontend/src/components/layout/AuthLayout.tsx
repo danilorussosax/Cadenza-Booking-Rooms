@@ -48,7 +48,7 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_55%),radial-gradient(circle_at_80%_80%,rgba(255,255,255,0.10),transparent_45%)]"
         />
         <div className="relative flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
             {institute?.logoUrl ? (
               <img
                 src={institute.logoUrl}
@@ -92,7 +92,7 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
           <>
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 scale-105 bg-cover bg-center blur-sm saturate-110"
+              className="pointer-events-none absolute inset-0 scale-105 bg-cover bg-center blur-xs saturate-110"
               style={{ backgroundImage: `url(${formBgImage})` }}
             />
             <div

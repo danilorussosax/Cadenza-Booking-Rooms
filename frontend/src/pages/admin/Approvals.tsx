@@ -94,7 +94,7 @@ export default function AdminApprovals() {
       {/* Variazioni monte ore: coda separata, link diretto a /admin/monte-ore. */}
       <Link
         to="/admin/monte-ore"
-        className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="block rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <Card className="transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/20">
           <CardContent className="flex items-center gap-3 p-4">

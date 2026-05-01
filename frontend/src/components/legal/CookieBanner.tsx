@@ -44,7 +44,7 @@ export function CookieBanner() {
       role="dialog"
       aria-modal="false"
       aria-label="Preferenze cookie"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border/60 bg-background/95 px-4 py-4 shadow-lg backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border/60 bg-background/95 px-4 py-4 shadow-lg backdrop-blur-sm"
     >
       <div className="mx-auto flex max-w-4xl flex-col gap-3">
         <div className="text-sm">

@@ -60,7 +60,7 @@ export default function OAuthCallback() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="w-full max-w-sm rounded-xl border bg-card p-8 text-center shadow-sm"
+        className="w-full max-w-sm rounded-xl border bg-card p-8 text-center shadow-xs"
       >
         {error ? (
           <>

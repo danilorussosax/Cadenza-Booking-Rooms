@@ -215,14 +215,14 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
               />
             </div>
 
-            <div className="relative aspect-[3/4] w-full max-w-[260px] overflow-hidden rounded-md border bg-muted/30">
+            <div className="relative aspect-3/4 w-full max-w-[260px] overflow-hidden rounded-md border bg-muted/30">
               <img
                 src={posterUrl ?? '/assets/concerto.png'}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover"
               />
               {posterUploadMutation.isPending && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-xs">
                   <LoaderCircle className="h-6 w-6 animate-spin text-primary" />
                 </div>
               )}
