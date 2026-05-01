@@ -28,7 +28,7 @@ const schema = z.object({
     .max(50)
     .regex(/^[a-z0-9_-]+$/i, 'Solo lettere, numeri, _ e -'),
   name: z.string().min(1, 'Nome obbligatorio').max(150),
-  sortOrder: z.coerce.number().int().min(0),
+  sortOrder: z.number().int().min(0),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -122,7 +122,12 @@ export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lvl-order">Ordine</Label>
-              <Input id="lvl-order" type="number" min={0} {...register('sortOrder')} />
+              <Input
+                id="lvl-order"
+                type="number"
+                min={0}
+                {...register('sortOrder', { valueAsNumber: true })}
+              />
             </div>
           </div>
 

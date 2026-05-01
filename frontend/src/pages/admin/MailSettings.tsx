@@ -46,7 +46,7 @@ import { MailTemplateEditor } from '@/components/admin/MailTemplateEditor';
 const schema = z.object({
   isEnabled: z.boolean(),
   host: z.string().optional(),
-  port: z.coerce.number().int().min(1).max(65535),
+  port: z.number().int().min(1).max(65535),
   secure: z.boolean(),
   username: z.string().optional(),
   password: z.string().optional(),

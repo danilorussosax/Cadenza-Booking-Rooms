@@ -61,15 +61,15 @@ import type {
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const schema = z.object({
-  maxActiveBookings: z.coerce.number().int().min(0),
-  maxHoursPerWeek: z.coerce.number().int().min(0),
-  maxHoursPerDay: z.coerce.number().int().min(0),
-  maxBookingDurationMinutes: z.coerce.number().int().min(15),
-  minBookingDurationMinutes: z.coerce.number().int().min(15),
-  maxAdvanceDays: z.coerce.number().int().min(0),
-  minAdvanceHours: z.coerce.number().int().min(0),
-  cancellationDeadlineHours: z.coerce.number().int().min(0),
-  minIntervalBetweenBookingsMinutes: z.coerce.number().int().min(0),
+  maxActiveBookings: z.number().int().min(0),
+  maxHoursPerWeek: z.number().int().min(0),
+  maxHoursPerDay: z.number().int().min(0),
+  maxBookingDurationMinutes: z.number().int().min(15),
+  minBookingDurationMinutes: z.number().int().min(15),
+  maxAdvanceDays: z.number().int().min(0),
+  minAdvanceHours: z.number().int().min(0),
+  cancellationDeadlineHours: z.number().int().min(0),
+  minIntervalBetweenBookingsMinutes: z.number().int().min(0),
   allowRecurring: z.boolean(),
   allowNightHours: z.boolean(),
   allowedStartTime: z.string().regex(TIME_REGEX, 'Formato HH:mm'),
@@ -532,7 +532,7 @@ function NumberField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} type="number" min={0} {...register(name)} />
+      <Input id={name} type="number" min={0} {...register(name, { valueAsNumber: true })} />
       {helper && <p className="text-[11px] text-muted-foreground">{helper}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

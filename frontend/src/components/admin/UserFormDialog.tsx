@@ -35,7 +35,7 @@ import type { Role, User } from '@/types';
 const baseSchema = z.object({
   firstName: z.string().min(1, 'Inserisci il nome'),
   lastName: z.string().min(1, 'Inserisci il cognome'),
-  email: z.string().email('Email non valida'),
+  email: z.email('Email non valida'),
   role: z.enum(['admin', 'docente', 'studente']),
   matricola: z.string().optional(),
   courseId: z.string().optional(),

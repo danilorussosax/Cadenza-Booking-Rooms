@@ -60,8 +60,8 @@ const schema = z
     role: z.enum(['admin', 'docente', 'studente']),
     scopeKind: z.enum(['family', 'instrument', 'global']),
     scopeValue: z.string().optional(),
-    maxConcurrent: z.coerce.number().int().min(0).max(99),
-    maxDaysPerYear: z.coerce.number().int().min(0).max(366),
+    maxConcurrent: z.number().int().min(0).max(99),
+    maxDaysPerYear: z.number().int().min(0).max(366),
     isActive: z.boolean(),
   })
   .refine((d) => d.maxConcurrent > 0 || d.maxDaysPerYear > 0, {
@@ -532,7 +532,7 @@ function LoanQuotaFormDialog({
                 type="number"
                 min={0}
                 max={99}
-                {...form.register('maxConcurrent')}
+                {...form.register('maxConcurrent', { valueAsNumber: true })}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t('admin.quotas.field.zero_disables')}
@@ -545,7 +545,7 @@ function LoanQuotaFormDialog({
                 type="number"
                 min={0}
                 max={366}
-                {...form.register('maxDaysPerYear')}
+                {...form.register('maxDaysPerYear', { valueAsNumber: true })}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t('admin.quotas.field.zero_disables')}

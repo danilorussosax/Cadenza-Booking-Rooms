@@ -43,7 +43,7 @@ const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
   code: z.string().max(50).optional(),
   floor: z.string().min(1, 'Indica il piano'),
-  capacity: z.coerce.number().int().min(1, 'Capienza minima 1'),
+  capacity: z.number().int().min(1, 'Capienza minima 1'),
   type: z.enum(['studio', 'sala_prove', 'aula_concerti', 'classe', 'aula_didattica', 'altro']),
   isBookable: z.boolean(),
   requireCheckIn: z.boolean(),
@@ -274,7 +274,12 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="r-capacity">Capienza</Label>
-              <Input id="r-capacity" type="number" min={1} {...register('capacity')} />
+              <Input
+                id="r-capacity"
+                type="number"
+                min={1}
+                {...register('capacity', { valueAsNumber: true })}
+              />
               {errors.capacity && (
                 <p className="text-xs text-destructive">{errors.capacity.message}</p>
               )}

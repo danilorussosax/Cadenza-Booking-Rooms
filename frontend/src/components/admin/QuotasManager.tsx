@@ -59,10 +59,10 @@ const schema = z
     role: z.enum(['admin', 'docente', 'studente']),
     scopeKind: z.enum(['roomType', 'equipmentType', 'room', 'building', 'global']),
     scopeValue: z.string().optional(),
-    maxHoursPerWeek: z.coerce.number().int().min(0).max(168),
-    maxHoursPerDay: z.coerce.number().int().min(0).max(24),
-    maxHoursPerMonth: z.coerce.number().int().min(0).max(744),
-    maxBookings: z.coerce.number().int().min(0).max(999),
+    maxHoursPerWeek: z.number().int().min(0).max(168),
+    maxHoursPerDay: z.number().int().min(0).max(24),
+    maxHoursPerMonth: z.number().int().min(0).max(744),
+    maxBookings: z.number().int().min(0).max(999),
     daysOfWeek: z.array(z.number().int().min(0).max(6)),
     timeFrom: z.string().regex(TIME_REGEX, 'time_format').or(z.literal('')).optional(),
     timeTo: z.string().regex(TIME_REGEX, 'time_format').or(z.literal('')).optional(),
@@ -612,7 +612,7 @@ function QuotaFormDialog({
                 type="number"
                 min={0}
                 max={168}
-                {...form.register('maxHoursPerWeek')}
+                {...form.register('maxHoursPerWeek', { valueAsNumber: true })}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t('admin.quotas.field.zero_disables')}
@@ -625,7 +625,7 @@ function QuotaFormDialog({
                 type="number"
                 min={0}
                 max={24}
-                {...form.register('maxHoursPerDay')}
+                {...form.register('maxHoursPerDay', { valueAsNumber: true })}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t('admin.quotas.field.zero_disables')}
@@ -638,7 +638,7 @@ function QuotaFormDialog({
                 type="number"
                 min={0}
                 max={744}
-                {...form.register('maxHoursPerMonth')}
+                {...form.register('maxHoursPerMonth', { valueAsNumber: true })}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t('admin.quotas.field.zero_disables')}
@@ -649,7 +649,13 @@ function QuotaFormDialog({
           {/* Cap numerico (count prenotazioni) */}
           <div className="space-y-2">
             <Label htmlFor="q-count">{t('admin.quotas.field.max_bookings')}</Label>
-            <Input id="q-count" type="number" min={0} max={999} {...form.register('maxBookings')} />
+            <Input
+              id="q-count"
+              type="number"
+              min={0}
+              max={999}
+              {...form.register('maxBookings', { valueAsNumber: true })}
+            />
             <p className="text-[11px] text-muted-foreground">
               {t('admin.quotas.field.max_bookings_help')}
             </p>

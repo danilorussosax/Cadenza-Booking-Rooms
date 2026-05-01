@@ -32,18 +32,14 @@ import {
 const schema = z.object({
   firstName: z.string().min(1, 'first_name_required'),
   lastName: z.string().min(1, 'last_name_required'),
-  email: z.string().email('email_invalid'),
+  email: z.email('email_invalid'),
   password: z.string().min(8, 'password_min'),
   role: z.enum(['studente', 'docente']),
   matricola: z.string().optional(),
   courseId: z.string().optional(),
   // Consensi obbligatori (privacy + termini). Marketing è facoltativo.
-  acceptPrivacy: z.literal(true, {
-    errorMap: () => ({ message: 'consent_required' }),
-  }),
-  acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: 'consent_required' }),
-  }),
+  acceptPrivacy: z.boolean().refine((v) => v, { message: 'consent_required' }),
+  acceptTerms: z.boolean().refine((v) => v, { message: 'consent_required' }),
   acceptMarketing: z.boolean().optional(),
 });
 
@@ -83,8 +79,8 @@ export default function Register() {
       role: 'studente',
       matricola: '',
       courseId: '',
-      acceptPrivacy: false as unknown as true,
-      acceptTerms: false as unknown as true,
+      acceptPrivacy: false,
+      acceptTerms: false,
       acceptMarketing: false,
     },
   });
@@ -307,7 +303,7 @@ export default function Register() {
             <Checkbox
               checked={acceptPrivacy}
               onCheckedChange={(v) => {
-                setValue('acceptPrivacy', (v === true) as true, {
+                setValue('acceptPrivacy', v === true, {
                   shouldValidate: true,
                 });
               }}
@@ -331,7 +327,7 @@ export default function Register() {
             <Checkbox
               checked={acceptTerms}
               onCheckedChange={(v) => {
-                setValue('acceptTerms', (v === true) as true, {
+                setValue('acceptTerms', v === true, {
                   shouldValidate: true,
                 });
               }}

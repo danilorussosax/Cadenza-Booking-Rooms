@@ -48,7 +48,7 @@ const schema = z.object({
   ]),
   brand: z.string().max(100).optional(),
   model: z.string().max(100).optional(),
-  quantity: z.coerce.number().int().min(1),
+  quantity: z.number().int().min(1),
   isWorking: z.boolean(),
 });
 
@@ -221,7 +221,12 @@ export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: P
             </div>
             <div className="space-y-2">
               <Label htmlFor="e-quantity">Quantità</Label>
-              <Input id="e-quantity" type="number" min={1} {...register('quantity')} />
+              <Input
+                id="e-quantity"
+                type="number"
+                min={1}
+                {...register('quantity', { valueAsNumber: true })}
+              />
             </div>
           </div>
 
