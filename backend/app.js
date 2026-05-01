@@ -186,6 +186,16 @@ function buildApp({ serveFrontend = true } = {}) {
   );
   app.use(express.urlencoded({ extended: true }));
 
+  // Express 5: req.body è `undefined` se la richiesta non ha body o
+  // Content-Type (in Express 4 era `{}`). 100+ access point del codebase
+  // assumono il vecchio comportamento (`req.body.xxx`). Ripristiniamo
+  // il default `{}` qui, evitando refactor invasivo. Optional chaining
+  // resta best-practice per nuovo codice.
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
+
   // Rate limiting baseline. In test bypassato per non interferire con
   // sequenze rapide di richieste (i test che vogliono colpire il rate
   // limiter usano un app dedicato — vedi auth.test.js).
