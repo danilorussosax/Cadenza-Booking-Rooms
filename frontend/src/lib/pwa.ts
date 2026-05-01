@@ -83,7 +83,7 @@ export function isIos(): boolean {
   if (typeof navigator === 'undefined') return false;
   // `navigator.platform` è deprecato ma resta l'unico segnale affidabile per
   // discriminare iPadOS desktop UA. Soppressione locale: usato in fallback.
-  // eslint-disable-next-line @typescript-eslint/no-deprecated
+
   const platform = navigator.platform;
   return (
     /iPad|iPhone|iPod/.test(navigator.userAgent) ||
