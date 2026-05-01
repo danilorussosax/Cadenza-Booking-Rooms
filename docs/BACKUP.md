@@ -84,7 +84,7 @@ npm run backup
 Output di esempio:
 
 ```
-[backup] inizio · destinazione: /…/conservatory-app/backups
+[backup] inizio · destinazione: /…/Cadenza/backups
 [backup] ✓ backup-2026-04-25-2358.tar.gz (0.06 MB · 0.2s)
 [backup] rimossi 0 file obsoleti dalla rotazione
 ```
@@ -116,7 +116,7 @@ Aggiungi:
 
 ```cron
 # Cadenza — backup giornaliero alle 03:00
-0 3 * * * cd /path/to/conservatory-app/backend && /usr/bin/npm run backup >> /var/log/cadenza-backup.log 2>&1
+0 3 * * * cd /path/to/Cadenza/backend && /usr/bin/npm run backup >> /var/log/cadenza-backup.log 2>&1
 ```
 
 Verifica che `node` e `npm` siano nel PATH del cron:
@@ -128,7 +128,7 @@ PATH=/usr/local/bin:/usr/bin:/bin
 oppure usa percorsi assoluti:
 
 ```cron
-0 3 * * * cd /path/to/conservatory-app/backend && /usr/local/bin/node scripts/backup.js >> /var/log/cadenza-backup.log 2>&1
+0 3 * * * cd /path/to/Cadenza/backend && /usr/local/bin/node scripts/backup.js >> /var/log/cadenza-backup.log 2>&1
 ```
 
 ### systemd timer
@@ -191,7 +191,7 @@ sudo journalctl -u cadenza-backup.service --since today
     <string>run</string>
     <string>backup</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/me/conservatory-app/backend</string>
+  <key>WorkingDirectory</key><string>/Users/me/Cadenza/backend</string>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
   <key>StandardOutPath</key><string>/Users/me/Library/Logs/cadenza-backup.log</string>

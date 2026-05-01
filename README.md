@@ -28,7 +28,7 @@ Cadenza è un'applicazione web full-stack per la gestione delle prenotazioni di 
 L'applicazione è organizzata come **monorepo**:
 
 ```
-conservatory-app/
+Cadenza/
 ├── backend/          → API REST in Node.js / Express + Sequelize
 ├── frontend/         → SPA React + TypeScript + Vite
 └── docs/             → Documentazione tecnica e operativa
@@ -169,7 +169,7 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 ## 4. Struttura del repository
 
 ```
-conservatory-app/
+Cadenza/
 ├── backend/
 │   ├── server.js                      → bootstrap Express + sync DB + seed
 │   ├── config/database.js             → istanza Sequelize

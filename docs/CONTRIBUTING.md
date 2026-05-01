@@ -9,7 +9,7 @@ Linee guida per sviluppatori che lavorano sul codebase. Le pre-commit hook appli
 Dopo il clone:
 
 ```bash
-cd conservatory-app
+cd Cadenza
 npm install                      # root devDeps + husky install via prepare
 npm install --prefix backend
 npm install --prefix frontend

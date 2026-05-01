@@ -16,7 +16,7 @@
 L'applicazione è organizzata come **monorepo** con due moduli:
 
 ```
-conservatory-app/
+Cadenza/
 ├── backend/          → API REST in Node.js/Express + Sequelize
 ├── frontend/         → SPA React + TypeScript + Vite
 └── docs/             → Documentazione (questo file)
@@ -450,7 +450,7 @@ cd backend && npm start             # serves API + dist
 The application is organized as a **monorepo** with two modules:
 
 ```
-conservatory-app/
+Cadenza/
 ├── backend/          → Node.js/Express + Sequelize REST API
 ├── frontend/         → React + TypeScript + Vite SPA
 └── docs/             → Documentation (this file)
