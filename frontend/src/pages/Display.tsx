@@ -305,7 +305,12 @@ export default function Display() {
     };
   }, [currentIndex, slides]);
 
-  const currentSlide = slides[currentIndex] ?? null;
+  // `Array.prototype.at()` ha firma `T | undefined` indipendentemente da
+  // `noUncheckedIndexedAccess`: il `?? null` quindi narrowing-a a
+  // `Slide | null`, così i 3 `currentSlide?.kind` qui sotto non sembrano
+  // più optional chain ridondanti a ESLint. A runtime: `null` quando
+  // `slides` è vuoto, atteso.
+  const currentSlide = slides.at(currentIndex) ?? null;
 
   const isLive =
     !agendaQuery.isError &&
@@ -448,9 +453,6 @@ export default function Display() {
           </div>
         )}
         <AnimatePresence mode="wait">
-          {/* TS pensa che currentSlide non sia null (no-unchecked-index),
-              ma a runtime lo è quando slides.length === 0 → guard esplicito. */}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {currentSlide?.kind === 'building' && (
             <motion.div
               key={`building-${currentSlide.building.id}`}
@@ -467,7 +469,6 @@ export default function Display() {
               />
             </motion.div>
           )}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {currentSlide?.kind === 'concert' && (
             <motion.div
               key={`concert-${currentSlide.concert.id}`}
@@ -480,7 +481,6 @@ export default function Display() {
               <ConcertSlide concert={currentSlide.concert} />
             </motion.div>
           )}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {currentSlide?.kind === 'announcement' && (
             <motion.div
               key={`announcement-${currentSlide.announcement.id}`}
