@@ -230,11 +230,22 @@ if [[ "$CHANGE_COUNT" -gt 0 && "$AUTO_YES" -eq 0 ]]; then
 fi
 
 # ------------------------------------------------------------
-# 5. rsync vero
+# 5. Snapshot hash del lockfile remoto PRIMA del rsync.
+#    Serve per determinare a [5/7] se le dep sono cambiate. Se lo facessimo
+#    DOPO il rsync, il lockfile remoto sarebbe già stato sovrascritto da
+#    quello locale e gli hash matcherebbero sempre → npm ci mai eseguito.
+# ------------------------------------------------------------
+LOCAL_HASH="$(shasum -a 256 backend/package-lock.json | awk '{print $1}')"
+PRE_RSYNC_REMOTE_HASH="$(ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH}/backend/package-lock.json 2>/dev/null | awk '{print \$1}'" || echo "")"
+
+# ------------------------------------------------------------
+# 6. rsync vero
 # ------------------------------------------------------------
 if [[ "$CHANGE_COUNT" -gt 0 ]]; then
   blue "[4/7] rsync verso VPS…"
-  rsync -avz --info=progress2 "${RSYNC_EXCLUDES[@]}" \
+  # --info=progress2 / --progress non supportati da openrsync (Apple). Senza
+  # progress il deploy funziona lo stesso, lo stdout resta più pulito.
+  rsync -avz "${RSYNC_EXCLUDES[@]}" \
     -e "ssh ${SSH_OPTS}" \
     "$LOCAL_ROOT/" "${SSH_TARGET}:${VPS_PATH}/"
   green "    ✓ codice trasferito"
@@ -243,13 +254,11 @@ else
 fi
 
 # ------------------------------------------------------------
-# 6. npm ci --omit=dev se package-lock.json del backend è cambiato
+# 7. npm ci --omit=dev se package-lock.json del backend è cambiato.
+#    Confronto basato sull'hash remoto SNAPSHOTTED prima del rsync (vedi 5).
 # ------------------------------------------------------------
 blue "[5/7] Verifico se le dipendenze backend sono cambiate…"
-LOCAL_HASH="$(shasum -a 256 backend/package-lock.json | awk '{print $1}')"
-REMOTE_HASH="$(ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH}/backend/package-lock.json 2>/dev/null | awk '{print \$1}'" || echo "")"
-
-if [[ "$LOCAL_HASH" == "$REMOTE_HASH" ]]; then
+if [[ "$LOCAL_HASH" == "$PRE_RSYNC_REMOTE_HASH" ]]; then
   green "    ✓ package-lock invariato, niente npm ci"
 else
   yellow "    package-lock cambiato → npm ci --omit=dev sul VPS…"
