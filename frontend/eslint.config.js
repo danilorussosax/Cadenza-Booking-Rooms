@@ -53,6 +53,19 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
+      // ===== React Compiler rules (eslint-plugin-react-hooks v7) =====
+      // Il plugin v7 attiva 5 regole che presuppongono l'uso del React
+      // Compiler / pattern React 19 strict. Non adottiamo il Compiler:
+      // queste regole producono falsi positivi su pattern legittimi e
+      // ampiamente usati (es. react-hook-form `watch()`, setState dopo
+      // fetch in useEffect). Riattivare se/quando il Compiler entra in
+      // pipeline.
+      'react-hooks/incompatible-library': 'off', // false-positive su react-hook-form watch()
+      'react-hooks/set-state-in-effect': 'off', // pattern fetch-then-setState legittimo
+      'react-hooks/immutability': 'off', // gestita da TS readonly + convenzioni
+      'react-hooks/purity': 'off', // useEffect è il posto per side-effects
+      'react-hooks/preserve-manual-memoization': 'off', // useMemo/useCallback pattern manuali OK
+
       // ===== Allentamenti pragmatici =====
       // Il codice attuale usa pattern che strict-type-checked considera
       // problematici ma che sono comuni e leggibili. Documentiamo qui
