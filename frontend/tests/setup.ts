@@ -6,8 +6,14 @@
 //   chiamano in mount; jsdom non lo implementa.
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, vi } from 'vitest';
+import { afterEach, expect, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import * as axeMatchers from 'vitest-axe/matchers';
+
+// axe-core (via vitest-axe) — `expect(container).toHaveNoViolations()` nei
+// test componente verifica le WCAG rules supportate da axe (form labels,
+// landmarks, ruoli ARIA, contrasto, keyboard).
+expect.extend(axeMatchers);
 
 afterEach(() => {
   cleanup();

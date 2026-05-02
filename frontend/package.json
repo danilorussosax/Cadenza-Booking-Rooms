@@ -73,6 +73,7 @@
     "vite": "^8.0.10",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.5",
+    "vitest-axe": "^0.1.0",
     "workbox-window": "^7.4.0"
   },
   "overrides": {

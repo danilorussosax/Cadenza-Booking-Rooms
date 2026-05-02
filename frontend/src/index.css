@@ -149,7 +149,10 @@
     --secondary-foreground: 222 47% 11%;
 
     --muted: 210 35% 94.5%;
-    --muted-foreground: 215 16% 47%;
+    /* WCAG 2 SC 1.4.3 (AA): muted-foreground deve garantire ratio ≥ 4.5:1 su
+     * background (#f6f7f9) e bg-muted. A 47% L il ratio scendeva a 4.38;
+     * a 43% L sale a ~5:1 mantenendo l'aspetto "secondario" del testo. */
+    --muted-foreground: 215 16% 43%;
 
     --accent: 210 35% 92%;
     --accent-foreground: 222 47% 11%;

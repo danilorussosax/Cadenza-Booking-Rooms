@@ -246,14 +246,14 @@ export default function Register() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>{t('auth.fields.role')}</Label>
+            <Label htmlFor="register-role">{t('auth.fields.role')}</Label>
             <Select
               value={role}
               onValueChange={(v) => {
                 setValue('role', v as FormValues['role']);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id="register-role" aria-label={t('auth.fields.role')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -274,7 +274,7 @@ export default function Register() {
         </div>
 
         <div className="space-y-2">
-          <Label>{t('auth.fields.course')}</Label>
+          <Label htmlFor="register-course">{t('auth.fields.course')}</Label>
           <Select
             value={courseId ?? ''}
             onValueChange={(v) => {
@@ -282,7 +282,7 @@ export default function Register() {
             }}
             disabled={coursesQuery.isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="register-course" aria-label={t('auth.fields.course')}>
               <SelectValue
                 placeholder={
                   coursesQuery.isLoading
