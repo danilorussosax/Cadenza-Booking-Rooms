@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAs } from './_helpers';
 
 /**
  * Scenario: admin approva un utente in stato pending.
@@ -8,12 +9,7 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Admin: approva utente pending', () => {
   test('login admin e approva docente in attesa', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill('admin@test.local');
-    await page.getByLabel(/password/i).fill('Password1!');
-    await page.getByRole('button', { name: /accedi|login/i }).click();
-
-    await expect(page).toHaveURL(/\/dashboard/);
+    await loginAs(page, { email: 'admin@test.local', password: 'Password1!' });
 
     await page.goto('/admin/users');
 
@@ -27,7 +23,10 @@ test.describe('Admin: approva utente pending', () => {
     const approveBtn = row.getByRole('button', { name: /approva|approve/i });
     await approveBtn.click();
 
-    // Dopo l'azione, lo status non dovrebbe più essere "pending".
-    await expect(row).not.toContainText(/pending/i);
+    // Dopo l'azione lo status passa a "Approvato". Il pattern italiano
+    // "in attesa" evita di matchare l'email pending@test.local nella
+    // stessa riga.
+    await expect(row).not.toContainText(/in attesa/i);
+    await expect(row).toContainText(/approvato/i);
   });
 });

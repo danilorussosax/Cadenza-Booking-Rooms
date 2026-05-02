@@ -96,7 +96,9 @@ test.describe('Prestito strumento: richiesta → approve → return', () => {
     await login(page, ADMIN);
 
     await page.goto('/admin/instruments');
-    await page.getByRole('tab', { name: /tutti i prestiti/i }).click();
+    // I macro-tab di /admin/instruments sono <button>, non Radix Tabs
+    // → niente role=tab. Usa role=button con il label tradotto.
+    await page.getByRole('button', { name: /tutti i prestiti/i }).click();
 
     // Trova la riga del Violino E2E e clicca il bottone "Approva"
     // (icon-button con title="Approva")

@@ -89,7 +89,10 @@ async function seedE2E() {
   });
 
   // Regole permissive per non interferire con la logica di business sotto test.
-  for (const role of ['studente', 'docente']) {
+  // `admin` incluso perché alcuni spec (waitlist-claim) usano il token admin
+  // per "occupare" lo slot e poi cancellarlo, e il backend rifiuta la POST
+  // /api/bookings senza una BookingRule per quel ruolo.
+  for (const role of ['admin', 'studente', 'docente']) {
     await BookingRule.create({
       role,
       maxActiveBookings: 50,
