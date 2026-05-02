@@ -232,6 +232,70 @@ describe('emailService.sendBookingEmail (rispetto preferenze utente)', () => {
   });
 });
 
+describe('retentionScheduler.pruneMailOutbox', () => {
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+  });
+
+  it('cancella le righe sent più vecchie di 30gg', async () => {
+    const oldDate = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+    const recentDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'old@example.com',
+      subject: 'S',
+      bodyHtml: '<p>x</p>',
+      status: 'sent',
+      sentAt: oldDate,
+    });
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'recent@example.com',
+      subject: 'S',
+      bodyHtml: '<p>x</p>',
+      status: 'sent',
+      sentAt: recentDate,
+    });
+    const retention = require('../../services/retentionScheduler');
+    await retention.pruneMailOutbox();
+
+    const rows = await MailOutbox.findAll();
+    expect(rows.length).toBe(1);
+    expect(rows[0].to).toBe('recent@example.com');
+  });
+
+  it('NON tocca righe dead (anche se vecchie)', async () => {
+    const oldDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'dead@example.com',
+      subject: 'S',
+      bodyHtml: '<p>x</p>',
+      status: 'dead',
+      attempts: 5,
+      lastError: 'forever down',
+      // Per sentAt usiamo updatedAt come proxy: ma il filtro è su status+sentAt.
+      // Le dead hanno sentAt=NULL → il WHERE non le matcha comunque.
+    });
+    const retention = require('../../services/retentionScheduler');
+    await retention.pruneMailOutbox();
+    expect(await MailOutbox.count()).toBe(1);
+  });
+
+  it('NON tocca righe pending', async () => {
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'pending@example.com',
+      subject: 'S',
+      bodyHtml: '<p>x</p>',
+      status: 'pending',
+    });
+    const retention = require('../../services/retentionScheduler');
+    await retention.pruneMailOutbox();
+    expect(await MailOutbox.count()).toBe(1);
+  });
+});
+
 describe('emailService.sendSecurityEmail (try-sync-then-enqueue)', () => {
   beforeEach(async () => {
     await globalThis.resetDatabase();

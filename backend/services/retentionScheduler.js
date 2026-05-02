@@ -22,11 +22,12 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
-const { AuditLog } = require('../models');
+const { AuditLog, MailOutbox } = require('../models');
 const logger = require('../lib/logger');
 
 const DEFAULT_AUDIT_RETENTION_DAYS = 730; // 24 mesi
 const DEFAULT_PRE_RESTORE_RETENTION_DAYS = 7;
+const DEFAULT_MAIL_OUTBOX_RETENTION_DAYS = 30; // mail consegnate sopra i 30gg
 const TICK_HOUR = 3; // 03:00 locali
 
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -307,9 +308,44 @@ function estimateDirSize(dir) {
   return size;
 }
 
+/**
+ * Cleanup outbox email: cancella le righe `mail_outbox` con status='sent'
+ * più vecchie di N giorni (default 30, override via env). Le righe
+ * `dead` NON vengono toccate: sono evidenze di problemi che vanno
+ * ispezionati da un admin (e cancellati manualmente dalla UI).
+ */
+async function pruneMailOutbox() {
+  const raw = Number(process.env.MAIL_OUTBOX_RETENTION_DAYS);
+  const days =
+    Number.isFinite(raw) && raw > 0
+      ? Math.max(1, Math.floor(raw))
+      : DEFAULT_MAIL_OUTBOX_RETENTION_DAYS;
+  const cutoff = dayjs().subtract(days, 'day').toDate();
+  try {
+    const removed = await MailOutbox.destroy({
+      where: {
+        status: 'sent',
+        sentAt: { [Op.lt]: cutoff },
+      },
+    });
+    if (removed > 0) {
+      logger.info(
+        { removed, retentionDays: days, cutoff: cutoff.toISOString() },
+        'mail outbox retention sweep',
+      );
+      console.log(
+        `[retention] mail_outbox: rimosse ${removed} righe sent più vecchie di ${days}gg`,
+      );
+    }
+  } catch (err) {
+    logger.error({ err: err.message }, 'mail outbox retention sweep failed');
+  }
+}
+
 async function tick() {
   await pruneAuditLog();
   await prunePreRestoreSnapshots();
+  await pruneMailOutbox();
   // P1-4: cleanup file temporanei delle integrazioni (Isidata import preview).
   // Lazy require per evitare cicli a startup; la funzione è esportata da
   // `routes/integrations.js`. È best-effort: se manca/lancia, log e continua.
@@ -350,6 +386,7 @@ module.exports = {
   stop,
   pruneAuditLog,
   prunePreRestoreSnapshots,
+  pruneMailOutbox,
   archiveAuditLog,
   // export interno utile ai test:
   AUDIT_ARCHIVE_DIR,
