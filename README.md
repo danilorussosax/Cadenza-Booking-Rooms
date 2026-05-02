@@ -74,6 +74,19 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - 11 template email editabili (booking, loan, waitlist, approval, announcement)
 - Mail server settings con cifratura AES-256-GCM su DB
 
+### ✉️ Sistema email robusto _(outbox pattern)_
+
+- **Coda persistente** `mail_outbox`: ogni invio passa da una tabella prima dello SMTP — niente email perse su flap del provider
+- **Worker async** con backoff esponenziale (60s → 16min) + `dead` dopo 5 tentativi, gestito da `mailOutboxScheduler` (tick 15s, batch 20)
+- **Idempotency key naturale** (`booking:42:confirmation`) → doppio click admin = no-op
+- **Try-sync-then-enqueue** per email di sicurezza (codici 2FA): tentativo sincrono per latenza utente, fallback async su errore
+- **Connection pool SMTP** condiviso tra worker e invii sincroni (`pool: true, maxConnections: 3`)
+- **Multi-istanza ready**: `FOR UPDATE SKIP LOCKED` su Postgres
+- **Throttle per destinatario** (configurabile da UI, default disabilitato): max N email/h allo stesso indirizzo, anti-flapping. Le email security bypassano sempre
+- **Hard-bounce detection** da SMTP 5xx (550/551/553/511/521): marca l'utente come bounced e salta future enqueueMail finché un admin non riattiva l'indirizzo
+- **Pagina admin "Coda email"** con filtri per stato, ricerca, retry manuale per le `dead`, health endpoint con `transporter.verify()`
+- **Cleanup automatico** delle righe `sent` oltre 30gg (le `dead` restano per audit)
+
 ### 🤖 Bot messaging
 
 - 4 adapter pluggable: **Telegram** (production-ready), WhatsApp Cloud API, Signal `signal-cli`, Email IMAP (scaffold)
@@ -178,7 +191,7 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 | Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                      |
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente             |
 | Monitoring    | Sentry v10 (opt-in)                                            |
-| Testing       | Vitest 498 test backend + 106 component/lib + Playwright 4 E2E |
+| Testing       | Vitest 592 test backend + 106 component/lib + Playwright 4 E2E |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                 |
 
 ---
@@ -431,6 +444,7 @@ Le seguenti aree sono complete e in produzione:
 - i18n completa IT/EN/ES per le aree user-facing principali
 - **Accessibilità WCAG 2 AA** (skip link, landmark, ARIA su form, reduced-motion, fallback testuali grafici, axe-core in unit + E2E)
 - **Mobile UX** (viewport `dvh`, bottom-nav, Dialog bottom-sheet su `<sm`, tabelle admin card-stack, offline banner globale)
+- **Sistema email robusto** (outbox pattern + retry, throttle per destinatario, hard-bounce detection, pagina admin "Coda email" + health, cleanup automatico)
 
 ### 🚧 Sprint correnti
 
