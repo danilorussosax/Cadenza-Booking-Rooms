@@ -370,7 +370,15 @@ function smtpHumanError(err) {
     return 'Mismatch porta/protocollo SMTP. Tipicamente: porta 465 richiede TLS implicito (secure ON); porta 587 richiede STARTTLS (secure OFF). Verifica la combinazione.';
   }
   if (/getaddrinfo|ENOTFOUND/i.test(msg)) {
-    return 'Host SMTP non raggiungibile (DNS). Controlla il nome del server.';
+    // Estrai l'host dal messaggio nodemailer ("getaddrinfo ENOTFOUND <host>")
+    // per rilevare typo comuni (smpt → smtp) e dare un suggerimento mirato.
+    const m = msg.match(/ENOTFOUND\s+(\S+)/i);
+    const failedHost = m?.[1];
+    if (failedHost && /^smpt\./i.test(failedHost)) {
+      const suggested = 'smtp.' + failedHost.slice(5);
+      return `Host SMTP non raggiungibile (DNS): "${failedHost}". Sembra un typo: forse intendevi "${suggested}"?`;
+    }
+    return `Host SMTP non raggiungibile (DNS)${failedHost ? `: "${failedHost}"` : ''}. Controlla il nome del server.`;
   }
   if (/ECONNREFUSED|ETIMEDOUT|ECONNRESET/i.test(msg)) {
     return 'Connessione rifiutata o scaduta. Verifica host, porta e firewall.';

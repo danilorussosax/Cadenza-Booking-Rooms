@@ -197,6 +197,17 @@ export default function AdminMailSettings() {
   const isEnabled = watch('isEnabled');
   const secure = watch('secure');
   const port = watch('port');
+  const hostValue = watch('host');
+
+  // Typo detector: 'smpt.' è uno dei refusi più comuni di 'smtp.'.
+  // Mostriamo un hint inline con auto-correzione invece di lasciare l'admin
+  // scoprire l'errore solo dopo un fallimento DNS (getaddrinfo ENOTFOUND).
+  const hostTypoSuggestion = (() => {
+    const h = (hostValue ?? '').trim().toLowerCase();
+    if (!h) return null;
+    if (h.startsWith('smpt.')) return 'smtp.' + h.slice(5);
+    return null;
+  })();
 
   // Auto-sync porta ↔ secure per evitare il classico errore SSL "wrong version number"
   const handlePortChange = (newPort: number) => {
@@ -280,6 +291,21 @@ export default function AdminMailSettings() {
               <div className="space-y-2">
                 <Label htmlFor="m-host">Host</Label>
                 <Input id="m-host" placeholder="smtp.gmail.com" {...register('host')} />
+                {hostTypoSuggestion && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    Forse intendevi{' '}
+                    <button
+                      type="button"
+                      className="font-mono font-medium underline underline-offset-2"
+                      onClick={() => {
+                        setValue('host', hostTypoSuggestion, { shouldDirty: true });
+                      }}
+                    >
+                      {hostTypoSuggestion}
+                    </button>
+                    ? (typo comune <code>smpt.</code> → <code>smtp.</code>)
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="m-port">Porta</Label>

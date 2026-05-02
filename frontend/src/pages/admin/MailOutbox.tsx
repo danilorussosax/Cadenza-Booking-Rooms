@@ -76,7 +76,7 @@ function HealthBanner() {
   if (isLoading || !data) return null;
   if (data.healthy) {
     return (
-      <Alert variant="success">
+      <Alert variant="info">
         <AlertDescription className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4" />
           SMTP attivo e verificato. Coda pulita: nessuna email fallita.
