@@ -59,43 +59,31 @@ async function sendAnnouncementBroadcast(announcementId) {
     return { sent: 0, skipped: 'no_recipients' };
   }
 
-  // Invio sequenziale per non saturare il rate-limit del provider SMTP.
-  // Per >1000 destinatari converrebbe una coda (BullMQ); per ora ok.
-  let sent = 0;
+  const tpl = await svc.getTemplate('announcement_published');
+  if (!tpl) {
+    await ann.update({ emailSentAt: new Date() });
+    return { sent: 0, skipped: 'template_missing' };
+  }
+
+  // Bulk enqueue nell'outbox: il worker rispetta il pool SMTP e processa
+  // con priority=9 (più bassa di transactional). Idempotency key per
+  // (announcement, user) evita doppi invii in caso di re-publish.
+  let queued = 0;
   for (const user of recipients) {
-    try {
-      await sendOne({ user, announcement: ann });
-      sent += 1;
-    } catch (err) {
-      console.error(`[announcement] errore invio a ${user.email}:`, err.message);
-    }
+    const ctx = await buildAnnouncementContext({ user, announcement: ann });
+    const r = await svc.enqueueMail({
+      kind: 'announcement',
+      to: user.email,
+      subject: svc.renderText(tpl.subject, ctx),
+      html: svc.render(tpl.bodyHtml, ctx),
+      priority: 9,
+      idempotencyKey: `announcement:${ann.id}:user:${user.id}`,
+    });
+    if (r.queued) queued += 1;
   }
 
   await ann.update({ emailSentAt: new Date() });
-  return { sent, recipients: recipients.length };
-}
-
-async function sendOne({ user, announcement }) {
-  const svc = getEmailService();
-  // Riusiamo il transporter + render template di emailService passando un
-  // "fake booking" — però il kind 'announcement_published' ha un context
-  // diverso. Il template di mailTemplateDefaults usa {{announcement.*}}.
-  // Dobbiamo passare un context custom: implementato sotto bypassando
-  // sendBookingEmail.
-  const cfg = await svc.loadConfig();
-  if (!cfg?.transporter) return;
-
-  const tpl = await svc.getTemplate('announcement_published');
-  if (!tpl) return;
-
-  const ctx = await buildAnnouncementContext({ user, announcement });
-  await cfg.transporter.sendMail({
-    from: cfg.from,
-    to: user.email,
-    replyTo: cfg.replyTo,
-    subject: svc.renderText(tpl.subject, ctx),
-    html: svc.render(tpl.bodyHtml, ctx),
-  });
+  return { sent: queued, recipients: recipients.length };
 }
 
 async function buildAnnouncementContext({ user, announcement }) {

@@ -113,6 +113,7 @@ async function start() {
 
       require('./services/reminderScheduler').start();
       require('./services/retentionScheduler').start();
+      require('./services/mailOutboxScheduler').start();
       // backupScheduler.start() è async (legge BackupSettings da DB);
       // fire-and-forget: errori loggati internamente, non bloccano il boot.
       require('./services/backupScheduler')
@@ -156,6 +157,7 @@ async function safeShutdown(code = 0) {
     try {
       require('./services/reminderScheduler').stop();
       require('./services/retentionScheduler').stop();
+      require('./services/mailOutboxScheduler').stop();
       require('./services/backupScheduler').stop();
       console.log('  ✓ Scheduler fermati');
     } catch (e) {

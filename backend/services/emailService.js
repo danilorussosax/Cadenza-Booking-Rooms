@@ -61,6 +61,13 @@ async function loadConfig() {
     port,
     secure,
     auth: user ? { user, pass } : undefined,
+    // Connection pool: il worker outbox processa più email per tick e
+    // il send sincrono di sendSecurityEmail riusa la connessione invece
+    // di handshake-are da capo. maxConnections=3 è conservativo per
+    // provider con quote stringenti (Gmail ~20 connessioni concorrenti).
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
   });
 
   cache = {
@@ -73,21 +80,35 @@ async function loadConfig() {
 }
 
 function invalidateCache() {
+  // Chiudere il pool prima di scartare la cache: nodemailer mantiene
+  // connessioni TCP keep-alive che vanno droppate o restano "idle in
+  // transaction" lato server SMTP fino al timeout (rischio quota Gmail).
+  if (cache?.transporter && typeof cache.transporter.close === 'function') {
+    try {
+      cache.transporter.close();
+    } catch {
+      /* swallow: chiusura best-effort */
+    }
+  }
   cache = null;
 }
 
+// Nelle funzioni esposte usiamo `module.exports.loadConfig()` invece della
+// chiamata locale a `loadConfig()` così i test possono sostituire il
+// transporter via `vi.spyOn(emailService, 'loadConfig').mockResolvedValue(...)`.
+// Stesso pattern di reminderScheduler (vedi commento all'inizio di quel file).
 async function emailEnabled() {
-  const cfg = await loadConfig();
+  const cfg = await module.exports.loadConfig();
   return !!cfg?.transporter;
 }
 
 async function getTransporter() {
-  const cfg = await loadConfig();
+  const cfg = await module.exports.loadConfig();
   return cfg?.transporter ?? null;
 }
 
 async function senderFrom() {
-  const cfg = await loadConfig();
+  const cfg = await module.exports.loadConfig();
   return cfg?.from || 'Cadenza <noreply@cadenza.local>';
 }
 
@@ -224,30 +245,65 @@ const KIND_PREF_FIELD = {
   booking_rejected: 'notifyOnCancellation',
 };
 
+/**
+ * Accoda un'email nell'outbox. INSERT idempotente quando idempotencyKey
+ * è valorizzato (vincolo UNIQUE → enqueue duplicato = no-op silenzioso).
+ *
+ * Il rendering subject/bodyHtml è snapshot al momento dell'enqueue: il
+ * worker non rifà template lookup, così retry e idempotency sono
+ * deterministici anche se l'admin modifica il template a metà.
+ *
+ * Restituisce { ok, queued, deduped, id? } per consentire ai chiamanti
+ * di sapere se è stata davvero accodata o saltata per dedup.
+ */
+async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempotencyKey }) {
+  if (!to) return { ok: false, queued: false, error: 'missing recipient' };
+  if (!subject || !html) return { ok: false, queued: false, error: 'missing subject/html' };
+
+  const { MailOutbox } = require('../models');
+  const cfg = await module.exports.loadConfig();
+  const finalReplyTo = replyTo ?? cfg?.replyTo ?? null;
+
+  try {
+    const row = await MailOutbox.create({
+      kind,
+      to,
+      subject,
+      bodyHtml: html,
+      replyTo: finalReplyTo,
+      priority: typeof priority === 'number' ? priority : 5,
+      idempotencyKey: idempotencyKey || null,
+    });
+    return { ok: true, queued: true, deduped: false, id: row.id };
+  } catch (err) {
+    // SequelizeUniqueConstraintError → idempotencyKey già presente: dedup.
+    if (err?.name === 'SequelizeUniqueConstraintError') {
+      return { ok: true, queued: false, deduped: true };
+    }
+    logger.error({ err: err.message, to, kind, scope: 'email.enqueue' }, 'enqueue mail failed');
+    return { ok: false, queued: false, error: err.message };
+  }
+}
+
 async function sendBookingEmail({ user, booking, kind, extra }) {
   if (!user?.email || user.emailNotifications === false) return;
   // Preferenza granulare per tipologia (default true se mai impostata)
   const prefField = KIND_PREF_FIELD[kind];
   if (prefField && user[prefField] === false) return;
-  const cfg = await loadConfig();
-  if (!cfg?.transporter) return;
   const tpl = await getTemplate(kind);
   if (!tpl) return;
   const ctx = await buildBookingContext({ user, booking, extra });
-  try {
-    await cfg.transporter.sendMail({
-      from: cfg.from,
-      to: user.email,
-      replyTo: cfg.replyTo,
-      subject: renderText(tpl.subject, ctx),
-      html: render(tpl.bodyHtml, ctx),
-    });
-  } catch (err) {
-    logger.error(
-      { err: err.message, to: user?.email, scope: 'email.sendBookingEmail' },
-      'email send failed',
-    );
-  }
+  // Idempotency key naturale: stesso booking + stesso kind = stessa email.
+  // Per gli announcement bulk il caller passa idempotencyKey custom.
+  const idempotencyKey = booking?.id ? `booking:${booking.id}:${kind}` : null;
+  await enqueueMail({
+    kind,
+    to: user.email,
+    subject: renderText(tpl.subject, ctx),
+    html: render(tpl.bodyHtml, ctx),
+    priority: 5,
+    idempotencyKey,
+  });
 }
 
 /**
@@ -281,7 +337,7 @@ function smtpHumanError(err) {
 
 async function sendTestEmail({ to, subject, message }) {
   invalidateCache(); // forza ricarica delle nuove credenziali appena salvate
-  const cfg = await loadConfig();
+  const cfg = await module.exports.loadConfig();
   if (!cfg?.transporter) {
     return { ok: false, error: 'Configurazione SMTP mancante o disabilitata' };
   }
@@ -314,12 +370,20 @@ async function sendTestEmail({ to, subject, message }) {
 
 /**
  * Email "di sicurezza" che NON rispetta le preferenze granulari di notifica
- * (un codice 2FA deve sempre arrivare). Restituisce { ok, error? }.
+ * (un codice 2FA deve sempre arrivare). Restituisce { ok, error?, queued? }.
  * Usata per: codice 2FA via email, alert sicurezza, recovery flow.
+ *
+ * Strategia ibrida: tentiamo invio SINCRONO (l'utente sta aspettando il
+ * codice OTP in login) e in caso di errore SMTP cadiamo in outbox per
+ * non lasciare l'utente a piedi se SMTP fa flap. Il caller riceve
+ * comunque ok=true con queued=true.
  */
 async function sendSecurityEmail({ to, subject, html }) {
-  const cfg = await loadConfig();
+  const cfg = await module.exports.loadConfig();
   if (!cfg?.transporter) {
+    // Niente SMTP configurato: enqueue per quando lo sarà.
+    const r = await enqueueMail({ kind: 'security', to, subject, html, priority: 0 });
+    if (r.queued) return { ok: true, queued: true };
     return { ok: false, error: 'SMTP non configurato' };
   }
   try {
@@ -332,7 +396,12 @@ async function sendSecurityEmail({ to, subject, html }) {
     });
     return { ok: true };
   } catch (err) {
-    logger.error({ err: err.message, to, scope: 'email.security' }, 'security email send failed');
+    logger.warn(
+      { err: err.message, to, scope: 'email.security' },
+      'security email sync send failed, falling back to outbox',
+    );
+    const r = await enqueueMail({ kind: 'security', to, subject, html, priority: 0 });
+    if (r.queued) return { ok: true, queued: true };
     return { ok: false, error: smtpHumanError(err) };
   }
 }
@@ -342,6 +411,7 @@ module.exports = {
   sendBookingEmail,
   sendSecurityEmail,
   sendTestEmail,
+  enqueueMail,
   invalidateCache,
   getTemplate,
   buildBookingContext,

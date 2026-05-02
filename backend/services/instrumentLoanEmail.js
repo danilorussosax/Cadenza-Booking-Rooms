@@ -92,37 +92,19 @@ async function sendInstrumentLoanEmail({ user, loan, kind }) {
   // Eventuale futuro: KIND_PREF_FIELD per toggle granulari sui prestiti.
   if (KIND_PREF_FIELD[kind] && user[KIND_PREF_FIELD[kind]] === false) return;
 
-  if (!(await emailService.emailEnabled())) return;
   const tpl = await getTemplate(kind);
   if (!tpl) return;
 
-  // Recupera transporter/from/replyTo via la stessa cache di emailService
-  // (sendTestEmail/sendBookingEmail già la inizializzano; qui passiamo via
-  // sendMail diretto attraverso una chiamata interna).
   const ctx = await buildLoanContext({ user, loan });
-  // Per non esporre loadConfig come API pubblica, riutilizziamo il
-  // transporter ricaricandolo dal nodemailer factory locale qui:
-  const { _internal } = emailService;
-  let transporter, from, replyTo;
-  if (_internal && typeof _internal.loadConfig === 'function') {
-    const cfg = await _internal.loadConfig();
-    transporter = cfg?.transporter;
-    from = cfg?.from;
-    replyTo = cfg?.replyTo;
-  }
-  if (!transporter) return;
-
-  try {
-    await transporter.sendMail({
-      from,
-      to: user.email,
-      replyTo,
-      subject: renderText(tpl.subject, ctx),
-      html: render(tpl.bodyHtml, ctx),
-    });
-  } catch (err) {
-    console.error('[email][loan] errore invio:', err.message);
-  }
+  const idempotencyKey = loan?.id ? `loan:${loan.id}:${kind}` : null;
+  await emailService.enqueueMail({
+    kind,
+    to: user.email,
+    subject: renderText(tpl.subject, ctx),
+    html: render(tpl.bodyHtml, ctx),
+    priority: 5,
+    idempotencyKey,
+  });
 }
 
 module.exports = { sendInstrumentLoanEmail, buildLoanContext };

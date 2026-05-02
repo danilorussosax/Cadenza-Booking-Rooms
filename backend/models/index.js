@@ -56,6 +56,7 @@ const Booking = require('./Booking')(sequelize);
 const BookingTemplate = require('./BookingTemplate')(sequelize);
 const BookingTypeCatalog = require('./BookingTypeCatalog')(sequelize);
 const MailSettings = require('./MailSettings')(sequelize);
+const MailOutbox = require('./MailOutbox')(sequelize);
 const BackupSettings = require('./BackupSettings')(sequelize);
 const MailTemplate = require('./MailTemplate')(sequelize);
 const OAuthSettings = require('./OAuthSettings')(sequelize);
@@ -384,6 +385,7 @@ module.exports = {
   Booking,
   BookingTemplate,
   MailSettings,
+  MailOutbox,
   BackupSettings,
   MailTemplate,
   OAuthSettings,
