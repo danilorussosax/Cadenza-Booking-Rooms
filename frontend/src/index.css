@@ -254,6 +254,28 @@
       font-size: 16px;
     }
   }
+
+  /* WCAG 2 SC 2.3.3 (Animation from Interactions) — rispetta la richiesta
+   * di reduced motion del sistema. framer-motion è già coperto via
+   * <MotionConfig reducedMotion="user"> in main.tsx; qui ci occupiamo delle
+   * animazioni/transizioni CSS native (Tailwind utility, transition-*,
+   * animate-pulse, accordion-down/up). `animate-spin` resta volutamente
+   * attivo: indica progresso ed è feedback funzionale, non decorativo. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    /* Eccezioni: spinner di caricamento — feedback funzionale */
+    .animate-spin {
+      animation-duration: 1s !important;
+      animation-iteration-count: infinite !important;
+    }
+  }
 }
 
 /* =============================================================================
