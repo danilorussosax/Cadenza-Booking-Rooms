@@ -110,6 +110,23 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**, con `i18next` + `dayjs` locale. Persistenza preferenza in `localStorage`. Errori del backend mappati via `error.code` stabili (es. `BOOKING_CONFLICT`, `EMAIL_ALREADY_REGISTERED`).
 
+### ♿ Accessibilità WCAG 2 AA
+
+- Skip link "Vai al contenuto" e landmark `<main>` esplicito su tutte le pagine
+- Messaggi di errore form collegati via `aria-describedby` + `role="alert"` (form admin completi)
+- Rispetto di `prefers-reduced-motion` (animazioni disabilitate quando l'utente lo richiede a livello OS)
+- Fallback testuali per i grafici della dashboard (heatmap, top, trend no-show)
+- Test automatici: **axe-core** in unit (`vitest-axe`) e in E2E (`@axe-core/playwright`)
+
+### 📱 Mobile UX
+
+- Viewport in unità `dvh` (no scroll bug iOS Safari con address bar)
+- `inputmode="numeric"` su matricola e campi numerici
+- Conferma `beforeunload` su form con modifiche non salvate
+- **Banner offline globale** (Service Worker) e **bottom-nav** mobile per le aree principali
+- Dialog responsive: full-screen su `<sm`, bottom-sheet con drag handle su mobile
+- Tabelle admin → **card-stack** su `<sm` (no overflow orizzontale)
+
 ### 📥 Integrazioni gestionali
 
 - **Import Isidata** (Liv A — manuale CSV/XLSX): allineamento anagrafica utenti via export del registro elettronico più diffuso nei conservatori italiani. Diff engine con preview + apply transazionale.
@@ -124,7 +141,7 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 | Tecnologia        | Ruolo                                              |
 | ----------------- | -------------------------------------------------- |
 | Node.js ≥ 18      | Runtime                                            |
-| Express 4         | Framework HTTP                                     |
+| Express 5         | Framework HTTP                                     |
 | Sequelize 6       | ORM (PostgreSQL · supporta SQLite e MySQL)         |
 | Passport          | Strategie auth (local · Google OAuth2 · Microsoft) |
 | bcryptjs          | Hash password                                      |
@@ -140,9 +157,9 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 
 | Tecnologia                | Ruolo                                        |
 | ------------------------- | -------------------------------------------- |
-| React 18 + TypeScript     | UI                                           |
-| Vite                      | Build tool / dev server con HMR              |
-| Tailwind CSS 3            | Sistema di design utility-first              |
+| React 19 + TypeScript 6   | UI                                           |
+| Vite 8                    | Build tool / dev server con HMR              |
+| Tailwind CSS 4            | Sistema di design utility-first              |
 | shadcn/ui (Radix UI)      | Componenti accessibili                       |
 | Framer Motion             | Animazioni di transizione                    |
 | Lucide React              | Icone vettoriali                             |
@@ -155,14 +172,14 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 
 ### Infrastruttura
 
-| Componente    | Tecnologia                                                    |
-| ------------- | ------------------------------------------------------------- |
-| Database      | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)         |
-| Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                     |
-| Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente            |
-| Monitoring    | Sentry v10 (opt-in)                                           |
-| Testing       | Vitest 77 test backend + Playwright 4 E2E + 10 component test |
-| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                |
+| Componente    | Tecnologia                                                     |
+| ------------- | -------------------------------------------------------------- |
+| Database      | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)          |
+| Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                      |
+| Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente             |
+| Monitoring    | Sentry v10 (opt-in)                                            |
+| Testing       | Vitest 498 test backend + 106 component/lib + Playwright 4 E2E |
+| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                 |
 
 ---
 
@@ -412,6 +429,8 @@ Le seguenti aree sono complete e in produzione:
 - Analytics dashboard (heatmap, top, no-show, export)
 - Import Isidata Liv A (manuale CSV/XLSX)
 - i18n completa IT/EN/ES per le aree user-facing principali
+- **Accessibilità WCAG 2 AA** (skip link, landmark, ARIA su form, reduced-motion, fallback testuali grafici, axe-core in unit + E2E)
+- **Mobile UX** (viewport `dvh`, bottom-nav, Dialog bottom-sheet su `<sm`, tabelle admin card-stack, offline banner globale)
 
 ### 🚧 Sprint correnti
 
