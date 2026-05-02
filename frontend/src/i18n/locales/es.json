@@ -117,6 +117,7 @@
     "admin_rules": "Reglas de reservas",
     "admin_booking_types": "Tipos de reserva",
     "admin_mail": "Servicio de correo",
+    "admin_mail_outbox": "Cola de correos",
     "admin_messaging": "Bot messaging",
     "admin_backups": "Copias de seguridad",
     "admin_audit_log": "Registro del sistema",
@@ -667,6 +668,7 @@
       "subtitle": "Configuración operativa del servidor: correo, canales de mensajería, registro de actividad y copias de seguridad.",
       "tabs": {
         "mail_description": "Configuración SMTP, remitente y plantillas de correos transaccionales.",
+        "mail_outbox_description": "Historial de correos en cola del sistema, con estado de entrega y reintento manual para los fallidos.",
         "qrcodes": "Código QR",
         "qrcodes_description": "Gestión de códigos QR de check-in por aula (regenerar/descargar) y política de restricción a la red del instituto.",
         "messaging_description": "Canales de mensajería (Telegram, WhatsApp, Signal, IMAP) para notificaciones y comandos del bot.",

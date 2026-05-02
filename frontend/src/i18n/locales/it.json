@@ -117,6 +117,7 @@
     "admin_rules": "Regole prenotazioni",
     "admin_booking_types": "Tipi prenotazione",
     "admin_mail": "Servizio Posta",
+    "admin_mail_outbox": "Coda email",
     "admin_messaging": "Bot messaging",
     "admin_backups": "Backup",
     "admin_audit_log": "Registro Log",
@@ -667,6 +668,7 @@
       "subtitle": "Configurazione operativa del server: posta, canali di messaggistica, registro attività e backup.",
       "tabs": {
         "mail_description": "Configurazione SMTP, mittente e template delle email transazionali.",
+        "mail_outbox_description": "Storico delle email accodate dal sistema, con stato di consegna e retry manuale per le fallite.",
         "qrcodes": "QR Code",
         "qrcodes_description": "Gestione dei QR-code di check-in per ogni aula (rigenera/scarica) e policy di restrizione check-in alla rete d'istituto.",
         "messaging_description": "Canali di messaggistica (Telegram, WhatsApp, Signal, IMAP) per notifiche e comandi bot.",

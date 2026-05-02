@@ -117,6 +117,7 @@
     "admin_rules": "Booking rules",
     "admin_booking_types": "Booking types",
     "admin_mail": "Mail service",
+    "admin_mail_outbox": "Mail queue",
     "admin_messaging": "Bot messaging",
     "admin_backups": "Backups",
     "admin_audit_log": "System log",
@@ -667,6 +668,7 @@
       "subtitle": "Server-side configuration: mail, messaging channels, activity log and backups.",
       "tabs": {
         "mail_description": "SMTP configuration, sender identity and transactional email templates.",
+        "mail_outbox_description": "History of system-queued emails, with delivery status and manual retry for failed ones.",
         "qrcodes": "QR Code",
         "qrcodes_description": "Manage per-room check-in QR codes (regenerate/download) and the institute-network restriction policy.",
         "messaging_description": "Messaging channels (Telegram, WhatsApp, Signal, IMAP) for notifications and bot commands.",

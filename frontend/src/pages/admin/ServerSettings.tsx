@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Cog,
   Database,
+  Inbox,
   Mail,
   Monitor,
   Palette,
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import AdminMailSettings from '@/pages/admin/MailSettings';
+import AdminMailOutbox from '@/pages/admin/MailOutbox';
 import AdminMessagingSettings from '@/pages/admin/MessagingSettings';
 import AdminDisplayKiosk from '@/pages/admin/DisplayKiosk';
 import AdminQrCodes from '@/pages/admin/QrCodes';
@@ -34,7 +36,7 @@ import AdminAppearanceSettings from '@/pages/admin/AppearanceSettings';
 // Type definitions
 // ─────────────────────────────────────────────────────────────────────────
 
-type SubTabValue = 'mail' | 'messaging' | 'backups';
+type SubTabValue = 'mail' | 'mail-outbox' | 'messaging' | 'backups';
 type MacroValue = 'servizi' | 'aspetto' | 'qrcodes' | 'display' | 'audit-log' | 'modules';
 
 interface SubTabDef {
@@ -73,6 +75,15 @@ const SERVIZI_SUBTABS: SubTabDef[] = [
     iconColor: 'text-blue-600 dark:text-blue-400',
     iconBg: 'bg-blue-100 dark:bg-blue-500/15',
     Component: AdminMailSettings,
+  },
+  {
+    value: 'mail-outbox',
+    labelKey: 'nav.admin_mail_outbox',
+    descriptionKey: 'admin.server_settings.tabs.mail_outbox_description',
+    icon: Inbox,
+    iconColor: 'text-cyan-600 dark:text-cyan-400',
+    iconBg: 'bg-cyan-100 dark:bg-cyan-500/15',
+    Component: AdminMailOutbox,
   },
   {
     value: 'messaging',

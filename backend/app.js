@@ -273,6 +273,7 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/public', require('./routes/public'));
   app.use('/api/admin/mail-settings', require('./routes/mailSettings'));
   app.use('/api/admin/mail-templates', require('./routes/mailTemplates'));
+  app.use('/api/admin/mail-outbox', require('./routes/mailOutbox'));
   app.use('/api/admin/backups', require('./routes/backups'));
   app.use('/api/admin/oauth-settings', require('./routes/oauthSettings'));
   app.use('/api/admin/messaging-settings', require('./routes/messagingSettings'));
