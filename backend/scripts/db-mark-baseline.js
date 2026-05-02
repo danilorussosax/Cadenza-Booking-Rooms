@@ -11,7 +11,7 @@
  * Idempotente: se la riga è già presente, non fa nulla.
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { sequelize } = require('../models');
 
 const BASELINE_NAME = '0000-initial-baseline.js';

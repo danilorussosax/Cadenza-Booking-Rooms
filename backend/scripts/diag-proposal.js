@@ -1,5 +1,5 @@
 'use strict';
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const PROPOSAL_ID = Number(process.argv[2]) || 2;
 
 (async () => {

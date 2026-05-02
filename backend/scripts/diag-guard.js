@@ -1,7 +1,7 @@
 'use strict';
 // Verifica che la guardia distruttiva blocchi sync({force:true}) sul DB attuale.
 // NON esegue mai il sync — intercetta prima.
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 delete process.env.NODE_ENV;
 delete process.env.DB_ALLOW_DESTRUCTIVE;
 

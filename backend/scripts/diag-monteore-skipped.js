@@ -4,7 +4,7 @@
  * i motivi degli "skipped" del generationSummary. Aiuta a capire perché
  * alcune occorrenze del pattern non hanno generato un Booking.
  */
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 (async () => {
   const m = require('../models');

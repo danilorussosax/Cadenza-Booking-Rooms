@@ -5,7 +5,7 @@
  * Uso: node scripts/diag-counts.js
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 (async () => {
   const m = require('../models');

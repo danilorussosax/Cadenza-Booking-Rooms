@@ -1,5 +1,5 @@
 'use strict';
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 (async () => {
   const m = require('../models');
   const u = await m.User.findAll({
