@@ -268,6 +268,8 @@ export default function Register() {
               id="matricola"
               placeholder={t('auth.register.matricola_hint')}
               autoComplete="off"
+              inputMode="numeric"
+              pattern="[0-9]*"
               {...register('matricola')}
             />
           </div>

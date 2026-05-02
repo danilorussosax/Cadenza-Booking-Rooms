@@ -171,6 +171,8 @@ export default function CompleteProfile() {
               id="matricola"
               placeholder={t('auth.fields.matricola_placeholder')}
               autoComplete="off"
+              inputMode="numeric"
+              pattern="[0-9]*"
               aria-invalid={!!errors.matricola}
               aria-describedby={errors.matricola ? 'matricola-error' : undefined}
               {...register('matricola')}

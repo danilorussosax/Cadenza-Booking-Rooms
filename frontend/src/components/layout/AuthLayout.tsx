@@ -35,7 +35,7 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
   const finalAttribution = attribution ?? t('auth.auth_layout.quote_attribution');
 
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+    <div className="grid min-h-dvh w-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Brand panel */}
       <motion.aside
         initial={{ opacity: 0, x: -16 }}

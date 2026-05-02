@@ -16,6 +16,8 @@ import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+import { useDirtyDialogClose } from '@/hooks/useDirtyDialogClose';
 import {
   Dialog,
   DialogContent,
@@ -92,7 +94,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     setValue,
     watch,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -220,8 +222,19 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     mutation.mutate(values);
   };
 
+  const dirtyClose = useDirtyDialogClose({
+    isDirty,
+    onClose: () => onOpenChange(false),
+  });
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) onOpenChange(true);
+        else dirtyClose.handleOpenChange();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Modifica utente' : 'Nuovo utente'}</DialogTitle>
@@ -248,9 +261,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
                 aria-describedby={errors.firstName ? 'firstName-error' : undefined}
                 {...register('firstName')}
               />
-              <FieldError id="firstName-error">
-                {errors.firstName?.message}
-              </FieldError>
+              <FieldError id="firstName-error">{errors.firstName?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Cognome</Label>
@@ -260,9 +271,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
                 aria-describedby={errors.lastName ? 'lastName-error' : undefined}
                 {...register('lastName')}
               />
-              <FieldError id="lastName-error">
-                {errors.lastName?.message}
-              </FieldError>
+              <FieldError id="lastName-error">{errors.lastName?.message}</FieldError>
             </div>
           </div>
 
@@ -299,7 +308,12 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="matricola">Matricola</Label>
-              <Input id="matricola" {...register('matricola')} />
+              <Input
+                id="matricola"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                {...register('matricola')}
+              />
             </div>
           </div>
 
@@ -339,9 +353,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
               aria-describedby={errors.password ? 'password-error' : undefined}
               {...register('password')}
             />
-            <FieldError id="password-error">
-              {errors.password?.message}
-            </FieldError>
+            <FieldError id="password-error">{errors.password?.message}</FieldError>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -495,9 +507,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                onOpenChange(false);
-              }}
+              onClick={dirtyClose.handleOpenChange}
               disabled={isSubmitting}
             >
               Annulla
@@ -514,6 +524,14 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
           </DialogFooter>
         </form>
       </DialogContent>
+      <ConfirmDeleteDialog
+        open={dirtyClose.confirmOpen}
+        onOpenChange={dirtyClose.setConfirmOpen}
+        title="Scartare le modifiche?"
+        description="Hai modifiche non salvate in questo modulo. Se chiudi ora andranno perse."
+        confirmLabel="Scarta"
+        onConfirm={dirtyClose.confirm}
+      />
     </Dialog>
   );
 }

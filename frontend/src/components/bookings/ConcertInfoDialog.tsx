@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+import { useDirtyDialogClose } from '@/hooks/useDirtyDialogClose';
 import {
   Dialog,
   DialogContent,
@@ -73,7 +75,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { title: '', performers: '', program: '' },
@@ -142,8 +144,19 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
 
   const tFieldError = (key?: string) => (key ? t(`concert.errors.${key}`) : undefined);
 
+  const dirtyClose = useDirtyDialogClose({
+    isDirty,
+    onClose: () => onOpenChange(false),
+  });
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) onOpenChange(true);
+        else dirtyClose.handleOpenChange();
+      }}
+    >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('concert.dialog_title')}</DialogTitle>
@@ -272,9 +285,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                onOpenChange(false);
-              }}
+              onClick={dirtyClose.handleOpenChange}
               disabled={isSubmitting}
             >
               {t('common.cancel')}
@@ -289,6 +300,14 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
           </DialogFooter>
         </form>
       </DialogContent>
+      <ConfirmDeleteDialog
+        open={dirtyClose.confirmOpen}
+        onOpenChange={dirtyClose.setConfirmOpen}
+        title={t('common.discard_changes_title')}
+        description={t('common.discard_changes_description')}
+        confirmLabel={t('common.discard_changes_confirm')}
+        onConfirm={dirtyClose.confirm}
+      />
     </Dialog>
   );
 }

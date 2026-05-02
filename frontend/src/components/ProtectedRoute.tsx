@@ -24,7 +24,7 @@ export function ProtectedRoute({ roles, requireProfile = true, requireApproved =
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
         <LoaderCircle className="h-6 w-6 animate-spin" />
       </div>
     );
@@ -68,7 +68,7 @@ export function PublicOnlyRoute() {
     useAuth();
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
         <LoaderCircle className="h-6 w-6 animate-spin" />
       </div>
     );

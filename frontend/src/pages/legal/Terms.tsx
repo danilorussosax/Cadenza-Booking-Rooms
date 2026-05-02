@@ -19,7 +19,7 @@ export default function Terms() {
   const jurisdictionCity = inst?.jurisdictionCity?.trim() ?? inst?.city?.trim() ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Button asChild variant="ghost" size="sm">

@@ -339,7 +339,7 @@ export default function Display() {
   return (
     <div
       className={cn(
-        'flex h-screen flex-col overflow-hidden bg-background text-foreground',
+        'flex h-dvh flex-col overflow-hidden bg-background text-foreground',
         hideUi && 'cursor-none',
       )}
     >

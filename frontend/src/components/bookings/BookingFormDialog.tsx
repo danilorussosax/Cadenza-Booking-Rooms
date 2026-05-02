@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+import { useDirtyDialogClose } from '@/hooks/useDirtyDialogClose';
 import {
   Dialog,
   DialogContent,
@@ -204,7 +206,7 @@ export function BookingFormDialog({
     setValue,
     watch,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: initialValues,
@@ -340,9 +342,20 @@ export function BookingFormDialog({
     createMutation.mutate(values);
   };
 
+  const dirtyClose = useDirtyDialogClose({
+    isDirty,
+    onClose: () => onOpenChange(false),
+  });
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          if (o) onOpenChange(true);
+          else dirtyClose.handleOpenChange();
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -593,9 +606,7 @@ export function BookingFormDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    onOpenChange(false);
-                  }}
+                  onClick={dirtyClose.handleOpenChange}
                   disabled={isSubmitting}
                 >
                   {t('common.cancel')}
@@ -643,6 +654,18 @@ export function BookingFormDialog({
         onClose={() => {
           setConflictPayload(null);
         }}
+      />
+
+      {/* Conferma scarto modifiche non salvate (skill rule
+       * `sheet-dismiss-confirm`): evita la perdita di dati su tap
+       * accidentale fuori dal dialog o gesture back su mobile. */}
+      <ConfirmDeleteDialog
+        open={dirtyClose.confirmOpen}
+        onOpenChange={dirtyClose.setConfirmOpen}
+        title={t('common.discard_changes_title')}
+        description={t('common.discard_changes_description')}
+        confirmLabel={t('common.discard_changes_confirm')}
+        onConfirm={dirtyClose.confirm}
       />
     </>
   );
