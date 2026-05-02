@@ -87,7 +87,11 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
       </motion.aside>
 
       {/* Form panel */}
-      <main className="relative flex items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6 lg:px-12">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="relative flex items-center justify-center overflow-hidden bg-background px-4 py-10 focus-visible:outline-hidden sm:px-6 lg:px-12"
+      >
         {formBgImage && (
           <>
             <div

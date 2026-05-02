@@ -42,6 +42,7 @@
     "show": "Mostra",
     "hide": "Nascondi",
     "logout": "Esci",
+    "skip_to_content": "Salta al contenuto",
     "settings": "Impostazioni",
     "administration": "Amministrazione",
     "open": "Apri",
@@ -1405,10 +1406,18 @@
       },
       "trend": {
         "title": "Trend ultime 8 settimane",
-        "help": "Ore prenotate per settimana ISO."
+        "help": "Ore prenotate per settimana ISO.",
+        "aria_label": "Grafico trend ore prenotate su {{count}} settimane",
+        "col_period": "Periodo",
+        "col_hours": "Ore"
       },
       "top_rooms": {
-        "title": "Top 10 aule per ore"
+        "title": "Top 10 aule per ore",
+        "aria_label": "Grafico top {{count}} aule per ore prenotate",
+        "col_room": "Aula",
+        "col_building": "Edificio",
+        "col_hours": "Ore",
+        "col_count": "Prenotazioni"
       },
       "top_users": {
         "title": "Top 10 utenti per ore",

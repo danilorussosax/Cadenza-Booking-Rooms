@@ -226,6 +226,15 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-dvh bg-muted/30">
+      {/* Skip link (WCAG 2 SC 2.4.1 Bypass Blocks). Visivamente nascosto
+       * finché non riceve il focus da tastiera: l'utente che naviga con Tab
+       * lo vede come prima cosa e può saltare direttamente al contenuto. */}
+      <a
+        href="#main-content"
+        className="absolute left-2 top-2 z-50 -translate-y-16 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-md transition-transform focus-visible:translate-y-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {t('common.skip_to_content')}
+      </a>
       {/* Sidebar (desktop) */}
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
         <SidebarBrand institute={institute} />
@@ -380,8 +389,13 @@ export function AppLayout() {
           </div>
         </header>
 
-        {/* Page content — safe-area orizzontale su iPhone landscape (notch laterale) */}
-        <main className="safe-pl safe-pr flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-8 lg:py-8">
+        {/* Page content — safe-area orizzontale su iPhone landscape (notch laterale).
+         * `id="main-content"` è il target dello skip link in cima al layout. */}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="safe-pl safe-pr flex-1 px-3 py-4 focus-visible:outline-hidden sm:px-4 sm:py-6 lg:px-8 lg:py-8"
+        >
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}

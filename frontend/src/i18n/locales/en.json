@@ -42,6 +42,7 @@
     "show": "Show",
     "hide": "Hide",
     "logout": "Log out",
+    "skip_to_content": "Skip to content",
     "settings": "Settings",
     "administration": "Administration",
     "open": "Open",
@@ -1405,10 +1406,18 @@
       },
       "trend": {
         "title": "Last 8 weeks trend",
-        "help": "Booked hours per ISO week."
+        "help": "Booked hours per ISO week.",
+        "aria_label": "Booked hours trend over {{count}} weeks",
+        "col_period": "Period",
+        "col_hours": "Hours"
       },
       "top_rooms": {
-        "title": "Top 10 rooms by hours"
+        "title": "Top 10 rooms by hours",
+        "aria_label": "Top {{count}} rooms by booked hours chart",
+        "col_room": "Room",
+        "col_building": "Building",
+        "col_hours": "Hours",
+        "col_count": "Bookings"
       },
       "top_users": {
         "title": "Top 10 users by hours",

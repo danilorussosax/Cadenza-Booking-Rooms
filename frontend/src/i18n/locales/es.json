@@ -42,6 +42,7 @@
     "show": "Mostrar",
     "hide": "Ocultar",
     "logout": "Salir",
+    "skip_to_content": "Saltar al contenido",
     "settings": "Ajustes",
     "administration": "Administración",
     "open": "Abrir",
@@ -1405,10 +1406,18 @@
       },
       "trend": {
         "title": "Tendencia últimas 8 semanas",
-        "help": "Horas reservadas por semana ISO."
+        "help": "Horas reservadas por semana ISO.",
+        "aria_label": "Gráfico de tendencia de horas reservadas en {{count}} semanas",
+        "col_period": "Periodo",
+        "col_hours": "Horas"
       },
       "top_rooms": {
-        "title": "Top 10 aulas por horas"
+        "title": "Top 10 aulas por horas",
+        "aria_label": "Gráfico top {{count}} aulas por horas reservadas",
+        "col_room": "Aula",
+        "col_building": "Edificio",
+        "col_hours": "Horas",
+        "col_count": "Reservas"
       },
       "top_users": {
         "title": "Top 10 usuarios por horas",

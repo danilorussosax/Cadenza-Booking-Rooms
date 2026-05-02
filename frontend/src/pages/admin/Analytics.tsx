@@ -209,23 +209,53 @@ export default function AdminAnalytics() {
               {t('admin.analytics.no_data')}
             </p>
           ) : (
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.1} />
-                  <XAxis dataKey="label" fontSize={11} />
-                  <YAxis fontSize={11} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="hours"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div
+                className="h-56"
+                role="img"
+                aria-label={t('admin.analytics.trend.aria_label', {
+                  count: trendData.length,
+                })}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="currentColor"
+                      strokeOpacity={0.1}
+                    />
+                    <XAxis dataKey="label" fontSize={11} />
+                    <YAxis fontSize={11} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="hours"
+                      stroke="#a855f7"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Fallback dati per screen reader (WCAG 2 SC 1.1.1) */}
+              <table className="sr-only">
+                <caption>{t('admin.analytics.trend.title')}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{t('admin.analytics.trend.col_period')}</th>
+                    <th scope="col">{t('admin.analytics.trend.col_hours')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trendData.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row">{row.label}</th>
+                      <td>{row.hours}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </CardContent>
       </Card>
@@ -330,6 +360,7 @@ function TopRoomsChart({
 }: {
   data: { name: string; building: string; hours: number; count: number }[];
 }) {
+  const { t } = useTranslation();
   const chartData = data.map((r) => ({
     label: r.name,
     fullLabel: `${r.name} · ${r.building}`,
@@ -337,21 +368,49 @@ function TopRoomsChart({
     count: r.count,
   }));
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical" margin={{ left: 12 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.08} />
-          <XAxis type="number" fontSize={10} />
-          <YAxis dataKey="label" type="category" width={80} fontSize={10} />
-          <Tooltip
-            formatter={(value) => [`${Number(value)} h`, 'Ore']}
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-            labelFormatter={(_, p) => p[0]?.payload?.fullLabel ?? ''}
-          />
-          <Bar dataKey="hours" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <>
+      <div
+        className="h-64"
+        role="img"
+        aria-label={t('admin.analytics.top_rooms.aria_label', { count: data.length })}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 12 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.08} />
+            <XAxis type="number" fontSize={10} />
+            <YAxis dataKey="label" type="category" width={80} fontSize={10} />
+            <Tooltip
+              formatter={(value) => [`${Number(value)} h`, 'Ore']}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+              labelFormatter={(_, p) => p[0]?.payload?.fullLabel ?? ''}
+            />
+            <Bar dataKey="hours" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {/* Fallback dati per screen reader (WCAG 2 SC 1.1.1) */}
+      <table className="sr-only">
+        <caption>{t('admin.analytics.top_rooms.title')}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t('admin.analytics.top_rooms.col_room')}</th>
+            <th scope="col">{t('admin.analytics.top_rooms.col_building')}</th>
+            <th scope="col">{t('admin.analytics.top_rooms.col_hours')}</th>
+            <th scope="col">{t('admin.analytics.top_rooms.col_count')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row) => (
+            <tr key={`${row.name}-${row.building}`}>
+              <th scope="row">{row.name}</th>
+              <td>{row.building}</td>
+              <td>{row.hours}</td>
+              <td>{row.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
