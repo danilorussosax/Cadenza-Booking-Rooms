@@ -112,8 +112,6 @@ export const instrumentsApi = {
       };
     }>('/api/instruments/import', { method: 'POST', body: { csv } }),
 
-  exportCsvUrl: () => '/api/instruments/export',
-
   async downloadCsv(): Promise<Blob> {
     const token = tokenStore.get();
     if (!token) throw new Error('Sessione scaduta');

@@ -220,13 +220,20 @@ export default function AdminUsers() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => {
-              const a = document.createElement('a');
-              a.href = usersApi.exportCsvUrl();
-              a.download = `utenti-${new Date().toISOString().slice(0, 10)}.csv`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
+            onClick={async () => {
+              try {
+                const blob = await usersApi.downloadCsv();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `utenti-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (err) {
+                toast.error(httpErrorMessage(err));
+              }
             }}
             title="Scarica utenti in CSV"
           >

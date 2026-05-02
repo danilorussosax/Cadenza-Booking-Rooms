@@ -191,10 +191,20 @@ export const structureApi = {
     }),
 
   /** Esporta la struttura completa di un istituto in formato CSV (round-trip
-   *  con import). Il file include edifici, aule, dotazioni; il browser
-   *  scarica direttamente. */
-  exportCsvUrl: (instituteId: number) =>
-    `/api/structure/export.csv?instituteId=${encodeURIComponent(instituteId)}`,
+   *  con import). Bearer richiesto, non passabile via <a href>: scarica il
+   *  blob via fetch e lascia al chiamante l'attivazione del download. */
+  async downloadCsv(instituteId: number): Promise<Blob> {
+    const token = tokenStore.get();
+    if (!token) throw new Error('Sessione scaduta');
+    const res = await fetch(
+      `/api/structure/export.csv?instituteId=${encodeURIComponent(instituteId)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) {
+      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
+    }
+    return res.blob();
+  },
 
   // Equipment templates (catalogo dotazioni)
   listEquipmentTemplates: () =>
@@ -228,8 +238,19 @@ export const structureApi = {
       method: 'POST',
       body: { csv },
     }),
-  /** Export catalogo dotazioni in CSV (round-trip con import). */
-  exportEquipmentTemplatesCsvUrl: () => '/api/structure/equipment-templates/export.csv',
+  /** Export catalogo dotazioni in CSV (round-trip con import). Bearer
+   *  richiesto, non passabile via <a href>: scarica via fetch+blob. */
+  async downloadEquipmentTemplatesCsv(): Promise<Blob> {
+    const token = tokenStore.get();
+    if (!token) throw new Error('Sessione scaduta');
+    const res = await fetch('/api/structure/equipment-templates/export.csv', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
+    }
+    return res.blob();
+  },
 };
 
 export const ROOM_TYPE_OPTIONS: { value: RoomType; label: string }[] = [

@@ -241,13 +241,20 @@ export default function AdminCourses() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                const a = document.createElement('a');
-                a.href = coursesApi.exportCsvUrl();
-                a.download = `corsi-${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+              onClick={async () => {
+                try {
+                  const blob = await coursesApi.downloadCsv();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `corsi-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  toast.error(httpErrorMessage(err));
+                }
               }}
               title="Scarica corsi in CSV"
             >

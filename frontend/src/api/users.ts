@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api, tokenStore } from '@/lib/api';
 import type { ContractType, Role, User, UserStatus } from '@/types';
 
 export interface MonteOreOverridePayload {
@@ -66,8 +66,19 @@ export const usersApi = {
     }),
 
   /** Esporta gli utenti in CSV. NON include password/2FA — solo email,
-   *  anagrafica, ruolo, matricola, codice corso, stato e flag attivo. */
-  exportCsvUrl: () => '/api/users/export.csv',
+   *  anagrafica, ruolo, matricola, codice corso, stato e flag attivo.
+   *  Bearer richiesto: scarica via fetch+blob (un <a href> non manda l'header). */
+  async downloadCsv(): Promise<Blob> {
+    const token = tokenStore.get();
+    if (!token) throw new Error('Sessione scaduta');
+    const res = await fetch('/api/users/export.csv', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
+    }
+    return res.blob();
+  },
 
   /** Importa utenti da CSV. Per nuovi utenti viene generata una password
    *  temporanea casuale (l'admin invita poi al reset). Idempotente su email. */
