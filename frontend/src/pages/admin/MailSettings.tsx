@@ -176,8 +176,22 @@ export default function AdminMailSettings() {
     null,
   );
 
+  // "Tipo di email da testare": 'generic' = body fisso "Cadenza · email di test"
+  // (utile per validare solo SMTP); altrimenti uno dei kind dei template, che
+  // viene renderizzato con sample context (Mario Rossi, Aula Verdi, ecc.).
+  const [testTemplateKind, setTestTemplateKind] = useState<string>('generic');
+
+  // Lista template per il dropdown "Tipo email da testare". Usa la stessa
+  // query già montata da MailTemplatesSection (TanStack dedupa).
+  const testTemplatesQuery = useQuery({
+    queryKey: ['admin', 'mail-templates'],
+    queryFn: () => mailTemplatesApi.list(),
+  });
+  const testTemplates = testTemplatesQuery.data?.templates ?? [];
+
   const testMutation = useMutation({
-    mutationFn: (to: string) => mailSettingsApi.test(to),
+    mutationFn: ({ to, kind }: { to: string; kind: string }) =>
+      kind === 'generic' ? mailSettingsApi.test(to) : mailTemplatesApi.sendTest(kind, to),
     onSuccess: (res) => {
       if (res.ok) {
         setLastTestError(null);
@@ -513,9 +527,11 @@ export default function AdminMailSettings() {
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Invia un messaggio di prova per verificare che la configurazione funzioni. Salva prima
-              eventuali modifiche.
+              eventuali modifiche. Puoi testare anche un modello specifico: verrà renderizzato con
+              dati di esempio (Mario Rossi, Aula Verdi…) e prefissato <code>[TEST]</code> nel
+              soggetto.
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto]">
               <Input
                 type="email"
                 value={testTarget}
@@ -523,14 +539,32 @@ export default function AdminMailSettings() {
                   setTestTarget(e.target.value);
                 }}
                 placeholder="email destinatario"
-                className="max-w-xs"
+                aria-label="Destinatario del test"
               />
+              <Select value={testTemplateKind} onValueChange={setTestTemplateKind}>
+                <SelectTrigger aria-label="Tipo di email da testare">
+                  <SelectValue placeholder="Tipo di email…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generic">Email generica (no template)</SelectItem>
+                  {testTemplates.map((t) => (
+                    <SelectItem key={t.kind} value={t.kind}>
+                      {t.label}
+                      {!t.isEnabled && (
+                        <span className="ml-1 rounded-full bg-amber-100 px-1.5 text-[9px] uppercase tracking-wider text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                          OFF
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 type="button"
                 variant="outline"
                 disabled={!testTarget || testMutation.isPending}
                 onClick={() => {
-                  testMutation.mutate(testTarget);
+                  testMutation.mutate({ to: testTarget, kind: testTemplateKind });
                 }}
               >
                 {testMutation.isPending ? (

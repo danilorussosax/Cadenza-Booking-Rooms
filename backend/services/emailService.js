@@ -392,19 +392,25 @@ function smtpHumanError(err) {
   return msg;
 }
 
-async function sendTestEmail({ to, subject, message }) {
+/**
+ * Invia un'email di test arbitraria. Due modalità:
+ *   - { to, subject, message }: subject default + body wrappato in HTML semplice
+ *     (usato dalla sezione "Test invio" generica)
+ *   - { to, subject, html }: invia esattamente subject+html passati (usato per
+ *     test dei template renderizzati con sample context)
+ *
+ * `html` ha precedenza su `message`. Se nessuno dei due, fallback al body
+ * generico "Cadenza · email di test".
+ */
+async function sendTestEmail({ to, subject, message, html }) {
   invalidateCache(); // forza ricarica delle nuove credenziali appena salvate
   const cfg = await module.exports.loadConfig();
   if (!cfg?.transporter) {
     return { ok: false, error: 'Configurazione SMTP mancante o disabilitata' };
   }
-  try {
-    await cfg.transporter.sendMail({
-      from: cfg.from,
-      to,
-      replyTo: cfg.replyTo,
-      subject: subject || 'Test invio email · Cadenza',
-      html: `<!doctype html><html><body style="font-family:-apple-system,sans-serif;padding:24px">
+  const finalHtml =
+    html ||
+    `<!doctype html><html><body style="font-family:-apple-system,sans-serif;padding:24px">
         <h2 style="color:#3762aa">Cadenza · email di test</h2>
         <p>${escapeHtml(
           message ||
@@ -413,7 +419,14 @@ async function sendTestEmail({ to, subject, message }) {
         <p style="color:#9aa5b4;font-size:11px;margin-top:32px">Inviato il ${dayjs().format(
           'DD MMM YYYY · HH:mm:ss',
         )}</p>
-      </body></html>`,
+      </body></html>`;
+  try {
+    await cfg.transporter.sendMail({
+      from: cfg.from,
+      to,
+      replyTo: cfg.replyTo,
+      subject: subject || 'Test invio email · Cadenza',
+      html: finalHtml,
     });
     return { ok: true };
   } catch (err) {

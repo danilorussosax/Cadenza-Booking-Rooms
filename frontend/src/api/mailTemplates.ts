@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 
-export type MailTemplateKind = 'confirmation' | 'reminder' | 'cancellation';
+export type MailTemplateKind = string;
 
 export interface MailTemplate {
   kind: MailTemplateKind;
@@ -46,4 +46,11 @@ export const mailTemplatesApi = {
       method: 'POST',
       body: draft ?? {},
     }),
+  /** Renderizza il template con dati di esempio e lo invia all'indirizzo `to`.
+   *  Se `draft` è passato (subject/bodyHtml), prova la bozza non ancora salvata. */
+  sendTest: (kind: MailTemplateKind, to: string, draft?: { subject?: string; bodyHtml?: string }) =>
+    api<{ ok: boolean; sentTo?: string; kind?: string; error?: string; raw?: string }>(
+      `/api/admin/mail-templates/${kind}/send-test`,
+      { method: 'POST', body: { to, ...(draft ?? {}) } },
+    ),
 };
