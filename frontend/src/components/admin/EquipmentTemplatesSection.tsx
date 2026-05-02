@@ -202,8 +202,71 @@ export function EquipmentTemplatesSection() {
         )}
       </AnimatePresence>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile (<sm): card stack — più leggibile su touchscreen ridotti
+       * di una tabella con scroll orizzontale (skill rule mobile-first +
+       * `data-table` adaptive). */}
+      <div className="space-y-2 sm:hidden">
+        {query.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        {!query.isLoading && filtered.length === 0 && (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+              <Cog className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm font-medium">Nessuna dotazione</p>
+              <p className="text-xs text-muted-foreground">
+                Importa da CSV o aggiungi una dotazione manualmente.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {filtered.map((t) => {
+          const isSelected = selected.has(t.id);
+          return (
+            <Card key={t.id} className={isSelected ? 'border-primary/50 bg-primary/5' : undefined}>
+              <CardContent className="flex items-start gap-3 p-3">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => {
+                    toggleOne(t.id);
+                  }}
+                  aria-label={`Seleziona ${t.name}`}
+                  className="mt-1"
+                />
+                <div className="flex-1 space-y-1">
+                  <p className="font-medium leading-snug">{t.name}</p>
+                  <Badge variant="secondary">{TYPE_LABEL[t.type] ?? t.type}</Badge>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Modifica"
+                    onClick={() => {
+                      setEditTarget(t);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Elimina"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteTarget(t);
+                    }}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop (≥sm): tabella classica */}
+      <Card className="hidden sm:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">

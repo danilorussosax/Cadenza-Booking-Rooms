@@ -152,97 +152,194 @@ export function ContractTypesPanel() {
               Nessuna tipologia configurata. Clicca "Nuova tipologia" per crearne una.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="w-32 px-3 py-2 text-left font-medium">Codice</th>
-                    <th className="px-3 py-2 text-left font-medium">Etichetta</th>
-                    <th className="w-28 px-3 py-2 text-right font-medium">Ore default</th>
-                    <th className="w-32 px-3 py-2 text-left font-medium">Vincolo giorni</th>
-                    <th className="w-20 px-3 py-2 text-left font-medium">Stato</th>
-                    <th className="w-24 px-3 py-2 text-right font-medium">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {types.map((ct) => (
-                    <tr key={ct.id} className={ct.isActive ? '' : 'opacity-60'}>
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {ct.code}
-                        {ct.isSystem && (
-                          <Lock
-                            className="ml-1 inline h-3 w-3 text-muted-foreground"
-                            aria-label="Tipo di sistema"
-                          />
-                        )}
-                      </td>
-                      <td className="px-3 py-2 font-medium">{ct.label}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {ct.defaultHours == null ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <>
-                            <strong>{ct.defaultHours}</strong>
-                            <span className="ml-0.5 text-xs text-muted-foreground">h</span>
-                          </>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {ct.bypassDayConstraintDefault ? (
-                          <Badge variant="secondary" className="text-xs">
-                            Esente 2-4 gg
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Standard</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {ct.isActive ? (
-                          <Badge
-                            variant="default"
-                            className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400"
-                          >
-                            Attiva
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Disattiva</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditing(ct)}
-                            aria-label={`Modifica ${ct.label}`}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={ct.isSystem || deleteMutation.isPending}
-                            onClick={() => {
-                              if (
-                                confirm(
-                                  `Rimuovere "${ct.label}"? L'operazione è bloccata se ci sono docenti che usano questo tipo.`,
-                                )
-                              ) {
-                                deleteMutation.mutate(ct.id);
-                              }
-                            }}
-                            aria-label={`Elimina ${ct.label}`}
-                            title={ct.isSystem ? 'Tipo di sistema: solo disattivabile' : 'Elimina'}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
+            <>
+              {/* Mobile (<sm): card stack */}
+              <div className="space-y-2 sm:hidden">
+                {types.map((ct) => (
+                  <div
+                    key={ct.id}
+                    className={`rounded-md border bg-card p-3 ${ct.isActive ? '' : 'opacity-60'}`}
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-muted-foreground">{ct.code}</span>
+                          {ct.isSystem && (
+                            <Lock
+                              className="h-3 w-3 text-muted-foreground"
+                              aria-label="Tipo di sistema"
+                            />
+                          )}
                         </div>
-                      </td>
+                        <p className="font-medium leading-snug">{ct.label}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditing(ct)}
+                          aria-label={`Modifica ${ct.label}`}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={ct.isSystem || deleteMutation.isPending}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Rimuovere "${ct.label}"? L'operazione è bloccata se ci sono docenti che usano questo tipo.`,
+                              )
+                            ) {
+                              deleteMutation.mutate(ct.id);
+                            }
+                          }}
+                          aria-label={`Elimina ${ct.label}`}
+                          title={ct.isSystem ? 'Tipo di sistema: solo disattivabile' : 'Elimina'}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <dt className="text-muted-foreground">Ore default</dt>
+                        <dd className="tabular-nums">
+                          {ct.defaultHours == null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <>
+                              <strong>{ct.defaultHours}</strong>
+                              <span className="ml-0.5 text-muted-foreground">h</span>
+                            </>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Vincolo giorni</dt>
+                        <dd>
+                          {ct.bypassDayConstraintDefault ? (
+                            <Badge variant="secondary" className="text-xs">
+                              Esente 2-4 gg
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">Standard</span>
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="mt-2">
+                      {ct.isActive ? (
+                        <Badge
+                          variant="default"
+                          className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400"
+                        >
+                          Attiva
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Disattiva</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop (≥sm): tabella classica */}
+              <div className="hidden overflow-x-auto rounded-md border sm:block">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="w-32 px-3 py-2 text-left font-medium">Codice</th>
+                      <th className="px-3 py-2 text-left font-medium">Etichetta</th>
+                      <th className="w-28 px-3 py-2 text-right font-medium">Ore default</th>
+                      <th className="w-32 px-3 py-2 text-left font-medium">Vincolo giorni</th>
+                      <th className="w-20 px-3 py-2 text-left font-medium">Stato</th>
+                      <th className="w-24 px-3 py-2 text-right font-medium">Azioni</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {types.map((ct) => (
+                      <tr key={ct.id} className={ct.isActive ? '' : 'opacity-60'}>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {ct.code}
+                          {ct.isSystem && (
+                            <Lock
+                              className="ml-1 inline h-3 w-3 text-muted-foreground"
+                              aria-label="Tipo di sistema"
+                            />
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-medium">{ct.label}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {ct.defaultHours == null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <>
+                              <strong>{ct.defaultHours}</strong>
+                              <span className="ml-0.5 text-xs text-muted-foreground">h</span>
+                            </>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {ct.bypassDayConstraintDefault ? (
+                            <Badge variant="secondary" className="text-xs">
+                              Esente 2-4 gg
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Standard</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {ct.isActive ? (
+                            <Badge
+                              variant="default"
+                              className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400"
+                            >
+                              Attiva
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Disattiva</Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditing(ct)}
+                              aria-label={`Modifica ${ct.label}`}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={ct.isSystem || deleteMutation.isPending}
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Rimuovere "${ct.label}"? L'operazione è bloccata se ci sono docenti che usano questo tipo.`,
+                                  )
+                                ) {
+                                  deleteMutation.mutate(ct.id);
+                                }
+                              }}
+                              aria-label={`Elimina ${ct.label}`}
+                              title={
+                                ct.isSystem ? 'Tipo di sistema: solo disattivabile' : 'Elimina'
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

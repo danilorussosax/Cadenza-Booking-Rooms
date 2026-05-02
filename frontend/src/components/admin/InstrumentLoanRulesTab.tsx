@@ -142,8 +142,76 @@ export function InstrumentLoanRulesTab() {
         </Card>
       )}
 
+      {/* Mobile (<sm): card stack — un riquadro per strumento con
+       * foto miniature, nome+code, family badge, lista chip corsi. */}
       {!instrumentsQuery.isLoading && filtered.length > 0 && (
-        <Card>
+        <div className="space-y-2 sm:hidden">
+          {filtered.map((inst) => {
+            const allowedCount = inst.allowedCourseIds?.length ?? 0;
+            return (
+              <Card key={inst.id}>
+                <CardContent className="space-y-3 p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded bg-muted">
+                      <img
+                        src={inst.photoUrl ?? '/assets/instrument-default.svg'}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (!img.src.endsWith('/assets/instrument-default.svg')) {
+                            img.src = '/assets/instrument-default.svg';
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium leading-snug">{inst.name}</p>
+                      {inst.code && (
+                        <p className="truncate text-[11px] text-muted-foreground">{inst.code}</p>
+                      )}
+                      <Badge variant="secondary" className="mt-1">
+                        {t(FAMILY_LABELS[inst.family])}
+                      </Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditing(inst);
+                      }}
+                    >
+                      {t('admin.instrument_rules.edit')}
+                    </Button>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {t('admin.instrument_rules.col_courses')}
+                    </p>
+                    {allowedCount === 0 ? (
+                      <Badge variant="muted" className="font-normal">
+                        {t('admin.instrument_rules.all_allowed')}
+                      </Badge>
+                    ) : (
+                      <CourseCodeChips
+                        ids={inst.allowedCourseIds ?? []}
+                        codeById={courseCodeById}
+                        loading={coursesQuery.isLoading}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Desktop (≥sm): tabella classica */}
+      {!instrumentsQuery.isLoading && filtered.length > 0 && (
+        <Card className="hidden sm:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">

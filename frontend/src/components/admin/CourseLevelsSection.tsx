@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { courseLevelsApi } from '@/api/courseLevels';
 import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CourseLevelFormDialog } from './CourseLevelFormDialog';
@@ -137,7 +137,72 @@ export function CourseLevelsSection() {
         )}
       </AnimatePresence>
 
-      <Card>
+      {/* Mobile (<sm): card stack */}
+      <div className="space-y-2 sm:hidden">
+        {query.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        {!query.isLoading && items.length === 0 && (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+              <GraduationCap className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm font-medium">Nessun livello</p>
+              <p className="text-xs text-muted-foreground">Crea il primo livello di studio.</p>
+            </CardContent>
+          </Card>
+        )}
+        {items.map((lvl) => {
+          const isSelected = selected.has(lvl.id);
+          return (
+            <Card
+              key={lvl.id}
+              className={isSelected ? 'border-primary/50 bg-primary/5' : undefined}
+            >
+              <CardContent className="flex items-start gap-3 p-3">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => {
+                    toggleOne(lvl.id);
+                  }}
+                  aria-label={`Seleziona ${lvl.name}`}
+                  className="mt-1"
+                />
+                <div className="flex-1 space-y-1">
+                  <p className="font-medium leading-snug">{lvl.name}</p>
+                  <p className="font-mono text-xs uppercase text-muted-foreground">
+                    {lvl.code} · ord. {lvl.sortOrder}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Modifica"
+                    onClick={() => {
+                      setEditTarget(lvl);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Elimina"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteTarget(lvl);
+                    }}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop (≥sm): tabella classica */}
+      <Card className="hidden sm:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
