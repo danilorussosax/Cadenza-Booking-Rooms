@@ -10,6 +10,8 @@ export interface MailSettingsView {
   fromAddress: string | null;
   fromName: string | null;
   replyTo: string | null;
+  /** Anti-flapping: max email/ora a stesso destinatario. 0 = disabilitato. */
+  throttlePerRecipientPerHour: number;
   source: 'database' | 'database-disabled' | 'env-fallback';
   updatedAt?: string;
 }
@@ -30,6 +32,7 @@ export interface MailSettingsPayload {
   fromAddress?: string | null;
   fromName?: string | null;
   replyTo?: string | null;
+  throttlePerRecipientPerHour?: number;
 }
 
 export const mailSettingsApi = {

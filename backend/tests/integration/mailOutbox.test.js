@@ -17,8 +17,14 @@
 
 const emailService = require('../../services/emailService');
 const outbox = require('../../services/mailOutboxScheduler');
-const { MailOutbox, User } = require('../../models');
+const { MailOutbox, User, MailSettings } = require('../../models');
 const { createUser } = require('../factories');
+
+// Vitest 4: senza restoreMocks=true in config, gli spy persistono tra test.
+// Restore globale in afterEach per evitare contaminazioni tra describe block.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function fakeCfg(sendMail) {
   return {
@@ -293,6 +299,292 @@ describe('retentionScheduler.pruneMailOutbox', () => {
     const retention = require('../../services/retentionScheduler');
     await retention.pruneMailOutbox();
     expect(await MailOutbox.count()).toBe(1);
+  });
+});
+
+describe('Fase 3a — Throttle per destinatario', () => {
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+  });
+
+  async function setThrottle(n) {
+    await MailSettings.upsert({ id: 1, throttlePerRecipientPerHour: n });
+    emailService.invalidateCache();
+  }
+
+  it('skip enqueue se conta sent+pending sopra soglia', async () => {
+    await setThrottle(2);
+    // Pre-fill: 2 email a stesso destinatario
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'a',
+      bodyHtml: '<p>a</p>',
+      status: 'sent',
+      sentAt: new Date(),
+    });
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'b',
+      bodyHtml: '<p>b</p>',
+      status: 'pending',
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'c',
+      html: '<p>c</p>',
+      priority: 5,
+    });
+    expect(r.queued).toBe(false);
+    expect(r.skipped).toBe('throttled');
+    expect(await MailOutbox.count()).toBe(2); // non aggiunta
+  });
+
+  it('NON skippa altri destinatari sotto soglia', async () => {
+    await setThrottle(2);
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'a',
+      bodyHtml: '<p>a</p>',
+      status: 'sent',
+      sentAt: new Date(),
+    });
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'b',
+      bodyHtml: '<p>b</p>',
+      status: 'sent',
+      sentAt: new Date(),
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'other@example.com',
+      subject: 'c',
+      html: '<p>c</p>',
+      priority: 5,
+    });
+    expect(r.queued).toBe(true);
+  });
+
+  it('email security/2FA (priority=0) bypassa il throttle', async () => {
+    await setThrottle(1);
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'busy@example.com',
+      subject: 'a',
+      bodyHtml: '<p>a</p>',
+      status: 'sent',
+      sentAt: new Date(),
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'security',
+      to: 'busy@example.com',
+      subject: 'OTP',
+      html: '<p>123</p>',
+      priority: 0,
+    });
+    expect(r.queued).toBe(true);
+  });
+
+  it('NON conta sent vecchie (>1h)', async () => {
+    await setThrottle(2);
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'a@example.com',
+      subject: 'old1',
+      bodyHtml: '<p>x</p>',
+      status: 'sent',
+      sentAt: twoHoursAgo,
+    });
+    await MailOutbox.create({
+      kind: 'confirmation',
+      to: 'a@example.com',
+      subject: 'old2',
+      bodyHtml: '<p>x</p>',
+      status: 'sent',
+      sentAt: twoHoursAgo,
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'a@example.com',
+      subject: 'new',
+      html: '<p>x</p>',
+      priority: 5,
+    });
+    expect(r.queued).toBe(true);
+  });
+
+  it('throttle=0 (default) → no rate limit', async () => {
+    await setThrottle(0);
+    for (let i = 0; i < 5; i++) {
+      await MailOutbox.create({
+        kind: 'confirmation',
+        to: 'a@example.com',
+        subject: `s${i}`,
+        bodyHtml: '<p>x</p>',
+        status: 'sent',
+        sentAt: new Date(),
+      });
+    }
+    const r = await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'a@example.com',
+      subject: 'new',
+      html: '<p>x</p>',
+      priority: 5,
+    });
+    expect(r.queued).toBe(true);
+  });
+});
+
+describe('Fase 3b — Hard-bounce detection', () => {
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+    outbox.stop();
+  });
+
+  it('SMTP 550 → riga dead immediato + utente segnato bounced', async () => {
+    const u = await createUser({ email: 'bounced@example.com' });
+    const err = new Error('550 5.1.1 user not found');
+    err.responseCode = 550;
+    const sendMail = vi.fn().mockRejectedValue(err);
+    vi.spyOn(emailService, 'loadConfig').mockResolvedValue({
+      transporter: { sendMail, verify: vi.fn().mockResolvedValue(true) },
+      from: 'x',
+      replyTo: null,
+      throttlePerRecipientPerHour: 0,
+    });
+
+    await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'bounced@example.com',
+      subject: 'S',
+      html: '<p>x</p>',
+      idempotencyKey: 'b1',
+      priority: 5,
+    });
+    await outbox.tick();
+
+    const row = await MailOutbox.findOne();
+    expect(row.status).toBe('dead');
+    expect(row.attempts).toBe(1); // dead immediato, non max_attempts
+    expect(row.lastError).toMatch(/SMTP 550/);
+
+    const fresh = await User.findByPk(u.id);
+    expect(fresh.emailBouncedAt).not.toBeNull();
+    expect(fresh.emailBouncedReason).toMatch(/SMTP 550/);
+  });
+
+  it('SMTP 421 (transient) NON marca utente come bounced', async () => {
+    const u = await createUser({ email: 'transient@example.com' });
+    const err = new Error('421 4.7.0 service temporarily unavailable');
+    err.responseCode = 421;
+    const sendMail = vi.fn().mockRejectedValue(err);
+    vi.spyOn(emailService, 'loadConfig').mockResolvedValue({
+      transporter: { sendMail, verify: vi.fn().mockResolvedValue(true) },
+      from: 'x',
+      replyTo: null,
+      throttlePerRecipientPerHour: 0,
+    });
+
+    await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'transient@example.com',
+      subject: 'S',
+      html: '<p>x</p>',
+      idempotencyKey: 'b2',
+      priority: 5,
+    });
+    await outbox.tick();
+
+    const row = await MailOutbox.findOne();
+    expect(row.status).toBe('pending'); // retry, non dead
+    expect(row.attempts).toBe(1);
+
+    const fresh = await User.findByPk(u.id);
+    expect(fresh.emailBouncedAt).toBeNull();
+  });
+
+  it('codice estratto dal response testuale (no responseCode field)', async () => {
+    const u = await createUser({ email: 'msg@example.com' });
+    // Caso tipico Postfix: nodemailer con err.response = "551 5.7.1 ..."
+    // ma SENZA responseCode numerico esplicito.
+    const err = new Error('Recipient address rejected');
+    err.response = '551 5.7.1 user not local';
+    const sendMail = vi.fn().mockRejectedValue(err);
+    vi.spyOn(emailService, 'loadConfig').mockResolvedValue({
+      transporter: { sendMail, verify: vi.fn().mockResolvedValue(true) },
+      from: 'x',
+      replyTo: null,
+      throttlePerRecipientPerHour: 0,
+    });
+
+    await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'msg@example.com',
+      subject: 'S',
+      html: '<p>x</p>',
+      idempotencyKey: 'b3',
+      priority: 5,
+    });
+    await outbox.tick();
+
+    const row = await MailOutbox.findOne();
+    expect(row.status).toBe('dead');
+    const fresh = await User.findByPk(u.id);
+    expect(fresh.emailBouncedAt).not.toBeNull();
+  });
+
+  it('enqueueMail skippa destinatario già bounced', async () => {
+    await createUser({
+      email: 'dead@example.com',
+      emailBouncedAt: new Date(),
+      emailBouncedReason: 'SMTP 550',
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'confirmation',
+      to: 'dead@example.com',
+      subject: 'S',
+      html: '<p>x</p>',
+      priority: 5,
+    });
+    expect(r.queued).toBe(false);
+    expect(r.skipped).toBe('bounced');
+    expect(await MailOutbox.count()).toBe(0);
+  });
+
+  it('email security (priority=0) bypassa il bounce gate', async () => {
+    await createUser({
+      email: 'dead@example.com',
+      emailBouncedAt: new Date(),
+      emailBouncedReason: 'SMTP 550',
+    });
+    const r = await emailService.enqueueMail({
+      kind: 'security',
+      to: 'dead@example.com',
+      subject: 'OTP',
+      html: '<p>123</p>',
+      priority: 0,
+    });
+    expect(r.queued).toBe(true);
+  });
+
+  it('hook beforeUpdate: cambiare email resetta bounce flag', async () => {
+    const u = await createUser({
+      email: 'old@example.com',
+      emailBouncedAt: new Date(),
+      emailBouncedReason: 'SMTP 550',
+    });
+    await u.update({ email: 'new@example.com' });
+    const fresh = await User.findByPk(u.id);
+    expect(fresh.email).toBe('new@example.com');
+    expect(fresh.emailBouncedAt).toBeNull();
+    expect(fresh.emailBouncedReason).toBeNull();
   });
 });
 

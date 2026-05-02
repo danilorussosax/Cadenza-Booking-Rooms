@@ -52,6 +52,13 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(200),
         allowNull: true,
       },
+      // Anti-flapping: max email/ora a stesso destinatario.
+      // 0 = disabilitato. Email security (priority=0) bypassano comunque.
+      throttlePerRecipientPerHour: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
     },
     { tableName: 'mail_settings' },
   );

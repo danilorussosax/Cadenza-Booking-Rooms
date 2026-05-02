@@ -361,6 +361,17 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
   res.json({ user: user.toSafeJSON() });
 });
 
+// Reset del flag hard-bounce (admin): l'utente torna a ricevere email.
+// Da usare dopo aver corretto un typo o quando il provider è stato sbloccato.
+router.post('/:id/reset-bounce', authenticate, requireRole('admin'), async (req, res) => {
+  const user = await User.findByPk(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+  user.emailBouncedAt = null;
+  user.emailBouncedReason = null;
+  await user.save();
+  res.json({ user: user.toSafeJSON() });
+});
+
 // Dettaglio utente
 router.get('/:id', authenticate, requireRole('admin'), async (req, res) => {
   const user = await User.findByPk(req.params.id, {

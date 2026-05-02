@@ -44,6 +44,10 @@ export const usersApi = {
 
   reject: (id: number) => api<{ user: User }>(`/api/users/${id}/reject`, { method: 'POST' }),
 
+  /** Reset hard-bounce dell'email: l'utente torna a ricevere notifiche. */
+  resetBounce: (id: number) =>
+    api<{ user: User }>(`/api/users/${id}/reset-bounce`, { method: 'POST' }),
+
   pendingCount: () => api<{ count: number }>('/api/users/pending/count'),
 
   bulkDelete: (ids: number[]) =>

@@ -97,6 +97,17 @@ module.exports = (sequelize) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+      // Hard-bounce permanente rilevato dal worker SMTP (codici 550/551/553/511/521).
+      // Se valorizzato, future enqueueMail per questo utente vengono saltate
+      // finché un admin non resetta il flag. Reset automatico quando l'email cambia.
+      emailBouncedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      emailBouncedReason: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
       profilePhotoUrl: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -285,6 +296,13 @@ module.exports = (sequelize) => {
   User.beforeUpdate(async (user) => {
     if (user.changed('passwordHash') && user.passwordHash && !user.passwordHash.startsWith('$2')) {
       user.passwordHash = await bcrypt.hash(user.passwordHash, BCRYPT_COST);
+    }
+    // Email cambiata → reset del bounce flag: il nuovo indirizzo non eredita
+    // il "rimbalzo" del precedente. Senza questo l'admin che corregge un
+    // typo dovrebbe anche resettare manualmente.
+    if (user.changed('email')) {
+      user.emailBouncedAt = null;
+      user.emailBouncedReason = null;
     }
   });
 

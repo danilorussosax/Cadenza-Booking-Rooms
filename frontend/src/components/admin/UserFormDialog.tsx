@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, LoaderCircle } from 'lucide-react';
+import { Clock, LoaderCircle, MailWarning } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersApi } from '@/api/users';
 import { coursesApi } from '@/api/courses';
@@ -145,6 +145,17 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
   const bypassDay = !!watch('monteOreBypassDayConstraint');
   const isMonteOreOverrideOn = useHoursOverride || bypassDay;
 
+  const resetBounceMut = useMutation({
+    mutationFn: () => usersApi.resetBounce(user!.id),
+    onSuccess: () => {
+      toast.success('Indirizzo email riattivato');
+      void qc.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => {
+      toast.error(httpErrorMessage(err));
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
       const payload = {
@@ -249,6 +260,44 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
           {serverError && (
             <Alert variant="destructive">
               <AlertDescription>{serverError}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+          {isEdit && user?.emailBouncedAt && (
+            <Alert variant="warning">
+              <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-2">
+                  <MailWarning className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Email rimbalzata — notifiche disattivate</p>
+                    <p className="text-xs text-muted-foreground">
+                      Il provider SMTP ha rifiutato {user.email}. Future email transazionali a
+                      questo utente vengono saltate.
+                    </p>
+                    {user.emailBouncedReason && (
+                      <p className="rounded bg-muted px-2 py-1 font-mono text-[11px]">
+                        {user.emailBouncedReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={resetBounceMut.isPending}
+                  onClick={() => {
+                    resetBounceMut.mutate();
+                  }}
+                >
+                  {resetBounceMut.isPending ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    'Riattiva'
+                  )}
+                </Button>
+              </AlertDescription>
             </Alert>
           )}
 

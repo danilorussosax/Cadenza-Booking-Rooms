@@ -38,6 +38,11 @@ export interface User {
   notifyOnConfirmation?: boolean;
   notifyOnReminder?: boolean;
   notifyOnCancellation?: boolean;
+  /** Hard-bounce SMTP rilevato dal worker. Se valorizzato, future email
+   *  transazionali a questo utente vengono saltate. Reset via UI admin
+   *  (pulsante "Reimposta email") oppure cambiando l'indirizzo. */
+  emailBouncedAt?: string | null;
+  emailBouncedReason?: string | null;
   profilePhotoUrl?: string | null;
   lastLogin?: string | null;
   /** 2FA TOTP — esposto al client per la UI. Il secret/recovery codes restano

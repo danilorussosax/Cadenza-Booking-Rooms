@@ -22,6 +22,7 @@ function toSafeJson(row) {
       fromAddress: null,
       fromName: null,
       replyTo: null,
+      throttlePerRecipientPerHour: 0,
       source: 'env-fallback',
     };
   }
@@ -35,6 +36,7 @@ function toSafeJson(row) {
     fromAddress: row.fromAddress,
     fromName: row.fromName,
     replyTo: row.replyTo,
+    throttlePerRecipientPerHour: row.throttlePerRecipientPerHour ?? 0,
     source: row.isEnabled ? 'database' : 'database-disabled',
     updatedAt: row.updatedAt,
   };
@@ -66,6 +68,7 @@ router.put(
     body('fromName').optional({ nullable: true }).isString(),
     body('replyTo').optional({ nullable: true }).isEmail(),
     body('isEnabled').optional().isBoolean(),
+    body('throttlePerRecipientPerHour').optional().isInt({ min: 0, max: 1000 }),
   ],
   async (req, res) => {
     const errs = validationResult(req);
@@ -75,8 +78,18 @@ router.put(
     let row = await MailSettings.findByPk(1);
     if (!row) row = await MailSettings.create({ id: 1 });
 
-    const { host, port, secure, username, password, fromAddress, fromName, replyTo, isEnabled } =
-      req.body;
+    const {
+      host,
+      port,
+      secure,
+      username,
+      password,
+      fromAddress,
+      fromName,
+      replyTo,
+      isEnabled,
+      throttlePerRecipientPerHour,
+    } = req.body;
 
     if (host !== undefined) row.host = host || null;
     if (port !== undefined) row.port = port;
@@ -91,6 +104,9 @@ router.put(
     if (fromName !== undefined) row.fromName = fromName || null;
     if (replyTo !== undefined) row.replyTo = replyTo || null;
     if (isEnabled !== undefined) row.isEnabled = !!isEnabled;
+    if (throttlePerRecipientPerHour !== undefined) {
+      row.throttlePerRecipientPerHour = Math.max(0, Math.floor(throttlePerRecipientPerHour));
+    }
 
     await row.save();
     invalidateCache(); // forza ricarica al prossimo invio

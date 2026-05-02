@@ -688,6 +688,21 @@ async function runPreSyncMigrations() {
   // Booking type catalog (gap #7 EasyRoom parity): il seed dei 5 system
   // rows è in `seeders/initial.js`, eseguito DOPO sequelize.sync() così la
   // tabella esiste. Qui non c'è nulla da fare in preSyncMigrations.
+
+  // Fase 3 — Throttle outbox per destinatario (mail_settings.throttlePerRecipientPerHour)
+  if (await ensureNotNullIntColumn('mail_settings', 'throttlePerRecipientPerHour', 0)) {
+    console.log(
+      '  ✓ Colonna mail_settings.throttlePerRecipientPerHour aggiunta (default 0 = disabilitato)',
+    );
+  }
+
+  // Fase 3 — Hard-bounce tracking su User (skip future enqueueMail).
+  if (await ensureNullableDateColumn('users', 'emailBouncedAt')) {
+    console.log('  ✓ Colonna users.emailBouncedAt aggiunta');
+  }
+  if (await ensureNullableStringColumn('users', 'emailBouncedReason', 500)) {
+    console.log('  ✓ Colonna users.emailBouncedReason aggiunta');
+  }
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

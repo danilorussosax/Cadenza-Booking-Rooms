@@ -27,6 +27,8 @@ async function loadConfig() {
   const row = await MailSettings.findByPk(1).catch(() => null);
 
   let host, port, secure, user, pass, from, replyTo;
+  // Default 0 = throttle disabilitato (back-compat su DB pre-Fase 3).
+  const throttlePerRecipientPerHour = Math.max(0, Number(row?.throttlePerRecipientPerHour) || 0);
 
   if (row && row.isEnabled && row.host) {
     host = row.host;
@@ -52,7 +54,12 @@ async function loadConfig() {
       );
       warned = true;
     }
-    cache = { transporter: null, from: null, expiresAt: Date.now() + CACHE_TTL_MS };
+    cache = {
+      transporter: null,
+      from: null,
+      throttlePerRecipientPerHour,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    };
     return cache;
   }
 
@@ -74,6 +81,7 @@ async function loadConfig() {
     transporter,
     from: from || 'Cadenza <noreply@cadenza.local>',
     replyTo,
+    throttlePerRecipientPerHour,
     expiresAt: Date.now() + CACHE_TTL_MS,
   };
   return cache;
@@ -260,9 +268,50 @@ async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempot
   if (!to) return { ok: false, queued: false, error: 'missing recipient' };
   if (!subject || !html) return { ok: false, queued: false, error: 'missing subject/html' };
 
-  const { MailOutbox } = require('../models');
+  const finalPriority = typeof priority === 'number' ? priority : 5;
+  const { MailOutbox, User } = require('../models');
+  const { Op } = require('sequelize');
   const cfg = await module.exports.loadConfig();
   const finalReplyTo = replyTo ?? cfg?.replyTo ?? null;
+
+  // Bounce gate: se il destinatario è un utente con hard-bounce permanente
+  // registrato, skippiamo. Le email security (priority=0) bypassano: in caso
+  // di typo persistente l'admin vedrà comunque il dead nella coda.
+  if (finalPriority > 0) {
+    try {
+      const bounced = await User.findOne({
+        where: { email: to, emailBouncedAt: { [Op.ne]: null } },
+        attributes: ['id'],
+      });
+      if (bounced) {
+        return { ok: true, queued: false, skipped: 'bounced' };
+      }
+    } catch {
+      /* DB error qui non deve bloccare l'enqueue: best-effort */
+    }
+  }
+
+  // Throttle gate: priority >= 5 (transactional + bulk) limitata a N invii/h
+  // verso lo stesso destinatario. Conta sia 'sent' nell'ultima ora che
+  // 'pending' in coda (per evitare di accodarne 50 mentre l'invio reale
+  // è ancora a 0). Email security/2FA (priority=0) bypassano sempre.
+  const throttle = cfg?.throttlePerRecipientPerHour || 0;
+  if (throttle > 0 && finalPriority >= 5) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const count = await MailOutbox.count({
+      where: {
+        to,
+        [Op.or]: [{ status: 'pending' }, { status: 'sent', sentAt: { [Op.gte]: oneHourAgo } }],
+      },
+    });
+    if (count >= throttle) {
+      logger.info(
+        { to, kind, count, throttle, scope: 'email.throttle' },
+        'mail enqueue throttled (rate limit per recipient)',
+      );
+      return { ok: true, queued: false, skipped: 'throttled' };
+    }
+  }
 
   try {
     const row = await MailOutbox.create({
@@ -271,7 +320,7 @@ async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempot
       subject,
       bodyHtml: html,
       replyTo: finalReplyTo,
-      priority: typeof priority === 'number' ? priority : 5,
+      priority: finalPriority,
       idempotencyKey: idempotencyKey || null,
     });
     return { ok: true, queued: true, deduped: false, id: row.id };

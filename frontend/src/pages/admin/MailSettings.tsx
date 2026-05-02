@@ -60,6 +60,7 @@ const schema = z.object({
     .string()
     .optional()
     .refine((v) => !v || /\S+@\S+\.\S+/.test(v), 'Email non valida'),
+  throttlePerRecipientPerHour: z.number().int().min(0).max(1000),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -119,6 +120,7 @@ export default function AdminMailSettings() {
       fromAddress: '',
       fromName: '',
       replyTo: '',
+      throttlePerRecipientPerHour: 0,
     },
   });
 
@@ -134,6 +136,7 @@ export default function AdminMailSettings() {
         fromAddress: settings.fromAddress ?? '',
         fromName: settings.fromName ?? '',
         replyTo: settings.replyTo ?? '',
+        throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour ?? 0,
       });
       if (!testTarget) setTestTarget(user?.email ?? '');
     }
@@ -153,6 +156,7 @@ export default function AdminMailSettings() {
         fromAddress: values.fromAddress?.trim() ?? null,
         fromName: values.fromName?.trim() ?? null,
         replyTo: values.replyTo?.trim() ?? null,
+        throttlePerRecipientPerHour: values.throttlePerRecipientPerHour,
       }),
     onSuccess: ({ settings }) => {
       toast.success('Configurazione SMTP salvata');
@@ -405,6 +409,26 @@ export default function AdminMailSettings() {
               />
               <FieldError id="m-replyto-error">{errors.replyTo?.message}</FieldError>
             </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="m-throttle">Limite email/ora per destinatario</Label>
+              <Input
+                id="m-throttle"
+                type="number"
+                min={0}
+                max={1000}
+                {...register('throttlePerRecipientPerHour', { valueAsNumber: true })}
+                aria-invalid={!!errors.throttlePerRecipientPerHour}
+                aria-describedby="m-throttle-help"
+              />
+              <p id="m-throttle-help" className="text-[11px] text-muted-foreground">
+                Anti-flapping: massimo numero di email all'ora verso lo stesso indirizzo. Le email
+                di sicurezza (codici 2FA) bypassano sempre questo limite.{' '}
+                <strong>0 = disabilitato</strong> (nessun limite). Valore ragionevole: 5–10.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -425,6 +449,7 @@ export default function AdminMailSettings() {
                 fromAddress: settings.fromAddress ?? '',
                 fromName: settings.fromName ?? '',
                 replyTo: settings.replyTo ?? '',
+                throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour ?? 0,
               })
             }
           >

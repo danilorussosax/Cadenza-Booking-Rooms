@@ -21,13 +21,42 @@
  */
 
 const { Op } = require('sequelize');
-const { MailOutbox, sequelize } = require('../models');
+const { MailOutbox, User, sequelize } = require('../models');
 const emailService = require('./emailService');
 const logger = require('../lib/logger');
 
 const TICK_MS = 15 * 1000; // 15 secondi
 const BATCH_SIZE = 20;
 const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1 ora
+
+// SMTP "hard bounce" code: il destinatario è permanentemente irraggiungibile.
+// Su questi nodemailer ritorna un Error con `responseCode` numerico o con il
+// codice nel messaggio. Distinguere da:
+//   - 421 (service unavailable) → soft, retriable
+//   - 450/451/452 (mailbox temporaneamente non disponibile / quota piena
+//     temporanea) → soft, retriable
+//   - 552 (storage exceeded) → spesso temporaneo (l'utente svuota la casella)
+//     → trattato come soft per evitare falsi positivi
+//   - 554 (transaction failed) → generico, troppo ambiguo per essere hard
+const HARD_BOUNCE_CODES = new Set([550, 551, 553, 511, 521]);
+
+/**
+ * Estrae il codice SMTP da un errore di nodemailer.
+ * nodemailer espone `responseCode` direttamente; alcuni provider mettono
+ * il codice solo nel `response` testuale (es. "550 5.1.1 user not found").
+ */
+function extractSmtpCode(err) {
+  if (!err) return null;
+  if (typeof err.responseCode === 'number') return err.responseCode;
+  const msg = String(err.response || err.message || '');
+  const m = msg.match(/^\s*(\d{3})\b/);
+  return m ? Number(m[1]) : null;
+}
+
+function isHardBounce(err) {
+  const code = extractSmtpCode(err);
+  return code !== null && HARD_BOUNCE_CODES.has(code);
+}
 
 let timer = null;
 let running = false; // semaforo per evitare overlap se un tick dura > TICK_MS
@@ -98,9 +127,39 @@ async function processOne(row, cfg) {
     });
     return { ok: true };
   } catch (err) {
+    const lastError = err?.message ? err.message.slice(0, 1000) : String(err).slice(0, 1000);
+
+    // Hard-bounce SMTP (550/551/553/511/521): destinatario permanentemente
+    // irraggiungibile. Niente retry: dead immediato + segna l'utente come
+    // bounced così future enqueueMail vengono saltate dal gate.
+    if (isHardBounce(err)) {
+      const code = extractSmtpCode(err);
+      await row.update({
+        status: 'dead',
+        attempts: row.attempts + 1,
+        lastError: `[SMTP ${code}] ${lastError}`,
+      });
+      try {
+        const reason = `SMTP ${code}: ${lastError.slice(0, 400)}`;
+        await User.update(
+          { emailBouncedAt: new Date(), emailBouncedReason: reason },
+          { where: { email: row.to, emailBouncedAt: null } },
+        );
+      } catch (uErr) {
+        logger.warn(
+          { err: uErr.message, to: row.to, scope: 'mailOutbox.bounce' },
+          'failed to mark User as bounced',
+        );
+      }
+      logger.warn(
+        { to: row.to, code, scope: 'mailOutbox.bounce' },
+        'hard bounce — marked dead and user bounced',
+      );
+      return { ok: false, dead: true, bounced: true, error: lastError };
+    }
+
     const attempts = row.attempts + 1;
     const reachedMax = attempts >= row.maxAttempts;
-    const lastError = err?.message ? err.message.slice(0, 1000) : String(err).slice(0, 1000);
     await row.update({
       attempts,
       status: reachedMax ? 'dead' : 'pending',
