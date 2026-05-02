@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { cn } from '@/lib/utils';
 
 type Step = 'upload' | 'preview' | 'done';
@@ -216,8 +217,10 @@ export function IsidataImportContent() {
                     placeholder='{"externalId": "Numero matricola", "email": "Email istituzionale"}'
                     value={overridesText}
                     onChange={(e) => setOverridesText(e.target.value)}
+                    aria-invalid={!!overridesError}
+                    aria-describedby={overridesError ? 'overrides-error' : undefined}
                   />
-                  {overridesError && <p className="text-xs text-destructive">{overridesError}</p>}
+                  <FieldError id="overrides-error">{overridesError}</FieldError>
                 </div>
               )}
             </div>

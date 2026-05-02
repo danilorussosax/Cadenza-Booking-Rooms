@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -422,25 +423,33 @@ function AnnouncementFormDialog({
         >
           <div className="space-y-2">
             <Label htmlFor="ann-title">{t('admin.announcements.field.title')}</Label>
-            <Input id="ann-title" {...form.register('title')} maxLength={200} />
-            {form.formState.errors.title && (
-              <p className="text-xs text-destructive">
-                {tFieldError(form.formState.errors.title.message)}
-              </p>
-            )}
+            <Input
+              id="ann-title"
+              {...form.register('title')}
+              maxLength={200}
+              aria-invalid={!!form.formState.errors.title}
+              aria-describedby={form.formState.errors.title ? 'ann-title-error' : undefined}
+            />
+            <FieldError id="ann-title-error">
+              {form.formState.errors.title && tFieldError(form.formState.errors.title.message)}
+            </FieldError>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="ann-body">{t('admin.announcements.field.body')}</Label>
-            <Textarea id="ann-body" rows={6} {...form.register('body')} />
+            <Textarea
+              id="ann-body"
+              rows={6}
+              {...form.register('body')}
+              aria-invalid={!!form.formState.errors.body}
+              aria-describedby={form.formState.errors.body ? 'ann-body-error' : undefined}
+            />
             <p className="text-[11px] text-muted-foreground">
               {t('admin.announcements.field.body_help')}
             </p>
-            {form.formState.errors.body && (
-              <p className="text-xs text-destructive">
-                {tFieldError(form.formState.errors.body.message)}
-              </p>
-            )}
+            <FieldError id="ann-body-error">
+              {form.formState.errors.body && tFieldError(form.formState.errors.body.message)}
+            </FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

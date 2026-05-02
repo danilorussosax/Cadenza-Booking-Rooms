@@ -381,7 +381,11 @@ function LogoUploader({ institute }: { institute: Institute }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{hasLogo ? 'Logo configurato' : 'Nessun logo'}</p>
           <p className="text-[11px] text-muted-foreground">PNG · JPG · WEBP · SVG · max 2 MB</p>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-1">
           <Button

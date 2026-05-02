@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -565,7 +566,10 @@ function QuotaFormDialog({
                   (scopeKind === 'room' || scopeKind === 'building') && structureQuery.isLoading
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!form.formState.errors.scopeValue}
+                  aria-describedby={form.formState.errors.scopeValue ? 'q-scope-error' : undefined}
+                >
                   <SelectValue placeholder={t('common.select_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -595,11 +599,10 @@ function QuotaFormDialog({
                     ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.scopeValue && (
-                <p className="text-xs text-destructive">
-                  {tFieldError(form.formState.errors.scopeValue.message)}
-                </p>
-              )}
+              <FieldError id="q-scope-error">
+                {form.formState.errors.scopeValue &&
+                  tFieldError(form.formState.errors.scopeValue.message)}
+              </FieldError>
             </div>
           )}
 
@@ -662,7 +665,9 @@ function QuotaFormDialog({
           </div>
 
           {form.formState.errors.maxHoursPerWeek?.message === 'cap_required' && (
-            <p className="text-xs text-destructive">{tFieldError('cap_required')}</p>
+            <p role="alert" className="text-xs text-destructive">
+              {tFieldError('cap_required')}
+            </p>
           )}
 
           {/* Filtri di applicabilità: giorni della settimana + fascia oraria */}
@@ -680,19 +685,24 @@ function QuotaFormDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="q-to">{t('admin.quotas.field.time_to')}</Label>
-              <Input id="q-to" type="time" {...form.register('timeTo')} />
+              <Input
+                id="q-to"
+                type="time"
+                {...form.register('timeTo')}
+                aria-invalid={!!form.formState.errors.timeTo}
+                aria-describedby={form.formState.errors.timeTo ? 'q-to-error' : undefined}
+              />
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">{t('admin.quotas.field.time_help')}</p>
-          {form.formState.errors.timeTo && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.timeTo.message === 'time_pair'
+          <FieldError id="q-to-error">
+            {form.formState.errors.timeTo &&
+              (form.formState.errors.timeTo.message === 'time_pair'
                 ? t('admin.quotas.errors.time_pair')
                 : form.formState.errors.timeTo.message === 'time_order'
                   ? t('admin.quotas.errors.time_order')
-                  : t('admin.quotas.errors.time_format')}
-            </p>
-          )}
+                  : t('admin.quotas.errors.time_format'))}
+          </FieldError>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>

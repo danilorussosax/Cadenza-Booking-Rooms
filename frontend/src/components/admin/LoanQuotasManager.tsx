@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -497,7 +498,10 @@ function LoanQuotaFormDialog({
                   form.setValue('scopeValue', v, { shouldValidate: true });
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!form.formState.errors.scopeValue}
+                  aria-describedby={form.formState.errors.scopeValue ? 'lq-scope-error' : undefined}
+                >
                   <SelectValue placeholder={t('common.select_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -516,11 +520,10 @@ function LoanQuotaFormDialog({
                     ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.scopeValue && (
-                <p className="text-xs text-destructive">
-                  {tFieldError(form.formState.errors.scopeValue.message)}
-                </p>
-              )}
+              <FieldError id="lq-scope-error">
+                {form.formState.errors.scopeValue &&
+                  tFieldError(form.formState.errors.scopeValue.message)}
+              </FieldError>
             </div>
           )}
 
@@ -553,7 +556,9 @@ function LoanQuotaFormDialog({
             </div>
           </div>
           {form.formState.errors.maxConcurrent?.message === 'cap_required' && (
-            <p className="text-xs text-destructive">{tFieldError('cap_required')}</p>
+            <p role="alert" className="text-xs text-destructive">
+              {tFieldError('cap_required')}
+            </p>
           )}
 
           <div className="flex items-center justify-between rounded-lg border p-3">

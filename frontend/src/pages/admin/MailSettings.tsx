@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -287,8 +288,10 @@ export default function AdminMailSettings() {
                   onChange={(e) => {
                     handlePortChange(Number(e.target.value) || 0);
                   }}
+                  aria-invalid={!!errors.port}
+                  aria-describedby={errors.port ? 'm-port-error' : undefined}
                 />
-                {errors.port && <p className="text-xs text-destructive">{errors.port.message}</p>}
+                <FieldError id="m-port-error">{errors.port?.message}</FieldError>
               </div>
               <div className="space-y-2">
                 <Label className="block">Crittografia</Label>
@@ -382,11 +385,11 @@ export default function AdminMailSettings() {
                   id="m-from-addr"
                   type="email"
                   placeholder="noreply@conservatorio.it"
+                  aria-invalid={!!errors.fromAddress}
+                  aria-describedby={errors.fromAddress ? 'm-from-addr-error' : undefined}
                   {...register('fromAddress')}
                 />
-                {errors.fromAddress && (
-                  <p className="text-xs text-destructive">{errors.fromAddress.message}</p>
-                )}
+                <FieldError id="m-from-addr-error">{errors.fromAddress?.message}</FieldError>
               </div>
             </div>
 
@@ -396,11 +399,11 @@ export default function AdminMailSettings() {
                 id="m-replyto"
                 type="email"
                 placeholder="segreteria@conservatorio.it"
+                aria-invalid={!!errors.replyTo}
+                aria-describedby={errors.replyTo ? 'm-replyto-error' : undefined}
                 {...register('replyTo')}
               />
-              {errors.replyTo && (
-                <p className="text-xs text-destructive">{errors.replyTo.message}</p>
-              )}
+              <FieldError id="m-replyto-error">{errors.replyTo?.message}</FieldError>
             </div>
           </CardContent>
         </Card>

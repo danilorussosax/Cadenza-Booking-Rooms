@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -532,9 +533,16 @@ function NumberField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} type="number" min={0} {...register(name, { valueAsNumber: true })} />
+      <Input
+        id={name}
+        type="number"
+        min={0}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
+        {...register(name, { valueAsNumber: true })}
+      />
       {helper && <p className="text-[11px] text-muted-foreground">{helper}</p>}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      <FieldError id={`${name}-error`}>{error}</FieldError>
     </div>
   );
 }
@@ -553,8 +561,14 @@ function TimeField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} type="time" {...register(name)} />
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      <Input
+        id={name}
+        type="time"
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
+        {...register(name)}
+      />
+      <FieldError id={`${name}-error`}>{error}</FieldError>
     </div>
   );
 }
