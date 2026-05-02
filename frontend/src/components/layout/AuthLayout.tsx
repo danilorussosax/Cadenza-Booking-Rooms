@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +8,11 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { AppFooter } from '@/components/AppFooter';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { ReactNode } from 'react';
+
+interface QuoteEntry {
+  text: string;
+  attribution: string;
+}
 
 interface Props {
   children: ReactNode;
@@ -31,8 +37,24 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
   });
 
   const institute = data?.institute;
-  const finalQuote = quote ?? t('auth.auth_layout.quote');
-  const finalAttribution = attribution ?? t('auth.auth_layout.quote_attribution');
+
+  // Aforismi a rotazione: se i props quote/attribution non sono passati
+  // (caso /login + /register, mentre /complete-profile ne forza i propri),
+  // peschiamo casualmente da `auth.auth_layout.quotes` (i18n array di
+  // {text, attribution}). useMemo con dep [] mantiene la quote stabile per
+  // tutta la durata del mount — rotazione su page-load, non su re-render.
+  const quotes = useMemo(() => {
+    const raw = t('auth.auth_layout.quotes', { returnObjects: true }) as unknown;
+    return Array.isArray(raw) ? (raw as QuoteEntry[]) : [];
+  }, [t]);
+   
+  const pickedQuote = useMemo<QuoteEntry | null>(() => {
+    if (quotes.length === 0) return null;
+    return quotes[Math.floor(Math.random() * quotes.length)] ?? null;
+  }, []);
+
+  const finalQuote = quote ?? pickedQuote?.text ?? '';
+  const finalAttribution = attribution ?? pickedQuote?.attribution ?? '';
 
   return (
     <div className="grid min-h-dvh w-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">

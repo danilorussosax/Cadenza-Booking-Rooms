@@ -208,10 +208,42 @@
     "auth_layout": {
       "tagline": "Studia, prova, esibisciti.",
       "tagline2": "Una sala per ogni nota.",
-      "quote": "Il silenzio è il solido sfondo sul quale si stacca la nota.",
-      "quote_attribution": "Ferruccio Busoni",
       "complete_quote": "Ogni dettaglio è una nota: insieme compongono la tua musica.",
-      "complete_attribution": "Equipe del Conservatorio"
+      "complete_attribution": "Equipe del Conservatorio",
+      "quotes": [
+        {
+          "text": "Senza la musica la vita sarebbe un errore.",
+          "attribution": "Friedrich Nietzsche"
+        },
+        {
+          "text": "La musica esprime ciò che non può essere detto e su cui è impossibile tacere.",
+          "attribution": "Felix Mendelssohn"
+        },
+        {
+          "text": "Inviare luce nelle profondità del cuore umano: ecco il dovere dell'artista.",
+          "attribution": "Robert Schumann"
+        },
+        {
+          "text": "La musica è la lingua degli affetti.",
+          "attribution": "Carl Philipp Emanuel Bach"
+        },
+        {
+          "text": "Per fare musica non basta saper scrivere musica.",
+          "attribution": "Igor Stravinsky"
+        },
+        {
+          "text": "La tradizione è il ricordo dell'ultima cattiva esecuzione.",
+          "attribution": "Arturo Toscanini"
+        },
+        {
+          "text": "Tornate all'antico, e sarà un progresso.",
+          "attribution": "Giuseppe Verdi"
+        },
+        {
+          "text": "Non c'è silenzio. C'è soltanto qualcosa che non sento.",
+          "attribution": "John Cage"
+        }
+      ]
     },
     "twofa": {
       "title": "Verifica in due passaggi",

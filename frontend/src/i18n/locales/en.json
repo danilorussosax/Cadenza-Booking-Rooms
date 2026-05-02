@@ -208,10 +208,42 @@
     "auth_layout": {
       "tagline": "Study, rehearse, perform.",
       "tagline2": "A room for every note.",
-      "quote": "Silence is the solid background against which a note stands out.",
-      "quote_attribution": "Ferruccio Busoni",
       "complete_quote": "Every detail is a note: together they make your music.",
-      "complete_attribution": "Conservatory Team"
+      "complete_attribution": "Conservatory Team",
+      "quotes": [
+        {
+          "text": "Without music, life would be a mistake.",
+          "attribution": "Friedrich Nietzsche"
+        },
+        {
+          "text": "Music expresses that which cannot be said and on which it is impossible to be silent.",
+          "attribution": "Felix Mendelssohn"
+        },
+        {
+          "text": "To send light into the depths of the human heart — that is the artist's duty.",
+          "attribution": "Robert Schumann"
+        },
+        {
+          "text": "Music is the language of the affections.",
+          "attribution": "Carl Philipp Emanuel Bach"
+        },
+        {
+          "text": "To compose music it is not enough to know how to write music.",
+          "attribution": "Igor Stravinsky"
+        },
+        {
+          "text": "Tradition is the memory of the last bad performance.",
+          "attribution": "Arturo Toscanini"
+        },
+        {
+          "text": "Return to the old, and it will be progress.",
+          "attribution": "Giuseppe Verdi"
+        },
+        {
+          "text": "There is no silence. There is only something I do not hear.",
+          "attribution": "John Cage"
+        }
+      ]
     },
     "twofa": {
       "title": "Two-step verification",
