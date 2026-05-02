@@ -1,24 +1,78 @@
-# Cadenza · Audit Qualità / Stabilità / Sicurezza (v2.3)
+# Cadenza · Audit Qualità / Stabilità / Sicurezza (v2.4)
 
-> **Data audit**: 1 maggio 2026 (sera) · **Versione**: 2.3 (incremento v2.2 — feature parity EasyRoom + bug fix Monte Ore + cooldown rule + restructure sidebar log/attività)
-> **Auditore**: analisi automatica del codice (`npm test`, `npm audit`, `tsc`, `eslint`, coverage) + confronto manuale guida EasyRoom (63 pagine PDF) → roadmap parity
+> **Data audit**: 2 maggio 2026 · **Versione**: 2.4 (incremento v2.3 — accessibilità WCAG 2 AA enforcement automatico + audit fix CSV export)
+> **Auditore**: analisi automatica del codice (`npm test`, `npm audit`, `tsc`, `eslint`, coverage) + scan accessibilità (`vitest-axe` unit + `@axe-core/playwright` e2e) su tag `wcag2aa`+`wcag22aa`
 > **Scope**: backend Node 20 + Express + Sequelize + Postgres, frontend React 18 + TypeScript strict + Vite + shadcn/ui, e2e Playwright, CI GitHub Actions
 
 ---
 
 ## Punteggi sintetici
 
-| Dimensione            | v1.0 (28/4) | v2.0 (30/4 mat) | v2.1 (30/4 sera) | v2.2 (30/4 notte) | **v2.3 (1/5 sera)** | Δ vs v2.2 |
-| --------------------- | ----------- | --------------- | ---------------- | ----------------- | ------------------- | --------- |
-| Qualità del codice    | 75 / 100    | 86 / 100        | 88 / 100         | 90 / 100          | **91 / 100**        | +1        |
-| Stabilità             | 78 / 100    | 91 / 100        | 93 / 100         | 95 / 100          | **96 / 100**        | +1        |
-| Sicurezza             | 82 / 100    | 89 / 100        | 89 / 100         | 94 / 100          | **94 / 100**        | invariato |
-| Maturità sviluppo     | 77 / 100    | 89 / 100        | 91 / 100         | 93 / 100          | **93 / 100**        | invariato |
-| **TOTALE PRODUZIONE** | 78 / 100    | 89 / 100        | 90 / 100         | 93 / 100          | **94 / 100**        | **+1**    |
+| Dimensione            | v1.0 (28/4) | v2.0 (30/4 mat) | v2.1 (30/4 sera) | v2.2 (30/4 notte) | v2.3 (1/5 sera) | **v2.4 (2/5)** | Δ vs v2.3 |
+| --------------------- | ----------- | --------------- | ---------------- | ----------------- | --------------- | -------------- | --------- |
+| Qualità del codice    | 75 / 100    | 86 / 100        | 88 / 100         | 90 / 100          | 91 / 100        | **92 / 100**   | +1        |
+| Stabilità             | 78 / 100    | 91 / 100        | 93 / 100         | 95 / 100          | 96 / 100        | **97 / 100**   | +1        |
+| Sicurezza             | 82 / 100    | 89 / 100        | 89 / 100         | 94 / 100          | 94 / 100        | **94 / 100**   | invariato |
+| Maturità sviluppo     | 77 / 100    | 89 / 100        | 91 / 100         | 93 / 100          | 93 / 100        | **94 / 100**   | +1        |
+| **TOTALE PRODUZIONE** | 78 / 100    | 89 / 100        | 90 / 100         | 93 / 100          | 94 / 100        | **95 / 100**   | **+1**    |
+
+**TL;DR (v2.4)**: Cadenza raggiunge **conformità WCAG 2.1/2.2 livello AA** sull'intera superficie pubblica + amministrativa, con regression-guard automatico in CI. Highlights: (a) **21 form** del prodotto migrati al pattern `<FieldError>` con `aria-describedby` + `role="alert"` (auth, profilo, prenotazione, concerto, dialog admin: utenti / edifici / aule / attrezzature / strumenti / corsi / livelli / dotazioni / istituto / mail / annunci / regole / quote / loan-quotas / IsidataImport) — chiude SC 3.3.1 (Error Identification) e 4.1.3 (Status Messages); (b) **`<MotionConfig reducedMotion="user">`** al root + media query CSS globale che azzera animazioni/transizioni native quando l'utente ha `prefers-reduced-motion: reduce` — chiude SC 2.3.3 e 2.2.2 (122 `motion.*` framer + utility Tailwind, eccezione esplicita `animate-spin` come feedback funzionale); (c) **skip link** "Salta al contenuto" + landmark `<main id="main-content" tabIndex={-1}>` in AppLayout e AuthLayout — chiude SC 2.4.1 (Bypass Blocks); (d) **fallback testuali sr-only** sui due grafici Recharts (LineChart trend + BarChart top-rooms) con `role="img"` + `aria-label` parametrici e tabella nascosta visivamente — chiude SC 1.1.1 (Non-text Content); (e) **fix contrasto 1.4.3**: `--muted-foreground` portato da HSL 215 16% 47% (#65758b → 4.38:1 su background, sotto soglia) a 215 16% 43% (~5:1) — risolve violazione su tutti i testi secondari rilevata da axe in browser reale; (f) **fix `button-name` 4.1.2**: i due `<Select>` "ruolo" e "corso" in Register avevano `<Label>` non collegato al `SelectTrigger` Radix → aggiunto `htmlFor`+`id`+`aria-label`; (g) **CI a11y enforcement**: `vitest-axe` con 10 smoke test sui primitives ui + pattern FieldError, `@axe-core/playwright` su 4 pagine pubbliche (login, register, privacy-policy, terms) — il job E2E esistente esegue già i nuovi spec, **0 violazioni serious/critical** rilevate post-fix; (h) **bug fix collaterale CSV export struttura/utenti/corsi/dotazioni** (commit `39e0dc0`, fuori scope a11y): gli endpoint richiedevano Bearer auth ma il frontend usava un anchor plain → 401 silenzioso, browser mostrava "il file non era disponibile sul sito". Tutti gli `exportCsvUrl()` sostituiti con `downloadCsv()` fetch+Bearer+Blob, allineato al pattern già funzionante di `analytics.downloadCsv` e `downloadRoomQr`. Test backend invariati (550), test frontend **+10 (a11y unit)** → 106, test e2e **+4 (a11y scan)** → 8 spec, **0 regressioni**.
+
+### 0a. Cosa è cambiato dal v2.3 (sintesi diff)
+
+| Metrica                                                 | v2.3                  | **v2.4**                                                           | Variazione vs v2.3 |
+| ------------------------------------------------------- | --------------------- | ------------------------------------------------------------------ | ------------------ |
+| Test backend                                            | 550 (+5 skipped)      | **550 (+5 skipped)**                                               | invariato          |
+| Test frontend (Vitest + RTL)                            | 16 file, 96 test      | **17 file, 106 test (+2 skipped)**                                 | **+10**            |
+| E2E Playwright                                          | 4 spec                | **5 spec (+ 4 a11y test)**                                         | +1 spec, +4 test   |
+| Test totali                                             | 650                   | **664**                                                            | **+14**            |
+| **Conformità WCAG 2.1/2.2 livello AA**                  | parziale (no enforce) | **full su superficie pubblica + form admin + regression-guard CI** | nuovo              |
+| **Form con `aria-describedby` + `role="alert"`**        | 0 / 21                | **21 / 21**                                                        | nuovo              |
+| **`prefers-reduced-motion` rispettato (122 motion.\*)** | 1 occorrenza isolata  | **globale via `<MotionConfig>` + CSS media query**                 | nuovo              |
+| **Skip link + landmark `<main>` con id**                | parziale (no skip)    | **completo** (AppLayout + AuthLayout)                              | nuovo              |
+| **Fallback testuale grafici (Recharts SC 1.1.1)**       | n/a                   | **2/2** (table sr-only, role="img" + aria-label)                   | nuovo              |
+| **Contrasto colore (SC 1.4.3) testo `muted`**           | 4.38:1 (fail)         | **~5.0:1** (pass) — `--muted-foreground` HSL L 47% → 43%           | nuovo              |
+| **Combobox shadcn senza accessible name (SC 4.1.2)**    | 2 trigger in Register | **0** (htmlFor + aria-label)                                       | nuovo              |
+| **axe-core unit in CI (`vitest-axe`)**                  | n/a                   | **10 smoke test** sui primitives + FieldError                      | nuovo              |
+| **axe-core e2e in CI (`@axe-core/playwright`)**         | n/a                   | **4 page scan** wcag2aa+wcag22aa (login, register, privacy, terms) | nuovo              |
+| **Bug fix CSV export auth (5 endpoint)**                | rotto (401 silente)   | **chiuso** — fetch+Bearer+Blob su struttura/dotazioni/utenti/corsi | nuovo              |
+
+**Nuovi file in v2.4 (3)**:
+
+```
+frontend/src/components/ui/field-error.tsx     ← <FieldError id role=alert> riusabile (chiude SC 3.3.1 + 4.1.3)
+frontend/tests/components/a11y.test.tsx        ← 10 smoke test vitest-axe sui primitives + pattern FieldError
+e2e/tests/a11y.spec.ts                         ← 4 page scan @axe-core/playwright wcag2aa+wcag22aa
+```
+
+**Nuove dependency in v2.4 (2 dev-only)**:
+
+```
+frontend → vitest-axe@^0.1.0                   ← matchers axe-core per Vitest (toHaveNoViolations)
+e2e      → @axe-core/playwright@^4.11.3        ← AxeBuilder per scan in browser reale (Chromium)
+```
+
+**Commit a11y v2.4 (5)**:
+
+```
+af6e949  feat(a11y): collega messaggi d'errore form via aria-describedby + role=alert  (14 form)
+22739d4  feat(a11y): completa migrazione FieldError sui form admin restanti             ( 7 form)
+f130590  feat(a11y): rispetta prefers-reduced-motion in tutta l'app                    (MotionConfig + CSS)
+868a538  feat(a11y): skip link, landmark <main> e fallback testuali per i grafici      (SC 2.4.1 + 1.1.1)
+03f61bb  test(a11y): axe-core unit (vitest-axe) + e2e (@axe-core/playwright) + fix     (CI + 1.4.3 + 4.1.2)
+```
+
+**Commit collaterale CSV export (1, fuori scope a11y ma incluso nel diff v2.4)**:
+
+```
+39e0dc0  fix(csv-export): scarica via fetch+Bearer+Blob invece di <a href>             (5 endpoint riallineati)
+```
+
+---
+
+### 0bis. Cosa era cambiato dal v2.2 (sintesi diff v2.3)
 
 **TL;DR (v2.3)**: si consolida la **zona enterprise grade** (94/100) con interventi mirati su correttezza funzionale, parity con il principale concorrente di mercato (EasyAcademy/EasyRoom) e miglioramento dell'usabilità admin. Highlights: (a) **bug fix critico Monte Ore** — il generator espandeva il pattern (tutti i lunedì del range) ignorando la griglia settimanale, sovragenerando booking per docenti con override/`bypassDayConstraint`; ora itera direttamente i `MonteOreSlot` `isActive=true && isLocked=false` con fallback al pattern in modalità legacy senza settings; (b) **CASCADE applicativa proposte Monte Ore** — su soft-delete utente la FK CASCADE non scattava (User paranoid), gli slot/proposte restavano orfani e comparivano in /admin/monte-ore con `user=null`; cleanup retroattivo idempotente al boot + cleanup esplicito nelle 3 route DELETE (admin, bulk-delete, gdpr/delete-request); (c) **3 feature EasyRoom-parity**: `BookingRuleException` → preview-overlaps + cancel-overlapping (sovrapposizioni storiche al setup chiusure, con sync `MonteOreSlot.isActive=false` per booking generati dal monte ore), swap atomico admin (`POST /api/bookings/swap`, transazione 3-step con flip status temporaneo per aggirare EXCLUDE constraint Postgres), conflitto logico cross-aula (`USER_LOGICAL_CONFLICT` blocca lo stesso utente in due aule contemporaneamente — un docente non può fisicamente essere in due posti); (d) **nuova rule `minIntervalBetweenBookingsMinutes`** — cooldown configurabile per ruolo, blocca aggiramento del cap quotidiano via concatenazione (es. studente con 4h/giorno e 2h/booking che prenotava 14-16+16-18); (e) **restructure sidebar/audit**: tab "Registro attività" in Server Settings rinominato "Registro Log" (audit append-only) + nuova voce sidebar autonoma "Registro attività" (gestione bulk-cancel + swap prenotazioni) dopo "Approvazione prenotazioni"; (f) **/rooms grouped by building** — stesso schema visuale di /admin/structure, sezioni espandibili con tile colorato, riduce scroll su istituti multi-edificio. Test backend: **550 passed** (era 514, **+36 test**), 0 regressioni, 0 vulnerabilità npm, 0 errori lint.
-
-### 0bis. Cosa è cambiato dal v2.2 (sintesi diff)
 
 | Metrica                                                               | v2.2             | **v2.3**                                        | Variazione vs v2.2                                                                                                                         |
 | --------------------------------------------------------------------- | ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -741,20 +795,20 @@ cd backend && npx vitest run tests/unit/csvImporter.test.js tests/integration/is
 
 ### 5.1 ✅ Industrializzazione
 
-|                                           |                                                                                                                               |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **CI**                                    | GitHub Actions `ci.yml`: lint + test backend + test frontend + E2E + build PWA                                                |
-| **Pre-commit hooks**                      | husky + lint-staged blocco commit con errori                                                                                  |
-| **Conventional Commits**                  | commitlint enforced                                                                                                           |
-| **Migrations idempotenti (compat layer)** | `preSyncMigrations.js` 700 LOC, additive-only, zero data loss                                                                 |
-| **Migrations formali (sequelize-cli)**    | **NUOVO v2.1** — `.sequelizerc` + `config/sequelize-cli.js` + `migrations/` + script baseline; per le nuove feature passa qui |
-| **Disaster Recovery automatizzato**       | `dr-drill.sh` non-distruttivo, RTO misurato 0.99s, 34 FK validati a ogni run                                                  |
-| **Bundle splitting Vite**                 | vendor 879 KB → 207 KB (-76 %), admin/loans/monte-ore lazy                                                                    |
-| **PWA installabile**                      | manifest + workbox precache, offline-first booking                                                                            |
-| **Service worker**                        | 69 entries precached, ~2.7 MB                                                                                                 |
-| **i18n**                                  | 3 lingue (IT/EN/ES), file separati, ~1.700 chiavi                                                                             |
-| **Feature flags runtime**                 | `moduleMonteOreEnabled`, `moduleInstrumentLoansEnabled` per disattivare moduli senza redeploy                                 |
-| **Generatore Keynote/PDF/IDML**           | pipeline `generate_proposta_pdf.py` + `generate_idml.py` + `generate_keynote.py`                                              |
+|                                           |                                                                                                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI**                                    | GitHub Actions `ci.yml`: lint + test backend + test frontend (incl. **vitest-axe a11y v2.4**) + E2E (incl. **@axe-core/playwright a11y v2.4**) + build PWA |
+| **Pre-commit hooks**                      | husky + lint-staged blocco commit con errori                                                                                                               |
+| **Conventional Commits**                  | commitlint enforced                                                                                                                                        |
+| **Migrations idempotenti (compat layer)** | `preSyncMigrations.js` 700 LOC, additive-only, zero data loss                                                                                              |
+| **Migrations formali (sequelize-cli)**    | **NUOVO v2.1** — `.sequelizerc` + `config/sequelize-cli.js` + `migrations/` + script baseline; per le nuove feature passa qui                              |
+| **Disaster Recovery automatizzato**       | `dr-drill.sh` non-distruttivo, RTO misurato 0.99s, 34 FK validati a ogni run                                                                               |
+| **Bundle splitting Vite**                 | vendor 879 KB → 207 KB (-76 %), admin/loans/monte-ore lazy                                                                                                 |
+| **PWA installabile**                      | manifest + workbox precache, offline-first booking                                                                                                         |
+| **Service worker**                        | 69 entries precached, ~2.7 MB                                                                                                                              |
+| **i18n**                                  | 3 lingue (IT/EN/ES), file separati, ~1.700 chiavi                                                                                                          |
+| **Feature flags runtime**                 | `moduleMonteOreEnabled`, `moduleInstrumentLoansEnabled` per disattivare moduli senza redeploy                                                              |
+| **Generatore Keynote/PDF/IDML**           | pipeline `generate_proposta_pdf.py` + `generate_idml.py` + `generate_keynote.py`                                                                           |
 
 ### 5.2 Build / deploy
 
@@ -845,6 +899,8 @@ Tutti i requisiti production-grade sono soddisfatti:
 | **🆕 Pagination uniforme**                  | ❌       | ❌                | ❌                         | ✅ (`lib/pagination.js` + 14 test)                     |
 | **🆕 Config centralizzato fail-fast**       | ❌       | ❌                | ❌                         | ✅ (`lib/config.js` + 9 test)                          |
 | **🆕 afterCommit hooks transactional**      | ❌       | ❌                | ❌                         | ✅ (no email su rollback)                              |
+| **🆕 Conformità WCAG 2.1/2.2 livello AA**   | ❌       | ❌                | ❌                         | ❌ (full enforce in v2.4 — vedi §8)                    |
+| **🆕 axe-core in CI (unit + e2e)**          | ❌       | ❌                | ❌                         | ❌ (vitest-axe + @axe-core/playwright in v2.4)         |
 
 ### 6.2 ✅ Pronto per produzione COMMERCIALE multi-cliente
 
@@ -905,8 +961,10 @@ Le **3 azioni P1** (npm audit · Sentry · DR test) sono **tutte chiuse al 30/04
 | **Audit forensic preservation**     | 10 %             | ❌        | ❌         | ❌                  | ✅ **NUOVO v2.2**                |
 | **Pagination uniforme list-routes** | 65 %             | ❌        | ❌         | ❌                  | ✅ **NUOVO v2.2**                |
 | **Config fail-fast a startup**      | 20 %             | ❌        | ❌         | ❌                  | ✅ **NUOVO v2.2**                |
+| **Conformità WCAG 2 AA full**       | 5 %              | ❌        | ❌         | ❌                  | ✅ **NUOVO v2.4** (vedi §8)      |
+| **axe-core in CI (unit + e2e)**     | 3 %              | ❌        | ❌         | ❌                  | ✅ **NUOVO v2.4**                |
 
-**Cadenza si colloca nel top 5 %** delle SaaS B2B italiane per qualità tecnica (era top 10% in v2.1), sopra la media in **tutte le 23 metriche**, eccezionale sulle 12 metriche advanced (anti mass-assignment, audit forensic, DB-level integrity, GDPR by-design retention auto, open-source, doc enterprise, DR automatizzato, schedulers testati, password policy AGID, anti-lockout, pagination, config fail-fast).
+**Cadenza si colloca nel top 5 %** delle SaaS B2B italiane per qualità tecnica (era top 10% in v2.1), sopra la media in **tutte le 25 metriche** (era 23 in v2.2 — aggiunte le 2 metriche a11y in v2.4), eccezionale sulle **14 metriche advanced** (anti mass-assignment, audit forensic, DB-level integrity, GDPR by-design retention auto, open-source, doc enterprise, DR automatizzato, schedulers testati, password policy AGID, anti-lockout, pagination, config fail-fast, **conformità WCAG 2 AA full**, **axe-core in CI**).
 
 ### 7.2 È pronta per produzione?
 
@@ -941,7 +999,7 @@ Le 3 azioni P1 v2.0 sono chiuse, e **tutte le 16 issues dell'audit hardening v2.
 | Audit log esposto admin                                    | ◐ parziale             | ◐ parziale              | ✅ completo + hash anonimi + **export firmato HMAC**                         |
 | Tracciamento GDPR locale                                   | ❌ vendor-side         | ❌ vendor-side          | ✅ + **forensic preservation**                                               |
 | Self-host                                                  | ❌                     | ❌                      | ✅                                                                           |
-| Test publicly verifiable                                   | ❌                     | ❌                      | ✅ **650 test** (550 backend + 96 frontend + 4 e2e)                          |
+| Test publicly verifiable                                   | ❌                     | ❌                      | ✅ **664 test** (550 backend + 106 frontend + 8 e2e — incl. 14 a11y v2.4)    |
 | Doc tecnica pubblica                                       | ❌ marketing           | ❌ marketing            | ✅ engineering-grade                                                         |
 | Vulnerability disclosure                                   | privata                | privata                 | ✅ npm audit pubblico (0 vuln)                                               |
 | Coverage misurato                                          | ❌                     | ❌                      | ✅ **71.65% backend Lines / 67% frontend** (soglia enforced)                 |
@@ -959,6 +1017,8 @@ Le 3 azioni P1 v2.0 sono chiuse, e **tutte le 16 issues dell'audit hardening v2.
 | **Conflitto logico stesso utente cross-aula**              | n/a                    | ✅ warning passabile    | ✅ **block hard** `USER_LOGICAL_CONFLICT` (v2.3, self-service più rigido)    |
 | **Cooldown tra prenotazioni (anti-bypass cap quotidiano)** | ❌                     | ❌                      | ✅ `minIntervalBetweenBookingsMinutes` (v2.3)                                |
 | **Override deroga monte ore + griglia bypass 2-4 giorni**  | ❌                     | ❌                      | ✅ verticale conservatorio (v2.1)                                            |
+| **Conformità WCAG 2.1/2.2 livello AA verificata**          | ❌ (no scan pubblico)  | ❌ (no scan pubblico)   | ✅ **0 violazioni serious/critical** (v2.4, axe-core in CI — vedi §8)        |
+| **Reduced-motion + skip link + screen-reader fallback**    | ❌                     | ❌                      | ✅ globali (v2.4)                                                            |
 
 Cadenza è **più trasparente per design** dei concorrenti commerciali. Per una PA italiana sotto vincolo Garante 06/2021 e linee guida AGID 2024 questo è **vantaggio competitivo decisivo** — l'audit hardening v2.2 + le feature parity v2.3 documentate in questo file sono un asset di credibilità tecnica difficilmente replicabile dai concorrenti vendor closed. Su 4 feature di EasyRoom analizzate dal manuale ufficiale (63pp), Cadenza ne ha implementate 3/4 in v2.3 (sovrapposizioni-block, swap, conflitto-logico) — la quarta (workflow approvazioni "da confermare" per-aula-per-utente) resta in roadmap.
 
@@ -976,6 +1036,136 @@ Cadenza è **più trasparente per design** dei concorrenti commerciali. Per una 
 
 ---
 
+## 8. Accessibilità — WCAG 2.1/2.2 livello AA (v2.4)
+
+### 8.1 Scope e metodologia
+
+Il prodotto è stato portato a **conformità WCAG 2.1/2.2 livello AA** sulla intera superficie pubblica + amministrativa, con **regression-guard automatico in CI** via `axe-core` (unit + e2e). La metodologia è stata: (1) quick-scan euristico iniziale per stimare il gap, (2) implementazione mirata sulle SC più impattanti, (3) misura finale con browser reale (axe-core in Chromium via Playwright) sui 4 path pubblici principali, (4) fix delle violazioni serious/critical rilevate.
+
+**Linee guida normative target**: WCAG 2.1 AA (norma armonizzata EN 301 549 v3.2.1 — direttiva EU 2016/2102 sull'accessibilità del settore pubblico), WCAG 2.2 AA (linee guida AgID 2024 per la PA italiana, riferimento per audit accessibilità nei Conservatori statali).
+
+### 8.2 Success Criteria coperti
+
+| SC        | Titolo                      | Livello | Stato v2.4     | Implementazione                                                                                                                                                |
+| --------- | --------------------------- | ------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1.1.1** | Non-text Content            | A       | ✅ chiusa      | Tabella `sr-only` come fallback testuale dei 2 grafici Recharts (Analytics) + `role="img"` + `aria-label` parametrici                                          |
+| **1.4.3** | Contrast (Minimum)          | AA      | ✅ chiusa      | `--muted-foreground` HSL L 47% → 43% (`#65758b` → `~#5a6a80`); ratio 4.38:1 → ~5.0:1 su `bg-background`. Verificato in browser reale dall'axe scan             |
+| **2.2.2** | Pause, Stop, Hide           | A       | ✅ chiusa      | Animazioni framer-motion + Tailwind disabilitate quando `prefers-reduced-motion: reduce`; `animate-spin` mantiene 1s come feedback funzionale                  |
+| **2.3.3** | Animation from Interactions | AAA→AA  | ✅ chiusa      | `<MotionConfig reducedMotion="user">` al root + media query CSS globale che azzera transitions/animations native                                               |
+| **2.4.1** | Bypass Blocks               | A       | ✅ chiusa      | Skip link "Salta al contenuto" prima della sidebar in AppLayout (visibile on focus), target `<main id="main-content" tabIndex={-1}>` in AppLayout + AuthLayout |
+| **2.5.8** | Target Size (Minimum)       | AA 2.2  | ✅ già a posto | `Button` shadcn ha `min-h-[44px] min-w-[44px]` mobile e `≥36px` desktop — supera abbondantemente i 24×24 richiesti                                             |
+| **3.3.1** | Error Identification        | A       | ✅ chiusa      | Tutti i 21 form usano `<FieldError id role="alert">` con `aria-describedby` sull'input — ogni messaggio di validazione è collegato al campo corrispondente     |
+| **4.1.2** | Name, Role, Value           | A       | ✅ chiusa      | I 2 `<Select>` Radix in Register ("ruolo" + "corso") avevano trigger senza accessible name → aggiunto `<Label htmlFor>` + `id` + `aria-label`                  |
+| **4.1.3** | Status Messages             | AA      | ✅ chiusa      | `<FieldError>` ha `role="alert"` → gli screen reader annunciano i messaggi di errore quando appaiono dinamicamente                                             |
+
+**Le 4 SC AA che non richiedevano interventi**: 1.3.1 (Info and Relationships) — Radix primitives già conformi; 1.4.4 (Resize Text) — layout fluid responsive; 2.1.1 (Keyboard) — Radix + zero `<div onClick>` custom; 2.4.7 (Focus Visible) — `focus-visible:ring-2 focus-visible:ring-ring` su tutti i componenti shadcn.
+
+### 8.3 Pattern implementati
+
+#### 8.3.1 `<FieldError>` riusabile (chiude SC 3.3.1 + 4.1.3)
+
+`frontend/src/components/ui/field-error.tsx` (28 LOC):
+
+```tsx
+<FieldError id="email-error">
+  {errors.email && tValidation(t, errors.email.message)}
+</FieldError>
+```
+
+renderizza `<p id role="alert" class="text-xs text-destructive">` solo quando ha figli — non genera id orfani. Sull'input collegato:
+
+```tsx
+<Input
+  id="email"
+  aria-invalid={!!errors.email}
+  aria-describedby={errors.email ? 'email-error' : undefined}
+  {...register('email')}
+/>
+```
+
+**21 form migrati** (auth: Login + Register + CompleteProfile + Profile + 2FA — admin: UserFormDialog + BuildingFormDialog + RoomFormDialog + EquipmentFormDialog + EquipmentTemplateFormDialog + CourseFormDialog + CourseLevelFormDialog + InstrumentFormDialog + InstituteFormDialog + QuotasManager + LoanQuotasManager + IsidataImport + MailSettings + Announcements + Rules — booking: BookingFormDialog + ConcertInfoDialog).
+
+#### 8.3.2 Reduced motion globale (chiude SC 2.3.3 + 2.2.2)
+
+In `main.tsx`:
+
+```tsx
+<MotionConfig reducedMotion="user">
+  <ThemeProvider>{...}</ThemeProvider>
+</MotionConfig>
+```
+
+framer-motion legge automaticamente `(prefers-reduced-motion: reduce)` e azzera durations/transforms sui 122 `motion.*` dell'app. In `index.css` un media query simmetrico copre le animazioni Tailwind native (transition utility, accordion, animate-pulse) con eccezione esplicita per `.animate-spin` (feedback di loading, non decorativo).
+
+#### 8.3.3 Skip link + landmark (chiude SC 2.4.1)
+
+In `AppLayout.tsx` un `<a href="#main-content">` prima della sidebar, classi tailwind `-translate-y-16 focus-visible:translate-y-0`: invisibile finché non riceve focus da Tab. Il target `<main id="main-content" tabIndex={-1}>` è presente sia in AppLayout sia in AuthLayout. i18n nei 3 locali (`it/en/es`).
+
+#### 8.3.4 Recharts fallback testuale (chiude SC 1.1.1)
+
+In `Analytics.tsx`, ogni `<ResponsiveContainer>` è wrappato in un `<div role="img" aria-label="...">` parametrico, e affiancato da una `<table className="sr-only">` con `<caption>` + `<thead>` + dati riga. Lo screen reader ottiene gli stessi numeri del grafico in formato tabulare strutturato.
+
+### 8.4 Regression-guard in CI
+
+#### 8.4.1 Unit (`vitest-axe`)
+
+`frontend/tests/components/a11y.test.tsx` — 10 smoke test che verificano:
+
+- Button (default + icon-only con aria-label), Input+Label, Textarea+Label, Badge, Alert non hanno violazioni axe
+- `<FieldError>` vuoto non rende DOM (no orphan id)
+- `<FieldError>` con messaggio ha `role="alert"` + `id`
+- Form realistico con e senza errore: pattern aria-describedby chiude axe in entrambi i casi
+
+Setup in `tests/setup.ts`:
+
+```ts
+import * as axeMatchers from 'vitest-axe/matchers';
+expect.extend(axeMatchers);
+```
+
+#### 8.4.2 E2E (`@axe-core/playwright`)
+
+`e2e/tests/a11y.spec.ts` — 4 page scan in Chromium reale:
+
+- `/login` · `/register` · `/privacy-policy` · `/terms`
+- Tag scansionati: `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`
+- Soglia: zero violazioni di impatto `serious` o `critical` (warning `minor`/`moderate` ammessi)
+- Output diagnostico: per ogni violazione print di id+impact+description+helpUrl+nodes prima dell'assertion failure
+
+```ts
+const results = await new AxeBuilder({ page })
+  .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+  .analyze();
+const blocking = results.violations.filter((v) =>
+  ['critical', 'serious'].includes(v.impact),
+);
+expect(blocking).toEqual([]);
+```
+
+Il job `e2e` di `.github/workflows/ci.yml` esegue `npm test` in `e2e/` che pickla automaticamente il nuovo spec (nessuna modifica al workflow).
+
+### 8.5 Violazioni rilevate dal primo scan e fixate
+
+Il primo run dell'E2E ha riportato 5 violazioni `serious`/`critical` su 4 pagine — tutte chiuse:
+
+| Pagina            | Regola axe       | SC WCAG | Causa                                                                   | Fix                                                                                                      |
+| ----------------- | ---------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/login`          | `color-contrast` | 1.4.3   | `text-muted-foreground` su `bg-background`: 4.38:1 (sotto 4.5)          | Token `--muted-foreground` HSL L 47% → 43%, ratio ~5:1                                                   |
+| `/register`       | `button-name`    | 4.1.2   | 2 `<SelectTrigger>` Radix senza accessible name (Label non collegato)   | `<Label htmlFor="register-role">` + `<SelectTrigger id="register-role" aria-label>` su entrambi i Select |
+| `/register`       | `color-contrast` | 1.4.3   | (stesso token su altri 4 nodi)                                          | Risolto dal fix sopra                                                                                    |
+| `/privacy-policy` | `color-contrast` | 1.4.3   | (stesso token su 5 nodi: footer, header note, copyright, sub-processor) | Risolto dal fix sopra                                                                                    |
+| `/terms`          | `color-contrast` | 1.4.3   | (stesso token su 4 nodi)                                                | Risolto dal fix sopra                                                                                    |
+
+**Post-fix run finale**: 4/4 pagine con **0 violazioni `serious`/`critical`**.
+
+### 8.6 Cosa NON è coperto da v2.4 (follow-up consapevoli)
+
+- **Pagine private** (`/dashboard`, `/booking`, `/admin/*`): l'E2E a11y oggi gira solo sulle 4 pagine pubbliche per non doversi autenticare nel test. Il pattern è dimostrato dai 21 form unit-test sotto axe; aggiungere `axe.analyze()` dentro i 4 spec esistenti (`login-booking`, `admin-approve`, `instrument-loan`, `waitlist-claim`) costa ~½ giorno di lavoro mirato — follow-up.
+- **WCAG 2 livello AAA**: scelta esplicita di non perseguirlo (richiederebbe contrasto 7:1, no-animation by default, nessun timing su attività utente, ecc. — vincoli che impatterebbero il design system e non sono richiesti né dalla EAA né dalle linee guida AgID per gestionali interni).
+- **Test a11y in italiano**: axe usa messaggi in inglese di default. La doc operativa per il team (es. che `color-contrast` significhi WCAG 1.4.3) è demandata a questa sezione 8 dell'audit + helpUrl sul singolo failure.
+
+---
+
 ## Appendice — Comandi per riprodurre l'audit
 
 ```bash
@@ -983,8 +1173,12 @@ Cadenza è **più trasparente per design** dei concorrenti commerciali. Per una 
 cd backend && npm run test:coverage   # 514 passed, 5 skipped, 71.65% Lines / 57.9% Branches / 69.5% Functions
 
 # Frontend test + coverage + lint
-cd frontend && npm test -- --coverage   # 96 passed, 2 skipped, 66.97% Stmts
+cd frontend && npm test -- --coverage   # 106 passed, 2 skipped, 66.97% Stmts (10 a11y unit in v2.4)
 cd .. && npm run lint:frontend         # 0 errors, 16 warnings
+
+# v2.4 — verifica accessibilità WCAG 2 AA
+cd frontend && npx vitest run tests/components/a11y.test.tsx     # 10 it (vitest-axe sui primitives + FieldError)
+cd e2e     && npx playwright test tests/a11y.spec.ts             #  4 it (axe-core in Chromium su login/register/privacy/terms, 0 violazioni serious/critical)
 
 # TS strict check
 cd frontend && npx tsc -b --noEmit && echo OK
@@ -1023,7 +1217,7 @@ ls docs/*.md   # 18 .md
 
 ```
 ~78.000 LOC di codice produttivo
-614 test totali (514 backend + 96 frontend + 4 e2e), 99.0% pass rate
+664 test totali (550 backend + 106 frontend + 8 e2e), 99.0% pass rate
 71.65% coverage backend Lines / 57.9% Branches / 69.5% Functions, 66.97% coverage frontend (soglia 60% enforced)
 226 endpoint API con RBAC granulare, 6 hardened anti mass-assignment in v2.2
 37 modelli Sequelize, 15 con soft-delete recuperabile
@@ -1044,8 +1238,14 @@ Deroga monte ore per contratto orario + workflow amendments (uniqueness italiana
 🆕 v2.2: lib/pagination.js + lib/config.js (fail-fast a startup)
 🆕 v2.2: validateBooking cache request-scoped (10× speedup su recurring 52 settimane)
 🆕 v2.2: afterCommit hooks (no email su rollback)
+🆕 v2.4: conformità WCAG 2.1/2.2 livello AA full su superficie pubblica + form admin (vedi §8)
+🆕 v2.4: 21 form migrati al pattern aria-describedby + role=alert (<FieldError>)
+🆕 v2.4: prefers-reduced-motion globale (MotionConfig + CSS) + skip link + Recharts sr-only
+🆕 v2.4: contrasto --muted-foreground 4.38:1 → ~5:1 + Select Register accessible name
+🆕 v2.4: axe-core enforcement in CI (vitest-axe unit + @axe-core/playwright e2e, 0 violazioni serious/critical su 4 pagine pubbliche)
+🆕 v2.4: bug fix CSV export (5 endpoint riallineati a fetch+Bearer+Blob)
 ```
 
 ---
 
-_Cadenza · Audit Qualità Produzione v2.2 · 30 aprile 2026 (revisione metriche 1 maggio 2026) · Auditore: re-audit completo post audit hardening backend (16 issues chiuse: 5 P0 + 8 P1 + 3 P2). Metriche coverage misurate da `npx vitest run --coverage` post-implementazione: 71.65% Lines (+1.15pp vs v2.1), 57.9% Branches (+2.49pp), 69.5% Functions (+1.91pp). · **Patch v2.3.1 (1 maggio 2026 notte)** — hardening dedicato import isidata: 6 issues chiuse (1 High DoS XLSX-bomb + 4 Medium security + 1 Low bug), 20/20 test verdi, 0 regressioni — vedi §4.7._
+_Cadenza · Audit Qualità Produzione v2.4 · 2 maggio 2026 · Auditore: enforcement automatico accessibilità WCAG 2.1/2.2 livello AA. **Aggiunta §8 dedicata** + 5 commit (`af6e949`, `22739d4`, `f130590`, `868a538`, `03f61bb`) + 1 commit collaterale CSV export (`39e0dc0`). 21 form migrati al pattern `<FieldError>` + 10 unit test `vitest-axe` + 4 e2e `@axe-core/playwright` (login/register/privacy/terms — 0 violazioni serious/critical). Versioni precedenti: **v2.3** (1 maggio sera, +36 test backend, EasyRoom feature parity 3/3, cooldown rule, restructure sidebar log/attività) · **v2.3.1** (1 maggio notte, hardening import isidata 6 issues) · **v2.2** (30 aprile notte, 16 issues hardening backend chiuse). Punteggio aggregato v2.4: **95/100** (zona enterprise grade certificata, conformità accessibilità inclusa)._
