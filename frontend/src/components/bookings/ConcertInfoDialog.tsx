@@ -11,6 +11,7 @@ import { httpErrorMessage, HttpError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -168,11 +169,13 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
               id="c-title"
               placeholder={t('concert.field.title_placeholder')}
               maxLength={255}
+              aria-invalid={!!errors.title}
+              aria-describedby={errors.title ? 'c-title-error' : undefined}
               {...register('title')}
             />
-            {errors.title && (
-              <p className="text-xs text-destructive">{tFieldError(errors.title.message)}</p>
-            )}
+            <FieldError id="c-title-error">
+              {errors.title && tFieldError(errors.title.message)}
+            </FieldError>
           </div>
 
           <div className="space-y-2">

@@ -10,6 +10,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -122,8 +123,14 @@ export function EquipmentTemplateFormDialog({ open, onOpenChange, template }: Pr
           )}
           <div className="space-y-2">
             <Label htmlFor="t-name">Nome</Label>
-            <Input id="t-name" placeholder="Pianoforte verticale" {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            <Input
+              id="t-name"
+              placeholder="Pianoforte verticale"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 't-name-error' : undefined}
+              {...register('name')}
+            />
+            <FieldError id="t-name-error">{errors.name?.message}</FieldError>
           </div>
           <div className="space-y-2">
             <Label>Tipologia (opzionale)</Label>

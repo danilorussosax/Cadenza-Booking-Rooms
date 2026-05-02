@@ -11,6 +11,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -145,13 +146,25 @@ export function CourseFormDialog({ open, onOpenChange, course }: Props) {
           <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
             <div className="space-y-2">
               <Label htmlFor="code">Codice</Label>
-              <Input id="code" placeholder="DCPL34" {...register('code')} />
-              {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
+              <Input
+                id="code"
+                placeholder="DCPL34"
+                aria-invalid={!!errors.code}
+                aria-describedby={errors.code ? 'code-error' : undefined}
+                {...register('code')}
+              />
+              <FieldError id="code-error">{errors.code?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Denominazione</Label>
-              <Input id="name" placeholder="Pianoforte" {...register('name')} />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              <Input
+                id="name"
+                placeholder="Pianoforte"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'name-error' : undefined}
+                {...register('name')}
+              />
+              <FieldError id="name-error">{errors.name?.message}</FieldError>
             </div>
           </div>
 

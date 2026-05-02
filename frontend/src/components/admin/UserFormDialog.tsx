@@ -12,6 +12,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -241,24 +242,40 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">Nome</Label>
-              <Input id="firstName" {...register('firstName')} />
-              {errors.firstName && (
-                <p className="text-xs text-destructive">{errors.firstName.message}</p>
-              )}
+              <Input
+                id="firstName"
+                aria-invalid={!!errors.firstName}
+                aria-describedby={errors.firstName ? 'firstName-error' : undefined}
+                {...register('firstName')}
+              />
+              <FieldError id="firstName-error">
+                {errors.firstName?.message}
+              </FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Cognome</Label>
-              <Input id="lastName" {...register('lastName')} />
-              {errors.lastName && (
-                <p className="text-xs text-destructive">{errors.lastName.message}</p>
-              )}
+              <Input
+                id="lastName"
+                aria-invalid={!!errors.lastName}
+                aria-describedby={errors.lastName ? 'lastName-error' : undefined}
+                {...register('lastName')}
+              />
+              <FieldError id="lastName-error">
+                {errors.lastName?.message}
+              </FieldError>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register('email')} />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            <Input
+              id="email"
+              type="email"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+              {...register('email')}
+            />
+            <FieldError id="email-error">{errors.email?.message}</FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -318,11 +335,13 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
               type="password"
               autoComplete="new-password"
               placeholder={isEdit ? '••••••••' : 'Almeno 8 caratteri'}
+              aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? 'password-error' : undefined}
               {...register('password')}
             />
-            {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
-            )}
+            <FieldError id="password-error">
+              {errors.password?.message}
+            </FieldError>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">

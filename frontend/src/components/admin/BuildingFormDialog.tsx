@@ -10,6 +10,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -117,8 +118,14 @@ export function BuildingFormDialog({ open, onOpenChange, instituteId, building }
           <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
             <div className="space-y-2">
               <Label htmlFor="b-name">Nome</Label>
-              <Input id="b-name" placeholder="Palazzo Storico" {...register('name')} />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              <Input
+                id="b-name"
+                placeholder="Palazzo Storico"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'b-name-error' : undefined}
+                {...register('name')}
+              />
+              <FieldError id="b-name-error">{errors.name?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="b-code">Codice</Label>

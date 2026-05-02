@@ -15,6 +15,7 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
@@ -171,11 +172,12 @@ export default function CompleteProfile() {
               placeholder={t('auth.fields.matricola_placeholder')}
               autoComplete="off"
               aria-invalid={!!errors.matricola}
+              aria-describedby={errors.matricola ? 'matricola-error' : undefined}
               {...register('matricola')}
             />
-            {errors.matricola && (
-              <p className="text-xs text-destructive">{tValidation(t, errors.matricola.message)}</p>
-            )}
+            <FieldError id="matricola-error">
+              {errors.matricola && tValidation(t, errors.matricola.message)}
+            </FieldError>
           </div>
         )}
 
@@ -188,7 +190,10 @@ export default function CompleteProfile() {
             }}
             disabled={coursesQuery.isLoading}
           >
-            <SelectTrigger aria-invalid={!!errors.courseId}>
+            <SelectTrigger
+              aria-invalid={!!errors.courseId}
+              aria-describedby={errors.courseId ? 'courseId-error' : undefined}
+            >
               <SelectValue
                 placeholder={
                   coursesQuery.isLoading
@@ -205,9 +210,9 @@ export default function CompleteProfile() {
               ))}
             </SelectContent>
           </Select>
-          {errors.courseId && (
-            <p className="text-xs text-destructive">{tValidation(t, errors.courseId.message)}</p>
-          )}
+          <FieldError id="courseId-error">
+            {errors.courseId && tValidation(t, errors.courseId.message)}
+          </FieldError>
         </div>
 
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>

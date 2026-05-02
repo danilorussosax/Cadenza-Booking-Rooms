@@ -10,6 +10,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -194,8 +195,14 @@ export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: P
 
           <div className="space-y-2">
             <Label htmlFor="e-name">Nome</Label>
-            <Input id="e-name" placeholder="Pianoforte verticale" {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            <Input
+              id="e-name"
+              placeholder="Pianoforte verticale"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'e-name-error' : undefined}
+              {...register('name')}
+            />
+            <FieldError id="e-name-error">{errors.name?.message}</FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

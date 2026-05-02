@@ -16,6 +16,7 @@ import { OAuthButtons } from '@/components/auth/OAuthButtons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
@@ -169,11 +170,12 @@ export default function Register() {
               id="firstName"
               autoComplete="given-name"
               aria-invalid={!!errors.firstName}
+              aria-describedby={errors.firstName ? 'firstName-error' : undefined}
               {...register('firstName')}
             />
-            {errors.firstName && (
-              <p className="text-xs text-destructive">{tValidation(t, errors.firstName.message)}</p>
-            )}
+            <FieldError id="firstName-error">
+              {errors.firstName && tValidation(t, errors.firstName.message)}
+            </FieldError>
           </div>
           <div className="space-y-2">
             <Label htmlFor="lastName">{t('auth.fields.last_name')}</Label>
@@ -181,11 +183,12 @@ export default function Register() {
               id="lastName"
               autoComplete="family-name"
               aria-invalid={!!errors.lastName}
+              aria-describedby={errors.lastName ? 'lastName-error' : undefined}
               {...register('lastName')}
             />
-            {errors.lastName && (
-              <p className="text-xs text-destructive">{tValidation(t, errors.lastName.message)}</p>
-            )}
+            <FieldError id="lastName-error">
+              {errors.lastName && tValidation(t, errors.lastName.message)}
+            </FieldError>
           </div>
         </div>
 
@@ -197,11 +200,12 @@ export default function Register() {
             autoComplete="email"
             placeholder={t('auth.fields.email_placeholder')}
             aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? 'email-error' : undefined}
             {...register('email')}
           />
-          {errors.email && (
-            <p className="text-xs text-destructive">{tValidation(t, errors.email.message)}</p>
-          )}
+          <FieldError id="email-error">
+            {errors.email && tValidation(t, errors.email.message)}
+          </FieldError>
         </div>
 
         <div className="space-y-2">
@@ -232,11 +236,12 @@ export default function Register() {
             autoComplete="new-password"
             placeholder={t('auth.fields.password_placeholder_min')}
             aria-invalid={!!errors.password}
+            aria-describedby={errors.password ? 'password-error' : undefined}
             {...register('password')}
           />
-          {errors.password && (
-            <p className="text-xs text-destructive">{tValidation(t, errors.password.message)}</p>
-          )}
+          <FieldError id="password-error">
+            {errors.password && tValidation(t, errors.password.message)}
+          </FieldError>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -308,6 +313,7 @@ export default function Register() {
                 });
               }}
               aria-invalid={!!errors.acceptPrivacy}
+              aria-describedby={errors.acceptPrivacy ? 'acceptPrivacy-error' : undefined}
             />
             <span className="leading-snug">
               Ho letto l'
@@ -317,11 +323,9 @@ export default function Register() {
               (v. {PRIVACY_POLICY_VERSION}). <span className="text-destructive">*</span>
             </span>
           </label>
-          {errors.acceptPrivacy && (
-            <p className="ml-6 text-destructive">
-              È necessario accettare l'informativa per registrarsi.
-            </p>
-          )}
+          <FieldError id="acceptPrivacy-error" className="ml-6 text-xs">
+            {errors.acceptPrivacy && 'È necessario accettare l’informativa per registrarsi.'}
+          </FieldError>
 
           <label className="flex items-start gap-2">
             <Checkbox
@@ -332,6 +336,7 @@ export default function Register() {
                 });
               }}
               aria-invalid={!!errors.acceptTerms}
+              aria-describedby={errors.acceptTerms ? 'acceptTerms-error' : undefined}
             />
             <span className="leading-snug">
               Accetto i{' '}
@@ -341,11 +346,9 @@ export default function Register() {
               (v. {TERMS_VERSION}). <span className="text-destructive">*</span>
             </span>
           </label>
-          {errors.acceptTerms && (
-            <p className="ml-6 text-destructive">
-              È necessario accettare i termini per registrarsi.
-            </p>
-          )}
+          <FieldError id="acceptTerms-error" className="ml-6 text-xs">
+            {errors.acceptTerms && 'È necessario accettare i termini per registrarsi.'}
+          </FieldError>
 
           <label className="flex items-start gap-2">
             <Checkbox

@@ -20,6 +20,7 @@ import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -374,7 +375,10 @@ export function BookingFormDialog({
                 }}
                 disabled={lockRoom ?? roomsQuery.isLoading}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!errors.roomId}
+                  aria-describedby={errors.roomId ? 'roomId-error' : undefined}
+                >
                   <SelectValue
                     placeholder={
                       roomsQuery.isLoading
@@ -393,9 +397,9 @@ export function BookingFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {errors.roomId && (
-                <p className="text-xs text-destructive">{tBookingError(errors.roomId.message)}</p>
-              )}
+              <FieldError id="roomId-error">
+                {errors.roomId && tBookingError(errors.roomId.message)}
+              </FieldError>
             </div>
 
             {/* Selettore "a nome di…" — solo admin. In create mode il default è
@@ -444,12 +448,11 @@ export function BookingFormDialog({
                   type="datetime-local"
                   {...register('startTime')}
                   aria-invalid={!!errors.startTime}
+                  aria-describedby={errors.startTime ? 'startTime-error' : undefined}
                 />
-                {errors.startTime && (
-                  <p className="text-xs text-destructive">
-                    {tBookingError(errors.startTime.message)}
-                  </p>
-                )}
+                <FieldError id="startTime-error">
+                  {errors.startTime && tBookingError(errors.startTime.message)}
+                </FieldError>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endTime">{t('booking.form.end')}</Label>
@@ -458,12 +461,11 @@ export function BookingFormDialog({
                   type="datetime-local"
                   {...register('endTime')}
                   aria-invalid={!!errors.endTime}
+                  aria-describedby={errors.endTime ? 'endTime-error' : undefined}
                 />
-                {errors.endTime && (
-                  <p className="text-xs text-destructive">
-                    {tBookingError(errors.endTime.message)}
-                  </p>
-                )}
+                <FieldError id="endTime-error">
+                  {errors.endTime && tBookingError(errors.endTime.message)}
+                </FieldError>
               </div>
             </div>
 

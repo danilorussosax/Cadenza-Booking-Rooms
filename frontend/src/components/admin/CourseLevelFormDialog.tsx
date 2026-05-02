@@ -10,6 +10,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -112,8 +113,15 @@ export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="lvl-code">Codice</Label>
-              <Input id="lvl-code" placeholder="triennio" disabled={isEdit} {...register('code')} />
-              {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
+              <Input
+                id="lvl-code"
+                placeholder="triennio"
+                disabled={isEdit}
+                aria-invalid={!!errors.code}
+                aria-describedby={errors.code ? 'lvl-code-error' : undefined}
+                {...register('code')}
+              />
+              <FieldError id="lvl-code-error">{errors.code?.message}</FieldError>
               {isEdit && (
                 <p className="text-[11px] text-muted-foreground">
                   Il codice non si modifica per non rompere i corsi che lo riferiscono.
@@ -133,8 +141,14 @@ export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="lvl-name">Nome visualizzato</Label>
-            <Input id="lvl-name" placeholder="Triennio" {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            <Input
+              id="lvl-name"
+              placeholder="Triennio"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'lvl-name-error' : undefined}
+              {...register('name')}
+            />
+            <FieldError id="lvl-name-error">{errors.name?.message}</FieldError>
           </div>
 
           <DialogFooter>

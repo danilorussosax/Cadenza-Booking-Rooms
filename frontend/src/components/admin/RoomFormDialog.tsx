@@ -12,6 +12,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -242,8 +243,14 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
           <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
             <div className="space-y-2">
               <Label htmlFor="r-name">Nome</Label>
-              <Input id="r-name" placeholder="Aula Verdi" {...register('name')} />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              <Input
+                id="r-name"
+                placeholder="Aula Verdi"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'r-name-error' : undefined}
+                {...register('name')}
+              />
+              <FieldError id="r-name-error">{errors.name?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="r-code">Codice</Label>
@@ -278,11 +285,13 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
                 id="r-capacity"
                 type="number"
                 min={1}
+                aria-invalid={!!errors.capacity}
+                aria-describedby={errors.capacity ? 'r-capacity-error' : undefined}
                 {...register('capacity', { valueAsNumber: true })}
               />
-              {errors.capacity && (
-                <p className="text-xs text-destructive">{errors.capacity.message}</p>
-              )}
+              <FieldError id="r-capacity-error">
+                {errors.capacity?.message}
+              </FieldError>
             </div>
             <div className="space-y-2">
               <Label>Tipologia</Label>

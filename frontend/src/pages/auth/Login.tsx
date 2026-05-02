@@ -22,6 +22,7 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 
@@ -347,13 +348,12 @@ function EmailView({
           autoFocus
           placeholder={t('auth.fields.email_placeholder')}
           aria-invalid={!!errors.email}
+          aria-describedby={errors.email ? 'email-error' : undefined}
           {...register('email')}
         />
-        {errors.email && (
-          <p className="text-xs text-destructive">
-            {translateValidationKey(t, errors.email.message)}
-          </p>
-        )}
+        <FieldError id="email-error">
+          {errors.email && translateValidationKey(t, errors.email.message)}
+        </FieldError>
       </div>
 
       <div className="space-y-2">
@@ -382,13 +382,12 @@ function EmailView({
           autoComplete="current-password"
           placeholder="••••••••"
           aria-invalid={!!errors.password}
+          aria-describedby={errors.password ? 'password-error' : undefined}
           {...register('password')}
         />
-        {errors.password && (
-          <p className="text-xs text-destructive">
-            {translateValidationKey(t, errors.password.message)}
-          </p>
-        )}
+        <FieldError id="password-error">
+          {errors.password && translateValidationKey(t, errors.password.message)}
+        </FieldError>
       </div>
 
       <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>

@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -229,10 +230,16 @@ export function InstrumentFormDialog({ open, onOpenChange, instrument }: Props) 
           <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
             <div className="space-y-2">
               <Label htmlFor="i-name">{t('admin.instruments.form.name')}</Label>
-              <Input id="i-name" placeholder="Violino, Pianoforte…" {...register('name')} />
-              {errors.name && (
-                <p className="text-xs text-destructive">{t('admin.users.empty.title')}</p>
-              )}
+              <Input
+                id="i-name"
+                placeholder="Violino, Pianoforte…"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'i-name-error' : undefined}
+                {...register('name')}
+              />
+              <FieldError id="i-name-error">
+                {errors.name && t('admin.users.empty.title')}
+              </FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="i-code">{t('admin.instruments.form.code')}</Label>

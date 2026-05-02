@@ -10,6 +10,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -196,8 +197,13 @@ export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="i-name">Nome</Label>
-            <Input id="i-name" {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            <Input
+              id="i-name"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'i-name-error' : undefined}
+              {...register('name')}
+            />
+            <FieldError id="i-name-error">{errors.name?.message}</FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

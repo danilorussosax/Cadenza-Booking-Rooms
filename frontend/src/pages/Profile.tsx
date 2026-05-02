@@ -37,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
@@ -323,17 +324,27 @@ function PersonalSection({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="p-firstName">Nome</Label>
-              <Input id="p-firstName" {...register('firstName')} />
-              {errors.firstName && (
-                <p className="text-xs text-destructive">{errors.firstName.message}</p>
-              )}
+              <Input
+                id="p-firstName"
+                aria-invalid={!!errors.firstName}
+                aria-describedby={errors.firstName ? 'p-firstName-error' : undefined}
+                {...register('firstName')}
+              />
+              <FieldError id="p-firstName-error">
+                {errors.firstName?.message}
+              </FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-lastName">Cognome</Label>
-              <Input id="p-lastName" {...register('lastName')} />
-              {errors.lastName && (
-                <p className="text-xs text-destructive">{errors.lastName.message}</p>
-              )}
+              <Input
+                id="p-lastName"
+                aria-invalid={!!errors.lastName}
+                aria-describedby={errors.lastName ? 'p-lastName-error' : undefined}
+                {...register('lastName')}
+              />
+              <FieldError id="p-lastName-error">
+                {errors.lastName?.message}
+              </FieldError>
             </div>
           </div>
 
@@ -516,11 +527,13 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
                 type={showNew ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="Almeno 8 caratteri"
+                aria-invalid={!!errors.newPassword}
+                aria-describedby={errors.newPassword ? 'new-pw-error' : undefined}
                 {...register('newPassword')}
               />
-              {errors.newPassword && (
-                <p className="text-xs text-destructive">{errors.newPassword.message}</p>
-              )}
+              <FieldError id="new-pw-error">
+                {errors.newPassword?.message}
+              </FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-pw">Conferma nuova password</Label>
@@ -529,11 +542,13 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
                 type={showNew ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="Ripeti la nuova password"
+                aria-invalid={!!errors.confirmPassword}
+                aria-describedby={errors.confirmPassword ? 'confirm-pw-error' : undefined}
                 {...register('confirmPassword')}
               />
-              {errors.confirmPassword && (
-                <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-              )}
+              <FieldError id="confirm-pw-error">
+                {errors.confirmPassword?.message}
+              </FieldError>
             </div>
           </div>
 
