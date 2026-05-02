@@ -46,6 +46,7 @@
     "discard_changes_title": "Discard changes?",
     "discard_changes_description": "You have unsaved changes in this form. They will be lost if you close now.",
     "discard_changes_confirm": "Discard",
+    "offline_banner": "You are offline. Changes will be saved when the connection is back.",
     "settings": "Settings",
     "administration": "Administration",
     "open": "Open",
@@ -102,6 +103,7 @@
     "rejected": "Rejected"
   },
   "nav": {
+    "primary_label": "Primary navigation",
     "dashboard": "Dashboard",
     "booking": "Book",
     "my_bookings": "My bookings",

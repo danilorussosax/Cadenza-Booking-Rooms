@@ -46,6 +46,7 @@
     "discard_changes_title": "Scartare le modifiche?",
     "discard_changes_description": "Hai modifiche non salvate in questo modulo. Se chiudi ora andranno perse.",
     "discard_changes_confirm": "Scarta",
+    "offline_banner": "Sei offline. Le modifiche verranno salvate al ritorno della connessione.",
     "settings": "Impostazioni",
     "administration": "Amministrazione",
     "open": "Apri",
@@ -102,6 +103,7 @@
     "rejected": "Rifiutato"
   },
   "nav": {
+    "primary_label": "Navigazione principale",
     "dashboard": "Dashboard",
     "booking": "Prenota",
     "my_bookings": "Le mie prenotazioni",

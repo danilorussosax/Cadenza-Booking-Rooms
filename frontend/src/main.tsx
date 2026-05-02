@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from '@/components/ui/sonner';
 import { CookieBanner } from '@/components/legal/CookieBanner';
 import { InstallPwaPrompt } from '@/components/pwa/InstallPwaPrompt';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { initSentry } from '@/lib/sentry';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { bumpVisitCount, setupPwa } from '@/lib/pwa';
@@ -54,6 +55,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <AuthProvider>
                 <App />
                 <Toaster />
+                <OfflineBanner />
                 <CookieBanner />
                 <InstallPwaPrompt />
               </AuthProvider>

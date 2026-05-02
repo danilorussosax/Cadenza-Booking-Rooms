@@ -37,6 +37,7 @@ import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { AppFooter } from '@/components/AppFooter';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { ConsentGate } from '@/components/legal/ConsentGate';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { Role } from '@/types';
@@ -390,11 +391,13 @@ export function AppLayout() {
         </header>
 
         {/* Page content — safe-area orizzontale su iPhone landscape (notch laterale).
-         * `id="main-content"` è il target dello skip link in cima al layout. */}
+         * `id="main-content"` è il target dello skip link in cima al layout.
+         * `pb-20` riserva spazio per la MobileBottomNav fissa (h-14 + safe-pb);
+         * su lg:768+ la bottom-nav si nasconde e il padding torna normale. */}
         <main
           id="main-content"
           tabIndex={-1}
-          className="safe-pl safe-pr flex-1 px-3 py-4 focus-visible:outline-hidden sm:px-4 sm:py-6 lg:px-8 lg:py-8"
+          className="safe-pl safe-pr flex-1 px-3 py-4 pb-24 focus-visible:outline-hidden sm:px-4 sm:py-6 lg:px-8 lg:py-8 lg:pb-8"
         >
           <motion.div
             key={location.pathname}
@@ -405,8 +408,9 @@ export function AppLayout() {
             <Outlet />
           </motion.div>
         </main>
-        <AppFooter className="safe-pb border-t" />
+        <AppFooter className="safe-pb hidden border-t lg:block" />
       </div>
+      <MobileBottomNav />
       <ConsentGate />
     </div>
   );
