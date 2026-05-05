@@ -2,7 +2,7 @@
 title: 'Cadenza · Manuale Amministratore'
 subtitle: 'Sistema di gestione e prenotazione aule per Conservatorio musicale'
 author: 'Danilo Russo, docente del Conservatorio'
-date: '1 maggio 2026'
+date: '5 maggio 2026'
 lang: it
 papersize: a4
 documentclass: article
@@ -25,8 +25,8 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.2}
-  - \fancyhead[R]{\small 1 maggio 2026}
+  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.3}
+  - \fancyhead[R]{\small 5 maggio 2026}
   - \fancyfoot[C]{\small\thepage\ / \pageref*{LastPage}}
   - \renewcommand{\headrulewidth}{0.4pt}
 ---
@@ -75,50 +75,81 @@ header-includes:
 
 # Cadenza · Manuale Amministratore
 
-> **Versione**: 1.2 · **Data**: 1 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.3 · **Data**: 5 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: Direttori, DSGA, responsabili IT e coordinatori didattici dei Conservatori
 > **Prerequisiti**: account con ruolo `admin` su una installazione Cadenza già provisionata
 
 ---
 
-## Cosa c'è di nuovo in v1.2 (1 maggio 2026)
+## Cosa c'è di nuovo in v1.3 (5 maggio 2026)
 
-> Aggiornamento incrementale che documenta le funzioni introdotte fra v2.2 e v2.3.1 di Cadenza (audit hardening backend, parity con EasyAcademy/EasyRoom, hardening import Isidata).
+> Aggiornamento focalizzato sulla **completezza visiva**: ogni voce della sidebar amministrazione ha ora una sezione dedicata con layout, filtri, colonne, campi form, azioni e badge documentati in dettaglio. Dove disponibile lo screenshot reale è incluso; altrove un blocco **«Riferimento UI»** descrive il layout in mockup ASCII.
 
-| Tema                                           | Novità                                                                                               | Riferimento manuale |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------- |
-| **Anti mass-assignment + anti-lockout**        | Whitelist su `PUT /users/:id` + protezione "ultimo admin attivo"                                     | §3.6                |
-| **Password policy AGID 2024**                  | `POST /register` ora richiede min 10 char + maiuscola + numero                                       | §3.7                |
-| **Rate limit dedicati**                        | `/recurring` 5/h/utente, `/2fa/setup` 5/15min/utente                                                 | §3.7                |
-| **Cooldown tra prenotazioni**                  | Nuovo campo `minIntervalBetweenBookingsMinutes` per ruolo (anti-bypass cap quotidiano)               | §6.1, §6.0          |
-| **Conflitto logico cross-aula**                | `USER_LOGICAL_CONFLICT` blocca lo stesso utente in due aule contemporaneamente                       | §6.0, §6.7          |
-| **Sovrapposizioni storiche al setup chiusure** | Preview + batch-cancel per `BookingRuleException` di tipo `block`, con sync `MonteOreSlot`           | §6.3                |
-| **Swap atomico prenotazioni admin**            | `POST /api/bookings/swap` per scambiare aula/orario tra 2 prenotazioni future                        | §7.5                |
-| **Sidebar restructure**                        | Nuova voce "Registro attività" (gestione bulk-cancel + swap), tab Settings rinominato "Registro Log" | §2, §7.5            |
-| **/rooms grouped by building**                 | Sezioni espandibili per edificio (vista pubblica)                                                    | §5.4                |
-| **Audit log forensic export firmato**          | Pre-prune HMAC SHA-256 + sidecar metadata                                                            | §12.5               |
-| **Pagination uniforme list-routes**            | Header `X-Total-Count`, max 500 record/pagina                                                        | §15.2               |
-| **Import Isidata hardening**                   | Cap DoS XLSX-bomb, anti TOCTOU (hash file), `mappingOverrides` whitelist                             | §3.3                |
+| Tema                                    | Aggiunte v1.3                                                                              | Riferimento manuale |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| **Convenzioni di lettura**              | Nuova guida ai blocchi tipografici del manuale (screenshot, mockup ASCII, riferimento API) | §0                  |
+| **Utenti (vista lista)**                | Layout completo: toolbar, bulk action bar, 8 colonne tabella, OAuth section, Isidata card  | §3.1–§3.4           |
+| **Form Utente**                         | Tutti i campi con validazioni, sezione Monte Ore condizionale, banner email-bounce         | §3.5                |
+| **Corsi**                               | Tabella, form, tab Livelli, import/export CSV                                              | §4                  |
+| **Struttura**                           | Albero gerarchico Istituto→Edificio→Aula→Equipment, floating bulk bar, 5 form              | §5                  |
+| **Approvazioni**                        | Card layout, link variazioni Monte Ore con badge polling                                   | §7.1                |
+| **Registro attività + Swap**            | Selection summary, bulk-cancel dialog, swap atomico (codici errore)                        | §7.2                |
+| **Inventario strumenti (5 tab)**        | Inventario · Tutti prestiti · Scaduti · In scadenza · Regole prestito                      | §9                  |
+| **Statistiche**                         | KPI, heatmap, trend, top rooms/users, export CSV/PDF                                       | §10                 |
+| **Annunci**                             | Form completo audience (all/role/course/building), resend email, scadenza                  | §11                 |
+| **Impostazioni Server (hub macro/sub)** | Schema navigazione + descrizione di ogni sotto-tab                                         | §12                 |
+| **Mail Outbox**                         | Coda email, health banner SMTP, retry/delete, filtri stato                                 | §12.2               |
+| **Display Kiosk admin**                 | Rotazione prenotazioni/concerti/annunci, master toggle, intervalli per edificio            | §12.7               |
+| **Backups**                             | Scheduler config, restore con pre-snapshot, riavvio backend                                | §12.4               |
+| **Audit Log**                           | Filtri (action/target/actor/date/path), expandable rows, paginazione                       | §12.8               |
+| **Moduli**                              | Toggle Monte Ore + Prestito strumenti                                                      | §12.9               |
+| **Integrazioni — Isidata standalone**   | Pagina dedicata: upload, preview diff, KPI, applica, storico run                           | §13                 |
+
+Le novità funzionali di v1.2 (cooldown, USER_LOGICAL_CONFLICT, swap, audit forensic, ecc.) restano invariate e sono documentate nei capitoli §6, §7.5, §12.8, §15.
 
 ---
 
 ## Indice
 
-1. [Introduzione e ruoli](#1-introduzione-e-ruoli)
-2. [Accesso all'area Amministrazione](#2-accesso-allarea-amministrazione)
-3. [Utenti](#3-utenti)
-4. [Corsi e Livelli](#4-corsi-e-livelli)
-5. [Struttura: Istituti, Edifici, Aule, Dotazioni](#5-struttura-istituti-edifici-aule-dotazioni)
-6. [⭐ Regole prenotazione (approfondito)](#6--regole-prenotazione-approfondito)
-7. [Approvazioni e Registro attività](#7-approvazioni)
-8. [⭐ Gestione Monte Ore (approfondito)](#8--gestione-monte-ore-approfondito) — incl. **§8.10 Deroga contratti orari** (nuova v1.1)
-9. [Inventario strumenti](#9-inventario-strumenti)
-10. [Statistiche / Analytics](#10-statistiche--analytics)
-11. [Annunci](#11-annunci)
-12. [Impostazioni Server (tab interne)](#12-impostazioni-server-tab-interne)
-13. [Operazioni periodiche e best practice](#13-operazioni-periodiche-e-best-practice)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Sicurezza e hardening (note tecniche v2.2/v2.3)](#15-sicurezza-e-hardening-note-tecniche-v22v23)
+- [§0. Convenzioni di lettura](#0-convenzioni-di-lettura)
+- [§1. Introduzione e ruoli](#1-introduzione-e-ruoli)
+- [§2. Accesso all'area Amministrazione](#2-accesso-allarea-amministrazione)
+- [§3. Utenti](#3-utenti)
+- [§4. Corsi e Livelli](#4-corsi-e-livelli)
+- [§5. Struttura: Istituti, Edifici, Aule, Dotazioni](#5-struttura-istituti-edifici-aule-dotazioni)
+- [§6. ⭐ Regole prenotazione](#6--regole-prenotazione)
+- [§7. Approvazioni · Registro attività · Bookings](#7-approvazioni--registro-attivit-bookings)
+- [§8. ⭐ Gestione Monte Ore](#8--gestione-monte-ore) — incl. **§8.10 Deroga contratti orari**
+- [§9. Inventario strumenti](#9-inventario-strumenti)
+- [§10. Statistiche / Analytics](#10-statistiche--analytics)
+- [§11. Annunci](#11-annunci)
+- [§12. Impostazioni Server](#12-impostazioni-server)
+- [§13. Integrazioni Isidata](#13-integrazioni-isidata)
+- [§14. Operazioni periodiche e best practice](#14-operazioni-periodiche-e-best-practice)
+- [§15. Troubleshooting](#15-troubleshooting)
+- [§16. Sicurezza e hardening](#16-sicurezza-e-hardening)
+
+---
+
+## 0. Convenzioni di lettura
+
+Per ogni voce della sidebar amministrazione il manuale segue lo stesso schema:
+
+1. **URL** della pagina (es. `/admin/users`).
+2. **Layout di alto livello**: header, eventuali tab, body principale, modali ricorrenti.
+3. **Riferimento visivo** — uno fra:
+   - **Screenshot** PNG generato da `e2e/screenshots.mjs` (vedi [`docs/screenshots/README.md`](screenshots/README.md));
+   - **Riferimento UI** — blocco ASCII che descrive il layout della pagina quando lo screenshot non è ancora disponibile.
+4. **Filtri / ricerca** disponibili.
+5. **Colonne** della tabella o struttura della lista.
+6. **Campi form** con validazioni.
+7. **Azioni** (bottoni, icone) e cosa fanno.
+8. **Badge / banner** condizionali.
+9. **API endpoint** chiamati (utili per debug e integrazioni).
+
+> **Generare gli screenshot mancanti**: lancia `node e2e/screenshots.mjs` con un backend up + un account admin nel DB (vedi [`docs/screenshots/README.md`](screenshots/README.md)). Lo script bypassa login/2FA emettendo un JWT direttamente, naviga su tutte le pagine admin a 1440×900 e salva i PNG in `docs/screenshots/`. La tabella di mappatura file ↔ sezione è nel README della cartella.
+
+> **Mockup ASCII**: i blocchi `Riferimento UI` usano box-drawing per delimitare aree (`┌─┐│└┘`), descrivono colonne e bottoni in linguaggio naturale e sono pensati per chi legge la versione PDF/stampata senza screenshot inline.
 
 ---
 
@@ -147,22 +178,22 @@ Un utente può avere **un solo ruolo** alla volta. Il cambio di ruolo (es. promo
 
 ```
 AMMINISTRAZIONE
-├─ Utenti
-├─ Corsi
-├─ Gestione Monte Ore       ← cap. 8
-├─ Regole prenotazioni      ← cap. 6
-├─ Approvazioni             [badge se ci sono pending]
-├─ Registro attività        ← cap. 7.5  (NUOVO v2.3)
-├─ Struttura
-├─ Inventario strumenti
-├─ Statistiche
-├─ Annunci
-└─ Impostazioni Server
+├─ Utenti                   ← §3
+├─ Corsi                    ← §4
+├─ Gestione Monte Ore       ← §8
+├─ Regole prenotazioni      ← §6
+├─ Approvazioni             ← §7.1   [badge se ci sono pending]
+├─ Registro attività        ← §7.2   (bulk-cancel + swap)
+├─ Struttura                ← §5
+├─ Inventario strumenti     ← §9
+├─ Statistiche              ← §10
+├─ Annunci                  ← §11
+└─ Impostazioni Server      ← §12
 ```
 
-Le voci **Monte Ore** e **Inventario strumenti** sono nascondibili dall'admin via _Impostazioni Server → Moduli_ se il Conservatorio non li usa (vedi §12.7). Le rotte e i dati restano comunque sempre attivi.
+Le voci **Monte Ore** e **Inventario strumenti** sono nascondibili dall'admin via _Impostazioni Server → Moduli_ se il Conservatorio non li usa (vedi §12.9). Le rotte e i dati restano comunque sempre attivi.
 
-> **Novità v2.3** — la voce **"Registro attività"** è la pagina dedicata a _gestione massiva delle prenotazioni_ (filtri avanzati, bulk-cancel con motivo broadcast, **swap atomico**, vista per ruolo/range/aula). Era una sotto-tab nascosta dentro `/admin/audit-log`; ora è una pagina autonoma per separare nettamente "operazioni sui dati" (Registro attività) da "log immutabile delle azioni" (Registro Log dentro _Impostazioni Server_ → Audit Log). Vedi §7.5 e §12.5.
+> **Pagina hub vs operativo**: la sidebar separa le **operazioni quotidiane** (prime 11 voci) dalla **configurazione del server** (ultima voce, raggruppa SMTP, QR, display kiosk, audit log, backup, moduli). All'interno di _Impostazioni Server_ i sotto-tab sono organizzati in macro (Servizi/Aspetto/QR/Display/Audit/Moduli) → vedi §12.
 
 ---
 
@@ -170,145 +201,145 @@ Le voci **Monte Ore** e **Inventario strumenti** sono nascondibili dall'admin vi
 
 URL: `/admin/users`
 
-### 3.1 Cosa puoi fare
+### 3.1 Layout della pagina
 
-- Creare un nuovo utente manualmente (form con email, nome, cognome, ruolo, corso, matricola)
-- Importare anagrafica massiva da CSV (template scaricabile)
-- Esportare l'anagrafica completa in CSV (per backup o report)
-- Modificare ruolo, status (`approved` / `pending` / `rejected`), corso, matricola
-- Disattivare un account (`isActive=false`) senza cancellarlo (preserva storico prenotazioni)
-- Cancellare definitivamente con soft-delete (`deletedAt` impostato; recuperabile per 30 giorni)
-- Reset password: forza il cambio al prossimo login dell'utente
-- Bumpa `tokenVersion`: invalida tutti i JWT precedenti (logout effettivo da tutti i dispositivi)
+La pagina ha quattro blocchi verticali:
 
-### 3.2 Filtri rapidi
+1. **Header** con titolo "Utenti" + 3 bottoni d'azione globale.
+2. **Toolbar di filtri** (Card con search box + 3 select).
+3. **Bulk-selection bar** (animata, visibile solo se almeno una riga è selezionata).
+4. **Tabella scrollabile** (max-height 60 vh, header sticky).
+5. **Sezione Integrazioni** in coda con 3 card affiancate: Google OAuth · Microsoft OAuth · Isidata.
 
-In alto a destra: ricerca per **nome / email / matricola / corso**, filtro per **ruolo** e **stato approvazione**.
+![Pagina Utenti — toolbar, tabella, sezione OAuth/Isidata](screenshots/users-overview.png)
 
-### 3.3 Integrazione Isidata (CSV / XLSX)
+> Se lo screenshot non è ancora generato vedi il **Riferimento UI** sotto. Per generarlo: `node e2e/screenshots.mjs` (vedi `docs/screenshots/README.md`).
 
-In coda alla pagina, riquadro **"Import da Isidata"**: carica il file `.csv` o `.xlsx` esportato da Isidata, Cadenza calcola la **diff** (utenti nuovi / aggiornati / da disattivare) e l'admin la conferma.
+#### Riferimento UI
 
-#### Flusso a 2 step (preview → apply, anti-errore umano)
-
-1. **Preview** (`POST /api/admin/integrations/isidata-csv/preview`)
-   - Carica il file. Cadenza ne fa parsing, applica il mapping (auto-rilevato dagli header — cfr. `INTEGRATIONS-ISIDATA.md`), confronta col DB e restituisce: lista utenti **da creare**, **da aggiornare** (con campi che cambierebbero), **da disattivare** (orphan = già linkati Isidata ma assenti nel nuovo export).
-   - **Nessun side-effect sul DB**. Il file resta in `/tmp` per max 10 minuti, leggibile solo dall'admin che l'ha caricato (prefisso del filename = suo `userId`).
-   - La risposta include `token` + `hash` SHA-256 del file.
-2. **Apply** (`POST /api/admin/integrations/isidata-csv/apply`)
-   - Invia indietro `token` + `hash`. Cadenza riapre il file, ricalcola SHA-256, **rifiuta** con `HASH_MISMATCH` se il file è stato sostituito tra preview e apply (anti-TOCTOU).
-   - Esegue create/update/orphan in transazione **SERIALIZABLE** su Postgres. I nuovi utenti nascono in stato `pending` (vanno approvati esplicitamente da `/admin/approvals`) e mai con permessi superiori a `studente`/`docente` derivati dal file.
-   - **Mai un orfano viene cancellato fisicamente**: solo `isActive=false` + `externalStatusNote = "Non più presente nell'export Isidata del YYYY-MM-DD"`. Riapparire in un export futuro lo riattiva.
-
-#### Mapping personalizzato per istituto
-
-Se il vostro export Isidata ha header diversi da quelli auto-riconosciuti (matricola, cognome, nome, email, ruolo, ecc. con accenti/spazi/case variabile), invia un `mappingOverrides` JSON nel body con i target da mappare. Esempio:
-
-```json
-{
-  "externalId": "Numero Matricola",
-  "email": "Email Istituzionale",
-  "courseCode": "Codice Indirizzo"
-}
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Utenti                                  [⤓ Esporta CSV] [⤒ Importa] [+]  │
+│ Gestisci anagrafica, ruoli, OAuth e import Isidata                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌── Filtri ────────────────────────────────────────────────────────────┐ │
+│ │ 🔍 Cerca nome / email / matricola / corso                            │ │
+│ │ Ruolo: [tutti ▾]   Approvazione: [tutti ▾]   Stato: [tutti ▾]        │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+│ ┌── Bulk (visibile se selezionati > 0) ─────────────────────────────── │ │
+│ │ 3 utenti selezionati (2 in pending)   [Pulisci] [Approva] [Rifiuta]  │ │
+│ │                                                          [Elimina ✗] │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+│ ┌── Tabella ──────────────────────────────────────────────────────────┐ │
+│ │ □ │ Utente             │ Ruolo    │ Matr.  │ Corso         │ Appr.  │ │
+│ │ □ │ A.M. Rossi · email │ Docente  │ 12345  │ DCPL34 — ...  │ ✓      │ │
+│ │ □ │ G. Verdi  · email  │ Studente │ 67890  │ DCPL10 — ...  │ ⏱ pend │ │
+│ │ ...                                                                 │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+│ ┌── Provider OAuth ───────────┬── Isidata ─────────────────────────────┐ │
+│ │ Google [toggle] ClientId... │ Importazione anagrafica                │ │
+│ │ Microsoft [toggle] ...      │ [Apri importazione]                    │ │
+│ └─────────────────────────────┴────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-I target consentiti sono: `externalId`, `email`, `firstName`, `lastName`, `role`, `matricola`, `courseCode`, `courseName`, `status`, `birthDate`. Altri target vengono droppati silenziosamente. Valori non-stringa o oltre 100 char idem.
+### 3.2 Toolbar e filtri
 
-#### Limiti e protezioni (v2.3.1 hardening)
+| Elemento                 | Tipo   | Note                                                             |
+| ------------------------ | ------ | ---------------------------------------------------------------- |
+| Ricerca testuale         | Input  | Match case-insensitive su nome, cognome, email, matricola, corso |
+| Filtro **Ruolo**         | Select | Tutti · Admin · Docente · Studente                               |
+| Filtro **Approvazione**  | Select | Tutti · Pending · Approved · Rejected                            |
+| Filtro **Stato account** | Select | Tutti · Attivi · Inattivi                                        |
 
-| Limite                  | Valore                | Motivo                                                                                                                                               |
-| ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| File size massimo       | **10 MB**             | Cap multer + check buffer. File più grandi → `FILE_TOO_LARGE`                                                                                        |
-| Record processati       | **5.000** dopo header | Le righe in eccesso vengono ignorate con warning. Se hai 8.000 utenti, splitta l'import in 2 file                                                    |
-| Righe iterate (XLSX)    | **20.000** raw        | Difesa anti **XLSX-bomb**: il file ZIP da 10MB compressi può contenere milioni di righe vuote → cap hard sull'iterazione (era illimitato pre-v2.3.1) |
-| Colonne max (XLSX)      | **1.024**             | Difesa contro `columnCount` patologico nel file                                                                                                      |
-| Header riservati        | scartati con warning  | `__proto__`, `prototype`, `constructor` non finiscono nei record (defense-in-depth contro prototype pollution)                                       |
-| `mappingOverrides` JSON | **4 KB** max          | Anti CPU-spike su parse di JSON patologici                                                                                                           |
-| Token TTL               | **10 minuti**         | Dopo, il file viene cancellato e l'apply richiede di ricaricare → `TOKEN_EXPIRED` (410)                                                              |
-| Compare hash            | **timing-safe**       | `crypto.timingSafeEqual` invece di `===` — defense-in-depth                                                                                          |
+I filtri agiscono client-side dopo il fetch — sono immediatamente reattivi senza round-trip.
 
-#### Codici errore (per debug)
+### 3.3 Tabella utenti
 
-| Codice              | Quando                                                         | Cosa fare                                |
-| ------------------- | -------------------------------------------------------------- | ---------------------------------------- |
-| `FILE_REQUIRED`     | `multipart/form-data` senza campo `file`                       | Verifica il form                         |
-| `FILE_TOO_LARGE`    | File > 10 MB                                                   | Splitta o rimuovi colonne inutili        |
-| `PARSE_FAILED`      | XLSX corrotto o CSV malformato                                 | Riapri in Excel, salva come .xlsx pulito |
-| `VALIDATION_FAILED` | `mappingOverrides` non oggetto, troppo grande, o JSON invalido | Riguarda il body                         |
-| `TOKEN_INVALID`     | Token non rispetta il formato `\d+-\d+-[a-f0-9]{16}.ext`       | Ricarica la preview                      |
-| `TOKEN_FOREIGN`     | L'admin che fa apply ≠ quello che ha caricato                  | Solo l'uploader può applicare            |
-| `TOKEN_EXPIRED`     | TTL 10min superato o file rimosso                              | Ricarica la preview                      |
-| `HASH_MISMATCH`     | File modificato tra preview e apply                            | Ricarica la preview                      |
+| Colonna       | Contenuto                                                                                                       |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Checkbox**  | Selezione per bulk action (header con `indeterminate`); **disabilitato** sulla riga del current user            |
+| **Utente**    | Avatar (iniziali) + Nome Cognome + email; piccola etichetta `(Tu)` se è il current user                         |
+| **Ruolo**     | Badge: `Admin` (con icona ShieldCheck), `Docente` (secondaria), `Studente` (muted)                              |
+| **Matricola** | Testo grigio, `—` se assente                                                                                    |
+| **Corso**     | `CODICE — Nome corso`, `—` se assente                                                                           |
+| **Approval**  | `Admin` → sempre approvato; altrimenti `pending` (Clock) / `approved` (Check verde) / `rejected` (Shield rosso) |
+| **Stato**     | Badge `Attivo` (success) / `Inattivo` (muted)                                                                   |
+| **Azioni**    | ✓ Approva (solo se pending, non admin) · ✗ Rifiuta (idem) · ✎ Modifica · 🗑 Elimina (disabled se current user)  |
 
-#### Audit trail per ogni run
+### 3.4 Bulk action bar
 
-Ogni preview+apply genera un record `IntegrationSyncRun` con: `actorId` (admin), `provider='isidata'`, `triggeredBy='manual'`, `status` (`success`/`partial`/`failed`), conteggi (`created`/`updated`/`orphaned`/`errors`), e `diffSnapshot` (lista dei target toccati per audit). Visibile in `GET /api/admin/integrations/runs?provider=isidata`.
+Compare animata in alto (giallo amber) appena `selected.size > 0`:
 
-> Per il setup avanzato del mapping per istituto e per il workflow legacy, vedi `INTEGRATIONS-ISIDATA.md`.
+| Bottone | Effetto                                                                                                                    |
+| ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Pulisci | Svuota la selezione                                                                                                        |
+| Approva | `usersApi.bulkApprove(ids, 'approve')` — toast `"N approvati, M saltati"`                                                  |
+| Rifiuta | `usersApi.bulkApprove(ids, 'reject')` — toast `"N rigettati, M saltati"`                                                   |
+| Elimina | Apre `ConfirmDeleteDialog` → `usersApi.bulkDelete(ids)` (rimuove anche le prenotazioni associate, ne riporta il conteggio) |
 
-### 3.4 OAuth Google / Microsoft
+### 3.5 Form Utente (UserFormDialog)
 
-Riquadro **"Provider OAuth"**: incolla `client_id` e `client_secret` di Google Workspace o Microsoft Entra. Una volta configurato, gli utenti vedono i bottoni "Accedi con Google" / "Microsoft" sul login. Le credenziali sono cifrate AES-256-GCM in DB.
+Aperto da **+ Nuovo utente** (create) o icona pencil sulla riga (edit).
 
-### 3.5 ⭐ Deroga Monte Ore per docenti a contratto orario
+| Campo                                                                        | Tipo     | Validazioni                            | Note                                                   |
+| ---------------------------------------------------------------------------- | -------- | -------------------------------------- | ------------------------------------------------------ |
+| Nome / Cognome                                                               | Text     | required, min 1                        | Layout 2 colonne                                       |
+| Email                                                                        | Email    | required, formato email                | Full-width                                             |
+| Ruolo                                                                        | Select   | required, enum                         | Admin · Docente · Studente                             |
+| Matricola                                                                    | Text     | optional, `inputMode=numeric`          | Pattern `[0-9]*`                                       |
+| Corso di studio                                                              | Select   | optional                               | Disabled durante load del catalogo                     |
+| Password (create)                                                            | Password | required, min 10, 1 maiuscola, 1 cifra | Policy AGID 2024 — vedi §3.8                           |
+| Password (edit)                                                              | Password | optional (vuoto = nessun cambio)       | `autoComplete="new-password"`                          |
+| Account attivo                                                               | Switch   | —                                      | Spegne il login senza cancellare                       |
+| **Sezione Monte Ore — visibile solo per `role=docente`** (vedi §3.6 e §8.10) |
+| Tipo contratto                                                               | Select   | optional                               | Da `contractTypesApi.list({ includeInactive: true })`  |
+| Override Monte Ore individuale                                               | Switch   | —                                      | Abilita i sotto-campi                                  |
+| Ore annue                                                                    | Number   | range 0–1500, step 0.5                 | Visibile se override on; placeholder es. `60`          |
+| Esente vincolo 2-4 giorni/sett.                                              | Switch   | —                                      | Vedi §8.10                                             |
+| Motivazione                                                                  | Textarea | required se override on, max 2000      | Tracciata nell'audit log come "documento contrattuale" |
 
-> Disponibile solo nel form di modifica utente quando **`role = docente`**. Per studenti/admin la sezione resta nascosta.
+#### Banner condizionali sul form
+
+- **Email rimbalzata** (alert giallo): se `user.emailBouncedAt` è valorizzato compare un avviso "Email rimbalzata — notifiche disattivate" + reason + bottone **Riattiva** (`usersApi.resetBounce(id)`).
+- **Server error** (alert rosso): in caso di errore di salvataggio mostra il messaggio mappato da `httpErrorMessage(err)`.
+- **Help password (edit)**: "Aggiorna i dati o reimposta la password lasciando il campo vuoto per non cambiarla."
+
+### 3.6 Provider OAuth (Google · Microsoft)
+
+In coda alla pagina, due card affiancate (la terza è Isidata):
+
+![Riquadro OAuth in coda alla pagina Utenti](screenshots/users-oauth-providers.png)
+
+| Provider  | Campi                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------- |
+| Google    | Toggle on/off · Client ID · Client Secret (eye icon mostra/nasconde) · Callback URL · `Salva` |
+| Microsoft | Toggle on/off · Client ID · Client Secret · Tenant · Callback URL · `Salva`                   |
+
+Le credenziali sono cifrate AES-256-GCM in DB. Una volta configurato, gli utenti vedono i bottoni "Accedi con Google" / "Microsoft" sul login. **Riavvia il backend** dopo il salvataggio per applicare il nuovo provider (alert info post-save).
+
+### 3.7 Deroga Monte Ore per docenti a contratto orario
+
+> Sezione approfondita in §8.10. Qui è descritto solo il **punto di accesso** dal form utente.
 
 In coda al form _Modifica utente_ compare il blocco **Monte Ore — Tipo contratto** che permette di personalizzare la soglia annua del singolo docente, indispensabile per i contratti orari (precari, supplenti, part-time) che hanno un monte concordato individualmente diverso dalle 324h CCNL del titolare di ruolo.
 
 ![Form deroga Monte Ore — sezione visibile solo per docenti](screenshots/users-form-monteore-override.png)
 
-#### Campi disponibili
+Vedi §8.10 per il dettaglio dei valori tipici e del comportamento dello snapshot.
 
-| Campo                                                                                         | Quando usarlo                                                                                |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **Tipo contratto** (select: titolare · contratto orario · supplente · altro)                  | Etichetta informativa, non vincolante; serve a Filtri e Audit Log                            |
-| **Soglia ore personalizzata** (toggle + numero, range 0-1500h)                                | Sostituisce le 324h istituzionali per quel singolo docente. Tipici valori: 30, 60, 120, 180h |
-| **Esente dal vincolo 2-4 giorni/settimana** (toggle)                                          | Per contratti brevi che possono concentrare le lezioni in 1 solo giorno                      |
-| **Motivazione** (textarea, max 500 caratteri, **obbligatoria** se almeno una deroga è attiva) | Es: "Contratto orario 60h - prot. 2026/123 del 15/09/2026". Tracciata nell'audit log         |
-
-#### Comportamento del validator submit
-
-Quando il docente con deroga invia la proposta Monte Ore (`POST /api/monte-ore/me/submit`):
-
-1. La soglia viene **risolta in cascata**: `user.monteOreAnnualHoursOverride → MonteOreSettings.minRequiredHours → fallback 324h`.
-2. Se `monteOreBypassDayConstraint = true`, il vincolo "2-4 giorni a settimana" viene saltato (un docente con 30h può fare tutto in un solo giorno).
-3. Lo `minRequiredHoursSnapshot` della proposta viene fissato al valore **risolto** (non al globale): se domani l'admin rimuove l'override, le proposte già inviate restano valide con la soglia originale.
-
-#### Esempi di configurazione
-
-| Caso                              | Tipo contratto     | Soglia ore     | Bypass | Motivazione tipica                               |
-| --------------------------------- | ------------------ | -------------- | ------ | ------------------------------------------------ |
-| Coadiutore al pianoforte          | contratto_orario   | 60             | ✅     | "Co.Co.Co 60h - decreto 2026/45"                 |
-| Supplente part-time 50%           | supplente          | 162            | ❌     | "Supplenza annuale 50% titolare"                 |
-| Docente di laboratorio            | altro              | 120            | ❌     | "Lab. di musica d'insieme - reg. didattico §12"  |
-| Titolare ridotto 270h (legge 104) | titolare           | 270            | ❌     | "Riduzione orario L.104/92 - DSGA prot. 2026/89" |
-| Titolare standard                 | titolare (o vuoto) | — (toggle off) | ❌     | n/a                                              |
-
-> **Visibilità lato docente**: nella pagina `/monte-ore` del docente con deroga compare un banner azzurro "Soglia Monte Ore personalizzata: N ore/anno" con tipo contratto e stato del vincolo giorni. Non è esposta la motivazione (riservata all'amministrazione).
-
-#### Audit log
-
-Ogni `PUT /api/users/:id/monte-ore-override` viene tracciato dal middleware audit globale (pattern `/api/users/:id`) con:
-
-- `actorId` (admin che ha eseguito l'azione)
-- `targetType=user`, `targetId` del docente
-- `payload` (compresa motivazione, esclusa qualunque PII estranea)
-
-Filtra in `Impostazioni Server → Audit Log` per `targetType=user` per vedere la storia delle deroghe.
-
-### 3.6 ⭐ Anti mass-assignment + anti-lockout admin (v2.2)
+### 3.8 Anti mass-assignment + anti-lockout admin (v2.2)
 
 > Hardening introdotto nel re-audit backend del 30 aprile 2026. Riguarda chiunque chiami `PUT /users/:id`, `DELETE /users/:id`, e bulk-delete.
 
-**Mass-assignment** (cosa significa): prima di v2.2 alcuni endpoint amministrativi accettavano qualunque campo del modello User, incluso `passwordHash`, `tokenVersion`, `deletedAt`. Un admin (o una richiesta forgiata con il suo token) avrebbe potuto sovrascrivere `passwordHash` di un altro utente o resuscitare account soft-deleted modificando `deletedAt`. Ora il backend usa `lib/sanitize.js` con **whitelist + coercizione tipi**: solo i campi consentiti per quel ruolo arrivano in Sequelize.
+**Mass-assignment**: prima di v2.2 alcuni endpoint amministrativi accettavano qualunque campo del modello User, incluso `passwordHash`, `tokenVersion`, `deletedAt`. Ora il backend usa `lib/sanitize.js` con **whitelist + coercizione tipi**.
 
-| Endpoint                                                         | Whitelist                                                                                                                                                                                                            | Cosa NON è più modificabile                                                                               |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `PUT /users/:id`                                                 | email, firstName, lastName, role, matricola, courseId, status, isActive, contractType, monteOreAnnualHoursOverride, monteOreBypassDayConstraint, monteOreOverrideMotivation, emailNotifications + 4 toggle granulari | passwordHash, tokenVersion, deletedAt, googleId, microsoftId, icalToken/Hash, oauthTokens, sessionVersion |
-| `PUT /structure/buildings/:id` · `/rooms/:id` · `/equipment/:id` | campi anagrafici/configurativi specifici, type/enum coerced                                                                                                                                                          | createdAt, updatedAt, soft-delete fields, ID interni                                                      |
+| Endpoint             | Whitelist                                                                                                                                                                                                            | NON modificabile                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `PUT /users/:id`     | email, firstName, lastName, role, matricola, courseId, status, isActive, contractType, monteOreAnnualHoursOverride, monteOreBypassDayConstraint, monteOreOverrideMotivation, emailNotifications + 4 toggle granulari | passwordHash, tokenVersion, deletedAt, googleId, microsoftId, icalToken/Hash, oauthTokens, sessionVersion |
+| `PUT /structure/...` | campi anagrafici/configurativi specifici                                                                                                                                                                             | createdAt, updatedAt, soft-delete fields, ID interni                                                      |
 
-**Anti-lockout** (perché): senza protezioni, un admin distratto può: (a) demote-arsi e perdere accesso amministrativo (`CANNOT_SELF_DEMOTE`), (b) disattivare il proprio account (`CANNOT_SELF_DISABLE`), (c) cancellare l'unico altro admin attivo lasciando il sistema senza nessuno con permessi (`LAST_ADMIN_LOCKOUT`). Il backend ora restituisce **400/409** in tutti questi casi prima di salvare.
+**Anti-lockout**: il backend restituisce **400/409** se l'operazione lascerebbe il sistema senza admin attivi:
 
 | Errore                | HTTP | Trigger                                  |
 | --------------------- | ---- | ---------------------------------------- |
@@ -317,11 +348,9 @@ Filtra in `Impostazioni Server → Audit Log` per `targetType=user` per vedere l
 | `CANNOT_SELF_DELETE`  | 400  | Admin che cancella sé stesso             |
 | `LAST_ADMIN_LOCKOUT`  | 409  | Operazione che lascerebbe 0 admin attivi |
 
-**Workaround legittimo**: per cambiare ruolo o disattivare un altro admin, **un secondo admin** deve esserci ed essere attivo. Per dismettere l'ultimo admin (caso raro: chiusura del Conservatorio) bisogna passare da DBA con accesso DB diretto.
+**Workaround legittimo**: per dismettere un admin servono **almeno due** admin attivi. Per disattivare l'ultimo (chiusura del Conservatorio) occorre un DBA con accesso al DB.
 
-### 3.7 Password policy AGID 2024 + rate limit (v2.2)
-
-#### Nuovi requisiti registrazione/cambio password
+### 3.9 Password policy AGID 2024 + rate limit
 
 Da v2.2 i nuovi account creati via `POST /register` (e i cambi password via `PUT /users/:id/password`) devono soddisfare le linee guida AGID 2024:
 
@@ -329,88 +358,314 @@ Da v2.2 i nuovi account creati via `POST /register` (e i cambi password via `PUT
 - **almeno 1 maiuscola**
 - **almeno 1 cifra**
 
-Errori: `PASSWORD_TOO_SHORT`, `PASSWORD_NEEDS_UPPERCASE`, `PASSWORD_NEEDS_DIGIT`. Le password storiche sotto soglia continuano a funzionare per il login (no rotazione forzata) — solo le nuove sono validate.
+Errori: `PASSWORD_TOO_SHORT`, `PASSWORD_NEEDS_UPPERCASE`, `PASSWORD_NEEDS_DIGIT`. Le password storiche sotto soglia continuano a funzionare per il login (no rotazione forzata).
 
-#### Rate limit dedicati per endpoint critici
+#### Rate limit dedicati
 
-| Endpoint                                     | Limit | Finestra | Chiave                               | Motivo                            |
-| -------------------------------------------- | ----- | -------- | ------------------------------------ | --------------------------------- |
-| `POST /login`                                | 5     | 15 min   | IP                                   | brute-force credenziali           |
-| `POST /register`                             | 3     | 30 min   | IP                                   | spam account                      |
-| `POST /2fa/setup` · `/2fa/resend`            | 5     | 15 min   | userId del pre2faToken (IP fallback) | spam codici via mail              |
-| `POST /2fa/verify`                           | 10    | 15 min   | userId del pre2faToken               | brute-force codice 6 cifre        |
-| `POST /bookings/recurring`                   | 5     | 1 ora    | userId                               | DoS pool DB (52 booking/chiamata) |
-| `POST /gdpr/export-data` · `/delete-request` | 3     | 24 ore   | userId                               | costo I/O elevato                 |
-| `GET /ical/:token`                           | 30    | 1 ora    | IP                                   | enumeration token                 |
-| `/api/*` (default)                           | 300   | 1 min    | IP                                   | barriera baseline                 |
+| Endpoint                                     | Limit | Finestra | Chiave                 | Motivo                            |
+| -------------------------------------------- | ----- | -------- | ---------------------- | --------------------------------- |
+| `POST /login`                                | 5     | 15 min   | IP                     | brute-force credenziali           |
+| `POST /register`                             | 3     | 30 min   | IP                     | spam account                      |
+| `POST /2fa/setup` · `/2fa/resend`            | 5     | 15 min   | userId del pre2faToken | spam codici via mail              |
+| `POST /2fa/verify`                           | 10    | 15 min   | userId del pre2faToken | brute-force codice 6 cifre        |
+| `POST /bookings/recurring`                   | 5     | 1 ora    | userId                 | DoS pool DB (52 booking/chiamata) |
+| `POST /gdpr/export-data` · `/delete-request` | 3     | 24 ore   | userId                 | costo I/O elevato                 |
+| `GET /ical/:token`                           | 30    | 1 ora    | IP                     | enumeration token                 |
+| `/api/*` (default)                           | 300   | 1 min    | IP                     | barriera baseline                 |
 
 I rate limit restituiscono **429** con header `Retry-After` + body `{ error, code: 'RATE_LIMITED', retryAfter: <s> }`.
 
-> **Test**: in CI `NODE_ENV=test` i limiter sono disattivati di default per evitare flake (override con `DISABLE_RATE_LIMIT=false` nei test che li verificano espressamente).
+### 3.10 API endpoint usati dalla pagina Utenti
+
+```
+GET    /api/users[?role=&active=&status=]
+POST   /api/users
+PUT    /api/users/:id
+DELETE /api/users/:id
+POST   /api/users/:id/approve
+POST   /api/users/:id/reject
+POST   /api/users/bulk-approve  body: { userIds, action }
+POST   /api/users/bulk-delete   body: { userIds }
+GET    /api/users/csv/export
+POST   /api/users/csv/import
+POST   /api/users/:id/reset-bounce
+PUT    /api/users/:id/monte-ore-override
+GET    /api/oauth-settings
+PUT    /api/oauth-settings
+GET    /api/courses
+GET    /api/contract-types?includeInactive=true
+```
 
 ---
 
 ## 4. Corsi e Livelli
 
-URL: `/admin/courses`
+URL: `/admin/courses` (con query `?tab=corsi|livelli`)
 
-Pagina con due tab macro (stile _Impostazioni Server_):
+### 4.1 Layout
 
-### 4.1 Tab "Corsi"
+Pagina con **macro-tab selector** in alto (2 card grandi):
 
-Catalogo SAD del Conservatorio (codici AFAM standard tipo `AFAM001 Pianoforte`).
+- **Corsi** (icon `BookOpen`, accent cielo) — catalogo SAD
+- **Livelli** (icon `GraduationCap`, accent viola) — propedeutico, triennio, biennio, master…
 
-- Crea/modifica corso: codice univoco, nome, livelli supportati, attivo/disattivo
-- Esporta/importa CSV
-- Cancellazione: soft-delete; al riavvio del backend i corsi AFAM cancellati **non riappaiono** automaticamente (regression test in `coursesSeederIdempotency.test.js`).
+Sotto il selector compare una card descrittiva della tab attiva. Il body cambia in base alla tab.
 
-### 4.2 Tab "Livelli"
+![Pagina Corsi — tab Corsi attiva](screenshots/courses-overview.png)
 
-Catalogo livelli di studio: `propedeutico`, `triennio`, `biennio`, `master`, ecc. Aggiungi un livello una sola volta e usalo in tutti i corsi.
+#### Riferimento UI — tab "Corsi"
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Corsi di studio                                                          │
+│ Gestisci il catalogo SAD, livelli supportati, import CSV.                │
+├──────────────────────────────────────────────────────────────────────────┤
+│ [📚 Corsi] [🎓 Livelli]                                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Toolbar:  [Esporta CSV] [Importa CSV]            [+ Nuovo corso]         │
+│ Filtri:   [🔍 codice/nome] [Livelli ▾] [Stato ▾]                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌── Tabella ──────────────────────────────────────────────────────────┐ │
+│ │ □ │ Codice    │ Denominazione        │ Livelli       │ Stato │ Azioni│ │
+│ │ □ │ DCPL34    │ Pianoforte           │ TRI · BIE     │ ✓     │ ✎ 🗑  │ │
+│ │ □ │ DCPL10    │ Violino              │ PRO · TRI     │ ✓     │ ✎ 🗑  │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Tab "Corsi"
+
+#### Toolbar
+
+- **Esporta CSV** (`coursesApi.downloadCsv()` → `corsi-YYYY-MM-DD.csv`)
+- **Importa CSV** → apre `CoursesCsvImportDialog`
+- **+ Nuovo corso** → apre `CourseFormDialog` (modalità create)
+
+#### Filtri
+
+| Elemento | Tipo   | Note                                       |
+| -------- | ------ | ------------------------------------------ |
+| Search   | Input  | Match su `code` e `name`, case-insensitive |
+| Livelli  | Select | Tutti · oppure uno specifico livello SAD   |
+| Stato    | Select | Tutti · Attivi · Disattivati               |
+
+#### Bulk-select bar
+
+Visibile se almeno una riga è selezionata:
+
+- "X corso/corsi selezionato/i" + bottoni **Deseleziona** · **Elimina selezionati** (destructive).
+- L'azione di delete passa per `ConfirmDeleteDialog` e chiama `coursesApi.bulkDelete(ids)`.
+
+#### Colonne tabella
+
+| Colonna       | Contenuto                                                     |
+| ------------- | ------------------------------------------------------------- |
+| Checkbox      | Multi-select con stato `indeterminate` sull'header            |
+| Codice        | Mono uppercase xs                                             |
+| Denominazione | Nome corso + sotto-riga `Dipartimento` (grigio, opz.)         |
+| Livelli       | Lista badge secondaria (`PRO`, `TRI`, `BIE`, …); `—` se vuoto |
+| Stato         | `Attivo` (success) · `Disattivato` (muted)                    |
+| Azioni        | ✎ Modifica · 🗑 Elimina (destructive)                         |
+
+#### Form Corso
+
+| Campo              | Tipo           | Validazioni               | Placeholder            |
+| ------------------ | -------------- | ------------------------- | ---------------------- |
+| Codice             | Text           | required, min 1, max 20   | `DCPL34`               |
+| Denominazione      | Text           | required, min 1, max 250  | `Pianoforte`           |
+| Dipartimento       | Text           | optional, max 150         | `Strumenti a tastiera` |
+| Livelli supportati | Checkbox group | optional, array di `code` | da `courseLevelsApi`   |
+| Descrizione        | Textarea (3 r) | optional, max 2000        | —                      |
+| Corso attivo       | Switch         | —                         | default `true`         |
+
+Empty state: se non ci sono livelli configurati appare il messaggino "Nessun livello configurato. Aggiungili dalla scheda Livelli."
+
+### 4.3 Tab "Livelli"
+
+![Tab Livelli — catalogo livelli SAD](screenshots/courses-livelli.png)
+
+Catalogo dei livelli di studio (`propedeutico`, `triennio`, `biennio`, `master`, ecc.). Una volta creato un livello, lo riusi in tutti i corsi: il modulo `CourseLevelsSection` espone CRUD essenziale (codice, etichetta, ordine, attivo/disattivo).
+
+### 4.4 API endpoint
+
+```
+GET    /api/courses
+POST   /api/courses
+PUT    /api/courses/:id
+DELETE /api/courses/:id
+POST   /api/courses/bulk-delete
+GET    /api/courses/csv/export
+POST   /api/courses/csv/import
+GET    /api/course-levels
+POST   /api/course-levels
+PUT    /api/course-levels/:id
+DELETE /api/course-levels/:id
+```
 
 ---
 
 ## 5. Struttura: Istituti, Edifici, Aule, Dotazioni
 
-URL: `/admin/structure`
+URL: `/admin/structure` (con query `?tab=sedi|dotazioni`)
 
-Due tab:
+### 5.1 Layout
 
-### 5.1 Tab "Sedi"
+Macro-tab selector identico a Corsi, con due tab: **Sedi** (icon `Building2`, accent blu) e **Dotazioni** (icon `Cog`, accent viola).
 
-Gerarchia: **Istituto → Edifici → Aule → Equipment**.
+![Pagina Struttura — tab Sedi con albero Istituto/Edificio/Aula](screenshots/structure-sedi.png)
 
-- **Istituto**: anagrafica completa (denominazione legale, P.IVA, codice fiscale, PEC, contatti, DPO, sub-processor GDPR, foro competente). Tutti i dati che servono alla Privacy Policy e ai Termini.
-- **Edificio**: nome, indirizzo, lista piani, configurazione kiosk/display (rotazione concerti, intervallo slide, ecc.).
-- **Aula**: nome (es. `A.101`), piano, capienza, tipo (`studio` / `aula` / `concerto` / `ufficio`), prenotabilità, `requireCheckIn` (QR code), `requiresApproval` (workflow approvativo per le sale concerti).
-- **Equipment**: dotazione singola dell'aula (es. "Pianoforte a coda Steinway B-211"). Catalogata da template.
+#### Riferimento UI — tab "Sedi"
 
-### 5.2 Tab "Dotazioni"
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Struttura                                          [+ Nuovo istituto]    │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌── Conservatorio "X" — sede centrale ────────────────────────────────┐ │
+│ │ Roma · INST01 · 3 edifici            [⤓ CSV] [⤒ CSV] [+ Edif.] [✎ 🗑]│ │
+│ │ ──────────────────────────────────────────────────────────────────── │ │
+│ │ □ ▶ Palazzo Storico · 12 aule · 3 piani         [+ Aula] [✎ 🗑]      │ │
+│ │ □ ▼ Succursale Via Verdi · 8 aule · 2 piani     [+ Aula] [✎ 🗑]      │ │
+│ │      ┌── Aule ─────────────────────────────────────────────────────┐ │ │
+│ │      │ □ 🚪 Aula 101 (studio · prenotabile)  [Pianoforte ×1] [+]   │ │ │
+│ │      │ □ 🚪 Aula 102 (concerto · approvazione) [—]            [+]   │ │ │
+│ │      └────────────────────────────────────────────────────────────┘ │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│ [Floating bulk bar visibile se selezione > 0]                             │
+│   2 edifici · 5 aule selezionati  [Deseleziona] [Elimina ✗]               │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Gerarchia Istituto → Edificio → Aula → Equipment
+
+Ogni livello è una "InstituteCard" con header proprio + lista figli espandibile/collassabile. Ogni nodo ha:
+
+- Checkbox di selezione (per bulk action)
+- Bottone toggle expand/collapse (chevron)
+- Anagrafica (nome + sotto-info: indirizzo, conteggi, ecc.)
+- Bottoni per-nodo: **+ Crea figlio** · **✎ Modifica** · **🗑 Elimina**
+
+Le **dotazioni (equipment)** delle aule sono mostrate inline come chip (cliccabili per editare, x per cancellare) + bottone tratteggiato **+ Aggiungi**.
+
+### 5.3 Form Istituto (InstituteFormDialog)
+
+Form esteso che raccoglie sia anagrafica sia dati legali per Privacy Policy/Termini.
+
+**Anagrafica**
+
+| Campo       | Tipo        | Validazioni               |
+| ----------- | ----------- | ------------------------- |
+| Nome        | Text        | required, min 1           |
+| Codice      | Text        | optional, max 50          |
+| Città       | Text        | optional, max 100         |
+| Indirizzo   | Text        | optional, max 300         |
+| Descrizione | Textarea    | optional, max 2000        |
+| Logo        | File upload | PNG/JPG/WEBP/SVG, max 2MB |
+
+**Sezione Dati Legali**
+
+| Campo                             | Tipo       | Note                                                                  |
+| --------------------------------- | ---------- | --------------------------------------------------------------------- |
+| Denominazione legale              | Text       | "Conservatorio di Musica Statale ..."                                 |
+| P. IVA · Codice fiscale           | Text       | max 32 char ognuno                                                    |
+| Email contatto · PEC              | Email      | max 255                                                               |
+| Nome DPO · Email DPO              | Text/Email | Per la sezione "Titolare del trattamento" della privacy               |
+| Foro competente                   | Text       | Default: città dell'istituto                                          |
+| Sub-processor (textarea max 4 KB) | Textarea   | Format: `Nome \| Finalità \| Localizzazione \| URL DPA`, una per riga |
+
+### 5.4 Form Edificio (BuildingFormDialog)
+
+| Campo     | Tipo | Note                                       |
+| --------- | ---- | ------------------------------------------ |
+| Nome      | Text | required, min 1                            |
+| Codice    | Text | optional, max 50                           |
+| Indirizzo | Text | optional, max 300                          |
+| Piani     | Text | comma-separated, es. `Piano Terra, 1º, 2º` |
+
+### 5.5 Form Aula (RoomFormDialog)
+
+| Campo                  | Tipo                        | Validazioni                                                      |
+| ---------------------- | --------------------------- | ---------------------------------------------------------------- |
+| Nome                   | Text                        | required                                                         |
+| Codice                 | Text                        | optional, max 50 (es. `A.101`)                                   |
+| Piano                  | Select                      | required, opzioni da `building.floors`                           |
+| Capienza               | Number                      | required, int, min 1                                             |
+| Tipologia              | Select                      | enum: `studio` · `aula` · `concerto` · `ufficio`                 |
+| Ruoli ammessi          | Checkbox group              | array `[admin, docente, studente]`                               |
+| Corsi autorizzati      | Checkbox group (scrollable) | empty = tutti                                                    |
+| Note                   | Textarea                    | max 2000                                                         |
+| Foto aula              | File upload                 | PNG/JPG/WEBP/HEIC/HEIF; aspect 16:9                              |
+| Aula prenotabile       | Switch                      | default `true`                                                   |
+| Richiedi check-in (QR) | Switch                      | default `false`                                                  |
+| Richiede approvazione  | Switch                      | default `false` (sale concerti)                                  |
+| QR check-in (PDF)      | Bottone                     | visibile solo se `requireCheckIn=true` ed è una `room` esistente |
+
+### 5.6 Form Equipaggiamento (EquipmentFormDialog)
+
+| Campo               | Tipo   | Validazioni                                                               |
+| ------------------- | ------ | ------------------------------------------------------------------------- |
+| Scegli dal catalogo | Select | optional; pre-compila nome + tipo dal template                            |
+| Nome                | Text   | required, min 1                                                           |
+| Tipologia           | Select | required (enum equipment types)                                           |
+| Quantità            | Number | required, int, min 1                                                      |
+| Marca / Modello     | Text   | optional, max 100                                                         |
+| In funzione         | Switch | default `true` (gli equipment fuori uso si vedono opacizzati nella lista) |
+
+### 5.7 Bulk action floating bar
+
+Card fissa in basso (animata con framer-motion) visibile se `selectedRooms.size > 0` o `selectedBuildings.size > 0`. Sezioni:
+
+- **Edifici selezionati** → `Deseleziona` · `Elimina` (cascata: rimuove anche aule, equipment e prenotazioni)
+- **Aule selezionate** → `Deseleziona` · `Elimina` (cascata: rimuove equipment e prenotazioni)
+
+I conteggi delle entità rimosse sono ritornati nel toast: `"5 aule eliminate, 12 prenotazioni rimosse"`.
+
+### 5.8 Tab "Dotazioni"
+
+![Tab Dotazioni — catalogo template di equipment](screenshots/structure-dotazioni.png)
 
 Catalogo riusabile delle dotazioni (template). Una volta creato il template "Pianoforte verticale", puoi assegnarlo a tutte le aule che lo possiedono in due click. Cambiare il template aggiorna tutte le aule che lo usano.
 
-### 5.3 Operazioni di massa
+### 5.9 Vista pubblica `/rooms` raggruppata per edificio (v2.3)
 
-- **Import CSV** della struttura completa (template scaricabile).
-- **Bulk-delete** aule selezionate.
-- **Bulk-toggle** prenotabilità.
-- **Riordina** aule via drag-and-drop (rispettato dal calendario settimanale).
-
-### 5.4 Vista pubblica `/rooms` raggruppata per edificio (v2.3)
-
-La pagina `/rooms` (visibile a tutti gli utenti autenticati) ora ha lo **stesso schema visivo di `/admin/structure`**: sezioni espandibili per edificio, ognuna con tile colorato (`buildingColor`), nome, conteggio aule e numero di piani.
+La pagina `/rooms` (visibile a tutti gli utenti autenticati) ha lo **stesso schema visivo di `/admin/structure`**: sezioni espandibili per edificio con tile colorato (`buildingColor`), nome, conteggio aule e numero di piani.
 
 Vantaggi rispetto alla lista flat precedente:
 
-- meno scroll su istituti multi-edificio (es. sede centrale + succursale + auditorium fuori-sede)
+- meno scroll su istituti multi-edificio
 - riconoscibilità immediata della sede (colore + nome edificio)
-- stato `collapsedBuildings` ricordato durante la sessione del browser
+- stato `collapsedBuildings` ricordato durante la sessione
 
-I filtri esistenti (testo, edificio, tipo, capienza, dotazioni, finestra di disponibilità) restano invariati e agiscono **dentro** ciascun gruppo.
+### 5.10 API endpoint usati
+
+```
+GET    /api/institutes/full
+POST   /api/structure/institutes
+PUT    /api/structure/institutes/:id
+DELETE /api/structure/institutes/:id
+POST   /api/structure/institutes/:id/logo
+DELETE /api/structure/institutes/:id/logo
+POST   /api/structure/buildings
+PUT    /api/structure/buildings/:id
+DELETE /api/structure/buildings/:id
+POST   /api/structure/rooms
+PUT    /api/structure/rooms/:id
+DELETE /api/structure/rooms/:id
+POST   /api/structure/rooms/:id/photo
+DELETE /api/structure/rooms/:id/photo
+GET    /api/structure/rooms/:id/qr
+POST   /api/structure/equipment
+PUT    /api/structure/equipment/:id
+DELETE /api/structure/equipment/:id
+POST   /api/structure/rooms/bulk-delete
+POST   /api/structure/buildings/bulk-delete
+GET    /api/structure/csv/:instituteId
+GET    /api/structure/equipment-templates
+```
 
 ---
 
-## 6. ⭐ Regole prenotazione (approfondito)
+## 6. ⭐ Regole prenotazione
 
 URL: `/admin/rules`
 
@@ -486,7 +741,7 @@ Tutti gli errori restituiscono **codici machine-readable** (`MAX_HOURS_EXCEEDED`
 
 ![Tab Per ruolo — limiti base per studenti, docenti e admin](screenshots/rules-per-ruolo.png)
 
-Tre righe: una per ruolo. Per ciascun ruolo configuri questi parametri:
+Tre toggle in alto per scegliere il ruolo (Studenti · Docenti · Admin); il body è un form in 5 sezioni con i parametri sotto.
 
 | Campo                                                                             | Default                     | Significato                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -541,18 +796,20 @@ Una **quota** è un sotto-limite più stringente per uno specifico target. Il va
 | `building`      | edificio_centrale              | Limite per edificio (utile se uno è in ristrutturazione)       |
 | `global`        | \*                             | Limite globale (oltre quello di ruolo)                         |
 
-#### Campi quota
+#### Form Quota
 
-- **Ruolo**: studente / docente / admin (la quota si applica solo a quel ruolo)
-- **Scope** + **Scope value**: vedi sopra
-- **Max ore / giorno** | **/ settimana** | **/ mese** | **Max prenotazioni**
-- **Giorni della settimana** (JSON array `[1,2,3,4,5,6]`, dove `1=Lun … 7=Dom`): la quota vale solo nei giorni indicati. Vuoto = tutti.
-- **Orario start / end**: la quota vale solo entro questa fascia (es. "max 1h di studio individuale dopo le 18:00").
-- **Active**: toggle on/off senza dover cancellare la quota.
+Validazioni Zod (v2.3):
+
+- `role` ∈ `[admin, docente, studente]`
+- `scopeKind` ∈ `[roomType, equipmentType, room, building, global]`
+- `scopeValue` obbligatorio se `scopeKind != global`
+- Almeno uno tra `maxHoursPerWeek`, `maxHoursPerDay`, `maxHoursPerMonth`, `maxBookings` deve essere `> 0`
+- Se sono compilati `timeFrom` o `timeTo`, devono esserlo entrambi e `timeFrom < timeTo`
+- `daysOfWeek`: array di numeri 0–6 (Lun=1…Dom=0), vuoto = ogni giorno
+
+Errori tipici di validazione: `cap_required`, `scope_required`, `time_pair`, `time_order`.
 
 #### Esempio pratico
-
-Una quota tipica per Conservatorio:
 
 | #   | Ruolo    | Scope    | Scope value                 | Max h/sett | Days    | Orario | Note                                                |
 | --- | -------- | -------- | --------------------------- | ---------- | ------- | ------ | --------------------------------------------------- |
@@ -562,7 +819,22 @@ Una quota tipica per Conservatorio:
 | Q4  | studente | global   | \*                          | 6          | sab-dom | —      | Limite weekend: 6h totali sab+dom                   |
 | Q5  | studente | building | "Sede succursale"           | 0          | tutti   | —      | Edificio in ristrutturazione                        |
 
-Le quote scattano in ordine: Cadenza somma le ore già prenotate dall'utente che matchano lo scope, e se l'aggiunta supera il limite rifiuta con messaggio specifico (`QUOTA_EXCEEDED:roomType:concerto`).
+### 6.2bis Tab "Quote prestiti"
+
+![Tab Quote prestiti — limiti per inventario strumenti](screenshots/rules-quote-prestiti.png)
+
+Schema analogo alle quote aule, ma applicato all'**inventario strumenti**:
+
+| Campo            | Tipo   | Validazioni                               |
+| ---------------- | ------ | ----------------------------------------- |
+| `role`           | enum   | `admin · docente · studente`              |
+| `scopeKind`      | enum   | `family · instrument · global`            |
+| `scopeValue`     | string | required se `scopeKind != global`         |
+| `maxConcurrent`  | number | 0–99 (max prestiti simultanei)            |
+| `maxDaysPerYear` | number | 0–366 (giorni cumulati nell'anno)         |
+| `isActive`       | switch | abilita/disabilita senza dover cancellare |
+
+Almeno uno fra `maxConcurrent` e `maxDaysPerYear` deve essere `> 0`.
 
 ### 6.3 Tab "Eccezioni" — `BookingRuleException`
 
@@ -575,6 +847,22 @@ Le eccezioni **sospendono o sostituiscono** una regola/quota per:
 - una **specifica aula** (es. "Aula 5: prenotabile solo da chi ha permesso speciale, dal 1 al 30 giugno")
 
 L'eccezione ha priorità sulla regola/quota originaria. Tracciato in **Audit Log** con motivo testuale obbligatorio.
+
+#### Form Eccezione
+
+| Campo                  | Tipo          | Validazioni                                                                    |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------ |
+| Nome                   | Text          | required, non vuoto                                                            |
+| Tipo                   | Select        | `block` (chiusura totale) · `time_window` (limite ore in finestra)             |
+| Si applica a           | Select        | `all` · solo studenti · solo docenti · solo admin                              |
+| Ore max nella finestra | Number        | required se `kind=time_window`; step 0.5, min 0.25                             |
+| Giorni della settimana | Toggle multi  | 7 bottoni Lun–Dom; vuoto = ogni giorno                                         |
+| Data singola / range   | Switch + Date | toggle "Data singola" mostra solo `dateFrom`; altrimenti `dateFrom` + `dateTo` |
+| Fascia oraria          | Time + Time   | optional; entrambi presenti, `startTime < endTime`                             |
+| Note                   | Textarea      | optional                                                                       |
+| Attivo                 | Switch        | "Disattivala per disabilitarla senza eliminarla"                               |
+
+> **Nudge UI**: se `dateTo < oggi` (eccezione retrodatata che copre solo il passato), un banner azzurro avvisa "Questa eccezione copre solo date passate — verrà ignorata da nuove prenotazioni".
 
 #### Sovrapposizioni storiche al setup di chiusure (v2.3 — parity EasyRoom)
 
@@ -589,15 +877,13 @@ Quando crei un'eccezione di tipo **`block`** (chiusura aula/edificio per ristrut
 
 Anche se chiudi senza cancellare nulla, l'eccezione `block` resta attiva: blocca le **prenotazioni future** dal momento della creazione in poi (l'anteprima è solo per smaltire lo storico).
 
-> **Nudge UI**: se l'eccezione ha `dateTo < oggi` (eccezione retrodatata che copre solo il passato), un banner azzurro avvisa "Questa eccezione copre solo date passate — verrà ignorata da nuove prenotazioni". Utile per non dimenticare di estendere `dateTo` quando una chiusura si prolunga.
-
 ### 6.4 Granularità slot
 
 Il "minimo comune multiplo" temporale del sistema è **30 minuti** (configurabile a livello globale ma sconsigliato cambiarlo dopo il go-live). Tutte le quote/regole agiscono su questa griglia.
 
-### 6.5 Anteprima regole — _Rules Preview_ (roadmap)
+### 6.5 Anteprima regole (roadmap)
 
-Il componente `RulesPreview` (in `frontend/src/components/admin/`) è già implementato ma non ancora esposto nella UI: simulerà una prenotazione (utente, aula, data/ora) e mostrerà quali regole/quote/eccezioni vengono valutate, con esito ✓ / ✗ riga per riga. Endpoint backend già disponibile: `POST /api/rules/preview`. Verrà attivato in una prossima release con un bottone "Anteprima" nell'header della pagina Regole.
+Il componente `RulesPreview` è già implementato ma non ancora esposto nella UI: simulerà una prenotazione (utente, aula, data/ora) e mostrerà quali regole/quote/eccezioni vengono valutate, con esito ✓ / ✗ riga per riga. Endpoint backend già disponibile: `POST /api/rules/preview`.
 
 In attesa, per debug puoi usare direttamente l'API:
 
@@ -643,49 +929,113 @@ Tutti gli errori di `POST /api/bookings` (e `/recurring`, `/swap`) restituiscono
 
 ---
 
-## 7. Approvazioni
+## 7. Approvazioni · Registro attività · Bookings
 
-URL: `/admin/approvals`
+Tre pagine distinte ma correlate:
 
-Coda delle prenotazioni in stato `pending_approval`. Vengono qui:
+- **§7.1 Approvazioni** (`/admin/approvals`) — coda dei nuovi `pending_approval` da approvare/rifiutare.
+- **§7.2 Registro attività** (`/admin/activity-log`) — operazioni sulle **prenotazioni confermate future** (filtri, bulk-cancel, swap).
+- **§7.3 Bookings** (`/admin/bookings`) — alias di `/admin/activity-log` (deprecated, redirect interno).
+
+### 7.1 Approvazioni — `/admin/approvals`
+
+![Pagina Approvazioni — coda pending](screenshots/approvals-overview.png)
+
+#### Riferimento UI
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ✔ Approvazioni prenotazioni                                              │
+│ Esamina e approva le prenotazioni in sospeso.                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌── Variazioni Monte Ore ──────────────────────── [Badge 3 in sospeso]─┐ │
+│ │ → Vai a /admin/monte-ore?tab=amendments                               │ │
+│ └─────────────────────────────────────────────────────────────────────────┘
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌── Card prenotazione 1 ────────────────────────────────────────────────┐│
+│ │ [Pending]  Mario Rossi (Docente)                                      ││
+│ │ Aula 12 — Palazzo Storico                                             ││
+│ │ Sabato 18 maggio 2026 · 18:00–20:00 · 120 min                          ││
+│ │ Motivo: "Saggio di fine anno classe di pianoforte"                    ││
+│ │                                          [✗ Rifiuta]   [✓ Approva]    ││
+│ └────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Vengono qui:
 
 - prenotazioni su aule con `requiresApproval=true` (sale concerti, auditorium)
 - prenotazioni di utenti con ruolo configurato `requireApproval=true`
 - prenotazioni che violano una eccezione "approva-prima" (rara)
 
-Per ogni richiesta vedi: utente, aula, data/ora, durata, motivo, allegati. Bottoni **"Approva"** / **"Rifiuta"** + campo motivazione (obbligatorio per rifiuto). L'utente riceve email automatica.
+Per ogni richiesta vedi: utente, ruolo, aula, edificio, data/ora, durata, motivo.
 
-Il badge rosso sulla sidebar mostra il conteggio dei pending in tempo reale (polling 60s).
+#### Azioni
 
-### 7.5 ⭐ Registro attività — gestione massiva e swap (NUOVO v2.3)
+| Bottone   | Mutation                                                                              |
+| --------- | ------------------------------------------------------------------------------------- |
+| ✓ Approva | `POST /api/admin/bookings/:id/approve` → toast "Prenotazione approvata"               |
+| ✗ Rifiuta | Apre dialog con textarea "Motivo del rifiuto" → `POST /api/admin/bookings/:id/reject` |
 
-URL: `/admin/activity-log`
+#### Card "Variazioni Monte Ore"
 
-Pagina dedicata alle **operazioni sulle prenotazioni esistenti**. Era una sotto-tab nascosta dentro `/admin/audit-log`; ora è autonoma per non confondere "operazioni sui dati" con "log immutabile delle azioni" (cfr. §12.5).
+In testa alla pagina compare una card-link a `/admin/monte-ore?tab=amendments` con badge contatore: `"N in sospeso"`. Aggiornato ogni 60 secondi tramite `GET /api/admin/monte-ore/amendments/pending-count`.
 
-#### Filtri avanzati
+#### API endpoint
 
-- Range date (default ultimi 30 giorni)
-- Aula / Edificio / Tipo aula
-- Utente (search-as-you-type)
-- Ruolo utente (studente / docente / admin)
-- Stato (`confirmed`, `pending_approval`, `cancelled`, `checked_in`)
-- Solo prenotazioni Monte Ore (toggle — filtra `bookings.scheduleId IS NOT NULL`)
+```
+GET    /api/admin/bookings/pending                      (staleTime 15s)
+POST   /api/admin/bookings/:id/approve
+POST   /api/admin/bookings/:id/reject     body: { reason }
+GET    /api/admin/monte-ore/amendments/pending-count    (refetch 60s)
+```
 
-#### Operazioni disponibili
+### 7.2 Registro attività — `/admin/activity-log` ⭐
 
-##### Bulk-cancel con motivo broadcast
+> **Funzione che EasyAcademy/EasyRoom chiamano "scambio"**: Cadenza implementa lo swap atomico in **una** transazione (3 modalità del concorrente collassate in una). Era una sotto-tab nascosta dentro `/admin/audit-log`; ora è una pagina autonoma.
+
+![Registro attività — bulk-cancel + swap atomico](screenshots/activity-log-overview.png)
+
+Mostra solo prenotazioni `confirmed` e **future** (filter: `from = now`).
+
+#### Filtri
+
+- **Ricerca libera**: input full-text su `room.name`, `building.name`, `user.firstName`, `user.lastName`, `user.email`, `purpose` (case-insensitive, trim).
+
+#### Colonne tabella
+
+| Colonna  | Contenuto                                                            |
+| -------- | -------------------------------------------------------------------- |
+| Checkbox | Multi-select; header con `indeterminate`                             |
+| Utente   | Nome Cognome (font-medium) · email (muted xs)                        |
+| Aula     | `Room.name` · `Building.name` (muted xs, condizionale)               |
+| Quando   | `ddd D MMM YYYY` + `HH:mm–HH:mm`                                     |
+| Tipo     | Badge secondaria con etichetta tipologia (i18n `BOOKING_TYPE_LABEL`) |
+
+#### Selection summary bar
+
+Visibile (animata con framer-motion) appena `selected.size > 0`:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2 prenotazioni · 2 utenti distinti                       [Pulisci sel.]  │
+│                                          [⇄ Scambia]   [✗ Cancella sel.] │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Bottone "Scambia"** visibile **solo** se `selected.size === 2`
+- **Bottone "Cancella selezionate"** sempre visibile se selezione > 0
+
+#### Bulk-cancel con motivo broadcast
 
 1. Seleziona più prenotazioni (checkbox)
-2. Bottone **"Cancella selezionate"** → modal con campo _motivo_ obbligatorio (≥ 10 caratteri)
+2. Click **Cancella selezionate** → `ConfirmDeleteDialog` con campo textarea "Motivo della cancellazione" (≥ 10 caratteri)
 3. Conferma → batch cancel in transazione + email broadcast a tutti gli utenti (motivo incluso, no PII di altri utenti)
 4. Le prenotazioni Monte Ore: lo slot collegato torna `isActive=true` (a meno che non sia in un'eccezione `block` attiva — vedi §6.3)
 
 Tipico: aula in ristrutturazione last-minute, sciopero, evento istituzionale.
 
-##### Swap atomico — `POST /api/bookings/swap`
-
-> **Funzione che EasyAcademy/EasyRoom chiamano "scambio"**. Cadenza implementa l'operazione in **una sola** transazione atomica (3 modalità del concorrente collassate in una).
+#### Swap atomico — `POST /api/bookings/swap`
 
 Quando in toolbar selezioni **esattamente 2** prenotazioni future, compare il bottone **"Scambia"**. Lo swap inverte aula+orario tra le due:
 
@@ -716,13 +1066,27 @@ Tutto in 1 transazione. Se lo step 4 fallisce per overlap laterale (altra prenot
 | `BOOKING_CONFLICT` | 409  | Overlap laterale rilevato durante lo step 4 (rollback eseguito) |
 | `SAME_BOOKING`     | 400  | `aId === bId`                                                   |
 
-##### Audit log
+##### Audit log dello swap
 
-Ogni swap genera due record in `audit_log`: uno per A (action `swap_in`), uno per B (action `swap_out`), entrambi con riferimento incrociato al booking gemello e all'admin che ha eseguito l'azione. Visibile in §12.5 con filtro `action LIKE 'swap_%'`.
+Ogni swap genera due record in `audit_log`: uno per A (action `swap_in`), uno per B (action `swap_out`), entrambi con riferimento incrociato al booking gemello e all'admin che ha eseguito l'azione. Visibile in §12.8 con filtro `action LIKE 'swap_%'`.
+
+#### API endpoint
+
+```
+GET    /api/admin/bookings/confirmed-future            (staleTime 30s)
+POST   /api/admin/bookings/bulk-cancel  body: { ids, reason }
+POST   /api/admin/bookings/swap         body: { aId, bId }
+```
+
+### 7.3 Bookings page — `/admin/bookings`
+
+![Pagina Bookings — alias di Registro attività](screenshots/bookings-overview.png)
+
+Alias deprecato di `/admin/activity-log`: stesso componente `AdminBookingsContent`, stesse funzioni. Mantenuto per backward-compat dei bookmark.
 
 ---
 
-## 8. ⭐ Gestione Monte Ore (approfondito)
+## 8. ⭐ Gestione Monte Ore
 
 URL: `/admin/monte-ore`
 
@@ -730,7 +1094,17 @@ URL: `/admin/monte-ore`
 
 ![Pagina Gestione Monte Ore — vista lista proposte](screenshots/monteore-overview.png)
 
-### 8.1 Quattro modelli sottostanti
+### 8.1 Layout della pagina
+
+Pagina con **3 macro-tab card** (icona+colore, identico pattern a Corsi/Struttura):
+
+- **Proposte** (icon `FileSignature`, accent blu) — coda proposte da approvare/generare
+- **Richieste variazioni** (icon `RefreshCw`, accent ambra) — amendments post-approvazione, badge contatore pending
+- **Tipologie docenti** (icon `Users`, accent indaco) — `ContractTypesPanel`, gestione tipi contratto e impatto sull'override individuale
+
+In header c'è il pulsante **"Calendario didattico"** che porta a `/admin/monte-ore/settings`.
+
+### 8.2 Quattro modelli sottostanti
 
 | Modello                                 | Funzione                                                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -741,30 +1115,9 @@ URL: `/admin/monte-ore`
 | `MonteOreSuspension`                    | Sospensioni didattiche istituzionali (festività, ferie, esami) — escludono date dalla generazione slot                                                       |
 | `MonteOreAmendment`                     | Variazione di una proposta già approvata: spostamento di una lezione, cancellazione, recupero. Stato: `pending → approved/rejected`                          |
 
-### 8.2 Workflow completo (anno tipo)
-
-```mermaid
-sequenceDiagram
-    actor Direzione
-    actor Coordinatore
-    actor Docente
-    actor Cadenza
-
-    Direzione->>Cadenza: 1. Configura MonteOreSettings (cap. 8.3)
-    Direzione->>Cadenza: 2. Inserisce sospensioni istituzionali
-    Cadenza->>Docente: 3. Apre finestra inserimento proposte
-    Docente->>Cadenza: 4. Compila proposta (draft)
-    Docente->>Coordinatore: 5. Submit proposta
-    Coordinatore->>Cadenza: 6. Approva o rifiuta con motivo
-    Cadenza->>Cadenza: 7. Generate slots → bookings
-    Note over Cadenza: Le ore Monte Ore appaiono nel calendario aule
-    Docente->>Coordinatore: 8. Eventuali amendments (variazioni)
-    Coordinatore->>Cadenza: 9. Approva/rifiuta amendment
-```
-
 ### 8.3 Configurazione settings (admin · una volta all'anno)
 
-URL diretto: `/admin/monte-ore/settings` o tab dedicata.
+URL diretto: `/admin/monte-ore/settings` (raggiungibile dal pulsante "Calendario didattico" della pagina principale).
 
 ![Tab Settings Monte Ore — soglia 324h, finestra lezioni, finestra inserimento](screenshots/monteore-settings.png)
 
@@ -774,15 +1127,32 @@ URL diretto: `/admin/monte-ore/settings` o tab dedicata.
 | **Finestra lezioni start / end**  | 2026-10-01 / 2027-06-30 | I docenti possono pianificare lezioni solo dentro questa finestra                                                                                    |
 | **Finestra inserimento proposte** | 2026-09-15 / 2026-10-15 | Periodo in cui i docenti possono compilare/sottomettere proposte                                                                                     |
 | **Soglia ore annue**              | 324                     | Default contratto AFAM. Personalizzabile (es. 270h per docenti part-time)                                                                            |
+| **Max richieste variazione**      | 3                       | Tetto annuale di amendments per proposta                                                                                                             |
 | **Max giorni / settimana**        | 4                       | Vincolo CCNL: i docenti non possono insegnare più di 4 giorni alla settimana                                                                         |
 | **Min giorni / settimana**        | 2                       | Vincolo CCNL: minimo 2 giorni                                                                                                                        |
 | **Bypass duration limit**         | true                    | Se true, i pattern Monte Ore possono superare la durata max prenotazione del ruolo (es. lezioni 3h consecutive anche se la regola docente è max 2h). |
 
 > **⚠ Importante**: una volta che le proposte sono state approvate e generate, modificare i settings **non rigenera** automaticamente le prenotazioni. Per cambiare la finestra lezioni a metà anno servono amendments per ogni proposta interessata.
 
-### 8.4 Inserire le sospensioni didattiche
+### 8.4 Sospensioni didattiche
 
-URL: tab "Sospensioni" dentro Gestione Monte Ore o `/admin/monte-ore/suspensions`.
+In coda alla pagina Settings c'è una tabella con tutte le sospensioni dell'anno accademico selezionato:
+
+| Colonna  | Contenuto                                                       |
+| -------- | --------------------------------------------------------------- |
+| Nome     | Es. "Vacanze di Natale"                                         |
+| Dal · Al | Range date                                                      |
+| Tipo     | Badge `Settimana intera` (destructive) · `Parziale` (secondary) |
+| Azioni   | 🗑 Elimina (trash icon + confirm)                               |
+
+Form sospensione (inline):
+
+| Campo                     | Tipo   | Validazioni                                                           |
+| ------------------------- | ------ | --------------------------------------------------------------------- |
+| Nome                      | Text   | required                                                              |
+| Dal · Al                  | Date   | required, `dal <= al`                                                 |
+| Tipo                      | Select | `Parziale` (giorni rossi) · `Settimana intera` (riga sparisce)        |
+| Applica alle prenotazioni | Switch | Solo se Parziale; crea automaticamente eccezione `block` nelle Regole |
 
 Sospensioni tipiche:
 
@@ -791,9 +1161,7 @@ Sospensioni tipiche:
 - Sessioni esami (es. 10–25 gen, 10–25 giu)
 - Eventi straordinari (es. saggi pubblici dell'istituto)
 
-Per ogni sospensione: **data inizio**, **data fine**, **descrizione**, **propaga alle proposte già approvate** (toggle).
-
-Quando si propaga, Cadenza:
+Quando applichi alle prenotazioni esistenti, Cadenza:
 
 1. Trova tutte le `MonteOreSlot` future che cadono nel range
 2. Le marca come "sospese" (non vengono trasformate in Booking)
@@ -804,20 +1172,40 @@ Quando si propaga, Cadenza:
 
 ![Tab Proposte — filtri per stato e azione approva/rifiuta/genera](screenshots/monteore-proposte.png)
 
-Lista di tutte le proposte annuali. Filtri per stato:
+Lista di tutte le proposte annuali. **Filtri per stato** in alto:
 
-- `draft`: il docente sta compilando, non ancora visibile all'admin
-- `submitted`: in attesa di approvazione coordinatore
-- `approved`: approvate, slot generati e materializzati come prenotazioni
-- `rejected`: rifiutate con motivo
-- `generated`: stato finale post-generation
+`Tutte` · `In attesa` · `Approvata` · `Generata` · `Rifiutata` · `Bozza`
 
-Per ogni proposta vedi: docente, corso, **soglia ore applicata** (324h CCNL standard, oppure soglia personalizzata se il docente ha una deroga — cap. 8.10), totale ore proposte, schedule (tabella giorno × orari), aule scelte. Bottoni:
+Counter "{N} proposte" a destra. Ogni proposta è una **card cliccabile**:
 
-- **Approva** → status diventa `approved`; il sistema genera le `MonteOreSlot` → `Booking`
-- **Rifiuta** (richiede motivo) → status `rejected`; il docente può rieditare e risottomettere
-- **Approva con modifiche** → riassegna l'aula scelta dal docente a un'altra (es. l'Aula 12 era già piena)
-- **Visualizza calendario** → preview grafica delle occorrenze annuali
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Bianchi Maria  [Badge: Contratto orario]                  [Submitted]   │
+│ AA 2026/2027 · 8 fasce · 78 / 60 h ✓                                     │
+│ Inviata: 15/09/2026                                          [Apri →]   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Click su `Apri` → `DetailDialog` con tabella completa fasce orarie (giorno · orario · aula · tipo · etichetta).
+
+Per ogni proposta vedi: docente, corso, **soglia ore applicata** (324h CCNL standard, oppure soglia personalizzata se il docente ha una deroga — cap. 8.10), totale ore proposte, schedule, aule scelte. Bottoni nel DetailDialog:
+
+| Stato       | Bottoni nel DetailDialog                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| `submitted` | **Approva** (verde) · **Rifiuta** (apre textarea motivo)                                  |
+| `approved`  | **Crea prenotazioni dal monte ore** (mutation generate, checkbox `includePast` opzionale) |
+| `generated` | **Annulla generazione** (mutation unlock — re-apre la proposta)                           |
+| any         | Tabella fasce con ✎ Edit / 🗑 Delete inline · `+ Aggiungi fascia` · `Chiudi`              |
+
+#### Form Schedule edit dialog (fasce orarie)
+
+| Campo          | Tipo   | Validazioni                                             |
+| -------------- | ------ | ------------------------------------------------------- |
+| Giorno         | Select | required, enum Lun-Dom                                  |
+| Inizio · Fine  | Time   | required HH:MM                                          |
+| Aula assegnata | Select | required per generare; warning icon se vuota            |
+| Tipo           | Select | `Lezione` · `Studio individuale` · `Prova` · `Concerto` |
+| Etichetta      | Text   | optional, max 255                                       |
 
 #### Tasso di approvazione consigliato
 
@@ -827,19 +1215,22 @@ In media, approva direttamente le proposte dei docenti senior; usa "approva con 
 
 ![Tab Richieste variazioni — coda amendment con badge pending](screenshots/monteore-amendments.png)
 
-Una volta che la proposta è `approved`, il docente può chiedere di **modificare** singole occorrenze. Esempi:
+Una volta che la proposta è `approved`, il docente può chiedere di **modificare** singole occorrenze:
 
 - "La lezione di lunedì 12 ottobre la sposto a martedì 13"
 - "Rimuovo la lezione del 5 dicembre per malattia, recupero il 7"
 - "Cambio l'aula da 101 a 102 per i prossimi 3 mesi"
 
-Ogni amendment è in stato `pending` e va approvato/rifiutato dall'admin (coordinatore). Il workflow:
+Tabella amendments:
 
-1. Docente compila amendment dalla sua pagina `/monte-ore`
-2. Cadenza valida (no overlap, dentro finestra lezioni, nessun vincolo violato)
-3. Amendment va in coda admin (badge nella sidebar)
-4. Admin approva → la `MonteOreSlot` originale si aggiorna, la nuova `Booking` si materializza
-5. Email automatica al docente
+| Colonna | Contenuto                                                                                                                           |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Docente | Cognome Nome · AA {anno}                                                                                                            |
+| Tipo    | `Disattivazione` · `Riattivazione` · `Cambio orario` · `Nuovo giorno`                                                               |
+| Cella   | Summary testuale dello slot toccato                                                                                                 |
+| Note    | Testo libero del docente                                                                                                            |
+| Stato   | Badge `In attesa` · `Auto-approvata` · `Approvata` · `Rifiutata`                                                                    |
+| Azioni  | Per `pending`: **Approva** (apre `ApproveNewDayDialog` se kind=`add_new_day` chiede aula) · **Rifiuta** (textarea motivo opzionale) |
 
 #### Auto-approve per casi semplici
 
@@ -938,14 +1329,14 @@ Lo snapshot è la "fotografia contrattuale" del momento del submit — non si mo
 
 #### Audit e conformità
 
-Ogni modifica della deroga viene tracciata automaticamente nell'**Audit Log** (`/admin/server-settings → tab Audit Log`) con:
+Ogni modifica della deroga viene tracciata automaticamente nell'**Audit Log** (§12.8) con:
 
 - chi ha autorizzato (admin loggato)
 - quando (timestamp UTC)
 - valore precedente vs nuovo
 - motivazione testuale
 
-La motivazione è considerata "documento contrattuale" ai sensi della L.241/1990 §3 sulla motivazione dell'atto amministrativo. Conserva l'audit log per **almeno 10 anni** dalla cessazione del rapporto di lavoro (art. 2220 c.c.) — Cadenza supporta la export/archive da _Impostazioni Server → Audit Log_ in formato CSV firmato.
+La motivazione è considerata "documento contrattuale" ai sensi della L.241/1990 §3 sulla motivazione dell'atto amministrativo. Conserva l'audit log per **almeno 10 anni** dalla cessazione del rapporto di lavoro (art. 2220 c.c.).
 
 #### Endpoint API (per integrazioni)
 
@@ -956,21 +1347,119 @@ La motivazione è considerata "documento contrattuale" ai sensi della L.241/1990
 
 Vedi `docs/MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md` per il dettaglio progettuale completo.
 
+### 8.11 API endpoint usati
+
+```
+GET    /api/admin/monte-ore/list?status={status|all}
+GET    /api/admin/monte-ore/{id}
+POST   /api/admin/monte-ore/{id}/approve
+POST   /api/admin/monte-ore/{id}/reject
+POST   /api/admin/monte-ore/{id}/generate
+POST   /api/admin/monte-ore/{id}/unlock
+POST   /api/admin/monte-ore/{id}/schedules
+PUT    /api/admin/monte-ore/{id}/schedules/{scheduleId}
+DELETE /api/admin/monte-ore/{id}/schedules/{scheduleId}
+GET    /api/admin/monte-ore/amendments/pending-count
+GET    /api/admin/monte-ore/amendments/list?status={pending|all}
+GET    /api/admin/monte-ore/{id}/amendments
+POST   /api/admin/monte-ore/{proposalId}/amendments/{amendmentId}/approve
+POST   /api/admin/monte-ore/{proposalId}/amendments/{amendmentId}/reject
+GET    /api/admin/monte-ore/settings/{academicYear}
+PUT    /api/admin/monte-ore/settings
+GET    /api/admin/monte-ore/suspensions/{academicYear}
+POST   /api/admin/monte-ore/suspensions
+DELETE /api/admin/monte-ore/suspensions/{suspensionId}
+```
+
 ---
 
 ## 9. Inventario strumenti
 
-URL: `/admin/instruments`
+URL: `/admin/instruments` (con query `?tab=inventory|all_loans|overdue|expiring|rules`)
 
-Cinque tab (stile _Server Settings_): **Inventario**, **Tutti i prestiti**, **Scaduti**, **In scadenza (2gg)**, **Regole prestito**.
+Pagina con **5 tab**: Inventario · Tutti i prestiti · Scaduti · In scadenza (2 gg) · Regole prestito.
 
 ### 9.1 Tab "Inventario"
 
-Catalogo strumenti con: nome, codice, famiglia (archi/fiati legni/fiati ottoni/tastiere/percussioni/corde/voce/elettronica/altro), marca, modello, condizione (ottimo/buono/discreto/da_riparare/fuori_uso), prestabilità on/off, posizione (aula/magazzino).
+![Tab Inventario — strumenti, foto, condizione, prestabilità](screenshots/instruments-overview.png)
 
-Operazioni: crea, modifica, cancella, import/export CSV, bulk-toggle prestabilità.
+#### Toolbar
 
-### 9.2 Workflow prestito
+In header: **Esporta CSV** · **Importa CSV** · **+ Nuovo strumento**.
+
+#### Filtri
+
+| Elemento     | Tipo   | Opzioni                                                                                                  |
+| ------------ | ------ | -------------------------------------------------------------------------------------------------------- |
+| Search       | Input  | nome / codice / marca / modello                                                                          |
+| Famiglia     | Select | Tutte · archi · fiati_legni · fiati_ottoni · tastiere · percussioni · corde · voce · elettronica · altro |
+| Condizione   | Select | Tutte · ottimo · buono · discreto · da_riparare · fuori_uso                                              |
+| Prestabilità | Select | Tutti · Sì · No                                                                                          |
+
+#### Colonne tabella
+
+| Colonna        | Contenuto                                                   |
+| -------------- | ----------------------------------------------------------- |
+| Checkbox       | Multi-select                                                |
+| Strumento      | Foto (4:5 thumb) + Nome + Marca · Modello · SerialNumber    |
+| Famiglia       | Badge secondaria                                            |
+| Codice         | Mono uppercase                                              |
+| Condizione     | Testo xs                                                    |
+| Prestabile     | Badge `Sì` (verde) · `No` (muted)                           |
+| Stato prestito | Badge condizionale (libero / in prestito / in approvazione) |
+| Azioni         | ✎ Edit · 🗑 Delete                                          |
+
+#### Bulk actions
+
+Card ambra in basso quando `selected.size > 0`:
+
+```
+[N selezionati]    [Deseleziona] [Abilita prestito] [Disabilita prestito] [Elimina ✗]
+```
+
+#### Form Strumento (InstrumentFormDialog)
+
+| Campo           | Tipo        | Validazioni                                      |
+| --------------- | ----------- | ------------------------------------------------ |
+| Nome            | Text        | required                                         |
+| Codice          | Text        | optional, mono uppercase, placeholder `INV-0042` |
+| Famiglia        | Select      | required, enum                                   |
+| Condizione      | Select      | required, enum                                   |
+| Marca / Modello | Text        | optional                                         |
+| Numero seriale  | Text        | optional                                         |
+| Note            | Textarea    | optional, max 2000                               |
+| Foto            | File upload | aspect-video, fallback SVG default               |
+| Prestabile      | Switch      | toggle on/off                                    |
+
+### 9.2 Tab "Tutti i prestiti"
+
+![Tab Tutti i prestiti](screenshots/instruments-loans-all.png)
+
+Tabella prestiti con tutti gli stati (`requested`, `active`, `overdue`, `returned`, `rejected`).
+
+| Colonna   | Contenuto                       |
+| --------- | ------------------------------- |
+| Utente    | Nome + matricola · email        |
+| Strumento | Foto + Nome + Codice · Famiglia |
+| Periodo   | `dd/mm/aaaa → dd/mm/aaaa`       |
+| Status    | Badge colore                    |
+| Azioni    | Condizionali (vedi sotto)       |
+
+#### Azioni per stato
+
+| Stato                | Azioni disponibili                              |
+| -------------------- | ----------------------------------------------- |
+| `requested`          | ✓ Approva (verde) · ✗ Rifiuta (destructive)     |
+| `active` / `overdue` | 📄 Stampa consegna (PDF) · ✓ Forza restituzione |
+| `returned`           | 📄 Stampa restituzione (PDF)                    |
+
+### 9.3 Tab "Scaduti" e "In scadenza"
+
+![Tab Scaduti — prestiti oltre la data di restituzione](screenshots/instruments-overdue.png)
+
+Liste filtrate dei prestiti a rischio. Bottone **"Solleva"** → invia mail di reminder all'utente. Tutti i prestiti scaduti generano automaticamente reminder ogni 7 giorni.
+
+Workflow prestito:
 
 ```
 richiesta → (admin approva) → attivo → (utente restituisce) → returned
@@ -980,16 +1469,41 @@ richiesta → (admin approva) → attivo → (utente restituisce) → returned
 
 Ogni cambio stato genera una mail automatica.
 
-### 9.3 Tab "Scaduti" e "In scadenza"
+### 9.4 Tab "Regole prestito"
 
-Liste filtrate dei prestiti a rischio. Bottone **"Solleva"** → invia mail di reminder all'utente. Tutti i prestiti scaduti generano automaticamente reminder ogni 7 giorni.
+![Tab Regole prestito — corsi abilitati per strumento](screenshots/instruments-loan-rules.png)
 
-### 9.4 Tab "Regole prestito" — `InstrumentLoanRule`, `InstrumentLoanQuota`
+Tabella che mappa ogni strumento ai **corsi autorizzati** a richiederlo in prestito. Per ogni riga: foto + nome + codice + famiglia + chip corsi (oppure "Tutto permesso").
 
-Analoghe alle regole prenotazioni:
+Click **Edit** → `CoursesEditDialog`:
 
-- Per ruolo: max prestiti contemporanei, durata max prestito, durata min, anticipo max
-- Quote: per famiglia (es. studenti max 1 strumento ad arco contemporaneamente), per stato di approvazione
+- Search corsi
+- Bottoni `Seleziona tutto` · `Deseleziona tutto`
+- Grid checkbox 2 colonne dei corsi attivi
+- Badge overflow `+N` se i selezionati sono > 8
+
+> Le **quote prestito** numeriche (max prestiti simultanei, max giorni anno) sono separate e si configurano in §6.2bis (Tab "Quote prestiti" delle Regole).
+
+### 9.5 API endpoint
+
+```
+GET    /api/admin/instruments?family=&loanable=
+POST   /api/admin/instruments
+PUT    /api/admin/instruments/{id}
+DELETE /api/admin/instruments/{id}
+POST   /api/admin/instruments/bulk-delete
+POST   /api/admin/instruments/bulk-toggle-loanable
+GET    /api/admin/instruments/csv/export
+POST   /api/admin/instruments/csv/import
+POST   /api/admin/instruments/{id}/photo
+DELETE /api/admin/instruments/{id}/photo
+GET    /api/admin/loans?kind={all|overdue|expiring}
+POST   /api/admin/loans/{id}/approve
+POST   /api/admin/loans/{id}/reject
+POST   /api/admin/loans/{id}/return
+GET    /api/admin/loans/{id}/pdf/{type:delivery|return}
+PUT    /api/admin/instruments/{id}/allowed-courses
+```
 
 ---
 
@@ -997,23 +1511,70 @@ Analoghe alle regole prenotazioni:
 
 URL: `/admin/analytics`
 
-Pagina con range di date selezionabile (default: ultimo mese). Quattro KPI in alto:
+![Pagina Analytics — KPI, heatmap, trend, top rooms/users](screenshots/analytics-overview.png)
 
-- Prenotazioni confermate
-- Auto-cancellate (no-show)
-- Tasso no-show (%)
-- Totale prenotazioni create
+### 10.1 Layout
 
-Sotto:
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Analytics                            [⤓ Export CSV] [⤓ Export PDF]       │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Filtri: dal [______] al [______]   [Applica]                              │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Confermate ─┬─ Auto-cancel ─┬─ No-show % ─┬─ Totale create ─┐         │
+│ │      842     │      63       │   7.5 %     │       905       │         │
+│ └──────────────┴───────────────┴─────────────┴─────────────────┘         │
+│ ┌── Heatmap occupazione (7 × 24) ──────────────────────────────────────┐ │
+│ │       00 01 02 ... 23                                                 │ │
+│ │  Lun  ░░ ░░ ░░ ... ▓▓                                                 │ │
+│ │  ...                                                                  │ │
+│ └───────────────────────────────────────────────────────────────────────┘ │
+│ ┌── Trend ultime 8 settimane ───────────────────────────────────────────┐ │
+│ │ [grafico linea]                                                       │ │
+│ └───────────────────────────────────────────────────────────────────────┘ │
+│ ┌── Top 10 aule ──────────────┬── Top 10 utenti ────────────────────────┐ │
+│ │ Aula 12 — Pal.Stor. ████ 87h│ M. Rossi (Doc) ███ 45h · 22 prenot.    │ │
+│ │ ...                          │ ...                                     │ │
+│ └──────────────────────────────┴─────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
-- **Heatmap occupazione 7×24**: griglia giorno della settimana × ora del giorno; cella più scura = più prenotata
+### 10.2 Filtri
+
+| Elemento  | Tipo       | Default      |
+| --------- | ---------- | ------------ |
+| Date from | Date input | Oggi - 30 gg |
+| Date to   | Date input | Oggi         |
+| Apply     | Bottone    | Refresh dati |
+
+### 10.3 KPI grid (4 card)
+
+- **Confirmed bookings** — prenotazioni confermate nel periodo
+- **Ghosted bookings** — auto-cancellate per no-show o cutoff
+- **No-show rate %** — `ghosted / (confirmed + ghosted) × 100`
+- **Total created** — totale create indipendentemente da stato finale
+
+### 10.4 Visualizzazioni
+
+- **Heatmap 7×24**: griglia giorno × ora, cella più scura = più prenotata
 - **Trend ultime 8 settimane**: linea con ore prenotate per settimana ISO
 - **Top 10 aule per ore**: bar chart orizzontale
 - **Top 10 utenti per ore** (visibile solo agli admin, non condivisibile esternamente)
 
-Bottoni **Esporta CSV** e **Esporta PDF** in alto a destra. Il PDF è formattato per stampa A4 landscape, una pagina per heatmap + una per top.
+### 10.5 Export
+
+- **Export CSV** → `GET /api/admin/analytics/export/csv?from=&to=` (Blob)
+- **Export PDF** → `GET /api/admin/analytics/export/pdf?from=&to=` (formattato A4 landscape)
 
 > Per la trasparenza GDPR: i dati utente nei top 10 sono anonimizzati nei report esportati, salvo se l'admin spunta "Includi nomi" (con audit log della scelta).
+
+### 10.6 API endpoint
+
+```
+GET /api/admin/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD
+GET /api/admin/analytics/export/csv?from=&to=
+GET /api/admin/analytics/export/pdf?from=&to=
+```
 
 ---
 
@@ -1021,57 +1582,383 @@ Bottoni **Esporta CSV** e **Esporta PDF** in alto a destra. Il PDF è formattato
 
 URL: `/admin/announcements`
 
-Bacheca multicanale con audience filter. Crea un annuncio con:
+![Pagina Annunci — bacheca multicanale](screenshots/announcements-overview.png)
 
-- Titolo + body (markdown supportato)
-- Priorità: `low` / `normal` / `high` (gli `high` appaiono in alto sul kiosk)
-- Audience: `all` / `role:docente` / `course:AFAM001` / `building:edificio_centrale` (combinabili)
-- Pubblica su: kiosk pubblico / email opt-in degli interessati / push notification (Sprint A)
-- Pin: rimane sempre in cima
-- Scadenza: dopo questa data l'annuncio sparisce automaticamente
+### 11.1 Layout
 
-Gli avvisi `pinned` finiscono anche nella rotazione del display kiosk pubblico nelle aule.
+Header con **+ Nuovo annuncio**. Body è una griglia card verticale (motion animate). Ogni card mostra:
+
+- Badge contestuali in alto: `Pinnato` (blu) · `Audience: tutti/role/corso/edificio` (secondaria) · `Inattivo`/`Scaduto` (muted) · `Email inviata` (con icon mail)
+- Titolo (h3) + body (max 2 righe troncate)
+- Data pubblicazione + scadenza
+- Azioni inline: 📤 Rinvia email · ✎ Modifica · 🗑 Elimina
+
+### 11.2 Form Annuncio (AnnouncementFormDialog)
+
+| Campo          | Tipo                 | Validazioni                                                 |
+| -------------- | -------------------- | ----------------------------------------------------------- |
+| Titolo         | Text                 | required, max 200                                           |
+| Corpo          | Textarea (markdown)  | required, min 1                                             |
+| Pubblicato il  | Datetime-local       | optional (default: now). Future-dated = "drafts" automatici |
+| Scadenza       | Datetime-local       | optional. Dopo questa data sparisce dal feed                |
+| Audience kind  | Select               | `all` · `role` · `course` · `building`                      |
+| Audience value | Select dipendente    | required se kind ≠ all (dropdown ruoli/corsi/edifici)       |
+| Pin            | Switch               | rimane sempre in cima                                       |
+| Attivo         | Switch               | toggle visibilità senza cancellare                          |
+| Invia email    | Switch (solo create) | invio broadcast all'audience al salvataggio                 |
+
+> **Modifica annuncio**: la modifica **non rimanda** automaticamente l'email. Se vuoi notificare di nuovo, usa l'azione 📤 **Rinvia email** dalla card.
+
+### 11.3 Audience targeting
+
+| Kind       | Esempio               | Visibilità                                                |
+| ---------- | --------------------- | --------------------------------------------------------- |
+| `all`      | —                     | Tutti gli utenti + display kiosk                          |
+| `role`     | `docente`             | Solo docenti                                              |
+| `course`   | `DCPL34 (Pianoforte)` | Studenti del corso indicato                               |
+| `building` | `Edificio centrale`   | Solo display kiosk dell'edificio (non nel feed personale) |
+
+Gli avvisi `pinned` finiscono anche nella rotazione del display kiosk pubblico nelle aule (vedi §12.7 per la configurazione globale del display).
+
+### 11.4 API endpoint
+
+```
+GET    /api/announcements/admin
+POST   /api/announcements
+PUT    /api/announcements/:id
+DELETE /api/announcements/:id
+POST   /api/announcements/:id/resend-email     → { sent: number }
+GET    /api/courses?active=true
+GET    /api/institutes/full
+GET    /api/public/announcements                → endpoint pubblico per display kiosk
+```
 
 ---
 
-## 12. Impostazioni Server (tab interne)
+## 12. Impostazioni Server
 
 URL: `/admin/server-settings`
 
-Pagina con macro-tab (stesso pattern di Rules):
+### 12.0 Hub di navigazione macro/sub-tab
+
+La pagina è un **hub** organizzato in macro-tab in alto + sub-tab quando la macro è "Servizi":
 
 ```
-mail · qrcodes · messaging · display · audit-log · backups · moduli
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Impostazioni Server                                                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│ [Servizi] [Aspetto] [QR Codes] [Display] [Audit Log] [Moduli]            │
+├──────────────────────────────────────────────────────────────────────────┤
+│  (se macro=Servizi) [Mail] [Mail Outbox] [Messaging] [Backups]            │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Body della tab/sub-tab attiva                                            │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 12.1 Mail (SMTP)
+URL pattern: `?tab=<macro>` oppure `?tab=<macro>&sub=<subTab>`. Le route legacy (`?tab=mail`, `?tab=messaging`, ecc.) sono ridirezionate automaticamente al nuovo schema.
 
-Configura mittente, host SMTP, porta, credenziali, TLS. Bottone "Test SMTP" invia una mail al tuo account per verificare.
+#### Mappa completa macro → sub
 
-### 12.2 QR Codes
+| Macro     | Sub-tab                                  | Sezione manuale               |
+| --------- | ---------------------------------------- | ----------------------------- |
+| Servizi   | Mail · Mail Outbox · Messaging · Backups | §12.1 · §12.2 · §12.3 · §12.4 |
+| Aspetto   | (nessuna sub)                            | §12.5                         |
+| QR Codes  | (nessuna sub)                            | §12.6                         |
+| Display   | (nessuna sub)                            | §12.7                         |
+| Audit Log | (nessuna sub)                            | §12.8                         |
+| Moduli    | (nessuna sub)                            | §12.9                         |
 
-Genera/rigenera QR code per ogni aula (utili per check-in). Bottone "Stampa A4" produce un PDF con un QR per pagina, pronto da incollare alla porta dell'aula.
+### 12.1 Servizi → Mail (SMTP)
 
-Toggle: **"Restringi check-in a rete d'istituto"**. Se ON, gli utenti possono fare check-in solo se l'IP del telefono ricade nelle CIDR configurate. Bottone "Aggiungi mio IP corrente" se sei in sede.
+![Sotto-tab Servizi → Mail](screenshots/server-settings-servizi-mail.png)
 
-### 12.3 Messaging
+#### Status badge
 
-Configurazione adapter Telegram / WhatsApp Cloud / Signal / Email IMAP. Per ognuno: token, webhook URL (firmato HMAC), rate-limit per utente.
+In alto compare il badge di stato della configurazione: `Configurato (DB)` · `Disabilitato` · `Non configurato`. Se le var d'ambiente SMTP sono attive, un alert blu informa che salvare la form prenderà il loro posto.
 
-### 12.4 Display Kiosk
+#### Card "Server SMTP"
 
-Configurazione globale del display pubblico: durata slide, rotazione concerti vs prenotazioni vs annunci, modalità fullscreen.
+| Campo                         | Tipo     | Validazioni                                                         |
+| ----------------------------- | -------- | ------------------------------------------------------------------- |
+| `isEnabled`                   | Switch   | —                                                                   |
+| `host`                        | Text     | optional, placeholder `smtp.gmail.com`                              |
+| `port`                        | Number   | 1–65535; auto-sync con `secure` (465 → secure, 587/25 → starttls)   |
+| `secure`                      | Switch   | TLS implicito vs STARTTLS                                           |
+| `username`                    | Text     | optional                                                            |
+| `password`                    | Password | optional, mai pre-compilato (vuoto = no change). Bottone eye toggle |
+| `fromAddress`                 | Email    | regex `/\S+@\S+\.\S+/`                                              |
+| `fromName`                    | Text     | optional                                                            |
+| `replyTo`                     | Email    | regex email                                                         |
+| `throttlePerRecipientPerHour` | Number   | 0–1000 (0 = disabilitato)                                           |
 
-### 12.5 Audit Log (tab "Registro Log")
+#### Banner condizionali
 
-> **Rinominato in v2.3**: il tab interno qui dentro era chiamato "Registro attività"; ora si chiama **"Registro Log"** per distinguerlo dalla pagina `/admin/activity-log` (cfr. §7.5) che è invece l'**operativo**. Differenza chiave:
->
-> - **Registro Log** (qui): log immutabile append-only delle **azioni amministrative**. Read-only.
-> - **Registro attività** (§7.5): pagina di **gestione delle prenotazioni** (filtri, bulk-cancel, swap).
+- **Port mismatch** (alert ambra): porta 465 senza TLS, oppure 587/25 con TLS
+- **Typo hint** (alert ambra): `smpt.` rilevato → suggerisce auto-correct in `smtp.`
+- **Password saved**: badge verde "salvata" accanto al label password se già presente in DB
 
-Tracciamento append-only di **ogni** azione amministrativa. Filtri per: data, utente, tipo azione, target. Tutti gli ID utente sono anonimizzati con SHA-256 nei filtri ricerca per la conformità GDPR (l'admin vede l'identità in chiaro solo nel record specifico, dietro accettazione di responsabilità).
+#### Card "Modelli email"
 
-Esportabile in CSV o JSON.
+Dropdown per selezionare un template della libreria (badge `OFF` se disabilitato) → apre `MailTemplateEditor` (preview + save).
+
+#### Card "Test invio"
+
+| Campo          | Tipo    | Note                                                                              |
+| -------------- | ------- | --------------------------------------------------------------------------------- |
+| Destinatario   | Email   | required                                                                          |
+| Tipo email     | Select  | "Generica" · ogni template della libreria                                         |
+| **Invia test** | Bottone | POST `/api/admin/mail/test` o `/api/mail-templates/:kind/test` con sample context |
+
+Il risultato viene mostrato sotto: `ok` (verde) o errore (rosso, con `<details>` per il raw error).
+
+#### API endpoint
+
+```
+GET   /api/admin/settings/mail
+PUT   /api/admin/settings/mail
+POST  /api/admin/mail/test
+GET   /api/admin/mail-templates
+PUT   /api/admin/mail-templates/:kind
+POST  /api/mail-templates/:kind/test
+```
+
+### 12.2 Servizi → Mail Outbox
+
+![Sotto-tab Servizi → Mail Outbox](screenshots/mail-outbox-overview.png)
+
+URL legacy: `/admin/mail-outbox` (ora sub-tab di Server Settings).
+
+#### Health banner SMTP
+
+In alto, banner con 4 varianti:
+
+- 🟢 **Verde** — SMTP attivo, coda pulita
+- 🟡 **Ambra** — SMTP non configurato
+- 🔴 **Rossa** — SMTP non raggiungibile + dettaglio errore
+- 🔴 **Rossa** — Email fallite oltre tentativi
+
+Aggiornato ogni 30 secondi via `GET /api/admin/mail-outbox/health`.
+
+#### Filtri
+
+- **Status pills**: `Tutti` · `In attesa` · `Inviate` · `Fallite (dead)`
+- **Search**: Input testo (cerca su email destinatario / oggetto)
+- **Page**: paginazione con prev/next
+
+#### Colonne tabella
+
+| Colonna      | Contenuto                                    |
+| ------------ | -------------------------------------------- |
+| Stato        | Badge `pending`/`sent`/`dead` (icon + label) |
+| Tipo         | Code tag con `kind` template                 |
+| Destinatario | Email                                        |
+| Oggetto      | Testo troncato + tooltip                     |
+| Tentativi    | `N / maxN` (tabular-nums)                    |
+| Quando       | Data inviata o prossimo tentativo            |
+| Azioni       | 🔄 Retry (solo se `dead`) · 🗑 Delete        |
+
+#### API endpoint
+
+```
+GET    /api/admin/mail-outbox/health
+GET    /api/admin/mail-outbox/counts
+GET    /api/admin/mail-outbox/list?status=&q=&page=
+POST   /api/admin/mail-outbox/:id/retry
+DELETE /api/admin/mail-outbox/:id
+```
+
+### 12.3 Servizi → Messaging
+
+![Sotto-tab Servizi → Messaging — adapter Telegram/WhatsApp/Signal/Email IMAP](screenshots/server-settings-servizi-messaging.png)
+
+Una card per ogni canale (Telegram · WhatsApp · Signal · Email/IMAP). Ognuna mostra:
+
+- Toggle enable/disable + badge `enabled`
+- Settings non-secret (grid 2 col)
+- Credentials secret (grid 2 col, `SECRET_PLACEHOLDER` per quelle già salvate)
+- Setup guide (alert info con istruzioni)
+- Test result (alert info/destructive)
+- Bottoni **Test** + **Save**
+
+#### Telegram
+
+| Campo           | Tipo     | Validazione                      |
+| --------------- | -------- | -------------------------------- |
+| `botToken`      | Password | required se enabled              |
+| `webhookSecret` | Password | required se enabled, hex 32 char |
+
+#### WhatsApp Cloud API
+
+| Campo           | Tipo     | Validazione |
+| --------------- | -------- | ----------- |
+| `accessToken`   | Password | required    |
+| `phoneNumberId` | Text     | required    |
+| `verifyToken`   | Password | required    |
+| `appSecret`     | Password | required    |
+
+#### Signal
+
+| Campo           | Tipo     | Validazione                     |
+| --------------- | -------- | ------------------------------- |
+| `webhookSecret` | Password | required                        |
+| `phoneNumber`   | Text     | required, formato `+39333…`     |
+| `daemonUrl`     | Text     | required, URL signal-cli daemon |
+
+#### Email / IMAP
+
+| Campo      | Tipo     | Validazione                           |
+| ---------- | -------- | ------------------------------------- |
+| `password` | Password | required                              |
+| `host`     | Text     | required, es. `imap.example.it`       |
+| `port`     | Text     | required, default `993`               |
+| `user`     | Text     | required, es. `book@conservatorio.it` |
+
+Per ogni canale il bottone **Test** chiama `POST /api/admin/messaging/:channel/test` e mostra `ok / error / info` in alert.
+
+### 12.4 Servizi → Backups
+
+![Sotto-tab Servizi → Backups](screenshots/server-settings-backups.png)
+
+#### Card "Scheduler"
+
+Griglia status: `Stato (Attivo/Disattivato)` · `Orario pianificato` · `Prossimo run`.
+
+Sotto, alert sull'**ultimo run**: `ok` (verde) o `errore` (rosso, con dettaglio).
+
+`SchedulerConfigSection` (toggle view/edit):
+
+| Campo                | Tipo   | Validazione                     |
+| -------------------- | ------ | ------------------------------- |
+| `autoEnabled`        | Switch | —                               |
+| `scheduledHour`      | Number | 0–23                            |
+| `scheduledMinute`    | Number | 0–59                            |
+| `keepDaily`          | Number | 1–365                           |
+| `keepWeekly`         | Number | 1–104                           |
+| `keepMonthly`        | Number | 1–60                            |
+| `autoRestartEnabled` | Switch | Riavvia il backend dopo restore |
+
+#### Card "Lista backup"
+
+Tabella con file · data · size · azioni:
+
+- 📥 **Download** (`GET /api/admin/backups/download/:file`, binary)
+- 🔄 **Restore** (apre confirm dialog) → al successo mostra una "card success" con il pre-snapshot creato + bottone "Riavvia backend"
+- 🗑 **Delete** (con confirm)
+
+In header della card: bottoni **+ Backup adesso** (`POST /create-now`) e **⤒ Upload** (multipart, .tar.gz).
+
+#### Dialog "Restart"
+
+Alert destructive: "Il backend sarà riavviato; la sessione verrà persa". Dopo conferma: `POST /api/admin/backups/restart` → attesa 4s → reload pagina.
+
+### 12.5 Aspetto
+
+![Sotto-tab Aspetto — logo, icona app, copyright](screenshots/server-settings-aspetto.png)
+
+Due card:
+
+- **AppIconSection** — upload icona brand (PNG/SVG, fallback `/cadenza.png`)
+- **CopyrightSection** — testi copyright footer (mostrati su `/display` e in fondo a tutte le pagine pubbliche)
+
+### 12.6 QR Codes
+
+![Sotto-tab QR Codes — sicurezza check-in + QR per aula](screenshots/server-settings-qrcodes.png)
+
+#### Card "Sicurezza check-in"
+
+| Campo                                  | Tipo                    | Note                                             |
+| -------------------------------------- | ----------------------- | ------------------------------------------------ |
+| `checkInRequireInstituteNetwork`       | Switch                  | Toggle restriction by IP                         |
+| `instituteNetworkCidrs`                | Array CIDR              | IPv4 (`192.168.1.0/24`) o IPv6 (`2001:db8::/32`) |
+| **Bottone "Aggiungi mio IP corrente"** | (callerIp + /32 o /128) | Disabilitato se l'IP è loopback (::1, 127.x.x.x) |
+
+Banner condizionali:
+
+- **Loopback warning** (badge ambra): "loopback locale" se IP è ::1 o 127.x.x.x
+- **Empty CIDR + toggle on** (alert destructive): "Nessuna rete configurata + toggle attivo = nessuno fa check-in"
+
+#### Card "QR-code per aula"
+
+Lista aule con anteprima del QR. Per ogni aula:
+
+- Badge `Check-in non richiesto` (se `requireCheckIn=false`) · `Token mai generato` (se `hasQrToken=false`)
+- 📥 **Scarica QR** (`GET /api/admin/qr-codes/:roomId/image?v=token` per cache-busting)
+- 🔄 **Rigenera** (singolo) → confirm dialog warning "i fogli stampati saranno invalidi"
+
+In header: **Rigenera tutti** (`POST /api/admin/qr-codes/bulk-regenerate`) — operazione di emergenza dopo data breach.
+
+### 12.7 Display Kiosk (admin)
+
+![Sotto-tab Display — rotazione prenotazioni/concerti/annunci](screenshots/server-settings-display.png)
+
+Pagina di configurazione globale dello schermo `/display` esposto al pubblico nelle aule.
+
+#### Card "Rotazione prenotazioni"
+
+Master toggle on/off + tabella edifici:
+
+| Colonna          | Tipo             | Validazione                |
+| ---------------- | ---------------- | -------------------------- |
+| Edificio         | Dot color + nome | —                          |
+| Stanze           | Number           | conteggio rooms            |
+| Abilitato        | Switch           | disabilitato se master OFF |
+| Intervallo (sec) | Number input     | 5–600 sec                  |
+
+Disattivando il master, l'intera tabella diventa `opacity-50`.
+
+#### Card "Concerti"
+
+Master toggle + grid 3 col:
+
+| Campo         | Validazione              |
+| ------------- | ------------------------ |
+| `days`        | 0–365 (giorni lookahead) |
+| `count`       | 0–50 (0 = tutti)         |
+| `intervalSec` | 5–600 sec                |
+
+#### Card "Annunci"
+
+Master toggle + grid 2 col:
+
+| Campo         | Validazione                   |
+| ------------- | ----------------------------- |
+| `count`       | 0–30 (0 = tutti)              |
+| `intervalSec` | 5–600 sec                     |
+| `pinnedOnly`  | Switch — solo annunci pinnati |
+
+In fondo: bottone **Salva** (disabled se non dirty). Le modifiche vengono propagate per ogni edificio modificato (`PATCH /api/structure/buildings/:id`).
+
+> **Preview**: il pulsante in header apre `/display` in nuova scheda — utile per verificare la rotazione in tempo reale dopo aver salvato.
+
+### 12.8 Audit Log
+
+![Sotto-tab Audit Log — registro append-only](screenshots/server-settings-audit-log.png)
+
+URL: `/admin/audit-log` (sub-tab di Server Settings; rinominato in "Registro Log" per distinguerlo dal "Registro attività" operativo di §7.2).
+
+#### Filtri (5 campi draft + 2 bottoni)
+
+| Campo                 | Tipo           | Note                                                               |
+| --------------------- | -------------- | ------------------------------------------------------------------ |
+| Action                | Dropdown       | `all` · POST · PUT · PATCH · DELETE                                |
+| Target Type           | Dropdown       | da `GET /api/admin/audit-log/target-types` (cache 5min)            |
+| Actor ID              | Number input   | userId admin                                                       |
+| Date From / To        | Datetime-local | RFC 3339 UTC                                                       |
+| Path Search           | Text input     | full-text nella path API                                           |
+| **Apply** / **Reset** | Bottoni        | applica / pulisce filtri (reset visibile solo se hasActiveFilters) |
+
+#### Colonne tabella (50 righe/pagina)
+
+| Colonna | Contenuto                                                                          |
+| ------- | ---------------------------------------------------------------------------------- |
+| When    | DD/MM/YYYY HH:mm:ss tabular-nums                                                   |
+| Actor   | Nome Cognome + email (truncate)                                                    |
+| Action  | Badge mono colorato: `POST` (success), `PUT/PATCH` (secondary), `DELETE` (default) |
+| Target  | `targetType` · `#targetId`                                                         |
+| Path    | Mono xs (truncate)                                                                 |
+| Status  | Status code colorato (≥400 destructive, else emerald)                              |
+
+**Expandable row**: click sulla riga → mostra `payload` JSON, `response` JSON, IP, User-Agent (max-h-48 overflow-auto).
 
 #### Forensic preservation — export firmato HMAC SHA-256 (v2.2)
 
@@ -1091,35 +1978,124 @@ actual=$(cat backups/audit/audit-20260101.hmac)
 [ "$expected" = "$actual" ] && echo OK || echo TAMPERED
 ```
 
-Il sidecar HMAC blocca tampering: una qualunque modifica all'archive → `actual != expected`. Documentato in `SECURITY.md`.
+### 12.9 Moduli
 
-### 12.6 Backups
+![Sotto-tab Moduli — toggle Monte Ore + Prestiti](screenshots/server-settings-moduli.png)
 
-- Backup giornaliero automatico schedulato (default: 03:00)
-- Backup manuale via bottone "Esegui ora"
-- Restore da snapshot: scegli snapshot, conferma, downtime ~30s
-- Storage: Hetzner Storage Box configurato in `BACKUP.md`
+Card con due `ModuleRow`:
 
-### 12.7 Moduli (toggle a la carte)
-
-Due switch:
-
-- **Monte Ore docenti**: nasconde le voci `/monte-ore` (utente) e `/admin/monte-ore`
-- **Prestito strumenti**: nasconde `/instruments`, `/my-loans`, `/admin/instruments`
+| Modulo                 | Switch                         | Effetto                                                       |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------- |
+| **Monte Ore docenti**  | `moduleMonteOreEnabled`        | nasconde `/monte-ore` (utente) e `/admin/monte-ore` (sidebar) |
+| **Prestito strumenti** | `moduleInstrumentLoansEnabled` | nasconde `/instruments`, `/my-loans`, `/admin/instruments`    |
 
 > **Importante**: i toggle sono **puramente di presentazione**. Il backend resta sempre attivo:
 >
 > - I dati esistenti **non vengono cancellati**
 > - Le rotte API continuano a funzionare (deep-link, integrazioni esterne, bookmark)
 > - Riattivando il modulo i link tornano subito visibili
->
-> Usalo per Conservatori che non gestiscono ancora il Monte Ore (UI più pulita) o non hanno inventario strumenti (riduce confusione).
+
+API:
+
+```
+GET /api/institutes/module-settings
+PUT /api/institutes/module-settings
+```
 
 ---
 
-## 13. Operazioni periodiche e best practice
+## 13. Integrazioni Isidata
 
-### 13.1 All'inizio dell'anno accademico (settembre)
+URL: `/admin/integrations/isidata` (pagina standalone) — oppure dialog modale dalla pagina Utenti (§3.6).
+
+### 13.1 Layout a 3 step
+
+#### Step 1: Upload
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Importazione anagrafica Isidata                                          │
+│ ┌── Drop file ───────────────────────────────────────────────────────┐  │
+│ │   ⤒ Trascina .xlsx / .xls / .csv qui, oppure clicca per scegliere  │  │
+│ └────────────────────────────────────────────────────────────────────┘  │
+│ ▶ Override colonne (opzionale, JSON)                                     │
+│   [textarea collassabile con esempio mappingOverrides]                   │
+│                                                          [Anteprima →]   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Step 2: Preview
+
+KPI tile (4): `Da creare · Da aggiornare · Da disattivare · Letti totali`.
+
+Sotto, 3 sezioni filtrabili (verde = create, blu = update, ambra = orphan), con tabelle dettagli + warnings.
+
+#### Step 3: Done
+
+Card success "Importazione completata" + numeri finali + bottone "Importa un altro".
+
+### 13.2 Flusso a 2 step (preview → apply, anti-errore umano)
+
+1. **Preview** (`POST /api/admin/integrations/isidata/preview`)
+   - Carica il file. Cadenza ne fa parsing, applica il mapping (auto-rilevato dagli header — cfr. `INTEGRATIONS-ISIDATA.md`), confronta col DB e restituisce: lista utenti **da creare**, **da aggiornare** (con campi che cambierebbero), **da disattivare** (orphan = già linkati Isidata ma assenti nel nuovo export).
+   - **Nessun side-effect sul DB**. Il file resta in `/tmp` per max 10 minuti, leggibile solo dall'admin che l'ha caricato (prefisso del filename = suo `userId`).
+   - La risposta include `token` + `hash` SHA-256 del file.
+2. **Apply** (`POST /api/admin/integrations/isidata/apply`)
+   - Invia indietro `token` + `hash`. Cadenza riapre il file, ricalcola SHA-256, **rifiuta** con `HASH_MISMATCH` se il file è stato sostituito tra preview e apply (anti-TOCTOU).
+   - Esegue create/update/orphan in transazione **SERIALIZABLE** su Postgres. I nuovi utenti nascono in stato `pending` (vanno approvati esplicitamente da `/admin/approvals`) e mai con permessi superiori a `studente`/`docente` derivati dal file.
+   - **Mai un orfano viene cancellato fisicamente**: solo `isActive=false` + `externalStatusNote = "Non più presente nell'export Isidata del YYYY-MM-DD"`. Riapparire in un export futuro lo riattiva.
+
+### 13.3 Mapping personalizzato per istituto
+
+Se il vostro export Isidata ha header diversi da quelli auto-riconosciuti (matricola, cognome, nome, email, ruolo, ecc. con accenti/spazi/case variabile), invia un `mappingOverrides` JSON nel body con i target da mappare. Esempio:
+
+```json
+{
+  "externalId": "Numero Matricola",
+  "email": "Email Istituzionale",
+  "courseCode": "Codice Indirizzo"
+}
+```
+
+I target consentiti sono: `externalId`, `email`, `firstName`, `lastName`, `role`, `matricola`, `courseCode`, `courseName`, `status`, `birthDate`. Altri target vengono droppati silenziosamente. Valori non-stringa o oltre 100 char idem.
+
+### 13.4 Limiti e protezioni (v2.3.1 hardening)
+
+| Limite                  | Valore                | Motivo                                                                                                                                               |
+| ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File size massimo       | **10 MB**             | Cap multer + check buffer. File più grandi → `FILE_TOO_LARGE`                                                                                        |
+| Record processati       | **5.000** dopo header | Le righe in eccesso vengono ignorate con warning. Se hai 8.000 utenti, splitta l'import in 2 file                                                    |
+| Righe iterate (XLSX)    | **20.000** raw        | Difesa anti **XLSX-bomb**: il file ZIP da 10MB compressi può contenere milioni di righe vuote → cap hard sull'iterazione (era illimitato pre-v2.3.1) |
+| Colonne max (XLSX)      | **1.024**             | Difesa contro `columnCount` patologico nel file                                                                                                      |
+| Header riservati        | scartati con warning  | `__proto__`, `prototype`, `constructor` non finiscono nei record (defense-in-depth contro prototype pollution)                                       |
+| `mappingOverrides` JSON | **4 KB** max          | Anti CPU-spike su parse di JSON patologici                                                                                                           |
+| Token TTL               | **10 minuti**         | Dopo, il file viene cancellato e l'apply richiede di ricaricare → `TOKEN_EXPIRED` (410)                                                              |
+| Compare hash            | **timing-safe**       | `crypto.timingSafeEqual` invece di `===` — defense-in-depth                                                                                          |
+
+### 13.5 Codici errore (per debug)
+
+| Codice              | Quando                                                         | Cosa fare                                |
+| ------------------- | -------------------------------------------------------------- | ---------------------------------------- |
+| `FILE_REQUIRED`     | `multipart/form-data` senza campo `file`                       | Verifica il form                         |
+| `FILE_TOO_LARGE`    | File > 10 MB                                                   | Splitta o rimuovi colonne inutili        |
+| `PARSE_FAILED`      | XLSX corrotto o CSV malformato                                 | Riapri in Excel, salva come .xlsx pulito |
+| `VALIDATION_FAILED` | `mappingOverrides` non oggetto, troppo grande, o JSON invalido | Riguarda il body                         |
+| `TOKEN_INVALID`     | Token non rispetta il formato `\d+-\d+-[a-f0-9]{16}.ext`       | Ricarica la preview                      |
+| `TOKEN_FOREIGN`     | L'admin che fa apply ≠ quello che ha caricato                  | Solo l'uploader può applicare            |
+| `TOKEN_EXPIRED`     | TTL 10min superato o file rimosso                              | Ricarica la preview                      |
+| `HASH_MISMATCH`     | File modificato tra preview e apply                            | Ricarica la preview                      |
+
+### 13.6 Audit trail per ogni run
+
+Ogni preview+apply genera un record `IntegrationSyncRun` con: `actorId` (admin), `provider='isidata'`, `triggeredBy='manual'`, `status` (`success`/`partial`/`failed`), conteggi (`created`/`updated`/`orphaned`/`errors`), e `diffSnapshot` (lista dei target toccati per audit). Visibile in `GET /api/admin/integrations/runs?provider=isidata`.
+
+> Per il setup avanzato del mapping per istituto e per il workflow legacy, vedi `INTEGRATIONS-ISIDATA.md`.
+
+---
+
+## 14. Operazioni periodiche e best practice
+
+### 14.1 All'inizio dell'anno accademico (settembre)
 
 1. Aggiorna `MonteOreSettings`: nuove date anno + finestre
 2. Inserisci tutte le sospensioni del calendario didattico nazionale
@@ -1129,19 +2105,20 @@ Due switch:
 6. Verifica che le aule in ristrutturazione siano marcate `isBookable=false`
 7. Aggiorna le quote stagionali (es. orario serale 18–22)
 
-### 13.2 Settimanale
+### 14.2 Settimanale
 
-- Lunedì mattina: controlla `/admin/approvals` (badge sidebar) → approva/rifiuta in batch
-- Mercoledì mattina: controlla amendments Monte Ore → approva/rifiuta
-- Venerdì pomeriggio: controlla Statistiche → individua aule sotto-utilizzate o no-show seriali
+- **Lunedì mattina**: controlla `/admin/approvals` (badge sidebar) → approva/rifiuta in batch
+- **Mercoledì mattina**: controlla amendments Monte Ore → approva/rifiuta
+- **Venerdì pomeriggio**: controlla Statistiche → individua aule sotto-utilizzate o no-show seriali
+- **Giornaliero**: occhio al banner SMTP in `/admin/server-settings?tab=servizi&sub=mail-outbox` — se diventa rosso, controlla mail rebote
 
-### 13.3 Mensile
+### 14.3 Mensile
 
 - Esporta backup off-site (oltre allo Storage Box automatico — copia su un disco fisico in cassaforte come ulteriore garanzia)
 - Audit log review (filtra azioni "delete" e "role-change" del mese)
 - Aggiornamento policy se cambia normativa (Garante / AgID)
 
-### 13.4 Annuale
+### 14.4 Annuale
 
 - Rivedi le quote (le abitudini di prenotazione cambiano)
 - Esporta tutti i Monte Ore approvati come PDF per archivio amministrativo
@@ -1150,11 +2127,11 @@ Due switch:
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 ### "L'utente dice di non poter prenotare ma la regola sembra OK"
 
-1. Vai su `/admin/rules` → bottone **Anteprima**
+1. Vai su `/admin/rules` → bottone **Anteprima** (roadmap, vedi §6.5)
 2. Inserisci utente + aula + giorno/ora che lui ha provato
 3. La preview mostrerà esattamente quale regola/quota/eccezione blocca
 
@@ -1166,23 +2143,23 @@ Due switch:
 
 ### "Il backup notturno non parte"
 
-1. `/admin/server-settings → backups` → verifica ultimo run
+1. `/admin/server-settings?tab=servizi&sub=backups` → verifica ultimo run
 2. Se errore: leggi log nel pannello (Storage Box raggiungibile? Spazio sufficiente?)
 3. Esegui un backup manuale per validare il setup
 
 ### "Voglio annullare massivamente le prenotazioni di un'aula in ristrutturazione"
 
-1. Vai su **`/admin/activity-log`** (Registro attività, vedi §7.5) — la nuova posizione in v2.3 (era `/admin/bookings-page`)
+1. Vai su **`/admin/activity-log`** (Registro attività, vedi §7.2)
 2. Filtra per aula + range date
 3. Bulk-cancel con motivo broadcast → email automatica a tutti gli utenti coinvolti
 
 > Per chiusure pianificate (ristrutturazione di settimane), valuta invece di creare un'eccezione `block` da §6.3 — Cadenza ti propone direttamente la lista delle prenotazioni da cancellare con badge "Monte Ore" per quelle collegate al piano didattico.
 
-### "Voglio scambiare aula tra 2 prenotazioni" (v2.3)
+### "Voglio scambiare aula tra 2 prenotazioni"
 
 1. `/admin/activity-log` (Registro attività)
 2. Seleziona esattamente 2 prenotazioni future → bottone **"Scambia"**
-3. Vedi §7.5 per dettagli sul flusso atomico e sui codici di errore (es. `BOOKING_CONFLICT` se appare un overlap laterale durante lo swap → ritenta)
+3. Vedi §7.2 per dettagli sul flusso atomico e sui codici di errore (es. `BOOKING_CONFLICT` se appare un overlap laterale durante lo swap → ritenta)
 
 ### "Errore `MIN_INTERVAL_VIOLATED` su prenotazioni back-to-back"
 
@@ -1208,17 +2185,24 @@ WHERE "userId" = <id> AND status = 'confirmed' AND "deletedAt" IS NULL
 
 Cancellare la prenotazione "fantasma" sblocca quella nuova.
 
+### "Mail Outbox banner rosso — SMTP non raggiungibile"
+
+1. `/admin/server-settings?tab=servizi&sub=mail` → riapri test e leggi il dettaglio errore
+2. Verifica typo nell'host (Cadenza segnala `smpt.` automaticamente come ambra)
+3. Riprova con `Test invio` → se ancora fallisce, controlla firewall/credenziali
+4. Le mail accumulate restano in `dead`: dopo aver fixato SMTP, vai in `Mail Outbox` e clicca **Retry** per ognuna (o crea uno script di bulk-retry)
+
 ### "Ho cancellato un corso AFAM per errore — al riavvio del backend non torna"
 
 Comportamento corretto: il seeder rispetta le cancellazioni admin (regression test in `coursesSeederIdempotency.test.js`). Per ricreare il corso:
 
-1. `/admin/courses` → bottone "Nuovo corso"
+1. `/admin/courses` → bottone "+ Nuovo corso"
 2. Inserisci codice, nome, livelli
 3. Save
 
 ### "Un docente a contratto orario non può inviare la sua proposta Monte Ore"
 
-Se vede l'errore `HOURS_BELOW_THRESHOLD` con "324 ore" (o `WORKING_DAYS_OUT_OF_RANGE`), molto probabilmente non hai ancora impostato la **deroga individuale**. Vai su **`/admin/users` → modifica del docente → sezione "Monte Ore — Tipo contratto"** e configura la soglia personalizzata. Vedi §3.5 e §8.10 per i dettagli.
+Se vede l'errore `HOURS_BELOW_THRESHOLD` con "324 ore" (o `WORKING_DAYS_OUT_OF_RANGE`), molto probabilmente non hai ancora impostato la **deroga individuale**. Vai su **`/admin/users` → modifica del docente → sezione "Monte Ore — Tipo contratto"** e configura la soglia personalizzata. Vedi §3.7 e §8.10 per i dettagli.
 
 Verifica diretta lato API (utile in debug):
 
@@ -1238,25 +2222,25 @@ curl -H "Authorization: Bearer <docente-token>" \
 
 1. Apri la sua proposta in `/admin/monte-ore`
 2. Verifica il totale ore generato (tab "Slot generati")
-3. Se sotto soglia, sospende valide possono averlo decurtato: confronta con `MonteOreSuspension` attive
+3. Se sotto soglia, sospensioni valide possono averlo decurtato: confronta con `MonteOreSuspension` attive
 4. Eventualmente concedi una "deroga" inserendo un valore custom in `oreAnnueOverride` sul record proposta
 
 ---
 
-## 15. Sicurezza e hardening (note tecniche v2.2/v2.3)
+## 16. Sicurezza e hardening
 
 > Sezione di riferimento per Direttore IT / DSGA. Sintetizza in linguaggio admin tutte le difese aggiunte fra v2.2 (audit hardening backend, 30 apr 2026) e v2.3.1 (hardening import Isidata, 1 mag 2026 notte). Per i dettagli implementativi vedi `docs/SECURITY.md` e `docs/AUDIT_QUALITA_PRODUZIONE.md` §4.4-§4.7.
 
-### 15.1 Difese a livello di endpoint admin (v2.2)
+### 16.1 Difese a livello di endpoint admin (v2.2)
 
 | Difesa                                             | Endpoint                                                                              | Cosa impedisce                                                                                                      |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Anti mass-assignment whitelist (`lib/sanitize.js`) | `PUT /users/:id`, `PUT /structure/buildings/:id`, `/rooms/:id`, `/equipment/:id` (+2) | Modifica di campi privilegiati (`passwordHash`, `tokenVersion`, `deletedAt`, OAuth IDs) anche con admin compromesso |
-| Anti-lockout admin (§3.6)                          | `PUT /users/:id`, `DELETE`, bulk-delete                                               | Auto-demote/disable, cancellazione ultimo admin attivo                                                              |
-| Password policy AGID 2024 (§3.7)                   | `POST /register`, `PUT /users/:id/password`                                           | Password deboli (< 10 char, no maiuscola, no cifra) sui nuovi account                                               |
-| Rate limit dedicati (§3.7)                         | `/login`, `/register`, `/2fa/*`, `/recurring`, `/gdpr/*`, `/ical`                     | Brute-force credenziali, spam codici 2FA, DoS pool DB su recurring                                                  |
+| Anti-lockout admin (§3.8)                          | `PUT /users/:id`, `DELETE`, bulk-delete                                               | Auto-demote/disable, cancellazione ultimo admin attivo                                                              |
+| Password policy AGID 2024 (§3.9)                   | `POST /register`, `PUT /users/:id/password`                                           | Password deboli (< 10 char, no maiuscola, no cifra) sui nuovi account                                               |
+| Rate limit dedicati (§3.9)                         | `/login`, `/register`, `/2fa/*`, `/recurring`, `/gdpr/*`, `/ical`                     | Brute-force credenziali, spam codici 2FA, DoS pool DB su recurring                                                  |
 
-### 15.2 Difese a livello di dati / lista
+### 16.2 Difese a livello di dati / lista
 
 | Difesa                                    | Endpoint                                                         | Cosa impedisce                                                                                                                                                |
 | ----------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1266,7 +2250,7 @@ curl -H "Authorization: Bearer <docente-token>" \
 | afterCommit hooks waitlist                | `Booking.afterUpdate/afterDestroy`                               | Email "tu sei il prossimo" inviata anche se la transazione poi rollback                                                                                       |
 | Atomic `amendmentCount`                   | `MonteOreProposal`                                               | Race condition su 2 amendment concorrenti dello stesso docente                                                                                                |
 
-### 15.3 Difese a livello di file/IO
+### 16.3 Difese a livello di file/IO
 
 | Difesa                                | Cosa                                                                                       | Riferimento                                     |
 | ------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
@@ -1276,10 +2260,10 @@ curl -H "Authorization: Bearer <docente-token>" \
 | Anti-TOCTOU import Isidata            | Hash SHA-256 del file emesso in preview, ricontrollato in apply (`crypto.timingSafeEqual`) | `routes/integrations.js`                        |
 | Token Isidata IDOR-safe               | Prefisso adminId controllato, regex stretta `\d+-\d+-[a-f0-9]{16}\.<ext>`, TTL 10min       | `routes/integrations.js`                        |
 | `mappingOverrides` whitelist (v2.3.1) | Solo target ∈ DEFAULT_ALIASES, valori string ≤100 char, JSON ≤4 KB                         | `services/integrations/isidata/fieldMapping.js` |
-| Audit log forensic export             | HMAC SHA-256 + sidecar pre-prune (§12.5)                                                   | `services/retentionScheduler.js`                |
+| Audit log forensic export             | HMAC SHA-256 + sidecar pre-prune (§12.8)                                                   | `services/retentionScheduler.js`                |
 | DB anti-overlap                       | EXCLUDE constraint `bookings_no_overlap WHERE status='confirmed'` su Postgres              | `migrations/*`                                  |
 
-### 15.4 Difese a livello di logica applicativa (v2.3)
+### 16.4 Difese a livello di logica applicativa (v2.3)
 
 | Difesa                            | Quando scatta                                                                                                       | Codice errore                 |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
@@ -1288,12 +2272,12 @@ curl -H "Authorization: Bearer <docente-token>" \
 | Sovrapposizioni storiche su block | Prima di salvare un'eccezione `kind=block`, anteprima delle prenotazioni in conflitto + sync MonteOreSlot al cancel | (no errore — UI workflow)     |
 | Swap atomico EXCLUDE-aware        | Flip status temporaneo per aggirare EXCLUDE, rollback su overlap laterale                                           | `BOOKING_CONFLICT` (rollback) |
 
-### 15.5 Comandi di verifica rapida (per Direttore IT)
+### 16.5 Comandi di verifica rapida (per Direttore IT)
 
 ```bash
 # Backend test suite completa
 cd backend && npm test
-# Atteso: 550 passed (+ 5 skipped), pass rate 99.0%
+# Atteso: 550+ passed, pass rate 99%+
 
 # Verifica npm audit
 cd backend && npm audit --omit=dev
@@ -1330,8 +2314,10 @@ diff <(openssl dgst -sha256 -hmac "$KEY" backups/audit/audit-YYYYMMDD.gz | awk '
 - [`docs/MIGRATIONS.md`](MIGRATIONS.md) — workflow sequelize-cli e migration storiche
 - [`docs/DISASTER_RECOVERY.md`](DISASTER_RECOVERY.md) — runbook DR + script `dr-drill.sh`
 - [`docs/SENTRY_SETUP.md`](SENTRY_SETUP.md) — runbook Sentry + scrubbing PII
+- [`docs/MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md`](MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md) — dettaglio progettuale deroga monte ore
+- [`docs/screenshots/README.md`](screenshots/README.md) — istruzioni per generare gli screenshot del manuale via `e2e/screenshots.mjs`
 
 ---
 
-_Cadenza · Manuale Amministratore v1.2 · 1 maggio 2026 · Danilo Russo, docente del Conservatorio._
-_v1.2: aggiunte §3.3 (Isidata hardening v2.3.1), §3.6 (anti mass-assignment / anti-lockout v2.2), §3.7 (password AGID + rate limit), §5.4 (vista /rooms grouped), §6.0/§6.1 (cooldown + USER_LOGICAL_CONFLICT v2.3), §6.3 (preview-overlaps + cancel-overlapping), §6.7 (reference card codici errore), §7.5 (Registro attività + swap atomico), §12.5 (audit log forensic export firmato), §15 (sicurezza e hardening v2.2/v2.3). Sidebar §2 aggiornata con voce "Registro attività". Troubleshooting esteso con 3 nuovi casi (swap, MIN_INTERVAL, USER_LOGICAL_CONFLICT)._
+_Cadenza · Manuale Amministratore v1.3 · 5 maggio 2026 · Danilo Russo, docente del Conservatorio._
+_v1.3: convenzioni di lettura (§0); §3 esteso con layout, OAuth providers, anti mass-assignment + AGID; §4 e §5 estesi con form completi (Istituto, Edificio, Aula, Equipment, Corso, Livelli); §7 separato in Approvazioni · Registro attività · Bookings con descrizioni visive; §9 esteso a 5 tab inventario; §10 con KPI/heatmap/trend; §11 con form audience completo + resend email; §12 ridisegnato come hub macro/sub con tutti i sotto-tab dettagliati (Mail, Mail Outbox, Messaging, Backups, Aspetto, QR, Display admin, Audit Log, Moduli); §13 dedicato a Isidata; §16 sicurezza riorganizzata. README screenshots aggiornato a 36 file mappati._

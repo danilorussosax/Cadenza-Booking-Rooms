@@ -160,6 +160,79 @@ async function shot(page, url, file, opts = {}) {
     console.log('  ⚠ Pulsante "Modifica" non trovato');
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §3 Users · §4 Courses · §5 Structure
+  // ═══════════════════════════════════════════════════════════════════════════
+  await shot(page, '/admin/users', 'users-overview.png', { fullPage: true });
+  await shot(page, '/admin/courses', 'courses-overview.png', { fullPage: true });
+  await shot(page, '/admin/courses', 'courses-livelli.png', {
+    beforeShot: (p) => clickTab(p, /livelli|levels/i),
+  });
+  await shot(page, '/admin/structure', 'structure-sedi.png', { fullPage: true });
+  await shot(page, '/admin/structure', 'structure-dotazioni.png', {
+    beforeShot: (p) => clickTab(p, /dotazioni|equipment/i),
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §7 Approvals · §7.5 Registro attività
+  // ═══════════════════════════════════════════════════════════════════════════
+  await shot(page, '/admin/approvals', 'approvals-overview.png', { fullPage: true });
+  await shot(page, '/admin/activity-log', 'activity-log-overview.png', { fullPage: true });
+  await shot(page, '/admin/bookings', 'bookings-overview.png', { fullPage: true });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §9 Inventario strumenti (5 tab)
+  // ═══════════════════════════════════════════════════════════════════════════
+  await shot(page, '/admin/instruments', 'instruments-overview.png', { fullPage: true });
+  await shot(page, '/admin/instruments', 'instruments-loans-all.png', {
+    beforeShot: (p) => clickTab(p, /tutti i prestiti|all loans/i),
+  });
+  await shot(page, '/admin/instruments', 'instruments-overdue.png', {
+    beforeShot: (p) => clickTab(p, /scaduti|overdue/i),
+  });
+  await shot(page, '/admin/instruments', 'instruments-loan-rules.png', {
+    beforeShot: (p) => clickTab(p, /regole prestito|loan rules/i),
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §10 Analytics · §11 Annunci
+  // ═══════════════════════════════════════════════════════════════════════════
+  await shot(page, '/admin/analytics', 'analytics-overview.png', { fullPage: true });
+  await shot(page, '/admin/announcements', 'announcements-overview.png', { fullPage: true });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §12 Impostazioni server (tab interne)
+  // ═══════════════════════════════════════════════════════════════════════════
+  await shot(page, '/admin/server-settings/qrcodes', 'server-settings-qrcodes.png');
+  await shot(page, '/admin/server-settings/display', 'server-settings-display.png');
+  await shot(page, '/admin/server-settings/audit-log', 'server-settings-audit-log.png');
+  await shot(page, '/admin/server-settings/backups', 'server-settings-backups.png');
+  await shot(page, '/admin/server-settings/moduli', 'server-settings-moduli.png', {
+    fullPage: true,
+  });
+  await shot(page, '/admin/mail-outbox', 'mail-outbox-overview.png', { fullPage: true });
+
+  // §6 Tab "Quote prestiti" (mancante nelle versioni precedenti)
+  await shot(page, '/admin/rules', 'rules-quote-prestiti.png', {
+    beforeShot: (p) => clickTab(p, /quote prestiti|loan quotas/i),
+  });
+
+  // §3.4 OAuth providers form (sezione bassa di /admin/users)
+  await page.goto(`${BASE_URL}/admin/users`);
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.evaluate(() => {
+    const node = Array.from(document.querySelectorAll('h2,h3,p,div')).find((n) =>
+      /provider oauth|oauth google/i.test(n.textContent || ''),
+    );
+    if (node) node.scrollIntoView({ block: 'center' });
+  });
+  await page.waitForTimeout(500);
+  await page.screenshot({
+    path: resolve(OUT_DIR, 'users-oauth-providers.png'),
+    fullPage: false,
+  });
+  console.log('  ✓ users-oauth-providers.png');
+
   // Vista docente con banner deroga
   if (DOC_EMAIL_HINT) {
     console.log(`▶ Emetto JWT docente per "${DOC_EMAIL_HINT}"…`);
