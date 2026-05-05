@@ -270,6 +270,12 @@
     "today_welcome": "{{date}} · bienvenido al sistema de reserva del Conservatorio.",
     "calendar_title": "Calendario de aulas (diario)",
     "calendar_help": "Primera columna: aula · Bloques de 30 min (08:00–20:00). Haz clic o arrastra una franja libre para reservar.",
+    "calendar_range": {
+      "label": "Vista del calendario",
+      "single": "1 día",
+      "three": "3 días",
+      "range_label": "Del {{from}} al {{to}}"
+    },
     "prev_day": "Día anterior",
     "next_day": "Día siguiente",
     "prev_week": "Semana anterior",

@@ -270,6 +270,12 @@
     "today_welcome": "{{date}} · welcome to the Conservatory booking system.",
     "calendar_title": "Rooms calendar (daily)",
     "calendar_help": "First column: room · 30-min slots (08:00–20:00). Click or drag an empty slot to book.",
+    "calendar_range": {
+      "label": "Calendar view",
+      "single": "1 day",
+      "three": "3 days",
+      "range_label": "From {{from}} to {{to}}"
+    },
     "prev_day": "Previous day",
     "next_day": "Next day",
     "prev_week": "Previous week",

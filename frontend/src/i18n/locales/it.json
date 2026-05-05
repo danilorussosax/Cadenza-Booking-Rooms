@@ -270,6 +270,12 @@
     "today_welcome": "{{date}} · benvenuto nel sistema di prenotazione del Conservatorio.",
     "calendar_title": "Calendario aule (giornaliero)",
     "calendar_help": "Prima colonna: aula · Slot da 30 minuti (08:00–20:00). Clic o trascina su una fascia libera per prenotare.",
+    "calendar_range": {
+      "label": "Vista calendario",
+      "single": "1 giorno",
+      "three": "3 giorni",
+      "range_label": "Da {{from}} a {{to}}"
+    },
     "prev_day": "Giorno precedente",
     "next_day": "Giorno successivo",
     "prev_week": "Settimana precedente",

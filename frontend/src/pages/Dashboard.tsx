@@ -68,6 +68,19 @@ export default function Dashboard() {
   // singola colonna giorno tramite daysCount={1}, quindi riusiamo il
   // componente con `weekStart=dayStart`.
   const [dayStart, setDayStart] = useState<string>(() => dayjs().format('YYYY-MM-DD'));
+  // Vista del calendario: singolo giorno (default) o 3 giorni consecutivi
+  // (corrente + 2 successivi). Persistita in localStorage per coerenza fra
+  // sessioni: chi preferisce la vista a 3 giorni la ritrova al login successivo.
+  const [calendarRange, setCalendarRange] = useState<'single' | 'three'>(() => {
+    if (typeof window === 'undefined') return 'single';
+    const saved = window.localStorage.getItem('cadenza:dashboard-calendar-range');
+    return saved === 'three' ? 'three' : 'single';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('cadenza:dashboard-calendar-range', calendarRange);
+  }, [calendarRange]);
+  const calendarDaysCount = calendarRange === 'three' ? 3 : 1;
   // Inizio della settimana ISO che contiene `dayStart` — usato dal PDF di
   // export settimanale (che resta su scala settimanale, indipendente dalla
   // vista in-dashboard).
@@ -167,14 +180,18 @@ export default function Dashboard() {
   const bookingsPendingCount = adminBookingsPendingQuery.data?.count ?? 0;
   const amendmentsPendingCount = adminAmendmentsPendingQuery.data?.count ?? 0;
 
-  // All bookings (any user) for the selected calendar day — populates the
-  // daily timetable. Range: 00:00 → 23:59 del giorno selezionato.
+  // All bookings (any user) per la finestra del calendario selezionata.
+  // Range: 00:00 del primo giorno → 23:59 dell'ultimo giorno della finestra
+  // (1 giorno per `calendarRange='single'`, 3 giorni per `calendarRange='three'`).
   const calendarBookingsQuery = useQuery({
-    queryKey: ['bookings', 'day', dayStart],
+    queryKey: ['bookings', 'day', dayStart, calendarDaysCount],
     queryFn: () =>
       bookingsApi.list({
         from: dayjs(dayStart).startOf('day').toISOString(),
-        to: dayjs(dayStart).endOf('day').toISOString(),
+        to: dayjs(dayStart)
+          .add(calendarDaysCount - 1, 'day')
+          .endOf('day')
+          .toISOString(),
         status: 'confirmed',
       }),
   });
@@ -551,12 +568,47 @@ export default function Dashboard() {
             <p className="mt-1 text-xs text-muted-foreground">{t('dashboard.calendar_help')}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Toggle vista: singolo giorno (default) o 3 giorni consecutivi.
+                Il giorno mostrato in `dayStart` resta il primo della finestra
+                (es. oggi + 2 successivi quando `calendarRange='three'`). */}
+            <div
+              role="group"
+              aria-label={t('dashboard.calendar_range.label')}
+              className="inline-flex rounded-md border bg-background p-0.5"
+            >
+              <Button
+                type="button"
+                variant={calendarRange === 'single' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={() => {
+                  setCalendarRange('single');
+                }}
+                aria-pressed={calendarRange === 'single'}
+              >
+                {t('dashboard.calendar_range.single')}
+              </Button>
+              <Button
+                type="button"
+                variant={calendarRange === 'three' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={() => {
+                  setCalendarRange('three');
+                }}
+                aria-pressed={calendarRange === 'three'}
+              >
+                {t('dashboard.calendar_range.three')}
+              </Button>
+            </div>
             <Button
               variant="outline"
               size="icon"
               title={t('dashboard.prev_day')}
               onClick={() => {
-                setDayStart(dayjs(dayStart).subtract(1, 'day').format('YYYY-MM-DD'));
+                setDayStart(
+                  dayjs(dayStart).subtract(calendarDaysCount, 'day').format('YYYY-MM-DD'),
+                );
               }}
             >
               <ChevronLeft className="h-4 w-4 text-primary" />
@@ -585,7 +637,7 @@ export default function Dashboard() {
               size="icon"
               title={t('dashboard.next_day')}
               onClick={() => {
-                setDayStart(dayjs(dayStart).add(1, 'day').format('YYYY-MM-DD'));
+                setDayStart(dayjs(dayStart).add(calendarDaysCount, 'day').format('YYYY-MM-DD'));
               }}
             >
               <ChevronRight className="h-4 w-4 text-primary" />
@@ -618,7 +670,12 @@ export default function Dashboard() {
           )}
 
           <p className="font-display text-base capitalize">
-            {dayjs(dayStart).format('dddd D MMMM YYYY')}
+            {calendarRange === 'three'
+              ? t('dashboard.calendar_range.range_label', {
+                  from: dayjs(dayStart).format('dddd D MMMM'),
+                  to: dayjs(dayStart).add(2, 'day').format('dddd D MMMM YYYY'),
+                })
+              : dayjs(dayStart).format('dddd D MMMM YYYY')}
           </p>
 
           {roomsQuery.isLoading || calendarBookingsQuery.isLoading ? (
@@ -626,7 +683,7 @@ export default function Dashboard() {
           ) : (
             <WeeklyRoomTimetable
               weekStart={dayStart}
-              daysCount={1}
+              daysCount={calendarDaysCount}
               rooms={calendarRooms}
               blocks={weeklyBlocks.filter((blk) => calendarRooms.some((r) => r.id === blk.roomId))}
               onSlotRangeSelect={handleSlotRangeSelect}
