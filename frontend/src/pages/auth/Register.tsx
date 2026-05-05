@@ -33,7 +33,7 @@ import {
 const schema = z.object({
   firstName: z.string().min(1, 'first_name_required'),
   lastName: z.string().min(1, 'last_name_required'),
-  email: z.email('email_invalid'),
+  email: z.string().email('email_invalid'),
   password: z.string().min(8, 'password_min'),
   role: z.enum(['studente', 'docente']),
   matricola: z.string().optional(),
