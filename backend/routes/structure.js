@@ -848,10 +848,19 @@ router.get('/rooms', authenticate, async (req, res) => {
   const where = {};
   if (req.query.buildingId) where.buildingId = req.query.buildingId;
   if (req.query.bookable === 'true') where.isBookable = true;
+  // required: true → INNER JOIN su Building. Esclude le aule "orfane" il
+  // cui edificio è stato soft-deleted da /admin/structure (Building è
+  // paranoid, ma il soft-delete non cascada sulle Room: senza questo
+  // filtro l'endpoint elencherebbe aule che non compaiono in Structure).
   const rooms = await Room.findAll({
     where,
     include: [
-      { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
+      {
+        model: Building,
+        as: 'building',
+        required: true,
+        include: [{ model: Institute, as: 'institute' }],
+      },
       { model: Equipment, as: 'equipment' },
     ],
     order: [['name', 'ASC']],
@@ -911,10 +920,17 @@ router.get('/rooms/search', authenticate, async (req, res, next) => {
     if (roomType) where.type = roomType;
     if (minCapacity > 0) where.capacity = { [Op.gte]: minCapacity };
 
+    // INNER JOIN su Building → esclude aule orfane di edificio soft-deleted
+    // (vedi nota in GET /rooms).
     let rooms = await Room.findAll({
       where,
       include: [
-        { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
+        {
+          model: Building,
+          as: 'building',
+          required: true,
+          include: [{ model: Institute, as: 'institute' }],
+        },
         { model: Equipment, as: 'equipment' },
       ],
       order: [['name', 'ASC']],
