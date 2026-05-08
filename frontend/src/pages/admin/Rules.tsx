@@ -9,6 +9,7 @@ import {
   BookMarked,
   CalendarRange,
   Clock,
+  DoorOpen,
   Gauge,
   GraduationCap,
   LoaderCircle,
@@ -24,6 +25,7 @@ import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { rulesApi, type OverlapBooking, type UpsertExceptionPayload } from '@/api/rules';
+import { roomsApi } from '@/api/rooms';
 import { QuotasManager } from '@/components/admin/QuotasManager';
 import { LoanQuotasManager } from '@/components/admin/LoanQuotasManager';
 import { httpErrorMessage } from '@/lib/api';
@@ -266,6 +268,7 @@ export default function AdminRules() {
  */
 function ExceptionsTopLevel() {
   const [scopeRole, setScopeRole] = useState<BookingRuleExceptionScope | 'every'>('every');
+  const [scopeRoom, setScopeRoom] = useState<'every' | number>('every');
 
   const SCOPES: { value: BookingRuleExceptionScope | 'every'; label: string }[] = [
     { value: 'every', label: 'Tutte le eccezioni' },
@@ -275,29 +278,62 @@ function ExceptionsTopLevel() {
     { value: 'admin', label: 'Admin' },
   ];
 
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'list', 'all'],
+    queryFn: () => roomsApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const rooms = roomsQuery.data?.rooms ?? [];
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Label className="text-xs text-muted-foreground">Filtro</Label>
-        <Select
-          value={scopeRole}
-          onValueChange={(v) => {
-            setScopeRole(v as BookingRuleExceptionScope | 'every');
-          }}
-        >
-          <SelectTrigger className="w-[260px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SCOPES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Ruolo</Label>
+          <Select
+            value={scopeRole}
+            onValueChange={(v) => {
+              setScopeRole(v as BookingRuleExceptionScope | 'every');
+            }}
+          >
+            <SelectTrigger className="w-[240px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SCOPES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Aula</Label>
+          <Select
+            value={String(scopeRoom)}
+            onValueChange={(v) => {
+              setScopeRoom(v === 'every' ? 'every' : Number(v));
+            }}
+          >
+            <SelectTrigger className="w-[260px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="every">Tutte (globali + per aula)</SelectItem>
+              {rooms.map((r) => (
+                <SelectItem key={r.id} value={String(r.id)}>
+                  {r.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      <ExceptionsSection role={scopeRole === 'every' ? undefined : scopeRole} />
+      <ExceptionsSection
+        role={scopeRole === 'every' ? undefined : scopeRole}
+        roomId={scopeRoom === 'every' ? undefined : scopeRoom}
+      />
     </div>
   );
 }
@@ -641,7 +677,13 @@ const DAYS_LABELS = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
  * comportamento gestito da rulesApi.listExceptions / route backend).
  * Il default per il dialog di creazione è 'all' quando si è in vista globale.
  */
-function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
+function ExceptionsSection({
+  role,
+  roomId,
+}: {
+  role?: BookingRuleExceptionScope;
+  roomId?: number;
+}) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<BookingRuleException | null>(null);
   const [creating, setCreating] = useState(false);
@@ -653,8 +695,8 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
   } | null>(null);
 
   const query = useQuery({
-    queryKey: ['rules', 'exceptions', role ?? 'every'],
-    queryFn: () => rulesApi.listExceptions(role),
+    queryKey: ['rules', 'exceptions', role ?? 'every', roomId ?? 'every'],
+    queryFn: () => rulesApi.listExceptions({ role, roomId }),
   });
 
   const deleteMutation = useMutation({
@@ -722,6 +764,15 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
                     <UsersIcon className="h-3 w-3" />
                     {exc.role === 'all' ? 'Tutti' : roleLabel(exc.role)}
                   </Badge>
+                  {exc.roomId != null && (
+                    <Badge
+                      variant="muted"
+                      className="gap-1 border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-300"
+                    >
+                      <DoorOpen className="h-3 w-3" />
+                      {exc.room?.name ?? `Aula #${exc.roomId}`}
+                    </Badge>
+                  )}
                   {!exc.isActive && <Badge variant="muted">Disattivata</Badge>}
                   <p className="text-sm font-medium">{exc.name}</p>
                 </div>
@@ -766,6 +817,7 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
         open={creating || !!editing}
         existing={editing}
         defaultRole={role ?? 'all'}
+        defaultRoomId={roomId}
         onClose={() => {
           setCreating(false);
           setEditing(null);
@@ -792,6 +844,9 @@ function ExceptionsSection({ role }: { role?: BookingRuleExceptionScope }) {
 
 function exceptionSummary(exc: BookingRuleException): string {
   const parts: string[] = [];
+  if (exc.roomId != null) {
+    parts.push(`Solo aula: ${exc.room?.name ?? `#${exc.roomId}`}`);
+  }
   if (exc.dateFrom && exc.dateTo) {
     parts.push(
       exc.dateFrom === exc.dateTo ? `Il ${exc.dateFrom}` : `Dal ${exc.dateFrom} al ${exc.dateTo}`,
@@ -820,6 +875,8 @@ function roleLabel(r: Role): string {
 // =====================================================
 interface ExceptionFormState {
   role: BookingRuleExceptionScope;
+  /** 'all' (tutte le aule) oppure id stringa dell'aula scoped */
+  roomScope: string;
   name: string;
   kind: BookingRuleExceptionKind;
   daysOfWeek: number[];
@@ -833,9 +890,13 @@ interface ExceptionFormState {
   notes: string;
 }
 
-function blankException(defaultRole: BookingRuleExceptionScope): ExceptionFormState {
+function blankException(
+  defaultRole: BookingRuleExceptionScope,
+  defaultRoomId?: number,
+): ExceptionFormState {
   return {
     role: defaultRole,
+    roomScope: defaultRoomId ? String(defaultRoomId) : 'all',
     name: '',
     kind: 'block',
     daysOfWeek: [],
@@ -853,6 +914,7 @@ function blankException(defaultRole: BookingRuleExceptionScope): ExceptionFormSt
 function fromException(exc: BookingRuleException): ExceptionFormState {
   return {
     role: exc.role,
+    roomScope: exc.roomId != null ? String(exc.roomId) : 'all',
     name: exc.name,
     kind: exc.kind,
     daysOfWeek: exc.daysOfWeek ?? [],
@@ -871,27 +933,38 @@ function ExceptionDialog({
   open,
   existing,
   defaultRole,
+  defaultRoomId,
   onClose,
   onSaved,
 }: {
   open: boolean;
   existing: BookingRuleException | null;
   defaultRole: BookingRuleExceptionScope;
+  defaultRoomId?: number;
   onClose: () => void;
   onSaved?: (saved: BookingRuleException, overlapping: OverlapBooking[]) => void;
 }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<ExceptionFormState>(() =>
-    existing ? fromException(existing) : blankException(defaultRole),
+    existing ? fromException(existing) : blankException(defaultRole, defaultRoomId),
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Lista aule per il select "Aula" — caricata solo quando il dialog è aperto.
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'list', 'all'],
+    queryFn: () => roomsApi.list(),
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
+  const rooms = roomsQuery.data?.rooms ?? [];
+
   useEffect(() => {
     if (open) {
-      setForm(existing ? fromException(existing) : blankException(defaultRole));
+      setForm(existing ? fromException(existing) : blankException(defaultRole, defaultRoomId));
       setError(null);
     }
-  }, [open, existing, defaultRole]);
+  }, [open, existing, defaultRole, defaultRoomId]);
 
   const mutation = useMutation({
     mutationFn: async (payload: UpsertExceptionPayload) => {
@@ -978,6 +1051,7 @@ function ExceptionDialog({
       maxHoursInWindow: form.kind === 'time_window' ? Number(form.maxHoursInWindow) : null,
       isActive: form.isActive,
       notes: form.notes.trim() || null,
+      roomId: form.roomScope === 'all' ? null : Number(form.roomScope),
     };
     mutation.mutate(payload);
   };
@@ -1045,6 +1119,37 @@ function ExceptionDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <DoorOpen className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+              Aula
+            </Label>
+            <Select
+              value={form.roomScope}
+              onValueChange={(v) => {
+                setForm((f) => ({ ...f, roomScope: v }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={roomsQuery.isLoading ? 'Caricamento…' : 'Tutte le aule'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutte le aule</SelectItem>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={String(r.id)}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Lascia "Tutte le aule" per applicare l'eccezione globalmente. Selezionando un'aula
+              specifica, l'eccezione bloccherà o limiterà solo le prenotazioni di quell'aula.
+            </p>
           </div>
 
           {form.kind === 'time_window' && (

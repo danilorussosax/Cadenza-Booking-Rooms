@@ -17,6 +17,8 @@
  *   - role: 'all' → tutte le prenotazioni di non-admin; ruolo specifico →
  *     solo quel ruolo. Gli admin sono sempre esclusi (coerente con la
  *     validazione: gli admin bypassano regole e quote).
+ *   - roomId (nullable): se valorizzato, filtra solo le prenotazioni di
+ *     quell'aula (eccezione "scoped"). Null = tutte le aule.
  *   - dateFrom/dateTo (DATEONLY): finestra giornaliera; null = nessun limite.
  *   - daysOfWeek: array 0-6 (0=domenica). Vuoto/null = tutti i giorni.
  *   - startTime/endTime (HH:mm): finestra oraria *intra-giornaliera*. Una
@@ -64,6 +66,12 @@ async function findOverlappingBookings(excDef, { onlyFuture = true } = {}) {
   if (onlyFuture) {
     const now = new Date();
     where.startTime = { ...(where.startTime || {}), [Op.gt]: now };
+  }
+
+  // Scope per aula: se l'eccezione punta a una specifica aula, filtra
+  // solo i booking di quell'aula. null = tutte le aule (storico).
+  if (excDef.roomId != null) {
+    where.roomId = excDef.roomId;
   }
 
   // Filtro per ruolo: 'all' = tutti i non-admin (gli admin bypassano

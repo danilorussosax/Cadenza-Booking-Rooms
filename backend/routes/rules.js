@@ -3,7 +3,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
-const { BookingRule, BookingRuleException } = require('../models');
+const { BookingRule, BookingRuleException, Room } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const {
   findOverlappingBookings,
@@ -26,11 +26,13 @@ router.get('/', authenticate, async (req, res) => {
 // ECCEZIONI alle regole di prenotazione
 // =====================================================
 
-// GET /api/rules/exceptions?role=studente
-// Restituisce le eccezioni del ruolo richiesto + quelle 'all'.
-// Senza ?role: tutte (admin only).
+// GET /api/rules/exceptions?role=studente&roomId=12
+// Restituisce le eccezioni del ruolo richiesto + quelle 'all'. Senza ?role:
+// tutte (admin only). roomId è solo un filtro di lista (NON limita lo
+// scope dell'eccezione: serve all'admin per vedere "cosa è configurato per
+// questa aula"). Una eccezione globale (roomId IS NULL) compare sempre.
 router.get('/exceptions', authenticate, async (req, res) => {
-  const { role } = req.query;
+  const { role, roomId } = req.query;
   const where = {};
   if (role) {
     if (!VALID_ROLES_FOR_EXCEPTION.includes(role)) {
@@ -40,8 +42,24 @@ router.get('/exceptions', authenticate, async (req, res) => {
   } else if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Riservato agli admin' });
   }
+  if (roomId) {
+    const id = Number(roomId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'roomId non valido' });
+    }
+    // null (globale) OR match aula richiesta
+    where.roomId = { [Op.or]: [null, id] };
+  }
   const exceptions = await BookingRuleException.findAll({
     where,
+    include: [
+      {
+        model: Room,
+        as: 'room',
+        attributes: ['id', 'name', 'buildingId'],
+        required: false,
+      },
+    ],
     order: [
       ['role', 'ASC'],
       ['name', 'ASC'],
@@ -76,7 +94,23 @@ function validateExceptionPayload(body) {
   ) {
     errors.push('daysOfWeek deve essere un array di interi 0-6');
   }
+  if (body.roomId !== null && body.roomId !== undefined && body.roomId !== '') {
+    if (!Number.isInteger(body.roomId) || body.roomId <= 0) {
+      errors.push('roomId non valido');
+    }
+  }
   return errors;
+}
+
+async function assertRoomExists(roomId) {
+  if (roomId == null) return;
+  const exists = await Room.findByPk(roomId, { attributes: ['id'] });
+  if (!exists) {
+    const err = new Error('Aula non trovata');
+    err.status = 400;
+    err.code = 'ROOM_NOT_FOUND';
+    throw err;
+  }
 }
 
 function normalizeException(body) {
@@ -95,18 +129,33 @@ function normalizeException(body) {
     maxHoursInWindow: body.kind === 'time_window' ? Number(body.maxHoursInWindow) : null,
     isActive: body.isActive !== false,
     notes: body.notes ? String(body.notes).trim() : null,
+    roomId:
+      body.roomId !== null && body.roomId !== undefined && body.roomId !== ''
+        ? Number(body.roomId)
+        : null,
   };
 }
 
 // POST /api/rules/exceptions  (admin)
-router.post('/exceptions', authenticate, requireRole('admin'), async (req, res) => {
-  const errors = validateExceptionPayload(req.body || {});
-  if (errors.length > 0)
-    return res
-      .status(400)
-      .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
-  const created = await BookingRuleException.create(normalizeException(req.body));
-  res.status(201).json({ exception: created });
+router.post('/exceptions', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const errors = validateExceptionPayload(req.body || {});
+    if (errors.length > 0)
+      return res
+        .status(400)
+        .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
+    const payload = normalizeException(req.body);
+    await assertRoomExists(payload.roomId);
+    const created = await BookingRuleException.create(payload);
+    res.status(201).json({ exception: created });
+  } catch (err) {
+    if (err.code === 'ROOM_NOT_FOUND') {
+      return res
+        .status(400)
+        .json({ error: err.message, code: err.code, details: [{ message: err.message }] });
+    }
+    next(err);
+  }
 });
 
 // POST /api/rules/exceptions/preview-overlaps  (admin)
@@ -202,16 +251,27 @@ router.post(
 );
 
 // PUT /api/rules/exceptions/:id  (admin)
-router.put('/exceptions/:id', authenticate, requireRole('admin'), async (req, res) => {
-  const exception = await BookingRuleException.findByPk(req.params.id);
-  if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
-  const errors = validateExceptionPayload(req.body || {});
-  if (errors.length > 0)
-    return res
-      .status(400)
-      .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
-  await exception.update(normalizeException(req.body));
-  res.json({ exception });
+router.put('/exceptions/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const exception = await BookingRuleException.findByPk(req.params.id);
+    if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
+    const errors = validateExceptionPayload(req.body || {});
+    if (errors.length > 0)
+      return res
+        .status(400)
+        .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
+    const payload = normalizeException(req.body);
+    await assertRoomExists(payload.roomId);
+    await exception.update(payload);
+    res.json({ exception });
+  } catch (err) {
+    if (err.code === 'ROOM_NOT_FOUND') {
+      return res
+        .status(400)
+        .json({ error: err.message, code: err.code, details: [{ message: err.message }] });
+    }
+    next(err);
+  }
 });
 
 // DELETE /api/rules/exceptions/:id  (admin)

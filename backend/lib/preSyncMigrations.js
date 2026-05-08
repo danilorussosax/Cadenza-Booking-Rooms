@@ -703,6 +703,13 @@ async function runPreSyncMigrations() {
   if (await ensureNullableStringColumn('users', 'emailBouncedReason', 500)) {
     console.log('  ✓ Colonna users.emailBouncedReason aggiunta');
   }
+
+  // Eccezioni regole prenotazione: scope per aula (null = tutte le aule, comportamento storico).
+  // La FK e gli indici li gestisce sequelize.sync() dopo questo blocco; qui basta aggiungere
+  // la colonna così che addIndex sul model non fallisca con "no such column".
+  if (await ensureNullableIntColumn('booking_rule_exceptions', 'roomId')) {
+    console.log('  ✓ Colonna booking_rule_exceptions.roomId aggiunta (scope per aula)');
+  }
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

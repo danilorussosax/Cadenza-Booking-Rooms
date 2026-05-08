@@ -363,6 +363,9 @@ async function validateBooking({
     for (const q of quotaIssues) push(q.message, q.code);
 
     // ---- Eccezioni alla regola generale (block / time_window, cached) ----
+    // Cache per role: fetcho TUTTE le eccezioni del ruolo (globali + scoped
+    // per qualsiasi aula) e filtro per aula in JS, così la cache resta hit
+    // tra prenotazioni su aule diverse dello stesso utente.
     let exceptions;
     if (cache?.exceptions.has(user.role)) {
       exceptions = cache.exceptions.get(user.role);
@@ -378,6 +381,8 @@ async function validateBooking({
     }
 
     for (const exc of exceptions) {
+      // Scope per aula: roomId null = vale per tutte; valorizzato = solo quell'aula.
+      if (exc.roomId != null && exc.roomId !== room.id) continue;
       if (!exceptionAppliesToDate(exc, start)) continue;
 
       if (exc.kind === 'block') {
@@ -393,11 +398,15 @@ async function validateBooking({
 
         const dayStart = start.startOf('day');
         const dayEnd = start.endOf('day');
+        // Se l'eccezione è scoped a un'aula, conteggia SOLO le ore già
+        // prenotate in quell'aula (senso: "in aula X max 1h tra 14-16").
+        // Globale → conteggio cross-aula (comportamento storico).
         const sameDayBookings = await Booking.findAll({
           where: {
             userId: user.id,
             status: 'confirmed',
             startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
+            ...(exc.roomId != null ? { roomId: exc.roomId } : {}),
             ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
           },
           // Solo (start, end) servono per minutesInsideWindow.

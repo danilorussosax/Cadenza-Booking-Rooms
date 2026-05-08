@@ -111,6 +111,16 @@ Booking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Room.hasMany(Booking, { foreignKey: 'roomId', as: 'bookings', onDelete: 'CASCADE' });
 Booking.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
 
+// Room -> BookingRuleException (scope per aula, opzionale).
+// Se l'aula sparisce, le eccezioni che la referenziavano vengono rimosse:
+// senza la sua aula l'eccezione perde senso (vale solo per quell'aula).
+Room.hasMany(BookingRuleException, {
+  foreignKey: 'roomId',
+  as: 'bookingRuleExceptions',
+  onDelete: 'CASCADE',
+});
+BookingRuleException.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
+
 // User/Room -> BookingTemplate — template legati all'utente e a un'aula.
 // CASCADE su entrambi: se l'aula sparisce il template diventa orfano e
 // preferiamo rimuoverlo che esporre un template che fallirà al primo click.

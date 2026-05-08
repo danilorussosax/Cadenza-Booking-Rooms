@@ -391,6 +391,12 @@ export interface BookingRuleException {
   maxHoursInWindow: number | null;
   isActive: boolean;
   notes: string | null;
+  /** Scope per aula: null = vale per tutte le aule (eccezione globale).
+   *  Se valorizzato, l'eccezione si applica SOLO alle prenotazioni di
+   *  quell'aula. */
+  roomId: number | null;
+  /** Popolato solo quando il backend ritorna l'include `room`. */
+  room?: { id: number; name: string; buildingId: number } | null;
 }
 
 export interface OAuthSettings {

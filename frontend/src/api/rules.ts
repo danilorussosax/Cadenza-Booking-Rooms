@@ -57,6 +57,15 @@ export interface UpsertExceptionPayload {
   maxHoursInWindow?: number | null;
   isActive?: boolean;
   notes?: string | null;
+  /** Scope per aula: null/omesso = globale (tutte le aule). */
+  roomId?: number | null;
+}
+
+export interface ListExceptionsOptions {
+  role?: BookingRuleExceptionScope;
+  /** Filtra la lista: ritorna eccezioni globali (roomId=null) + quelle
+   *  scoped a questa aula. Non restringe lo scope salvato lato server. */
+  roomId?: number;
 }
 
 export const rulesApi = {
@@ -67,10 +76,16 @@ export const rulesApi = {
 
   // Eccezioni — quando role è omesso e l'utente è admin, ritorna TUTTE
   // le eccezioni (tutti i ruoli inclusi 'all'). Vedi backend routes/rules.js.
-  listExceptions: (role?: BookingRuleExceptionScope) =>
-    api<{ exceptions: BookingRuleException[] }>('/api/rules/exceptions', {
-      query: role ? { role } : undefined,
-    }),
+  listExceptions: (opts?: ListExceptionsOptions | BookingRuleExceptionScope) => {
+    // Backward-compat: la firma legacy accetta direttamente lo scope role.
+    const o: ListExceptionsOptions = typeof opts === 'string' ? { role: opts } : (opts ?? {});
+    const query: Record<string, unknown> = {};
+    if (o.role) query.role = o.role;
+    if (o.roomId) query.roomId = o.roomId;
+    return api<{ exceptions: BookingRuleException[] }>('/api/rules/exceptions', {
+      query: Object.keys(query).length > 0 ? query : undefined,
+    });
+  },
   createException: (payload: UpsertExceptionPayload) =>
     api<{ exception: BookingRuleException }>('/api/rules/exceptions', {
       method: 'POST',

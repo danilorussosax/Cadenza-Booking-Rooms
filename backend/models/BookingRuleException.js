@@ -17,6 +17,17 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 'all',
       },
+      // Aula a cui è ristretta l'eccezione. null = vale per tutte le aule
+      // (comportamento storico). Se valorizzata, l'eccezione blocca/limita
+      // SOLO le prenotazioni di quella specifica aula.
+      // ON DELETE CASCADE: se l'aula sparisce l'eccezione perde senso.
+      roomId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'rooms', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
       // Etichetta umana, es. "Pausa pranzo", "Sospensione didattica natalizia"
       name: {
         type: DataTypes.STRING(150),
@@ -67,7 +78,13 @@ module.exports = (sequelize) => {
     },
     {
       tableName: 'booking_rule_exceptions',
-      indexes: [{ fields: ['role'] }, { fields: ['isActive'] }],
+      indexes: [
+        { fields: ['role'] },
+        { fields: ['isActive'] },
+        { fields: ['roomId'] },
+        // Composito sul lookup hot-path del validator: filtro per role + roomId + isActive
+        { fields: ['role', 'roomId', 'isActive'] },
+      ],
     },
   );
 
