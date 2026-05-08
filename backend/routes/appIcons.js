@@ -27,6 +27,13 @@ const LOGO_APP_DIR = path.resolve(__dirname, '..', '..', 'frontend', 'public', '
 
 const ALLOWED_EXT = new Set(['.png', '.svg', '.webp', '.jpg', '.jpeg']);
 
+// File presenti nel filesystem ma esclusi dalla lista visibile in
+// "Impostazioni server → Aspetto". Restano serviti dallo static mount
+// (`cadenza.png` è ancora il fallback finale referenziato da
+// useAppIcon.ts, Display.tsx, AppIconSection.tsx) ma non vanno mostrati
+// come scelta nella griglia di selezione.
+const EXCLUDED_NAMES = new Set(['cadenza.png', 'cadenza-bars.svg', 'cadenza-classic.png']);
+
 function listIcons() {
   let names;
   try {
@@ -38,6 +45,7 @@ function listIcons() {
   const items = [];
   for (const name of names.sort()) {
     if (name.startsWith('.')) continue; // .DS_Store ecc.
+    if (EXCLUDED_NAMES.has(name)) continue;
     const ext = path.extname(name).toLowerCase();
     if (!ALLOWED_EXT.has(ext)) continue;
     const full = path.join(LOGO_APP_DIR, name);
