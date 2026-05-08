@@ -5,6 +5,8 @@ set -euo pipefail
 # Deploy script Cadenza — Mac → VPS IONOS
 #
 # Cosa fa:
+#   0. (opzionale, --update-deps) npm outdated su backend/ e frontend/, chiede
+#      se applicare gli aggiornamenti semver-safe (npm update) prima del deploy
 #   1. Build frontend in locale (typecheck + bundle)
 #   2. Mostra cosa cambierebbe sul VPS (dry-run) e chiede conferma
 #   3. Verifica che il server NON abbia moduli più moderni del locale
@@ -15,9 +17,10 @@ set -euo pipefail
 #   7. Healthcheck post-deploy
 #
 # Uso:
-#   ./deploy.sh              # deploy interattivo con conferma
-#   ./deploy.sh --yes        # senza conferma (per CI o uso rapido)
-#   ./deploy.sh --no-build   # salta la build frontend (se l'hai già fatta)
+#   ./deploy.sh                # deploy interattivo con conferma
+#   ./deploy.sh --yes          # senza conferma (per CI o uso rapido)
+#   ./deploy.sh --no-build     # salta la build frontend (se l'hai già fatta)
+#   ./deploy.sh --update-deps  # prima del deploy: npm outdated + scelta y/N per workspace
 # ============================================================
 
 VPS_USER="cadenza"
@@ -30,11 +33,13 @@ SSH_OPTS="-o StrictHostKeyChecking=accept-new"
 
 AUTO_YES=0
 SKIP_BUILD=0
+UPDATE_DEPS=0
 for arg in "$@"; do
   case "$arg" in
     --yes|-y)        AUTO_YES=1 ;;
     --no-build)      SKIP_BUILD=1 ;;
-    --help|-h)       sed -n '2,20p' "$0"; exit 0 ;;
+    --update-deps)   UPDATE_DEPS=1 ;;
+    --help|-h)       sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $arg"; exit 2 ;;
   esac
 done
@@ -49,6 +54,39 @@ cd "$LOCAL_ROOT"
 # Sanity: siamo nella root del repo?
 [[ -d backend && -d frontend && -f package.json ]] \
   || { red "[ERR] Lancialo dalla root del monorepo (manca backend/, frontend/, package.json)"; exit 1; }
+
+# ------------------------------------------------------------
+# 0. Aggiornamento dipendenze npm (--update-deps)
+#    Per ciascun workspace mostra `npm outdated` e chiede se applicare
+#    aggiornamenti semver-safe via `npm update` (rispetta i range ^/~ in
+#    package.json, niente major bump). Le modifiche al package-lock.json
+#    vengono poi raccolte dal normale flusso di deploy (rsync + npm ci).
+# ------------------------------------------------------------
+if [[ "$UPDATE_DEPS" -eq 1 ]]; then
+  blue "[opt] Aggiornamento dipendenze npm (locale)…"
+  for sub in backend frontend; do
+    [[ -f "$sub/package.json" ]] || continue
+    echo
+    yellow "  ── ${sub}/ ──"
+    # npm outdated → exit 0 se nulla è obsoleto, exit 1 se ci sono aggiornamenti
+    if ( cd "$sub" && npm outdated ); then
+      green "    ✓ ${sub}: già allineato"
+      continue
+    fi
+    if [[ "$AUTO_YES" -eq 1 ]]; then
+      ans=y
+    else
+      read -r -p "  Aggiorno ${sub}/ con npm update (semver-safe)? [y/N] " ans
+    fi
+    if [[ "$ans" =~ ^[yY]$ ]]; then
+      ( cd "$sub" && npm update )
+      green "    ✓ ${sub}: package-lock.json aggiornato (ricordati di committare)"
+    else
+      yellow "    ${sub}: aggiornamento saltato"
+    fi
+  done
+  echo
+fi
 
 # ------------------------------------------------------------
 # 1. Build frontend
