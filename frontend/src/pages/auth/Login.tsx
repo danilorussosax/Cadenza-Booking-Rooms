@@ -78,7 +78,7 @@ export default function Login() {
     let dest = '/dashboard';
     if (!profileComplete) dest = '/complete-profile';
     else if (!approved) dest = '/pending-approval';
-    navigate(redirectTo ?? dest, { replace: true });
+    void navigate(redirectTo ?? dest, { replace: true });
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -117,7 +117,7 @@ export default function Login() {
     }
   };
 
-  const onSubmitTwoFa = async (e: React.FormEvent) => {
+  const onSubmitTwoFa = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!twoFa) return;
     setServerError(null);
@@ -461,7 +461,7 @@ interface TwoFaViewProps {
   expiresInMinutes: number;
   resending: boolean;
   onResend: () => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.SyntheticEvent) => void;
   onCancel: () => void;
 }
 

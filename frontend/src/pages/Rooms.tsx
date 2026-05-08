@@ -525,7 +525,7 @@ export default function Rooms() {
                         : 'admin.structure.rooms_count_other',
                       { count: g.rooms.length },
                     )}
-                    {g.building.floors && g.building.floors.length > 0 && (
+                    {g.building.floors.length > 0 && (
                       <>
                         {' · '}
                         {g.building.floors.join(', ')}

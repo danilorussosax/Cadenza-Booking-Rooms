@@ -13,13 +13,13 @@ export default function PendingApproval() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login', { replace: true });
+    void navigate('/login', { replace: true });
   };
 
   const handleRefresh = async () => {
     const u = await refreshUser();
     if (u && (u.role === 'admin' || u.status === 'approved')) {
-      navigate('/dashboard', { replace: true });
+      void navigate('/dashboard', { replace: true });
     }
   };
 

@@ -482,7 +482,7 @@ function RuleEditor({ role, help }: RuleEditorProps) {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  reset(toFormValues(query.data!.rule));
+                  if (query.data) reset(toFormValues(query.data.rule));
                 }}
                 disabled={!isDirty || isSubmitting}
               >
@@ -623,7 +623,7 @@ function toFormValues(rule: BookingRule): FormValues {
     maxAdvanceDays: rule.maxAdvanceDays,
     minAdvanceHours: rule.minAdvanceHours,
     cancellationDeadlineHours: rule.cancellationDeadlineHours,
-    minIntervalBetweenBookingsMinutes: rule.minIntervalBetweenBookingsMinutes ?? 0,
+    minIntervalBetweenBookingsMinutes: rule.minIntervalBetweenBookingsMinutes,
     allowRecurring: rule.allowRecurring,
     allowNightHours: rule.allowNightHours,
     allowedStartTime: rule.allowedStartTime,

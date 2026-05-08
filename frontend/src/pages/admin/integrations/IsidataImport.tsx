@@ -111,7 +111,7 @@ export function IsidataImportContent() {
 
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
+    const f = e.dataTransfer.files.item(0);
     if (f) setFile(f);
   };
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -121,7 +121,7 @@ export function IsidataImportContent() {
   const parsedOverrides = useMemo(() => {
     if (!overridesText.trim()) return undefined;
     try {
-      const obj = JSON.parse(overridesText);
+      const obj: unknown = JSON.parse(overridesText);
       if (typeof obj !== 'object' || Array.isArray(obj) || obj === null) {
         throw new Error('non è un oggetto JSON');
       }

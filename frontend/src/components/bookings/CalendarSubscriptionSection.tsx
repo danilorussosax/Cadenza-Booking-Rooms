@@ -51,7 +51,12 @@ export function CalendarSubscriptionSection() {
   // in non-secure-context su browser moderni.
   const copy = async (value: string, label: string) => {
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+      if (
+        typeof navigator !== 'undefined' &&
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- navigator.clipboard è undefined in non-secure-context, TS non lo modella
+        navigator.clipboard &&
+        window.isSecureContext
+      ) {
         await navigator.clipboard.writeText(value);
       } else {
         const ta = document.createElement('textarea');
@@ -65,6 +70,7 @@ export function CalendarSubscriptionSection() {
         ta.focus();
         ta.select();
         ta.setSelectionRange(0, value.length);
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- unico fallback in non-secure-context (vedi commento sopra)
         const ok = document.execCommand('copy');
         document.body.removeChild(ta);
         if (!ok) throw new Error('execCommand copy returned false');

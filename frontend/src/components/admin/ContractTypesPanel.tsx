@@ -57,7 +57,7 @@ export function ContractTypesPanel() {
         status?: number;
         data?: { code?: string; usersAffectedCount?: number };
       };
-      if (errAny?.status === 409 && errAny.data?.code === 'IMPACT_CONFIRM_REQUIRED' && editing) {
+      if (errAny.status === 409 && errAny.data?.code === 'IMPACT_CONFIRM_REQUIRED' && editing) {
         // Recupera la lista impatto e mostra il dialog
         try {
           const impact = await contractTypesApi.impact(editing.id);

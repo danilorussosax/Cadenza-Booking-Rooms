@@ -90,9 +90,9 @@ export default function CompleteProfile() {
       updateUser(updated);
       // I docenti restano in attesa dell'admin → pagina dedicata.
       if (updated.role === 'docente' && updated.status === 'pending') {
-        navigate('/pending-approval', { replace: true });
+        void navigate('/pending-approval', { replace: true });
       } else {
-        navigate('/dashboard', { replace: true });
+        void navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       setServerError(httpErrorMessage(err));
@@ -101,7 +101,7 @@ export default function CompleteProfile() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login', { replace: true });
+    void navigate('/login', { replace: true });
   };
 
   return (

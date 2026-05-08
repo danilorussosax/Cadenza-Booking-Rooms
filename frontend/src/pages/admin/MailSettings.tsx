@@ -136,7 +136,7 @@ export default function AdminMailSettings() {
         fromAddress: settings.fromAddress ?? '',
         fromName: settings.fromName ?? '',
         replyTo: settings.replyTo ?? '',
-        throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour ?? 0,
+        throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour,
       });
       if (!testTarget) setTestTarget(user?.email ?? '');
     }
@@ -489,7 +489,7 @@ export default function AdminMailSettings() {
                 fromAddress: settings.fromAddress ?? '',
                 fromName: settings.fromName ?? '',
                 replyTo: settings.replyTo ?? '',
-                throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour ?? 0,
+                throttlePerRecipientPerHour: settings.throttlePerRecipientPerHour,
               })
             }
           >

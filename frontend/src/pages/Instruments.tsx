@@ -66,8 +66,8 @@ export default function Instruments() {
     if (!term) return query.data?.instruments ?? [];
     return (query.data?.instruments ?? []).filter((i) =>
       [i.name, i.code, i.brand, i.model]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(term)),
+        .filter((v): v is string => Boolean(v))
+        .some((v) => v.toLowerCase().includes(term)),
     );
   }, [query.data, search]);
 

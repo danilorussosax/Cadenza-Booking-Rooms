@@ -256,7 +256,7 @@ export function BookingFormDialog({
       }
       // Create on-behalf-of: solo admin; il backend ignora il campo se non lo è.
       const onBehalf =
-        isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser?.id
+        isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser.id
           ? { onBehalfOfUserId }
           : {};
       if (recurringWeeks >= 2) {
@@ -440,7 +440,7 @@ export function BookingFormDialog({
                   <SelectContent>
                     <SelectItem value="self">{t('booking.form.on_behalf_self')}</SelectItem>
                     {(usersQuery.data?.users ?? [])
-                      .filter((u) => u.id !== currentUser?.id)
+                      .filter((u) => u.id !== currentUser.id)
                       .map((u) => (
                         <SelectItem key={u.id} value={String(u.id)}>
                           {u.lastName} {u.firstName}

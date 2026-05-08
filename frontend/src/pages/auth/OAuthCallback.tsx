@@ -43,7 +43,7 @@ export default function OAuthCallback() {
         let dest = '/dashboard';
         if (needsProfile || !profileComplete) dest = '/complete-profile';
         else if (!approved) dest = '/pending-approval';
-        navigate(dest, { replace: true });
+        void navigate(dest, { replace: true });
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(httpErrorMessage(err));
@@ -71,7 +71,7 @@ export default function OAuthCallback() {
             <p className="mb-5 text-sm text-muted-foreground">{error}</p>
             <Button
               onClick={() => {
-                navigate('/login', { replace: true });
+                void navigate('/login', { replace: true });
               }}
               className="w-full"
             >

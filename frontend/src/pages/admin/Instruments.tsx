@@ -356,8 +356,8 @@ function InventoryTab({
     if (term) {
       out = out.filter((i) =>
         [i.name, i.code, i.brand, i.model]
-          .filter(Boolean)
-          .some((v) => v!.toLowerCase().includes(term)),
+          .filter((v): v is string => Boolean(v))
+          .some((v) => v.toLowerCase().includes(term)),
       );
     }
     return out;

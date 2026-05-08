@@ -146,7 +146,10 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
   const isMonteOreOverrideOn = useHoursOverride || bypassDay;
 
   const resetBounceMut = useMutation({
-    mutationFn: () => usersApi.resetBounce(user!.id),
+    mutationFn: () => {
+      if (!user) throw new Error('user undefined');
+      return usersApi.resetBounce(user.id);
+    },
     onSuccess: () => {
       toast.success('Indirizzo email riattivato');
       void qc.invalidateQueries({ queryKey: ['users'] });

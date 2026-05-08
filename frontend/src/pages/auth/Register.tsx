@@ -139,7 +139,7 @@ export default function Register() {
       let dest = '/complete-profile';
       if (profileComplete && approved) dest = '/dashboard';
       else if (profileComplete && !approved) dest = '/pending-approval';
-      navigate(dest, { replace: true });
+      void navigate(dest, { replace: true });
     } catch (err) {
       setServerError(httpErrorMessage(err));
     }

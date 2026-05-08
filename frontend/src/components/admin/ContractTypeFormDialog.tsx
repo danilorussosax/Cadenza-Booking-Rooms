@@ -57,7 +57,7 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
   const isEdit = !!editing;
   const isSystem = editing?.isSystem ?? false;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     onSave({
       ...(isEdit ? {} : { code: code || slugify(label) }),

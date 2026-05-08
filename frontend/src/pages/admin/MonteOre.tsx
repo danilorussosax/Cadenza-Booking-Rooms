@@ -519,7 +519,7 @@ function ApproveNewDayDialog({
   onSubmit: (roomId: number) => void;
   isPending: boolean;
 }) {
-  const payload = (amendment.payload || {}) as {
+  const payload = amendment.payload as {
     date?: string;
     startTime?: string;
     endTime?: string;
@@ -700,7 +700,7 @@ function AmendmentsRequestsTab() {
                         {amendmentSummary(a)}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground max-w-[260px]">
-                        {a.requestNotes || (
+                        {a.requestNotes ?? (
                           <span className="italic text-muted-foreground/60">—</span>
                         )}
                       </td>

@@ -190,11 +190,12 @@ export default function MonteOreGrid({
     );
   }
 
-  const settings = calendarQuery.data!.settings;
-  const weeks = calendarQuery.data!.weeks;
+  if (!calendarQuery.data) return null;
+  const settings = calendarQuery.data.settings;
+  const weeks = calendarQuery.data.weeks;
   // Se l'admin ha impostato una deroga per questo docente (override
   // personalizzato), usiamo quella soglia. Altrimenti la soglia istituzionale.
-  const minRequired = minHoursOverride != null ? minHoursOverride : settings.minRequiredHours;
+  const minRequired = minHoursOverride ?? settings.minRequiredHours;
   const progress = Math.min(100, (totals.active / minRequired) * 100);
   const slots = slotsQuery.data?.slots ?? [];
   const slotsCount = slots.length;
