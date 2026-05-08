@@ -283,7 +283,15 @@ function ExceptionsTopLevel() {
     queryFn: () => roomsApi.list(),
     staleTime: 5 * 60 * 1000,
   });
-  const rooms = roomsQuery.data?.rooms ?? [];
+  // Aule raggruppate per edificio (ordinate sede → aula). Le aule senza
+  // building noto finiscono in coda. La label mostra "Sede · Aula" così
+  // l'admin distingue numeri ripetuti tra edifici diversi.
+  const rooms = [...(roomsQuery.data?.rooms ?? [])].sort((a, b) => {
+    const ba = a.building?.name ?? '￿';
+    const bb = b.building?.name ?? '￿';
+    if (ba !== bb) return ba.localeCompare(bb, 'it');
+    return a.name.localeCompare(b.name, 'it');
+  });
 
   return (
     <div className="space-y-4">
@@ -323,7 +331,7 @@ function ExceptionsTopLevel() {
               <SelectItem value="every">Tutte (globali + per aula)</SelectItem>
               {rooms.map((r) => (
                 <SelectItem key={r.id} value={String(r.id)}>
-                  {r.name}
+                  {r.building?.name ? `${r.building.name} · ${r.name}` : r.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -957,7 +965,13 @@ function ExceptionDialog({
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
-  const rooms = roomsQuery.data?.rooms ?? [];
+  // Ordino per Sede → Aula così l'admin distingue numeri ripetuti tra edifici.
+  const rooms = [...(roomsQuery.data?.rooms ?? [])].sort((a, b) => {
+    const ba = a.building?.name ?? '￿';
+    const bb = b.building?.name ?? '￿';
+    if (ba !== bb) return ba.localeCompare(bb, 'it');
+    return a.name.localeCompare(b.name, 'it');
+  });
 
   useEffect(() => {
     if (open) {
@@ -1141,7 +1155,7 @@ function ExceptionDialog({
                 <SelectItem value="all">Tutte le aule</SelectItem>
                 {rooms.map((r) => (
                   <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
+                    {r.building?.name ? `${r.building.name} · ${r.name}` : r.name}
                   </SelectItem>
                 ))}
               </SelectContent>
