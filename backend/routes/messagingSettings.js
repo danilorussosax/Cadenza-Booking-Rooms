@@ -16,11 +16,13 @@
 // =============================================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
 const { MessagingSettings } = require('../models');
 const { encrypt, decrypt } = require('../lib/crypto');
 const messaging = require('../services/messaging');
+const telegramSetup = require('../services/messaging/telegramSetup');
 
 router.use(authenticate, requireRole('admin'));
 
@@ -103,6 +105,99 @@ router.post('/:channel/test', async (req, res, next) => {
       return res.json({ ok: false, error: 'testConnection non implementato per questo canale' });
     const result = await adapter.testConnection(config);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// =============================================================================
+// POST /:channel/auto-configure
+//
+// Telegram: orchestrazione completa della configurazione lato Telegram Bot API
+// (setWebhook + setMyCommands + setMyDescription + … ) a partire dal solo
+// `botToken` salvato nelle credenziali. Se `webhookSecret` non esiste ancora,
+// lo genera (32 byte hex) e lo persiste cifrato.
+//
+// Ritorna l'esito di ciascuno step + eventuali warning non bloccanti.
+//
+// Ad oggi solo Telegram è supportato. Gli altri canali rispondono 400.
+// =============================================================================
+router.post('/:channel/auto-configure', async (req, res, next) => {
+  try {
+    const { channel } = req.params;
+    if (channel !== 'telegram') {
+      return res.status(400).json({
+        error: `Auto-configure non supportato per il canale "${channel}"`,
+        code: 'AUTO_CONFIGURE_UNSUPPORTED',
+      });
+    }
+
+    const row = await MessagingSettings.findOne({ where: { channel } });
+    if (!row || !row.credentialsEncrypted) {
+      return res.status(400).json({
+        error: 'Salva prima il botToken nelle credenziali Telegram',
+        code: 'CREDENTIALS_MISSING',
+      });
+    }
+
+    const credentials = JSON.parse(decrypt(row.credentialsEncrypted));
+    if (!credentials.botToken) {
+      return res.status(400).json({
+        error: 'botToken non presente nelle credenziali salvate',
+        code: 'BOT_TOKEN_MISSING',
+      });
+    }
+
+    // Se il webhookSecret non esiste, generane uno e persistilo. Questo permette
+    // il caso d'uso "incolla il token, clicca auto-configure" — tutto il resto
+    // segue automaticamente.
+    let secretGenerated = false;
+    if (!credentials.webhookSecret) {
+      credentials.webhookSecret = crypto.randomBytes(32).toString('hex');
+      row.credentialsEncrypted = encrypt(JSON.stringify(credentials));
+      secretGenerated = true;
+    }
+
+    const frontendUrl =
+      typeof req.body?.frontendUrl === 'string' && req.body.frontendUrl.trim()
+        ? req.body.frontendUrl.trim()
+        : process.env.FRONTEND_URL || process.env.APP_URL || '';
+
+    const botName =
+      typeof req.body?.botName === 'string' && req.body.botName.trim()
+        ? req.body.botName.trim()
+        : null;
+
+    let result;
+    try {
+      result = await telegramSetup.autoConfigure({
+        botToken: credentials.botToken,
+        webhookSecret: credentials.webhookSecret,
+        frontendUrl,
+        botName,
+      });
+    } catch (err) {
+      // Lascia comunque persistito il secret generato: ri-cliccando dopo aver
+      // sistemato FRONTEND_URL non bisognerà ri-generarlo.
+      if (secretGenerated) await row.save();
+      return res.status(400).json({
+        error: err.message,
+        code: 'AUTO_CONFIGURE_FAILED',
+        secretGenerated,
+      });
+    }
+
+    // Tutto bene → assicurati che isEnabled sia ON (è il senso del bottone).
+    if (!row.isEnabled) row.isEnabled = true;
+    await row.save();
+
+    res.json({
+      ok: true,
+      channel,
+      secretGenerated,
+      isEnabled: row.isEnabled,
+      ...result,
+    });
   } catch (err) {
     next(err);
   }

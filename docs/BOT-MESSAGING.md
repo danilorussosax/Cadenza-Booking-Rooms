@@ -67,42 +67,62 @@ Cadenza espone un bot conversazionale che permette agli utenti di prenotare le a
 
 ---
 
-## 2. Setup Telegram (production-ready, 5 minuti)
+## 2. Setup Telegram (production-ready, 2 minuti)
 
 **Costo**: 0 €/mese, volumi senza limiti pratici.
 
-### 2.1 Crea il bot
+> **⭐ Da v2.7 il setup è 1 click** dopo aver creato il bot su @BotFather. Il bottone **"Configura automaticamente"** sulla scheda Telegram fa per te: generazione del webhook secret, registrazione del webhook su Telegram, pubblicazione della lista comandi, descrizione lunga e breve. Niente curl, niente openssl.
+
+### 2.1 Crea il bot su @BotFather
 
 1. Apri Telegram → cerca **@BotFather** → `/newbot`
 2. Scegli un nome ("Cadenza Conservatorio") e uno username (`cadenza_conservatorio_bot`)
 3. BotFather risponde con il **token** (formato `12345:AAAA…`). Conservalo.
 
-### 2.2 Genera webhook secret
+### 2.2 Configura Cadenza (modalità automatica — consigliata)
 
-```bash
-openssl rand -hex 32
-# es: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-```
+1. Login admin → **Impostazioni server → Servizi → Messaging**.
+2. Card **Telegram**: incolla il `Bot token` (lascia vuoto il `Webhook secret`).
+3. Click **Salva** una volta.
+4. Click **Configura automaticamente** ⭐.
 
-### 2.3 Configura Cadenza
+Cadenza esegue in sequenza:
 
-1. Login admin → menu **Bot messaging** (`/admin/messaging`)
-2. Card **Telegram**: incolla `Bot token` + `Webhook secret` → toggle ON → `Salva`
-3. Click `Test connessione` → deve risultare `Connessione OK · {"username":"…"}`
+| Step                    | Cosa fa                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `getMe`                 | Verifica che il token sia valido e recupera lo username del bot                                      |
+| (genera secret)         | Crea un webhook secret di 32 byte hex e lo salva cifrato nel DB                                      |
+| `setWebhook`            | Registra `https://<FRONTEND_URL>/api/messaging/telegram/webhook` su Telegram con quel secret         |
+| `setMyCommands`         | Pubblica `/help`, `/book`, `/list`, `/cancel`, `/check` nel menu del bot (visibile in tutte le chat) |
+| `setMyDescription`      | Imposta il testo lungo "Cadenza — prenota le aule del Conservatorio…" mostrato all'apertura del bot  |
+| `setMyShortDescription` | Imposta il testo breve usato nei link condivisi al bot                                               |
+| `getWebhookInfo`        | Conferma finale che il webhook è registrato sull'URL atteso e non ci sono errori in pending          |
 
-### 2.4 Registra il webhook
+L'esito di ogni step viene mostrato in un alert info (✓ verde / ⚠ ambra per i warning non bloccanti). Se uno step opzionale come `setMyDescription` viene rate-limitato da Telegram (raro), gli altri vanno comunque a buon fine e il bot resta operativo.
 
-Sostituisci `TOKEN` e `SECRET`:
+> **Pre-requisito**: `FRONTEND_URL` impostato a un URL pubblico HTTPS (Telegram rifiuta `http://` e i loopback). In dev usa un tunnel come ngrok/cloudflared e impostalo come `FRONTEND_URL`.
 
-```bash
-curl -F "url=https://cadenza.example.it/api/messaging/telegram/webhook" \
-     -F "secret_token=SECRET" \
-     https://api.telegram.org/botTOKEN/setWebhook
-```
+> **Idempotente**: cliccare di nuovo "Configura automaticamente" non rompe nulla — re-invia gli stessi valori. Utile dopo una migrazione di dominio.
 
-Risposta attesa: `{"ok":true,"result":true,"description":"Webhook was set"}`.
+### 2.3 Configura Cadenza (modalità manuale — alternativa)
 
-### 2.5 Test end-to-end
+Se preferisci controllare ogni passaggio:
+
+1. Genera il webhook secret a mano:
+   ```bash
+   openssl rand -hex 32
+   ```
+2. Card Telegram: incolla `Bot token` + `Webhook secret` → toggle ON → **Salva**.
+3. Click **Test connessione** → deve risultare `Connessione OK · {"username":"…"}`.
+4. Registra il webhook (sostituisci `TOKEN` e `SECRET`):
+   ```bash
+   curl -F "url=https://cadenza.example.it/api/messaging/telegram/webhook" \
+        -F "secret_token=SECRET" \
+        https://api.telegram.org/botTOKEN/setWebhook
+   ```
+   Risposta attesa: `{"ok":true,"result":true,"description":"Webhook was set"}`.
+
+### 2.4 Test end-to-end
 
 1. Sul tuo profilo Cadenza → sezione **Bot messaging** → `Genera codice`
 2. Copia il comando `bind XXXXXX`

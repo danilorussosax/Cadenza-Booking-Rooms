@@ -784,7 +784,21 @@
         "help": "Bot conversacional gratuito. Configuración rápida vía @BotFather.",
         "bot_token": "Bot token (BotFather)",
         "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Abre @BotFather en Telegram → /newbot → obtén el token.\n2) Genera un secreto aleatorio: openssl rand -hex 32\n3) Guarda token + secret aquí, luego activa el toggle.\n4) Registra el webhook (sustituye TOKEN/SECRET):\n   curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+        "setup_guide": "1) Abre @BotFather en Telegram → /newbot → obtén el token.\n2) Guarda el token aquí (el webhook secret se genera automáticamente en el paso siguiente).\n3) Pulsa \"Configurar automáticamente\": Cadenza registra el webhook, la lista de comandos (/help, /book, /list, /cancel, /check) y la descripción directamente en Telegram. Sin curl, sin @BotFather.\n\nFLUJO MANUAL (alternativa):\n1) openssl rand -hex 32 para el secret\n2) curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook",
+        "auto": {
+          "button": "Configurar automáticamente",
+          "button_title": "Generar secret + registrar webhook + establecer comandos/descripción en Telegram",
+          "toast_ok": "Bot @{{username}} configurado correctamente",
+          "summary": "✅ Bot @{{username}} configurado",
+          "webhook_url": "Webhook activo en:",
+          "secret_generated": "secret generado",
+          "step_getMe": "Token verificado (getMe)",
+          "step_setWebhook": "Webhook registrado en Telegram",
+          "step_setMyCommands": "Lista de comandos publicada",
+          "step_setMyDescription": "Descripción larga actualizada",
+          "step_setMyShortDescription": "Descripción corta actualizada",
+          "step_getWebhookInfo": "Confirmación final: webhook activo"
+        }
       },
       "whatsapp": {
         "help": "WhatsApp Business Cloud API (Meta directa). Requiere cuenta Meta Business verificada.",

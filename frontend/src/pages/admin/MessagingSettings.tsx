@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Save,
   Send,
+  Sparkles,
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ import {
   type ChannelSettingsRow,
   type ChannelSettingsUpdate,
   type MessagingChannel,
+  type TelegramAutoConfigureResult,
 } from '@/api/messaging';
 import { httpErrorMessage } from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -201,6 +203,24 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
     },
   });
 
+  const [autoResult, setAutoResult] = useState<TelegramAutoConfigureResult | null>(null);
+  const autoConfigureMutation = useMutation({
+    mutationFn: () => messagingSettingsApi.autoConfigureTelegram(),
+    onSuccess: (res) => {
+      setAutoResult(res);
+      setEnabled(res.isEnabled);
+      void qc.invalidateQueries({ queryKey: ['admin', 'messaging-settings'] });
+      const warn = res.warnings?.length ? ` · ${res.warnings.length} warning` : '';
+      toast.success(
+        t('admin.messaging.telegram.auto.toast_ok', { username: res.bot?.username ?? '' }) + warn,
+      );
+    },
+    onError: (err) => {
+      toast.error(httpErrorMessage(err));
+      setAutoResult(null);
+    },
+  });
+
   const handleSave = () => {
     // Filtra credenziali: skip i SECRET_PLACEHOLDER (mantengono il valore precedente).
     const credsPayload: Record<string, string> = {};
@@ -322,7 +342,32 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
           </Alert>
         )}
 
+        {/* Telegram auto-configure result */}
+        {def.channel === 'telegram' && autoResult && <TelegramAutoResult result={autoResult} />}
+
         <div className="flex flex-wrap justify-end gap-2 pt-1">
+          {def.channel === 'telegram' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                autoConfigureMutation.mutate();
+              }}
+              disabled={
+                autoConfigureMutation.isPending ||
+                // Disabilita se il botToken non è ancora salvato (placeholder o vuoto)
+                (!row.credentialsSet.botToken && creds.botToken === '')
+              }
+              title={t('admin.messaging.telegram.auto.button_title')}
+            >
+              {autoConfigureMutation.isPending ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {t('admin.messaging.telegram.auto.button')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -346,5 +391,80 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// =============================================================================
+// Pannello esito auto-configure Telegram: una checklist di step + warning.
+// =============================================================================
+function TelegramAutoResult({ result }: { result: TelegramAutoConfigureResult }) {
+  const { t } = useTranslation();
+  const stepEntries: { key: keyof TelegramAutoConfigureResult['steps']; labelKey: string }[] = [
+    { key: 'getMe', labelKey: 'admin.messaging.telegram.auto.step_getMe' },
+    { key: 'setWebhook', labelKey: 'admin.messaging.telegram.auto.step_setWebhook' },
+    { key: 'setMyCommands', labelKey: 'admin.messaging.telegram.auto.step_setMyCommands' },
+    { key: 'setMyDescription', labelKey: 'admin.messaging.telegram.auto.step_setMyDescription' },
+    {
+      key: 'setMyShortDescription',
+      labelKey: 'admin.messaging.telegram.auto.step_setMyShortDescription',
+    },
+    { key: 'getWebhookInfo', labelKey: 'admin.messaging.telegram.auto.step_getWebhookInfo' },
+  ];
+
+  return (
+    <Alert variant="info" className="space-y-2">
+      <Sparkles className="h-4 w-4" />
+      <AlertDescription>
+        <div className="space-y-2">
+          <p className="text-sm">
+            <strong>
+              {t('admin.messaging.telegram.auto.summary', {
+                username: result.bot?.username ?? '?',
+              })}
+            </strong>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {t('admin.messaging.telegram.auto.webhook_url')}{' '}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{result.webhookUrl}</code>
+            {result.secretGenerated && (
+              <Badge variant="secondary" className="ml-2 text-[10px]">
+                {t('admin.messaging.telegram.auto.secret_generated')}
+              </Badge>
+            )}
+          </p>
+          <ul className="space-y-1 text-xs">
+            {stepEntries.map(({ key, labelKey }) => {
+              const step = result.steps[key];
+              if (!step) return null;
+              return (
+                <li key={key} className="flex items-center gap-2">
+                  {step.ok ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  )}
+                  <span className={step.ok ? '' : 'text-muted-foreground'}>{t(labelKey)}</span>
+                  {key === 'setMyCommands' && 'count' in step && step.count != null && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {step.count}
+                    </Badge>
+                  )}
+                  {!step.ok && 'error' in step && step.error && (
+                    <span className="text-[11px] text-muted-foreground">— {step.error}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {result.warnings && result.warnings.length > 0 && (
+            <ul className="mt-1 list-disc pl-4 text-xs text-amber-700 dark:text-amber-300">
+              {result.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }

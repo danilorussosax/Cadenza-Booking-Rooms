@@ -40,6 +40,37 @@ export const botBindingsApi = {
     api<{ message: string }>(`/api/users/me/bot-bindings/${id}`, { method: 'DELETE' }),
 };
 
+export interface TelegramAutoConfigureResult {
+  ok: true;
+  channel: 'telegram';
+  isEnabled: boolean;
+  secretGenerated: boolean;
+  webhookUrl: string;
+  bot: {
+    id: number;
+    username: string;
+    firstName?: string;
+    canJoinGroups?: boolean | null;
+  } | null;
+  steps: {
+    getMe?: { ok: boolean };
+    setWebhook?: { ok: boolean };
+    setMyCommands?: { ok: boolean; count?: number };
+    setMyDescription?: { ok: boolean; error?: string };
+    setMyShortDescription?: { ok: boolean; error?: string };
+    setMyName?: { ok: boolean; name?: string; error?: string };
+    getWebhookInfo?: {
+      ok: boolean;
+      url?: string;
+      pendingUpdateCount?: number;
+      lastErrorMessage?: string | null;
+      lastErrorDate?: number | null;
+      expectedUrl?: string;
+    };
+  };
+  warnings?: string[];
+}
+
 export const messagingSettingsApi = {
   list: () => api<{ settings: ChannelSettingsRow[] }>('/api/admin/messaging-settings'),
   update: (channel: MessagingChannel, payload: ChannelSettingsUpdate) =>
@@ -52,4 +83,9 @@ export const messagingSettingsApi = {
       `/api/admin/messaging-settings/${channel}/test`,
       { method: 'POST' },
     ),
+  autoConfigureTelegram: (payload?: { frontendUrl?: string; botName?: string }) =>
+    api<TelegramAutoConfigureResult>('/api/admin/messaging-settings/telegram/auto-configure', {
+      method: 'POST',
+      body: payload ?? {},
+    }),
 };

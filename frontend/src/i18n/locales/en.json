@@ -856,7 +856,21 @@
         "help": "Free conversational bot. Quick setup via @BotFather.",
         "bot_token": "Bot token (BotFather)",
         "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Generate a random secret: openssl rand -hex 32\n3) Save token + secret here, then enable the toggle.\n4) Register the webhook (replace TOKEN/SECRET):\n   curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" \\\n        -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook"
+        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Save the token here (the webhook secret is generated automatically in the next step).\n3) Click \"Auto-configure\": Cadenza registers the webhook, the command list (/help, /book, /list, /cancel, /check) and the description directly on Telegram. No curl, no @BotFather.\n\nMANUAL FLOW (alternative):\n1) openssl rand -hex 32 for the secret\n2) curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook",
+        "auto": {
+          "button": "Auto-configure",
+          "button_title": "Generate secret + register webhook + set commands/description on Telegram",
+          "toast_ok": "Bot @{{username}} configured successfully",
+          "summary": "✅ Bot @{{username}} configured",
+          "webhook_url": "Webhook active at:",
+          "secret_generated": "secret generated",
+          "step_getMe": "Token verified (getMe)",
+          "step_setWebhook": "Webhook registered on Telegram",
+          "step_setMyCommands": "Command list published",
+          "step_setMyDescription": "Long description updated",
+          "step_setMyShortDescription": "Short description updated",
+          "step_getWebhookInfo": "Final confirmation: webhook active"
+        }
       },
       "whatsapp": {
         "help": "WhatsApp Business Cloud API (Meta direct). Requires verified Meta Business account.",
