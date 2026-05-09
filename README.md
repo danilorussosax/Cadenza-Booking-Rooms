@@ -260,16 +260,26 @@ Cadenza/
 
 #### Setup automatico macOS (consigliato)
 
-Lo script `scripts/setup-macos.sh` installa o aggiorna **tutto** lo stack in una volta sola: Xcode CLT, Homebrew, Node ≥ 20, PostgreSQL 16 (servizio brew), git, dipendenze npm dei 3 workspace, `backend/.env` con secret generati, utente + database Postgres, schema iniziale e seeder admin.
+Lo script `scripts/setup-macos.sh` installa o aggiorna **tutto** lo stack in una volta sola: Xcode CLT, Node ≥ 20, PostgreSQL 16, git, dipendenze npm dei 3 workspace, `backend/.env` con secret generati, utente + database Postgres, schema iniziale e seeder admin.
 
 ```bash
+# Default: Homebrew (mainstream)
 bash scripts/setup-macos.sh                # interattivo
 bash scripts/setup-macos.sh --yes          # senza conferme
 bash scripts/setup-macos.sh --dry-run      # mostra cosa farebbe
 bash scripts/setup-macos.sh --reset-db     # DROP + ricrea il DB (distruttivo)
+
+# ⭐ Senza Homebrew (curl + fnm + Postgres.app)
+bash scripts/setup-macos.sh --no-brew      # niente brew, niente sudo (eccetto Xcode CLT)
 ```
 
-Idempotente: rilanciandolo aggiorna i pacchetti già presenti via `brew upgrade` e preserva l'.env esistente (con backup automatico). Compatibile Apple Silicon e Intel.
+Idempotente in entrambe le modalità: rilanciandolo aggiorna i pacchetti già presenti (`brew upgrade` o `fnm install`) e preserva l'`.env` esistente (con backup automatico). Compatibile Apple Silicon e Intel.
+
+**Quando usare `--no-brew`**: se non vuoi/non puoi installare Homebrew (policy aziendale, no sudo, preferenza personale per tool user-local). Userà:
+
+- **[fnm](https://github.com/Schniz/fnm)** per Node — gestione versioni multiple senza pollution di sistema
+- **[Postgres.app](https://postgresapp.com)** per PostgreSQL — `.app` nativo Mac con menu-bar
+- **git** già fornito da Xcode CLT
 
 #### Setup manuale (qualsiasi OS)
 
