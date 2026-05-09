@@ -27,7 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
-  email: z.string().email('email_required'),
+  email: z.email('email_required'),
   password: z.string().min(1, 'password_required'),
 });
 type FormValues = z.infer<typeof schema>;
