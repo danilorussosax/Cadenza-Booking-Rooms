@@ -92,7 +92,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 ### 🤖 Bot messaging
 
 - 4 adapter pluggable: **Telegram** (production-ready), WhatsApp Cloud API, Signal `signal-cli`, Email IMAP (scaffold)
-- Comandi: `/help`, `/book`, `/list`, `/cancel`, `/check`, wizard 3-step
+- Comandi: `/help`, `/book`, `/list`, `/cancel`, `/check`, **wizard a 5 step** (sede → aula → quando → tipo attività → conferma; gli step univoci vengono saltati)
 - Binding via OTP 6 caratteri, riusa `bookingValidator` (no bypass di regole/quote)
 - Webhook con verifica HMAC, rate-limit 30/min + 200/giorno
 - **Setup Telegram in 1 click**: dato il `botToken` di @BotFather, Cadenza genera il webhook secret, registra il webhook su Telegram, pubblica la lista comandi e le descrizioni. Niente curl, niente `openssl rand`
@@ -194,7 +194,7 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 | Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                      |
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente             |
 | Monitoring    | Sentry v10 (opt-in)                                            |
-| Testing       | Vitest 613 test backend + 106 component/lib + Playwright 8 E2E |
+| Testing       | Vitest 621 test backend + 106 component/lib + Playwright 8 E2E |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                 |
 
 ---
@@ -422,7 +422,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale**: ~613 test backend (45 file integration + 6 unit) + 106 component test frontend (17 file, di cui 10 a11y `vitest-axe`) + 8 E2E Playwright (4 a11y + 4 business). CI GitHub Actions con gate su label per gli E2E.
+**Copertura attuale**: ~621 test backend (46 file integration + 6 unit) + 106 component test frontend (17 file, di cui 10 a11y `vitest-axe`) + 8 E2E Playwright (4 a11y + 4 business). CI GitHub Actions con gate su label per gli E2E.
 
 ---
 

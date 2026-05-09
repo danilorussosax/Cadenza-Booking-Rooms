@@ -230,17 +230,37 @@ Adapter incluso ma il poller IMAP non è ancora implementato. Roadmap Sprint 5+.
 ## 6. Comandi utente del bot
 
 ```
-/help                   → guida completa
-/book                   → wizard 3-step (aula → data+ora → conferma)
-/book A.101 ven 14-15   → shortcut con tutti i parametri
-/list                   → ultime 5 prenotazioni future
-/cancel <id> [motivo]   → annulla
-/check A.101 venerdì    → slot liberi del giorno
-bind XXXXXX             → completa il binding (solo prima volta)
-annulla                 → esce dal wizard
+/help                          → guida completa
+/book                          → wizard 5-step (sede → aula → quando → tipo → conferma)
+/book A.101 ven 14-15          → shortcut: aula + giorno + ora (tipo chiesto a parte)
+/book A.101 ven 14-15 lezione  → shortcut completo (anche il tipo)
+/list                          → ultime 5 prenotazioni future
+/cancel <id> [motivo]          → annulla
+/check A.101 venerdì           → slot liberi del giorno
+bind XXXXXX                    → completa il binding (solo prima volta)
+annulla                        → esce dal wizard
 ```
 
-Formati orario accettati: `14:00-15:00`, `14-15`, `9:00-10:30`. Date: `oggi`, `domani`, `lun..dom`, `venerdì`, `2026-04-30`, `30/04/2026`.
+### 6.1 Wizard `/book` a 5 step
+
+Il bot guida l'utente passo-passo. Ogni step viene **saltato automaticamente** se la risposta è univoca o già fornita nel comando iniziale:
+
+| Step                    | Cosa chiede                                                                                                                                        | Skip automatico se                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1. **Sede** ⭐          | Mostra lista numerata delle sedi (edifici con aule prenotabili). L'utente risponde con il numero o il nome (anche parziale).                       | C'è una sola sede attiva nell'istituto                                         |
+| 2. **Aula**             | Chiede il codice o il nome dell'aula. La ricerca è **scoped sulla sede scelta**: due aule omonime in edifici diversi non si confondono.            | L'aula è già stata fornita nel comando iniziale (`/book A.101 …`)              |
+| 3. **Quando**           | Chiede giorno + orario (es. `venerdì 14-15`, `2026-04-30 09:00-10:30`).                                                                            | Già forniti nel comando iniziale                                               |
+| 4. **Tipo attività** ⭐ | Mostra lista numerata dei tipi attivi dal catalogo (Studio individuale · Lezione · Prova · Concerto · Altro). L'utente risponde con numero o nome. | L'admin ha 1 solo tipo attivo, oppure l'utente lo passa nel comando (4° token) |
+| 5. **Conferma**         | Riassunto completo: sede + aula + quando + tipo. Risposta `si` o `no`.                                                                             | —                                                                              |
+
+I tipi attività sono presi dal **catalogo configurabile** (`Impostazioni Server → Tipi prenotazione` lato admin) — se l'admin disattiva un tipo, sparisce dal bot al messaggio successivo.
+
+In ogni momento `annulla` (o `/annulla`) esce dal wizard.
+
+### 6.2 Formati accettati
+
+- **Orario**: `14:00-15:00`, `14-15`, `9:00-10:30`, `9-10:30`
+- **Date**: `oggi`, `domani`, `lun`/`lunedì`/`mar`/`martedì`/…/`dom`/`domenica`, `2026-04-30`, `30/04/2026`, `30-04-2026`
 
 ---
 

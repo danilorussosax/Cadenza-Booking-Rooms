@@ -1,15 +1,18 @@
 'use strict';
 
 // =============================================================================
-// Intent parser regole-based + state machine 3-step per il bot.
+// Intent parser regole-based + state machine 5-step per il bot.
 //
 // Intent supportati:
 //   - help        : /help, "?" → guida comandi
-//   - book_room   : /book [aula] [data] [ora]  → wizard 3-step
-//                   step 1: chiedi aula (lista filtrata se >5)
-//                   step 2: chiedi data + orario  (formati accettati:
+//   - book_room   : /book [aula] [data] [ora]  → wizard a 5 step
+//                   step 1: chiedi sede        (skip se 1 sola sede attiva)
+//                   step 2: chiedi aula        (filtrata sulla sede scelta)
+//                   step 3: chiedi data + ora  (formati accettati:
 //                           "ven 14:00", "venerdì 14-15", "2026-04-30 14:00")
-//                   step 3: conferma
+//                   step 4: chiedi tipo attività (studio_individuale/lezione/…)
+//                           (skip se l'utente ha già passato un tipo o ce n'è 1)
+//                   step 5: conferma
 //   - list_my     : /list, "elenco", "le mie prenotazioni"
 //                   → ultime 5 prenotazioni future
 //   - cancel      : /cancel <id> [motivo] → cancella se di proprietà
@@ -29,20 +32,22 @@ dayjs.extend(isoWeek);
 dayjs.locale('it');
 
 const { Op } = require('sequelize');
-const { Booking, Room, Building } = require('../../models');
+const { Booking, Room, Building, BookingTypeCatalog } = require('../../models');
 const { validateBooking } = require('../bookingValidator');
 
 const HELP_TEXT = `🤖 *Cadenza — Bot*
 
 Comandi disponibili:
-• /book — prenota un'aula (ti guido step by step)
+• /book — prenota un'aula (ti guido step by step: sede → aula → quando → tipo → conferma)
 • /list — le mie prenotazioni future
 • /cancel <id> — annulla la prenotazione
 • /check <aula> <data> — slot liberi del giorno
 • /help — questa guida
 
 Esempi:
-  \`/book A.101 ven 14-15\`
+  \`/book\`                              (wizard guidato)
+  \`/book A.101 ven 14-15\`              (sede unica + aula + quando)
+  \`/book A.101 ven 14-15 lezione\`      (con tipo attività)
   \`/check A.101 venerdì\`
   \`/cancel 142\`
 
@@ -92,8 +97,10 @@ async function handle({ text, user, session, channel }) {
 
   // Se siamo in un wizard, smista al gestore di quello stato
   if (
+    session.state === 'book_room.building' ||
     session.state === 'book_room.room' ||
     session.state === 'book_room.when' ||
+    session.state === 'book_room.type' ||
     session.state === 'book_room.confirm'
   ) {
     return handleBookWizard({ text: cmd, user, session });
@@ -221,34 +228,44 @@ async function handleCheck({ roomQuery, dayQuery }) {
 }
 
 // =============================================================================
-// Intent: book_room — wizard 3-step
+// Intent: book_room — wizard a 5 step
 //
-// Step 1 — book_room.room  : raccoglie l'aula
-// Step 2 — book_room.when  : raccoglie data + range orario
-// Step 3 — book_room.confirm: chiede conferma SI/NO
-// Se l'utente passa già aula/data/ora nel comando iniziale, saltiamo gli
-// step già coperti.
+// Step 1 — book_room.building : sede (skip se 1 sola sede attiva)
+// Step 2 — book_room.room     : aula (filtrata sulla sede scelta)
+// Step 3 — book_room.when     : data + range orario
+// Step 4 — book_room.type     : tipo attività (studio_individuale, lezione, …)
+//                               (skip se 1 sola opzione attiva o già passata)
+// Step 5 — book_room.confirm  : conferma SI/NO
+//
+// Se l'utente passa già aula/data/ora/tipo nel comando iniziale
+// (`/book A.101 ven 14-15 lezione`), saltiamo gli step già coperti.
 // =============================================================================
 async function handleBookStart({ args, session }) {
   const slots = {};
-  // Tentativo di parsing dei tre argomenti dal comando iniziale:
-  // "/book A.101 ven 14-15" → tokens ["A.101", "ven", "14-15"]
+  // Tentativo di parsing degli argomenti dal comando iniziale:
+  // "/book A.101 ven 14-15 lezione" → tokens ["A.101", "ven", "14-15", "lezione"]
+  // Per retrocompatibilità accettiamo da 0 a 4 tokens. Il 4° (tipo) è opzionale.
   if (args) {
     const tokens = args.split(/\s+/);
     if (tokens.length >= 1) slots.roomQuery = tokens[0];
     if (tokens.length >= 2) slots.dayQuery = tokens[1];
-    if (tokens.length >= 3) slots.timeQuery = tokens.slice(2).join(' ');
+    if (tokens.length >= 3) slots.timeQuery = tokens[2]; // 1 solo token per orario es. "14-15"
+    if (tokens.length >= 4) slots.typeQuery = tokens.slice(3).join(' ');
   }
   return advanceBookWizard({ session, slots });
 }
 
 async function handleBookWizard({ text, session }) {
   const slots = { ...(session.slots || {}) };
-  if (session.state === 'book_room.room') {
-    slots.roomQuery = text;
+  const trimmed = text.trim();
+
+  if (session.state === 'book_room.building') {
+    slots.buildingQuery = trimmed;
+  } else if (session.state === 'book_room.room') {
+    slots.roomQuery = trimmed;
   } else if (session.state === 'book_room.when') {
     // Atteso "data ora", es. "ven 14-15"
-    const tokens = text.trim().split(/\s+/);
+    const tokens = trimmed.split(/\s+/);
     if (tokens.length >= 2) {
       slots.dayQuery = tokens[0];
       slots.timeQuery = tokens.slice(1).join(' ');
@@ -257,11 +274,13 @@ async function handleBookWizard({ text, session }) {
         reply: 'Formato non valido. Esempio: `venerdì 14-15` oppure `2026-04-30 09:00-10:30`.',
       };
     }
+  } else if (session.state === 'book_room.type') {
+    slots.typeQuery = trimmed;
   } else if (session.state === 'book_room.confirm') {
-    if (/^(s[iì]|yes|conferma|ok)$/i.test(text.trim())) {
+    if (/^(s[iì]|yes|conferma|ok)$/i.test(trimmed)) {
       return finalizeBook({ slots, session });
     }
-    if (/^(no|n|annulla)$/i.test(text.trim())) {
+    if (/^(no|n|annulla)$/i.test(trimmed)) {
       return { reply: '↩️ Prenotazione annullata.', session: { state: null, slots: null } };
     }
     return { reply: 'Rispondi *si* per confermare oppure *no* per annullare.' };
@@ -270,47 +289,139 @@ async function handleBookWizard({ text, session }) {
 }
 
 async function advanceBookWizard({ session, slots }) {
-  if (!slots.roomQuery) {
-    return {
-      reply: '🏛 Quale aula vuoi prenotare? Scrivi il *codice* o il *nome*.',
-      session: { state: 'book_room.room', slots },
-    };
+  // ── Step 1: SEDE ─────────────────────────────────────────────────────────
+  // Se non abbiamo ancora una sede, la chiediamo. Skip se c'è una sola sede
+  // attiva (il caso del Conservatorio mono-sede): pre-compiliamo.
+  if (!slots.buildingId) {
+    const buildings = await listActiveBuildings();
+    if (buildings.length === 0) {
+      return {
+        reply: '❌ Nessuna sede configurata. Contatta la segreteria.',
+        session: { state: null, slots: null },
+      };
+    }
+    if (buildings.length === 1) {
+      // Mono-sede: skip silenzioso
+      slots.buildingId = buildings[0].id;
+      slots.buildingName = buildings[0].name;
+    } else if (slots.buildingQuery) {
+      // L'utente ha digitato un termine, prova a risolverlo
+      const match = matchBuildingByQuery(buildings, slots.buildingQuery);
+      if (!match) {
+        return {
+          reply:
+            `❌ Sede "${slots.buildingQuery}" non riconosciuta.\n\n` +
+            renderBuildingsList(buildings),
+          session: {
+            state: 'book_room.building',
+            slots: { ...slots, buildingQuery: undefined },
+          },
+        };
+      }
+      slots.buildingId = match.id;
+      slots.buildingName = match.name;
+    } else {
+      // Prima volta: chiedi
+      return {
+        reply:
+          '🏛 *Quale sede?* Scegli scrivendo il numero o il nome:\n\n' +
+          renderBuildingsList(buildings),
+        session: { state: 'book_room.building', slots },
+      };
+    }
   }
-  // Risolvi aula
-  const room = await findRoomByQuery(slots.roomQuery);
-  if (!room) {
-    return {
-      reply: `❌ Aula "${slots.roomQuery}" non trovata. Riprova con un altro nome o codice.`,
-      session: { state: 'book_room.room', slots: { ...slots, roomQuery: undefined } },
-    };
-  }
-  slots.roomId = room.id;
-  slots.roomName = room.name;
 
-  if (!slots.dayQuery || !slots.timeQuery) {
-    return {
-      reply: `📅 Quando? Indica *giorno + orario*.\nEs: \`venerdì 14-15\`, \`2026-04-30 09:00-10:30\`.`,
-      session: { state: 'book_room.when', slots },
-    };
+  // ── Step 2: AULA ────────────────────────────────────────────────────────
+  // La risoluzione è scoped sulla sede scelta: due aule "12" in edifici
+  // diversi non si confondono.
+  if (!slots.roomId) {
+    if (!slots.roomQuery) {
+      return {
+        reply: `🚪 Quale aula in *${slots.buildingName}*? Scrivi il *codice* o il *nome*.`,
+        session: { state: 'book_room.room', slots },
+      };
+    }
+    const room = await findRoomByQuery(slots.roomQuery, { buildingId: slots.buildingId });
+    if (!room) {
+      return {
+        reply: `❌ Aula "${slots.roomQuery}" non trovata in *${slots.buildingName}*. Riprova con un altro nome o codice.`,
+        session: { state: 'book_room.room', slots: { ...slots, roomQuery: undefined } },
+      };
+    }
+    slots.roomId = room.id;
+    slots.roomName = room.name;
   }
-  const day = parseDayQuery(slots.dayQuery);
-  const range = parseTimeRange(slots.timeQuery);
-  if (!day || !range) {
-    return {
-      reply: '❌ Data/ora non riconosciuti. Es: `venerdì 14-15` oppure `2026-04-30 09:00-10:30`.',
-      session: {
-        state: 'book_room.when',
-        slots: { ...slots, dayQuery: undefined, timeQuery: undefined },
-      },
-    };
+
+  // ── Step 3: DATA + ORARIO ────────────────────────────────────────────────
+  if (!slots.startTime || !slots.endTime) {
+    if (!slots.dayQuery || !slots.timeQuery) {
+      return {
+        reply:
+          '📅 Quando? Indica *giorno + orario*.\nEs: `venerdì 14-15`, `2026-04-30 09:00-10:30`.',
+        session: { state: 'book_room.when', slots },
+      };
+    }
+    const day = parseDayQuery(slots.dayQuery);
+    const range = parseTimeRange(slots.timeQuery);
+    if (!day || !range) {
+      return {
+        reply: '❌ Data/ora non riconosciuti. Es: `venerdì 14-15` oppure `2026-04-30 09:00-10:30`.',
+        session: {
+          state: 'book_room.when',
+          slots: { ...slots, dayQuery: undefined, timeQuery: undefined },
+        },
+      };
+    }
+    const startTime = day.hour(range.startH).minute(range.startM).second(0).millisecond(0);
+    const endTime = day.hour(range.endH).minute(range.endM).second(0).millisecond(0);
+    slots.startTime = startTime.toISOString();
+    slots.endTime = endTime.toISOString();
   }
-  const startTime = day.hour(range.startH).minute(range.startM).second(0).millisecond(0);
-  const endTime = day.hour(range.endH).minute(range.endM).second(0).millisecond(0);
-  slots.startTime = startTime.toISOString();
-  slots.endTime = endTime.toISOString();
+
+  // ── Step 4: TIPO ATTIVITÀ ────────────────────────────────────────────────
+  if (!slots.type) {
+    const types = await listActiveBookingTypes();
+    if (types.length === 0) {
+      // Catalogo vuoto (improbabile): fallback al default storico
+      slots.type = 'studio_individuale';
+      slots.typeLabel = 'Studio individuale';
+    } else if (types.length === 1) {
+      // Unico tipo abilitato: skip silenzioso
+      slots.type = types[0].code;
+      slots.typeLabel = types[0].label;
+    } else if (slots.typeQuery) {
+      const match = matchBookingTypeByQuery(types, slots.typeQuery);
+      if (!match) {
+        return {
+          reply:
+            `❌ Tipo "${slots.typeQuery}" non riconosciuto.\n\n` + renderBookingTypesList(types),
+          session: { state: 'book_room.type', slots: { ...slots, typeQuery: undefined } },
+        };
+      }
+      slots.type = match.code;
+      slots.typeLabel = match.label;
+    } else {
+      return {
+        reply:
+          '🎯 *Tipo di attività?* Scegli scrivendo il numero o il nome:\n\n' +
+          renderBookingTypesList(types),
+        session: { state: 'book_room.type', slots },
+      };
+    }
+  }
+
+  // ── Step 5: CONFERMA ─────────────────────────────────────────────────────
   if (session.state !== 'book_room.confirm') {
+    const start = dayjs(slots.startTime);
+    const end = dayjs(slots.endTime);
     return {
-      reply: `✅ Confermi la prenotazione?\n\n• *${room.name}*\n• ${startTime.format('ddd D MMM HH:mm')}–${endTime.format('HH:mm')}\n\nRispondi *si* o *no*.`,
+      reply:
+        `✅ *Confermi la prenotazione?*\n\n` +
+        `• 🏛 *Sede:* ${slots.buildingName}\n` +
+        `• 🚪 *Aula:* ${slots.roomName}\n` +
+        `• 📅 *Quando:* ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}\n` +
+        `• 🎯 *Tipo:* ${slots.typeLabel}\n\n` +
+        `Rispondi *si* o *no*.`,
       session: { state: 'book_room.confirm', slots },
     };
   }
@@ -352,14 +463,21 @@ async function finalizeBook({ slots, session }) {
     roomId: slots.roomId,
     startTime: new Date(slots.startTime),
     endTime: new Date(slots.endTime),
-    type: 'studio_individuale',
+    type: slots.type || 'studio_individuale',
     status,
     purpose: 'Prenotazione via bot',
   });
+  const start = dayjs(slots.startTime);
+  const end = dayjs(slots.endTime);
+  const summary =
+    `• 🏛 ${slots.buildingName}\n` +
+    `• 🚪 *${slots.roomName}*\n` +
+    `• 📅 ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}\n` +
+    `• 🎯 ${slots.typeLabel || slots.type}`;
   const reply =
     status === 'pending_approval'
-      ? `⏳ Richiesta inviata (#${booking.id}). La direzione approva entro 24h, riceverai un messaggio.`
-      : `✅ Prenotazione confermata (#${booking.id})!\n\n• *${slots.roomName}*\n• ${dayjs(slots.startTime).format('ddd D MMM HH:mm')}–${dayjs(slots.endTime).format('HH:mm')}`;
+      ? `⏳ Richiesta inviata (#${booking.id}). La direzione approva entro 24h, riceverai un messaggio.\n\n${summary}`
+      : `✅ Prenotazione confermata (#${booking.id})!\n\n${summary}`;
   return { reply, intent: 'book_room', session: { state: null, slots: null } };
 }
 
@@ -367,21 +485,125 @@ async function finalizeBook({ slots, session }) {
 // Helpers
 // =============================================================================
 
-async function findRoomByQuery(q) {
+async function findRoomByQuery(q, opts = {}) {
   const term = String(q || '').trim();
   if (!term) return null;
-  // Match esatto su code o name (case-insensitive). LIKE su entrambi.
-  return Room.findOne({
-    where: {
-      isBookable: true,
-      [Op.or]: [
-        { code: term },
-        { name: term },
-        { code: { [Op.like]: `%${term}%` } },
-        { name: { [Op.like]: `%${term}%` } },
-      ],
-    },
+  const where = {
+    isBookable: true,
+    [Op.or]: [
+      { code: term },
+      { name: term },
+      { code: { [Op.like]: `%${term}%` } },
+      { name: { [Op.like]: `%${term}%` } },
+    ],
+  };
+  // Scope opzionale alla sede: utile dal wizard per evitare collisioni
+  // tra aule con lo stesso codice in edifici diversi.
+  if (opts.buildingId != null) where.buildingId = opts.buildingId;
+  return Room.findOne({ where });
+}
+
+// =============================================================================
+// Building helpers (Step 1 del wizard /book)
+// =============================================================================
+
+/** Carica le sedi attive (= con almeno 1 aula prenotabile, niente edifici
+ *  vuoti o cestinati). Cap a 25 per non rendere il messaggio Telegram
+ *  troppo lungo. */
+async function listActiveBuildings() {
+  const buildings = await Building.findAll({
+    attributes: ['id', 'name'],
+    include: [
+      {
+        model: Room,
+        as: 'rooms',
+        attributes: ['id'],
+        where: { isBookable: true },
+        required: true, // INNER JOIN: solo edifici con aule prenotabili
+      },
+    ],
+    order: [['name', 'ASC']],
+    limit: 25,
   });
+  // Dedup per id (l'INNER JOIN può generare righe per ciascuna aula)
+  const seen = new Set();
+  const out = [];
+  for (const b of buildings) {
+    if (seen.has(b.id)) continue;
+    seen.add(b.id);
+    out.push({ id: b.id, name: b.name });
+  }
+  return out;
+}
+
+/** Match flessibile: numero (1-based dell'elenco), id numerico, oppure
+ *  ricerca case-insensitive sul nome. */
+function matchBuildingByQuery(buildings, q) {
+  const term = String(q || '').trim();
+  if (!term) return null;
+  // Numero 1-based dalla lista mostrata all'utente
+  const asIndex = Number.parseInt(term, 10);
+  if (!Number.isNaN(asIndex) && asIndex >= 1 && asIndex <= buildings.length) {
+    return buildings[asIndex - 1];
+  }
+  // Match esatto su nome (case-insensitive)
+  const lower = term.toLowerCase();
+  const exact = buildings.find((b) => b.name.toLowerCase() === lower);
+  if (exact) return exact;
+  // Match parziale (substring)
+  const partial = buildings.find((b) => b.name.toLowerCase().includes(lower));
+  return partial || null;
+}
+
+/** Render della lista sedi numerata, formato Telegram-friendly. */
+function renderBuildingsList(buildings) {
+  return buildings.map((b, i) => `${i + 1}. *${b.name}*`).join('\n');
+}
+
+// =============================================================================
+// BookingType helpers (Step 4 del wizard /book)
+// =============================================================================
+
+/** Carica i tipi di prenotazione attivi dal catalogo, ordinati come l'admin
+ *  ha previsto. Il bot mostra solo `code` + `label` — color/icon non hanno
+ *  senso in chat testuale. */
+async function listActiveBookingTypes() {
+  const rows = await BookingTypeCatalog.findAll({
+    where: { isActive: true },
+    attributes: ['code', 'label'],
+    order: [
+      ['sortOrder', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+  return rows.map((r) => ({ code: r.code, label: r.label }));
+}
+
+/** Match flessibile su code o label. Accetta anche il numero 1-based. */
+function matchBookingTypeByQuery(types, q) {
+  const term = String(q || '').trim();
+  if (!term) return null;
+  const asIndex = Number.parseInt(term, 10);
+  if (!Number.isNaN(asIndex) && asIndex >= 1 && asIndex <= types.length) {
+    return types[asIndex - 1];
+  }
+  const lower = term.toLowerCase();
+  // Match esatto su code (es. "lezione")
+  const byCode = types.find((t) => t.code === lower);
+  if (byCode) return byCode;
+  // Match esatto su label (case-insensitive)
+  const byLabel = types.find((t) => t.label.toLowerCase() === lower);
+  if (byLabel) return byLabel;
+  // Match parziale su entrambi
+  const partial = types.find(
+    (t) => t.code.includes(lower) || t.label.toLowerCase().includes(lower),
+  );
+  return partial || null;
+}
+
+/** Render della lista tipi numerata. */
+function renderBookingTypesList(types) {
+  return types.map((t, i) => `${i + 1}. *${t.label}*`).join('\n');
 }
 
 /** Parsa una "data" come dayjs all'inizio del giorno. Accetta:
