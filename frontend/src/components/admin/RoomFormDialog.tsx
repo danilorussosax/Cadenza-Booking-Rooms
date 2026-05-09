@@ -155,6 +155,9 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       toast.success(t('admin.structure.room_photo_uploaded'));
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
+      // Display kiosk legge da /api/public/agenda → forziamo il refresh per
+      // far apparire subito codice/foto aggiornati senza attendere il poll 60s.
+      void qc.invalidateQueries({ queryKey: ['public'] });
     },
     onError: (err) => {
       if (err instanceof Error && err.message === 'save_first') {
@@ -175,6 +178,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       toast.success(t('admin.structure.room_photo_removed'));
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -208,6 +212,9 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       toast.success(isEdit ? 'Aula aggiornata' : 'Aula creata');
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
+      // Cambio di code/name/floor si riflette anche sul Display kiosk
+      // (legge da /api/public/agenda) e sulla home pubblica → invalidiamo.
+      void qc.invalidateQueries({ queryKey: ['public'] });
       onOpenChange(false);
     },
     onError: (err) => {
@@ -289,9 +296,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
                 aria-describedby={errors.capacity ? 'r-capacity-error' : undefined}
                 {...register('capacity', { valueAsNumber: true })}
               />
-              <FieldError id="r-capacity-error">
-                {errors.capacity?.message}
-              </FieldError>
+              <FieldError id="r-capacity-error">{errors.capacity?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label>Tipologia</Label>

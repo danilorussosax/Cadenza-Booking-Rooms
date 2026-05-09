@@ -58,6 +58,10 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
     onSuccess: ({ result }) => {
       setResult(result);
       void qc.invalidateQueries({ queryKey: ['institutes'] });
+      // Import CSV può creare/aggiornare aule in massa: invalidiamo tutte le
+      // viste che mostrano codici aula (Dashboard, Display kiosk, ecc.).
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
       toast.success(
         `Import completato · ${result.roomsCreated + result.roomsUpdated} aule, ${
           result.equipmentCreated + result.equipmentUpdated

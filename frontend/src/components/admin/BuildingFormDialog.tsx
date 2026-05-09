@@ -85,6 +85,10 @@ export function BuildingFormDialog({ open, onOpenChange, instituteId, building }
     onSuccess: () => {
       toast.success(isEdit ? 'Edificio aggiornato' : 'Edificio creato');
       void qc.invalidateQueries({ queryKey: ['institutes'] });
+      // Nome/floors edificio sono visibili sul Display kiosk e nei selettori
+      // di sede della Dashboard: invalidiamo le viste a cascata.
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
       onOpenChange(false);
     },
     onError: (err) => {

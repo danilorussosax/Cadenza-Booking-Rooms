@@ -187,6 +187,7 @@ export default function AdminStructure() {
       );
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
       setBulkConfirm(false);
       clearSelection();
     },
@@ -207,6 +208,7 @@ export default function AdminStructure() {
       );
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
       setBulkBuildingsConfirm(false);
       clearBuildingSelection();
     },
@@ -242,6 +244,10 @@ export default function AdminStructure() {
       toast.success(t('admin.structure.delete_completed'));
       void qc.invalidateQueries({ queryKey: ['institutes'] });
       void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      // Eliminazione di room/building/institute si riflette ovunque le aule
+      // sono elencate (Dashboard, Booking) e sul Display kiosk.
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['public'] });
       setDeleteTarget(null);
     },
     onError: (err) => {
