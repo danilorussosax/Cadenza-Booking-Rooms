@@ -34,6 +34,7 @@ const BOT_COMMANDS = [
   { command: 'help', description: 'Guida ai comandi del bot' },
   { command: 'aule', description: 'Elenco aule prenotabili (nome + codice)' },
   { command: 'agenda', description: 'Chi prenota cosa nel giorno (default: oggi)' },
+  { command: 'libere', description: 'Cerca aule libere (filtri: @sede, data, ora)' },
   { command: 'book', description: 'Prenota un’aula (wizard guidato)' },
   { command: 'list', description: 'Le tue prossime prenotazioni' },
   { command: 'cancel', description: 'Annulla una prenotazione' },
@@ -42,7 +43,7 @@ const BOT_COMMANDS = [
 
 const BOT_DESCRIPTION =
   'Cadenza — prenota le aule del Conservatorio dal tuo Telegram. ' +
-  'Comandi disponibili: /help · /book · /list · /cancel · /check. ' +
+  'Comandi disponibili: /help · /book · /list · /cancel · /check · /libere. ' +
   'Per attivare il bot, fai login su Cadenza, vai sul tuo profilo e ' +
   'genera il codice di binding.';
 

@@ -526,15 +526,15 @@ async function seed() {
 
     const sampleRooms = [
       {
-        name: 'Aula 101 — Studio Pianoforte',
-        code: 'A101',
+        name: 'Studio 1',
+        code: 'S01',
         floor: 'Primo Piano',
         type: 'studio',
         capacity: 2,
       },
       {
-        name: 'Aula 102 — Studio Pianoforte',
-        code: 'A102',
+        name: 'Studio 2',
+        code: 'S02',
         floor: 'Primo Piano',
         type: 'studio',
         capacity: 2,

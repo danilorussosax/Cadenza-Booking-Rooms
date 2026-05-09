@@ -16,7 +16,13 @@
 //   - list_my     : /list, "elenco", "le mie prenotazioni"
 //                   → ultime 5 prenotazioni future
 //   - cancel      : /cancel <id> [motivo] → cancella se di proprietà
-//   - check       : /check <aula> <data>  → mostra slot liberi del giorno
+//   - check       : /check <aula>[@sede] <data>  → slot liberi del giorno per
+//                   una specifica aula. Il suffisso `@sede` disambigua quando
+//                   esistono aule omonime in edifici diversi.
+//   - free_rooms  : /libere [@sede] [data] [ora] → cerca aule libere con
+//                   filtri opzionali: sede (`@<nome>`), giorno e fascia oraria.
+//                   Se è specificata una fascia oraria mostra le aule libere
+//                   in quel range; senza fascia, le aule libere tutto il giorno.
 //
 // Reuse di `services/bookingValidator.js` per book/check così il bot non
 // bypassa rules/quotas. Failure mode: rispondi con il messaggio dell'errore
@@ -41,12 +47,13 @@ const HELP_TEXT = `🤖 *Cadenza — Bot*
 • /aule — elenco delle aule prenotabili (nome + codice)
 • /agenda [data] — chi prenota cosa nel giorno (default: oggi)
 • /oggi · /domani — scorciatoie per /agenda
+• /libere [@sede] [data] [ora] — cerca aule libere con filtri opzionali
 
 📝 *Prenotazione*
 • /book — prenota un'aula (wizard: sede → aula → quando → tipo → conferma)
 • /list — le mie prenotazioni future
 • /cancel <id> — annulla la prenotazione
-• /check <aula> <data> — slot liberi del giorno per una specifica aula
+• /check <aula>[@sede] <data> — slot liberi del giorno per una specifica aula
 
 ℹ️ *Altro*
 • /help — questa guida
@@ -55,10 +62,14 @@ const HELP_TEXT = `🤖 *Cadenza — Bot*
   \`/aule\`
   \`/agenda\`                            (oggi)
   \`/agenda venerdì\`
-  \`/book\`                              (wizard guidato)
-  \`/book A.101 ven 14-15\`              (sede unica + aula + quando)
-  \`/book A.101 ven 14-15 lezione\`      (con tipo attività)
-  \`/check A.101 venerdì\`
+  \`/libere ven 14-15\`                   (libere venerdì 14-15, ovunque)
+  \`/libere @Storica ven 14-15\`          (filtro sede)
+  \`/libere ven\`                          (libere tutto il giorno)
+  \`/book\`                                (wizard guidato)
+  \`/book <codice> ven 14-15\`             (shortcut: aula + quando)
+  \`/book <codice> ven 14-15 lezione\`     (con tipo attività)
+  \`/check <codice> venerdì\`
+  \`/check <codice>@Storica venerdì\`      (disambigua aule omonime)
   \`/cancel 142\`
 
 Per qualsiasi dubbio: contatta la segreteria.`;
@@ -139,7 +150,15 @@ async function handle({ text, user, session, channel }) {
   if (cancelMatch) {
     return handleCancel({ user, id: Number(cancelMatch[1]), reason: cancelMatch[2] });
   }
-  const checkMatch = cmd.match(/^\/?check\s+(.+?)\s+(.+)$/i);
+  // /libere [@sede] [data] [ora] — cerca aule libere
+  const freeMatch = cmd.match(/^\/?(libere|free)\b\s*(.*)$/i);
+  if (freeMatch) {
+    return handleFreeRooms({ argsLine: freeMatch[2] || '' });
+  }
+  // /check <aula>[@<sede>] <data>
+  // L'aula può contenere spazi (es. "Aula 5", "Sala Prove"); la data è
+  // sempre il singolo token finale (es. "venerdì", "2026-04-30").
+  const checkMatch = cmd.match(/^\/?check\s+(.+)\s+(\S+)\s*$/i);
   if (checkMatch) {
     return handleCheck({ roomQuery: checkMatch[1].trim(), dayQuery: checkMatch[2].trim() });
   }
@@ -213,10 +232,34 @@ async function handleCancel({ user, id, reason }) {
 
 // =============================================================================
 // Intent: check_availability
+//
+// `roomQuery` può essere:
+//   - "A12"            → match per code/name
+//   - "A12@Storica"    → match scoped sulla sede "Storica"
+//   - "Storica/A12"    → variante con slash
+// La forma con sede è utile quando esistono aule omonime in più edifici.
 // =============================================================================
 async function handleCheck({ roomQuery, dayQuery }) {
-  const room = await findRoomByQuery(roomQuery);
-  if (!room) return { intent: 'check', reply: `❌ Aula "${roomQuery}" non trovata.` };
+  const { roomTerm, buildingTerm } = splitRoomBuildingQuery(roomQuery);
+  let buildingId = null;
+  let buildingName = null;
+  if (buildingTerm) {
+    const buildings = await listActiveBuildings();
+    const match = matchBuildingByQuery(buildings, buildingTerm);
+    if (!match) {
+      return {
+        intent: 'check',
+        reply: `❌ Sede "${buildingTerm}" non trovata.\n\n` + renderBuildingsList(buildings),
+      };
+    }
+    buildingId = match.id;
+    buildingName = match.name;
+  }
+  const room = await findRoomByQuery(roomTerm, buildingId ? { buildingId } : {});
+  if (!room) {
+    const where = buildingName ? ` in *${buildingName}*` : '';
+    return { intent: 'check', reply: `❌ Aula "${roomTerm}"${where} non trovata.` };
+  }
   const day = parseDayQuery(dayQuery);
   if (!day)
     return {
@@ -436,12 +479,12 @@ async function handleAgenda({ dayQuery }) {
 // Step 5 — book_room.confirm  : conferma SI/NO
 //
 // Se l'utente passa già aula/data/ora/tipo nel comando iniziale
-// (`/book A.101 ven 14-15 lezione`), saltiamo gli step già coperti.
+// (`/book <codice> ven 14-15 lezione`), saltiamo gli step già coperti.
 // =============================================================================
 async function handleBookStart({ args, session }) {
   const slots = {};
   // Tentativo di parsing degli argomenti dal comando iniziale:
-  // "/book A.101 ven 14-15 lezione" → tokens ["A.101", "ven", "14-15", "lezione"]
+  // "/book <codice> ven 14-15 lezione" → tokens [codice, "ven", "14-15", "lezione"]
   // Per retrocompatibilità accettiamo da 0 a 4 tokens. Il 4° (tipo) è opzionale.
   if (args) {
     const tokens = args.split(/\s+/);
@@ -699,6 +742,230 @@ async function findRoomByQuery(q, opts = {}) {
   // tra aule con lo stesso codice in edifici diversi.
   if (opts.buildingId != null) where.buildingId = opts.buildingId;
   return Room.findOne({ where });
+}
+
+/** Spezza una query "aula@sede" o "sede/aula" in parti separate. La forma
+ *  pura "aula" lascia `buildingTerm = null`. Lo scope su sede serve a
+ *  disambiguare aule omonime in edifici diversi. */
+function splitRoomBuildingQuery(q) {
+  const term = String(q || '').trim();
+  if (!term) return { roomTerm: '', buildingTerm: null };
+  // "<aula>@<sede>" — preferito perché auto-esplicativo e non collide con
+  // codici aula che possono contenere "/" (es. "A/12").
+  const at = term.split('@');
+  if (at.length === 2 && at[0].trim() && at[1].trim()) {
+    return { roomTerm: at[0].trim(), buildingTerm: at[1].trim() };
+  }
+  // "<sede>/<aula>" — solo se la metà sinistra non sembra un codice aula
+  // breve. Per sicurezza accettiamo solo se il `/` è presente UNA volta e
+  // la parte sinistra è almeno 3 char (riduce falsi positivi tipo "A/12").
+  const slashIdx = term.indexOf('/');
+  if (slashIdx >= 3 && term.indexOf('/', slashIdx + 1) === -1) {
+    const left = term.slice(0, slashIdx).trim();
+    const right = term.slice(slashIdx + 1).trim();
+    if (left && right) return { roomTerm: right, buildingTerm: left };
+  }
+  return { roomTerm: term, buildingTerm: null };
+}
+
+// =============================================================================
+// Intent: free_rooms — `/libere [@sede] [data] [ora]`
+//
+// Cerca le aule libere applicando filtri opzionali:
+//   - `@<sede>` (anywhere nella stringa) → restringe a un edificio
+//   - `<data>`  → giorno (default: oggi); accetta gli stessi formati di /check
+//   - `<ora>`   → range orario (es. "14-15"). Se presente, mostra le aule
+//                  libere SOLO in quella fascia. Se assente, le aule libere
+//                  per l'intero giorno.
+//
+// Esempi:
+//   /libere                      → tutte le aule libere oggi (intero giorno)
+//   /libere ven                  → libere venerdì (intero giorno)
+//   /libere ven 14-15            → libere venerdì in fascia 14-15
+//   /libere @Storica ven 14-15   → libere a Storica venerdì 14-15
+//   /libere @Verdi               → libere a Verdi oggi (intero giorno)
+//
+// L'ordine dei token è libero: il parser estrae @sede ovunque, poi tenta di
+// riconoscere il range orario come ultimo token, e tratta il resto come data.
+// =============================================================================
+async function handleFreeRooms({ argsLine }) {
+  let rest = String(argsLine || '').trim();
+
+  // Estrai @<sede>: accetta @"Sede con spazi" oppure @ParolaSingola
+  let buildingQuery = null;
+  const atQuoted = rest.match(/@"([^"]+)"/);
+  if (atQuoted) {
+    buildingQuery = atQuoted[1].trim();
+    rest = rest.replace(atQuoted[0], ' ').replace(/\s+/g, ' ').trim();
+  } else {
+    const atSimple = rest.match(/@(\S+)/);
+    if (atSimple) {
+      buildingQuery = atSimple[1].trim();
+      rest = rest.replace(atSimple[0], ' ').replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  // Estrai range orario (TIME_RANGE_RE) — di solito è l'ultimo token, ma per
+  // robustezza cerchiamo ovunque (gli orari hanno una forma facilmente
+  // riconoscibile e non collidono con i nomi giorno).
+  let timeQuery = null;
+  const timeMatch = rest.match(TIME_RANGE_RE);
+  if (timeMatch) {
+    timeQuery = timeMatch[0];
+    rest = rest.replace(timeMatch[0], ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Tutto ciò che rimane è la data (può essere multi-token come "2026-04-30")
+  const dayQuery = rest || 'oggi';
+  const day = parseDayQuery(dayQuery);
+  if (!day) {
+    return {
+      intent: 'free',
+      reply: `❌ Data "${dayQuery}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
+    };
+  }
+  let timeRange = null;
+  if (timeQuery) {
+    timeRange = parseTimeRange(timeQuery);
+    if (!timeRange) {
+      return {
+        intent: 'free',
+        reply: `❌ Orario "${timeQuery}" non valido. Esempi: \`14-15\`, \`14:00-15:30\`.`,
+      };
+    }
+  }
+
+  // Risolvi sede se richiesta
+  let buildingFilter = null;
+  if (buildingQuery) {
+    const buildings = await listActiveBuildings();
+    if (buildings.length === 0) {
+      return {
+        intent: 'free',
+        reply: '🏛 Nessuna sede configurata. Contatta la segreteria.',
+      };
+    }
+    buildingFilter = matchBuildingByQuery(buildings, buildingQuery);
+    if (!buildingFilter) {
+      return {
+        intent: 'free',
+        reply: `❌ Sede "${buildingQuery}" non trovata.\n\n` + renderBuildingsList(buildings),
+      };
+    }
+  }
+
+  // Carica aule (eventualmente filtrate per sede)
+  const roomWhere = { isBookable: true };
+  if (buildingFilter) roomWhere.buildingId = buildingFilter.id;
+  const rooms = await Room.findAll({
+    where: roomWhere,
+    attributes: ['id', 'name', 'code'],
+    include: [
+      {
+        model: Building,
+        as: 'building',
+        attributes: ['id', 'name'],
+        required: true,
+      },
+    ],
+    order: [
+      [{ model: Building, as: 'building' }, 'name', 'ASC'],
+      ['name', 'ASC'],
+    ],
+    limit: 200,
+  });
+  if (rooms.length === 0) {
+    const scope = buildingFilter ? ` in *${buildingFilter.name}*` : '';
+    return {
+      intent: 'free',
+      reply: `🏛 Nessuna aula prenotabile${scope}. Contatta la segreteria.`,
+    };
+  }
+
+  // Finestra di interesse: range orario se passato, altrimenti l'intero giorno
+  let windowStart;
+  let windowEnd;
+  if (timeRange) {
+    windowStart = day
+      .hour(timeRange.startH)
+      .minute(timeRange.startM)
+      .second(0)
+      .millisecond(0)
+      .toDate();
+    windowEnd = day.hour(timeRange.endH).minute(timeRange.endM).second(0).millisecond(0).toDate();
+  } else {
+    windowStart = day.startOf('day').toDate();
+    windowEnd = day.endOf('day').toDate();
+  }
+
+  const bookings = await Booking.findAll({
+    where: {
+      roomId: { [Op.in]: rooms.map((r) => r.id) },
+      status: { [Op.in]: ['confirmed', 'pending_approval'] },
+      startTime: { [Op.lt]: windowEnd },
+      endTime: { [Op.gt]: windowStart },
+    },
+    attributes: ['roomId', 'startTime', 'endTime', 'status'],
+    order: [['startTime', 'ASC']],
+  });
+  const busyByRoom = new Map();
+  for (const b of bookings) {
+    if (!busyByRoom.has(b.roomId)) busyByRoom.set(b.roomId, []);
+    busyByRoom.get(b.roomId).push(b);
+  }
+
+  // Raggruppa aule libere per sede (mantiene visibilità di dove sta cosa anche
+  // quando non si filtra per @sede).
+  const byBuilding = new Map();
+  for (const r of rooms) {
+    if (busyByRoom.has(r.id)) continue; // occupata nella finestra
+    const key = r.building.id;
+    if (!byBuilding.has(key)) {
+      byBuilding.set(key, { name: r.building.name, rooms: [] });
+    }
+    byBuilding.get(key).rooms.push(r);
+  }
+
+  const totalFree = Array.from(byBuilding.values()).reduce((acc, b) => acc + b.rooms.length, 0);
+  const dayLabel = day.format('ddd D MMM');
+  const timeLabel = timeRange
+    ? ` ${pad2(timeRange.startH)}:${pad2(timeRange.startM)}–${pad2(timeRange.endH)}:${pad2(timeRange.endM)}`
+    : ' (tutto il giorno)';
+  const scopeLabel = buildingFilter ? ` · 🏢 ${buildingFilter.name}` : '';
+
+  const header = `🟢 *Aule libere — ${dayLabel}${timeLabel}*${scopeLabel}`;
+
+  if (totalFree === 0) {
+    const hint = timeRange
+      ? `Nessuna aula libera nella fascia richiesta. Prova a cambiare orario o usa \`/agenda ${dayQuery}\` per vedere chi prenota cosa.`
+      : `Nessuna aula completamente libera quel giorno. Usa \`/agenda ${dayQuery}\` per vedere le fasce libere.`;
+    return { intent: 'free', reply: `${header}\n\n${hint}` };
+  }
+
+  const lines = [header, ''];
+  for (const { name: buildingName, rooms: bRooms } of byBuilding.values()) {
+    // Mostra l'header sede solo se non stiamo già filtrando su una sede sola
+    if (!buildingFilter) lines.push(`🏢 *${buildingName}*`);
+    for (const r of bRooms) {
+      const code = r.code ? ` \`${r.code}\`` : '';
+      lines.push(`• ${r.name}${code}`);
+    }
+    if (!buildingFilter) lines.push('');
+  }
+  lines.push(`📊 *${totalFree}/${rooms.length}* aule libere`);
+  lines.push('Per prenotare: `/book <codice>` (oppure `/book` per il wizard).');
+
+  const text = lines.join('\n');
+  const reply =
+    text.length > 4000
+      ? text.slice(0, 3950) +
+        '\n\n…_(elenco troncato — restringi con `@sede` o un orario specifico)_'
+      : text;
+  return { intent: 'free', reply };
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
 }
 
 // =============================================================================

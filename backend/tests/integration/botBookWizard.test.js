@@ -502,3 +502,189 @@ describe('Bot /aule e /agenda — vista d’insieme', () => {
     expect(r.text).not.toContain('CLOSED');
   });
 });
+
+describe('Bot /libere — ricerca aule libere mirata', () => {
+  let user;
+  const CHAT_ID = 999003;
+
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+    rateLimit.reset();
+    await configureTelegram();
+    await ensureRules();
+    await ensureBookingTypes();
+    user = await createUser({ email: 'libere.bot@test.invalid', role: 'studente' });
+    await bindUser(user, String(CHAT_ID));
+  });
+
+  it('/libere ven 14-15 mostra solo le aule libere nella fascia, escludendo quelle prenotate', async () => {
+    const sede = await createBuilding({ name: 'Sede Unica' });
+    const libera = await createRoom({ name: 'Libera', code: 'LIB', building: sede });
+    const occupata = await createRoom({ name: 'Occupata', code: 'OCC', building: sede });
+
+    const dayjs = require('dayjs');
+    require('dayjs/plugin/isoWeek');
+    require('dayjs/locale/it');
+    dayjs.locale('it');
+    // Prossimo venerdì 14-15
+    let venerdi = dayjs().startOf('day');
+    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
+    const start = venerdi.hour(14).minute(0).second(0).millisecond(0);
+    const end = venerdi.hour(15).minute(0).second(0).millisecond(0);
+    await Booking.create({
+      userId: user.id,
+      roomId: occupata.id,
+      startTime: start.toDate(),
+      endTime: end.toDate(),
+      type: 'lezione',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+    void libera;
+
+    const r = await sendMsg(CHAT_ID, '/libere ven 14-15');
+    expect(r.text).toMatch(/aule libere/i);
+    expect(r.text).toContain('LIB');
+    expect(r.text).not.toContain('OCC');
+    // Header con la fascia oraria
+    expect(r.text).toContain('14:00');
+    expect(r.text).toContain('15:00');
+  });
+
+  it('/libere @sede filtra le aule sulla sede indicata', async () => {
+    const inst = await createInstitute({ name: 'Conservatorio Test' });
+    const sede1 = await createBuilding({ name: 'Storica', institute: inst });
+    const sede2 = await createBuilding({ name: 'Verdi', institute: inst });
+    await createRoom({ name: 'Solo Storica', code: 'STO1', building: sede1 });
+    await createRoom({ name: 'Solo Verdi', code: 'VER1', building: sede2 });
+
+    let r = await sendMsg(CHAT_ID, '/libere @Storica');
+    expect(r.text).toContain('STO1');
+    expect(r.text).not.toContain('VER1');
+    expect(r.text).toContain('Storica');
+
+    r = await sendMsg(CHAT_ID, '/libere @Verdi');
+    expect(r.text).toContain('VER1');
+    expect(r.text).not.toContain('STO1');
+  });
+
+  it('/libere senza argomenti = tutte le aule libere oggi', async () => {
+    const sede = await createBuilding({ name: 'Sede A' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    await createRoom({ name: 'B', code: 'A2', building: sede });
+
+    const r = await sendMsg(CHAT_ID, '/libere');
+    expect(r.text).toMatch(/aule libere/i);
+    expect(r.text).toContain('A1');
+    expect(r.text).toContain('A2');
+    // Header con etichetta giorno
+    expect(r.text.toLowerCase()).toMatch(/tutto il giorno/);
+  });
+
+  it('/libere sede + giorno + ora — ordine token libero', async () => {
+    const sede = await createBuilding({ name: 'Storica' });
+    await createRoom({ name: 'Aula Z', code: 'Z1', building: sede });
+
+    // Verifichiamo che il parser non si rompa con ordini diversi
+    const r1 = await sendMsg(CHAT_ID, '/libere @Storica ven 14-15');
+    const r2 = await sendMsg(CHAT_ID, '/libere ven @Storica 14-15');
+    const r3 = await sendMsg(CHAT_ID, '/libere ven 14-15 @Storica');
+    expect(r1.text).toContain('Z1');
+    expect(r2.text).toContain('Z1');
+    expect(r3.text).toContain('Z1');
+  });
+
+  it('/libere con sede inesistente → errore con lista sedi disponibili', async () => {
+    const sede = await createBuilding({ name: 'Storica' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+
+    const r = await sendMsg(CHAT_ID, '/libere @SedeFantasma');
+    expect(r.text).toMatch(/non trovata/i);
+    expect(r.text).toContain('Storica');
+  });
+
+  it('/libere con orario invalido → errore', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/libere ven 25-30');
+    expect(r.text).toMatch(/non valido/i);
+  });
+
+  it('/libere con tutte le aule occupate nella fascia → messaggio dedicato', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    const room = await createRoom({ name: 'Unica', code: 'U1', building: sede });
+
+    const dayjs = require('dayjs');
+    let venerdi = dayjs().startOf('day');
+    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
+    await Booking.create({
+      userId: user.id,
+      roomId: room.id,
+      startTime: venerdi.hour(14).toDate(),
+      endTime: venerdi.hour(15).toDate(),
+      type: 'lezione',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+
+    const r = await sendMsg(CHAT_ID, '/libere ven 14-15');
+    expect(r.text).toMatch(/nessuna aula libera/i);
+    expect(r.text).toMatch(/agenda/i);
+  });
+});
+
+describe('Bot /check — sintassi aula@sede per disambiguare', () => {
+  let user;
+  const CHAT_ID = 999004;
+
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+    rateLimit.reset();
+    await configureTelegram();
+    await ensureRules();
+    await ensureBookingTypes();
+    user = await createUser({ email: 'check.bot@test.invalid', role: 'studente' });
+    await bindUser(user, String(CHAT_ID));
+  });
+
+  it('/check <aula>@<sede> filtra l’aula sulla sede indicata', async () => {
+    const inst = await createInstitute({ name: 'Conservatorio Test' });
+    const sede1 = await createBuilding({ name: 'Storica', institute: inst });
+    const sede2 = await createBuilding({ name: 'Verdi', institute: inst });
+    // Stesso nome aula in due sedi diverse
+    const aulaStorica = await createRoom({ name: 'Aula 5', code: 'A5-S', building: sede1 });
+    const aulaVerdi = await createRoom({ name: 'Aula 5', code: 'A5-V', building: sede2 });
+
+    // Prenoto solo la "Aula 5" della sede Verdi
+    const dayjs = require('dayjs');
+    let venerdi = dayjs().startOf('day');
+    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
+    await Booking.create({
+      userId: user.id,
+      roomId: aulaVerdi.id,
+      startTime: venerdi.hour(10).toDate(),
+      endTime: venerdi.hour(11).toDate(),
+      type: 'lezione',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+    void aulaStorica;
+
+    // Senza scope: ambiguità → match al primo (test informativo)
+    // Con scope: deve risolversi correttamente
+    const rStorica = await sendMsg(CHAT_ID, '/check Aula 5@Storica venerdì');
+    expect(rStorica.text).toMatch(/completamente libera/i);
+
+    const rVerdi = await sendMsg(CHAT_ID, '/check Aula 5@Verdi venerdì');
+    expect(rVerdi.text).toMatch(/Occupata/);
+    expect(rVerdi.text).toContain('10:00');
+  });
+
+  it('/check con sede inesistente → errore informativo', async () => {
+    const sede = await createBuilding({ name: 'Storica' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/check A1@SedeFantasma venerdì');
+    expect(r.text).toMatch(/non trovata/i);
+    expect(r.text).toContain('Storica');
+  });
+});

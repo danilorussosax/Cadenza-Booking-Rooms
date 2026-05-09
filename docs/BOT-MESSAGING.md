@@ -231,31 +231,42 @@ Adapter incluso ma il poller IMAP non è ancora implementato. Roadmap Sprint 5+.
 
 ```
 📅 Vista d'insieme
-/aule (alias /rooms)           → elenco aule prenotabili (nome + codice + tipo)
-/agenda [data]                 → chi prenota cosa nel giorno, raggruppato per sede
-/oggi                          → alias /agenda (oggi)
-/domani                        → alias /agenda (domani)
+/aule (alias /rooms)             → elenco aule prenotabili (nome + codice + tipo)
+/agenda [data]                   → chi prenota cosa nel giorno, raggruppato per sede
+/oggi                            → alias /agenda (oggi)
+/domani                          → alias /agenda (domani)
+/libere [@sede] [data] [ora]     → cerca aule libere con filtri opzionali
 
 📝 Prenotazione
-/book                          → wizard 5-step (sede → aula → quando → tipo → conferma)
-/book A.101 ven 14-15          → shortcut: aula + giorno + ora (tipo chiesto a parte)
-/book A.101 ven 14-15 lezione  → shortcut completo (anche il tipo)
-/list                          → ultime 5 prenotazioni future dell'utente
-/cancel <id> [motivo]          → annulla
-/check A.101 venerdì           → slot liberi del giorno per UNA specifica aula
+/book                            → wizard 5-step (sede → aula → quando → tipo → conferma)
+/book <codice> ven 14-15         → shortcut: aula + giorno + ora (tipo chiesto a parte)
+/book <codice> ven 14-15 lezione → shortcut completo (anche il tipo)
+/list                            → ultime 5 prenotazioni future dell'utente
+/cancel <id> [motivo]            → annulla
+/check <codice> venerdì          → slot liberi del giorno per UNA specifica aula
+/check <codice>@<sede> venerdì   → idem, scoping sulla sede (per aule omonime)
 
 ℹ️ Altro
-/help                          → guida completa
-bind XXXXXX                    → completa il binding (solo prima volta)
-annulla                        → esce dal wizard
+/help                            → guida completa
+bind XXXXXX                      → completa il binding (solo prima volta)
+annulla                          → esce dal wizard
 ```
 
-### 6.0 Vista d'insieme: `/aule` e `/agenda`
+### 6.0 Vista d'insieme: `/aule`, `/agenda` e `/libere`
 
 Pensati per dare una **panoramica** prima di prenotare:
 
 - **`/aule`** mostra l'elenco di tutte le aule prenotabili, **raggruppate per sede**, con nome + codice tra backtick + tipo + capienza. Utile per memorizzare i codici da usare poi con `/book A12` o `/check A12 venerdì`. Edifici cestinati e aule con `isBookable=false` sono esclusi automaticamente.
 - **`/agenda [data]`** mostra il **calendario del giorno** su tutte le aule. Per ognuna: 🟢 libera oppure 🟡 con la lista dei range orari occupati. Le prenotazioni in attesa di approvazione sono marcate con ⏳. Default: oggi. Accetta gli stessi formati data di `/check` e `/book`.
+- **`/libere [@sede] [data] [ora]`** è la ricerca **mirata** di aule libere con filtri componibili. L'ordine dei token è libero — il parser estrae `@sede`, riconosce il range orario per forma (`14-15`, `14:00-15:30`) e tratta il resto come data:
+  - `/libere` → tutte le aule libere oggi (intero giorno)
+  - `/libere ven` → libere venerdì (intero giorno)
+  - `/libere ven 14-15` → libere venerdì in fascia 14-15
+  - `/libere @Storica ven 14-15` → libere a _Storica_ venerdì 14-15
+  - `/libere @"Sede Verdi"` → forma con virgolette per sedi multi-parola
+    Le aule risultano libere se non hanno **alcuna** prenotazione `confirmed` o `pending_approval` che si sovrappone alla finestra (intero giorno o fascia).
+
+**Differenza con `/agenda`**: `/agenda` mostra il calendario completo (tutte le aule + tutte le prenotazioni del giorno), `/libere` filtra per orario e mostra **solo** le aule disponibili.
 
 Esempio di output `/agenda`:
 
@@ -283,7 +294,7 @@ Il bot guida l'utente passo-passo. Ogni step viene **saltato automaticamente** s
 | Step                    | Cosa chiede                                                                                                                                        | Skip automatico se                                                             |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | 1. **Sede** ⭐          | Mostra lista numerata delle sedi (edifici con aule prenotabili). L'utente risponde con il numero o il nome (anche parziale).                       | C'è una sola sede attiva nell'istituto                                         |
-| 2. **Aula**             | Chiede il codice o il nome dell'aula. La ricerca è **scoped sulla sede scelta**: due aule omonime in edifici diversi non si confondono.            | L'aula è già stata fornita nel comando iniziale (`/book A.101 …`)              |
+| 2. **Aula**             | Chiede il codice o il nome dell'aula. La ricerca è **scoped sulla sede scelta**: due aule omonime in edifici diversi non si confondono.            | L'aula è già stata fornita nel comando iniziale (`/book <codice> …`)           |
 | 3. **Quando**           | Chiede giorno + orario (es. `venerdì 14-15`, `2026-04-30 09:00-10:30`).                                                                            | Già forniti nel comando iniziale                                               |
 | 4. **Tipo attività** ⭐ | Mostra lista numerata dei tipi attivi dal catalogo (Studio individuale · Lezione · Prova · Concerto · Altro). L'utente risponde con numero o nome. | L'admin ha 1 solo tipo attivo, oppure l'utente lo passa nel comando (4° token) |
 | 5. **Conferma**         | Riassunto completo: sede + aula + quando + tipo. Risposta `si` o `no`.                                                                             | —                                                                              |
@@ -313,7 +324,7 @@ Verifiche manuali consigliate:
 3. **Messaggio da chat non bindata** → reply standard "Per usare questo bot..."
 4. **`bind XXXXXX` con OTP errato** → "Codice non valido o scaduto"
 5. **`bind XXXXXX` con OTP valido** → binding creato + welcome
-6. **`/book A.101 ven 14-15`** dopo binding → conferma o errore validator
+6. **`/book <codice> ven 14-15`** dopo binding → conferma o errore validator
 7. **30 messaggi/min superati** → cooldown 1h
 
 ---
