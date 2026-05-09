@@ -56,6 +56,41 @@ export default function Display() {
   // settimanale crescono proporzionalmente. Override manuale: `?scale=1.7`.
   useDisplayScale();
 
+  // TV-safe area: molte smart TV (Hisense VIDAA, Samsung Tizen, LG webOS)
+  // applicano overscan per default sulle sorgenti HDMI, "ingrandendo" il
+  // segnale di un 3-7% e tagliando i bordi. Su /display questo elimina la
+  // colonna codici aula (la prima a sinistra) e parte del titolo.
+  //
+  // Soluzione: opt-in via query param. `?tvsafe` attiva un padding del 3%
+  // (default ragionevole per la maggior parte dei TV). `?tvsafe=N` permette
+  // di tarare manualmente da 1% a 15% in base al modello specifico. Senza
+  // il param non c'è regressione su monitor PC.
+  const tvSafePct = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('tvsafe')) return 0;
+    const raw = params.get('tvsafe');
+    if (!raw) return 3; // attivo senza valore → 3% (sweet spot empirico)
+    const n = Number.parseFloat(raw);
+    if (!Number.isFinite(n)) return 3;
+    return Math.max(0, Math.min(15, n));
+  }, []);
+  const tvSafeStyle = useMemo<React.CSSProperties>(
+    () =>
+      tvSafePct > 0
+        ? {
+            // `vmin` invece di `vw`: padding orizzontale e verticale uniforme,
+            // utile su TV portrait/ruotati. Modesto sul lato H ma protegge
+            // anche bordo top/bottom dove l'overscan è meno aggressivo ma
+            // non assente.
+            paddingLeft: `${tvSafePct}vw`,
+            paddingRight: `${tvSafePct}vw`,
+            paddingTop: `${tvSafePct * 0.5}vh`,
+            paddingBottom: `${tvSafePct * 0.5}vh`,
+          }
+        : {},
+    [tvSafePct],
+  );
+
   // Overlay diagnostico per validare il rendering sul TV/monitor reale:
   // visibile solo con `?debug=1`. Mostra viewport, DPR, root font-size,
   // fattore di scala applicato, e User-Agent abbreviato. Aggiornato live
@@ -346,6 +381,10 @@ export default function Display() {
         'flex h-screen flex-col overflow-hidden bg-background text-foreground',
         hideUi && 'cursor-none',
       )}
+      // Padding per compensare l'overscan dei TV smart browser quando
+      // attivato via `?tvsafe` (vedi useMemo sopra). Vuoto se il param
+      // non è presente, così su monitor PC non c'è regressione.
+      style={tvSafeStyle}
     >
       {/* Header compatto su singola riga: logo + nome istituto a sinistra,
           data·orario·live indicator + toggles a destra. Altezza target
