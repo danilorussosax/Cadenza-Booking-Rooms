@@ -258,6 +258,21 @@ Cadenza/
 
 ### Sviluppo
 
+#### Setup automatico macOS (consigliato)
+
+Lo script `scripts/setup-macos.sh` installa o aggiorna **tutto** lo stack in una volta sola: Xcode CLT, Homebrew, Node ≥ 20, PostgreSQL 16 (servizio brew), git, dipendenze npm dei 3 workspace, `backend/.env` con secret generati, utente + database Postgres, schema iniziale e seeder admin.
+
+```bash
+bash scripts/setup-macos.sh                # interattivo
+bash scripts/setup-macos.sh --yes          # senza conferme
+bash scripts/setup-macos.sh --dry-run      # mostra cosa farebbe
+bash scripts/setup-macos.sh --reset-db     # DROP + ricrea il DB (distruttivo)
+```
+
+Idempotente: rilanciandolo aggiorna i pacchetti già presenti via `brew upgrade` e preserva l'.env esistente (con backup automatico). Compatibile Apple Silicon e Intel.
+
+#### Setup manuale (qualsiasi OS)
+
 Setup iniziale (una volta sola, dalla root del repo):
 
 ```bash
