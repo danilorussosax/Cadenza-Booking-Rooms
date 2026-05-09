@@ -37,14 +37,24 @@ const { validateBooking } = require('../bookingValidator');
 
 const HELP_TEXT = `🤖 *Cadenza — Bot*
 
-Comandi disponibili:
-• /book — prenota un'aula (ti guido step by step: sede → aula → quando → tipo → conferma)
+📅 *Vista d'insieme*
+• /aule — elenco delle aule prenotabili (nome + codice)
+• /agenda [data] — chi prenota cosa nel giorno (default: oggi)
+• /oggi · /domani — scorciatoie per /agenda
+
+📝 *Prenotazione*
+• /book — prenota un'aula (wizard: sede → aula → quando → tipo → conferma)
 • /list — le mie prenotazioni future
 • /cancel <id> — annulla la prenotazione
-• /check <aula> <data> — slot liberi del giorno
+• /check <aula> <data> — slot liberi del giorno per una specifica aula
+
+ℹ️ *Altro*
 • /help — questa guida
 
-Esempi:
+📌 *Esempi*
+  \`/aule\`
+  \`/agenda\`                            (oggi)
+  \`/agenda venerdì\`
   \`/book\`                              (wizard guidato)
   \`/book A.101 ven 14-15\`              (sede unica + aula + quando)
   \`/book A.101 ven 14-15 lezione\`      (con tipo attività)
@@ -113,6 +123,18 @@ async function handle({ text, user, session, channel }) {
   if (/^\/?(list|elenco|mie\s+prenotazioni)\b/i.test(cmd)) {
     return handleListMy({ user });
   }
+  // /aule, /rooms, /aula → lista delle aule prenotabili (no bookings).
+  if (/^\/?(aule|rooms|aula)\b\s*$/i.test(cmd)) {
+    return handleListRooms();
+  }
+  // /agenda [data], /oggi, /domani → snapshot prenotazioni del giorno
+  // su tutte le aule, raggruppate per sede.
+  const agendaMatch = cmd.match(/^\/?agenda(?:\s+(.+))?$/i);
+  if (agendaMatch) {
+    return handleAgenda({ dayQuery: (agendaMatch[1] || '').trim() || 'oggi' });
+  }
+  if (/^\/?oggi\b\s*$/i.test(cmd)) return handleAgenda({ dayQuery: 'oggi' });
+  if (/^\/?domani\b\s*$/i.test(cmd)) return handleAgenda({ dayQuery: 'domani' });
   const cancelMatch = cmd.match(/^\/?cancel\s+(\d+)(?:\s+(.+))?$/i);
   if (cancelMatch) {
     return handleCancel({ user, id: Number(cancelMatch[1]), reason: cancelMatch[2] });
@@ -225,6 +247,182 @@ async function handleCheck({ roomQuery, dayQuery }) {
     intent: 'check',
     reply: `📋 *${room.name}* — ${day.format('ddd D MMM')}\n\nOccupata: ${occupied}\n\nIl resto dell'orario (08–20) è libero.`,
   };
+}
+
+// =============================================================================
+// Intent: list_rooms — `/aule` mostra tutte le aule prenotabili raggruppate
+// per sede, con nome + codice + tipologia + capienza. Vista statica per
+// memorizzare i codici da usare poi con /book o /check.
+// =============================================================================
+async function handleListRooms() {
+  const rows = await Room.findAll({
+    where: { isBookable: true },
+    attributes: ['id', 'name', 'code', 'type', 'capacity'],
+    include: [
+      {
+        model: Building,
+        as: 'building',
+        attributes: ['id', 'name'],
+        required: true, // INNER JOIN: scarta orfani di edifici cestinati
+      },
+    ],
+    order: [
+      [{ model: Building, as: 'building' }, 'name', 'ASC'],
+      ['name', 'ASC'],
+    ],
+    limit: 200,
+  });
+  if (rows.length === 0) {
+    return {
+      intent: 'list_rooms',
+      reply: '🏛 Nessuna aula prenotabile configurata. Contatta la segreteria.',
+    };
+  }
+  // Raggruppa per buildingId mantenendo l'ordine alfabetico delle sedi.
+  const byBuilding = new Map();
+  for (const r of rows) {
+    const key = r.building.id;
+    if (!byBuilding.has(key)) {
+      byBuilding.set(key, { name: r.building.name, rooms: [] });
+    }
+    byBuilding.get(key).rooms.push(r);
+  }
+
+  const lines = ['🏛 *Aule prenotabili*', ''];
+  for (const { name: buildingName, rooms } of byBuilding.values()) {
+    lines.push(`🏢 *${buildingName}*`);
+    for (const r of rooms) {
+      const code = r.code ? ` \`${r.code}\`` : '';
+      const meta = [];
+      if (r.type) meta.push(r.type);
+      if (r.capacity) meta.push(`${r.capacity} posti`);
+      const metaStr = meta.length ? ` — _${meta.join(' · ')}_` : '';
+      lines.push(`• ${r.name}${code}${metaStr}`);
+    }
+    lines.push('');
+  }
+  lines.push(
+    `📊 *${rows.length}* aule in *${byBuilding.size}* ${byBuilding.size === 1 ? 'sede' : 'sedi'}`,
+  );
+  lines.push('Per prenotare: `/book <codice>` oppure `/agenda` per vedere il giorno.');
+
+  // Telegram limita a ~4096 caratteri per messaggio. Tronca con avviso.
+  const text = lines.join('\n');
+  const reply =
+    text.length > 4000
+      ? text.slice(0, 3950) +
+        '\n\n…_(elenco troncato — contatta la segreteria per la lista completa)_'
+      : text;
+  return { intent: 'list_rooms', reply };
+}
+
+// =============================================================================
+// Intent: agenda — `/agenda [data]` (default: oggi) mostra una panoramica del
+// giorno: per ogni aula, libera 🟢 oppure lista degli intervalli occupati 🟡.
+// Permette di vedere "a colpo d'occhio" cosa è prenotabile prima di /book.
+//
+// Accetta gli stessi formati data di /check e /book (oggi, domani, ven,
+// 2026-04-30, 30/04/2026).
+// =============================================================================
+async function handleAgenda({ dayQuery }) {
+  const day = parseDayQuery(dayQuery);
+  if (!day) {
+    return {
+      intent: 'agenda',
+      reply: `❌ Data "${dayQuery}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
+    };
+  }
+
+  const rooms = await Room.findAll({
+    where: { isBookable: true },
+    attributes: ['id', 'name', 'code'],
+    include: [
+      {
+        model: Building,
+        as: 'building',
+        attributes: ['id', 'name'],
+        required: true,
+      },
+    ],
+    order: [
+      [{ model: Building, as: 'building' }, 'name', 'ASC'],
+      ['name', 'ASC'],
+    ],
+    limit: 200,
+  });
+  if (rooms.length === 0) {
+    return {
+      intent: 'agenda',
+      reply: '🏛 Nessuna aula prenotabile configurata. Contatta la segreteria.',
+    };
+  }
+
+  const dayStart = day.startOf('day').toDate();
+  const dayEnd = day.endOf('day').toDate();
+  // Carichiamo tutte le prenotazioni del giorno in una query, poi raggruppiamo
+  // per roomId. Più efficiente di una query per aula.
+  const bookings = await Booking.findAll({
+    where: {
+      roomId: { [Op.in]: rooms.map((r) => r.id) },
+      status: { [Op.in]: ['confirmed', 'pending_approval'] },
+      startTime: { [Op.lt]: dayEnd },
+      endTime: { [Op.gt]: dayStart },
+    },
+    attributes: ['roomId', 'startTime', 'endTime', 'type', 'status'],
+    order: [['startTime', 'ASC']],
+  });
+  const bookingsByRoom = new Map();
+  for (const b of bookings) {
+    if (!bookingsByRoom.has(b.roomId)) bookingsByRoom.set(b.roomId, []);
+    bookingsByRoom.get(b.roomId).push(b);
+  }
+
+  // Raggruppa aule per sede
+  const byBuilding = new Map();
+  for (const r of rooms) {
+    const key = r.building.id;
+    if (!byBuilding.has(key)) {
+      byBuilding.set(key, { name: r.building.name, rooms: [] });
+    }
+    byBuilding.get(key).rooms.push(r);
+  }
+
+  const lines = [`📅 *Agenda · ${day.format('dddd D MMMM')}*`, ''];
+  let freeCount = 0;
+
+  for (const { name: buildingName, rooms: bRooms } of byBuilding.values()) {
+    lines.push(`🏢 *${buildingName}*`);
+    for (const r of bRooms) {
+      const slots = bookingsByRoom.get(r.id) || [];
+      const code = r.code ? ` \`${r.code}\`` : '';
+      if (slots.length === 0) {
+        lines.push(`🟢 *${r.name}*${code} — libera`);
+        freeCount += 1;
+      } else {
+        lines.push(`🟡 *${r.name}*${code}`);
+        for (const b of slots) {
+          const s = dayjs(b.startTime).format('HH:mm');
+          const e = dayjs(b.endTime).format('HH:mm');
+          const pendBadge = b.status === 'pending_approval' ? ' ⏳' : '';
+          const typeStr = b.type ? ` _${b.type}_` : '';
+          lines.push(`   ▸ ${s}–${e}${typeStr}${pendBadge}`);
+        }
+      }
+    }
+    lines.push('');
+  }
+  lines.push(`📊 Libere: *${freeCount}/${rooms.length}* aule`);
+  if (freeCount > 0) {
+    lines.push('Per prenotare una di queste: `/book` o `/book <codice>`.');
+  }
+
+  const text = lines.join('\n');
+  const reply =
+    text.length > 4000
+      ? text.slice(0, 3950) +
+        '\n\n…_(agenda troncata per lunghezza — usa `/check <aula> <data>` per il dettaglio)_'
+      : text;
+  return { intent: 'agenda', reply };
 }
 
 // =============================================================================

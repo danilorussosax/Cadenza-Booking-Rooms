@@ -27,3 +27,6 @@ e2e/test-results/
 # Misc
 .tsbuildinfo
 *.tsbuildinfo
+
+# Claude Code
+.claude/

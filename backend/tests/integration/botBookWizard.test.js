@@ -321,3 +321,184 @@ describe('Bot /book — wizard 5 step (sede → aula → quando → tipo → con
     expect(r.text).not.toContain('Cancellata');
   });
 });
+
+describe('Bot /aule e /agenda — vista d’insieme', () => {
+  let user;
+  const CHAT_ID = 999002;
+
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+    rateLimit.reset();
+    await configureTelegram();
+    await ensureRules();
+    await ensureBookingTypes();
+    user = await createUser({ email: 'agenda.bot@test.invalid', role: 'studente' });
+    await bindUser(user, String(CHAT_ID));
+  });
+
+  // ── /aule ────────────────────────────────────────────────────────────────
+  it('/aule mostra lista aule raggruppate per sede con nome + codice', async () => {
+    const inst = await createInstitute({ name: 'Conservatorio Test' });
+    const sede1 = await createBuilding({ name: 'Sede Storica', institute: inst });
+    const sede2 = await createBuilding({ name: 'Succursale', institute: inst });
+    await createRoom({
+      name: 'Aula 12',
+      code: 'A12',
+      type: 'studio',
+      capacity: 4,
+      building: sede1,
+    });
+    await createRoom({ name: 'Aula 14', code: 'A14', type: 'aula', capacity: 8, building: sede1 });
+    await createRoom({
+      name: 'Studio Yamaha',
+      code: 'SY1',
+      type: 'studio',
+      capacity: 2,
+      building: sede2,
+    });
+
+    const r = await sendMsg(CHAT_ID, '/aule');
+    expect(r.text).toMatch(/aule prenotabili/i);
+    expect(r.text).toContain('Sede Storica');
+    expect(r.text).toContain('Succursale');
+    expect(r.text).toContain('Aula 12');
+    expect(r.text).toContain('A12');
+    expect(r.text).toContain('Studio Yamaha');
+    expect(r.text).toContain('SY1');
+    // Tipo + capienza visibili
+    expect(r.text).toMatch(/4 posti/);
+    expect(r.text).toContain('studio');
+    // Counter finale
+    expect(r.text).toMatch(/3.*aule.*2.*sedi/i);
+  });
+
+  it('/rooms è alias di /aule', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/rooms');
+    expect(r.text).toMatch(/aule prenotabili/i);
+    expect(r.text).toContain('A1');
+  });
+
+  it('/aule senza aule configurate → messaggio informativo', async () => {
+    // Nessuna aula creata
+    const r = await sendMsg(CHAT_ID, '/aule');
+    expect(r.text).toMatch(/nessuna aula/i);
+  });
+
+  it('/aule esclude aule con isBookable=false', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'Aperta', code: 'OPEN', building: sede });
+    await createRoom({ name: 'Chiusa', code: 'CLOSED', building: sede, isBookable: false });
+    const r = await sendMsg(CHAT_ID, '/aule');
+    expect(r.text).toContain('OPEN');
+    expect(r.text).not.toContain('CLOSED');
+  });
+
+  // ── /agenda ─────────────────────────────────────────────────────────────
+  it('/agenda senza data mostra oggi e segna le aule libere come 🟢', async () => {
+    const sede = await createBuilding({ name: 'Sede Unica' });
+    await createRoom({ name: 'Aula 1', code: 'A1', building: sede });
+    await createRoom({ name: 'Aula 2', code: 'A2', building: sede });
+
+    const r = await sendMsg(CHAT_ID, '/agenda');
+    expect(r.text).toMatch(/agenda/i);
+    expect(r.text).toContain('Sede Unica');
+    expect(r.text).toContain('🟢'); // libere
+    expect(r.text).toContain('Aula 1');
+    expect(r.text).toContain('Aula 2');
+    expect(r.text).toMatch(/Libere:.*\*?2\/2\*?/);
+  });
+
+  it('/agenda mostra prenotazioni del giorno con range orario per aula occupata', async () => {
+    const sede = await createBuilding({ name: 'Sede A' });
+    const room = await createRoom({ name: 'Sala Prove', code: 'SP', building: sede });
+
+    // Crea una prenotazione confermata per oggi 10:00-11:00
+    const today = new Date();
+    today.setHours(10, 0, 0, 0);
+    const end = new Date(today);
+    end.setHours(11, 0, 0, 0);
+    await Booking.create({
+      userId: user.id,
+      roomId: room.id,
+      startTime: today,
+      endTime: end,
+      type: 'lezione',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+
+    const r = await sendMsg(CHAT_ID, '/agenda oggi');
+    expect(r.text).toMatch(/agenda/i);
+    expect(r.text).toContain('🟡'); // occupata
+    expect(r.text).toContain('Sala Prove');
+    expect(r.text).toContain('10:00');
+    expect(r.text).toContain('11:00');
+    expect(r.text).toContain('lezione');
+  });
+
+  it('/oggi è alias di /agenda', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/oggi');
+    expect(r.text).toMatch(/agenda/i);
+    expect(r.text).toContain('A1');
+  });
+
+  it('/domani è alias di /agenda con data domani', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/domani');
+    expect(r.text).toMatch(/agenda/i);
+    // Il testo del giorno deve essere quello di domani, non oggi
+    const dayjs = require('dayjs');
+    require('dayjs/locale/it');
+    dayjs.locale('it');
+    const tomorrow = dayjs().add(1, 'day');
+    expect(r.text.toLowerCase()).toContain(tomorrow.format('dddd').toLowerCase());
+  });
+
+  it('/agenda con data futura mostra solo le prenotazioni di quel giorno', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    const room = await createRoom({ name: 'Aula X', code: 'AX', building: sede });
+
+    // Prenotazione domani 14-15
+    const dayjs = require('dayjs');
+    const tomorrow = dayjs().add(1, 'day').hour(14).minute(0).second(0).millisecond(0);
+    await Booking.create({
+      userId: user.id,
+      roomId: room.id,
+      startTime: tomorrow.toDate(),
+      endTime: tomorrow.add(1, 'hour').toDate(),
+      type: 'studio_individuale',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+
+    // /agenda oggi → aula libera
+    let r = await sendMsg(CHAT_ID, '/agenda oggi');
+    expect(r.text).toMatch(/Aula X.*libera/i);
+
+    // /agenda domani → aula con prenotazione 14-15
+    r = await sendMsg(CHAT_ID, '/agenda domani');
+    expect(r.text).toContain('14:00');
+    expect(r.text).toContain('15:00');
+  });
+
+  it('/agenda con data invalida → messaggio di errore', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'A', code: 'A1', building: sede });
+    const r = await sendMsg(CHAT_ID, '/agenda XYZ-non-data');
+    expect(r.text).toMatch(/non valida/i);
+  });
+
+  it('/agenda esclude aule con isBookable=false', async () => {
+    const sede = await createBuilding({ name: 'S' });
+    await createRoom({ name: 'Aperta', code: 'OPEN', building: sede });
+    await createRoom({ name: 'Chiusa', code: 'CLOSED', building: sede, isBookable: false });
+    const r = await sendMsg(CHAT_ID, '/agenda');
+    expect(r.text).toContain('OPEN');
+    expect(r.text).not.toContain('CLOSED');
+  });
+});

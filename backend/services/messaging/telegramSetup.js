@@ -32,10 +32,12 @@ const TIMEOUT_MS = 10_000;
  */
 const BOT_COMMANDS = [
   { command: 'help', description: 'Guida ai comandi del bot' },
+  { command: 'aule', description: 'Elenco aule prenotabili (nome + codice)' },
+  { command: 'agenda', description: 'Chi prenota cosa nel giorno (default: oggi)' },
   { command: 'book', description: 'Prenota un’aula (wizard guidato)' },
   { command: 'list', description: 'Le tue prossime prenotazioni' },
   { command: 'cancel', description: 'Annulla una prenotazione' },
-  { command: 'check', description: 'Slot liberi di un’aula in un giorno' },
+  { command: 'check', description: 'Slot liberi di una specifica aula in un giorno' },
 ];
 
 const BOT_DESCRIPTION =

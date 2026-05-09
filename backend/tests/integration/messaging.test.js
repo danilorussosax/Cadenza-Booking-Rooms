@@ -178,7 +178,10 @@ describe('Bot messaging — webhook signature & binding', () => {
       .send(tgPayload(500, '/help'));
     expect(res.status).toBe(200);
     const sent = await waitForReply();
-    expect(sent.text).toMatch(/Comandi disponibili/);
+    expect(sent.text).toMatch(/Cadenza.*Bot/);
+    expect(sent.text).toContain('/book');
+    expect(sent.text).toContain('/aule');
+    expect(sent.text).toContain('/agenda');
   });
 
   it('rate limit 30/min → cooldown 1h', async () => {

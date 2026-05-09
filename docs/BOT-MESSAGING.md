@@ -230,16 +230,51 @@ Adapter incluso ma il poller IMAP non è ancora implementato. Roadmap Sprint 5+.
 ## 6. Comandi utente del bot
 
 ```
-/help                          → guida completa
+📅 Vista d'insieme
+/aule (alias /rooms)           → elenco aule prenotabili (nome + codice + tipo)
+/agenda [data]                 → chi prenota cosa nel giorno, raggruppato per sede
+/oggi                          → alias /agenda (oggi)
+/domani                        → alias /agenda (domani)
+
+📝 Prenotazione
 /book                          → wizard 5-step (sede → aula → quando → tipo → conferma)
 /book A.101 ven 14-15          → shortcut: aula + giorno + ora (tipo chiesto a parte)
 /book A.101 ven 14-15 lezione  → shortcut completo (anche il tipo)
-/list                          → ultime 5 prenotazioni future
+/list                          → ultime 5 prenotazioni future dell'utente
 /cancel <id> [motivo]          → annulla
-/check A.101 venerdì           → slot liberi del giorno
+/check A.101 venerdì           → slot liberi del giorno per UNA specifica aula
+
+ℹ️ Altro
+/help                          → guida completa
 bind XXXXXX                    → completa il binding (solo prima volta)
 annulla                        → esce dal wizard
 ```
+
+### 6.0 Vista d'insieme: `/aule` e `/agenda`
+
+Pensati per dare una **panoramica** prima di prenotare:
+
+- **`/aule`** mostra l'elenco di tutte le aule prenotabili, **raggruppate per sede**, con nome + codice tra backtick + tipo + capienza. Utile per memorizzare i codici da usare poi con `/book A12` o `/check A12 venerdì`. Edifici cestinati e aule con `isBookable=false` sono esclusi automaticamente.
+- **`/agenda [data]`** mostra il **calendario del giorno** su tutte le aule. Per ognuna: 🟢 libera oppure 🟡 con la lista dei range orari occupati. Le prenotazioni in attesa di approvazione sono marcate con ⏳. Default: oggi. Accetta gli stessi formati data di `/check` e `/book`.
+
+Esempio di output `/agenda`:
+
+```
+📅 Agenda · venerdì 9 maggio
+
+🏢 Sede Storica
+🟢 Aula 12 (A12) — libera
+🟡 Sala Prove (SP)
+   ▸ 09:00–11:00 lezione
+   ▸ 14:00–16:00 prova ⏳
+
+🏢 Succursale
+🟢 Studio Yamaha (SY1) — libera
+
+📊 Libere: 2/3 aule
+```
+
+Entrambi i comandi truncano il messaggio se supera 4000 caratteri (limite Telegram).
 
 ### 6.1 Wizard `/book` a 5 step
 
