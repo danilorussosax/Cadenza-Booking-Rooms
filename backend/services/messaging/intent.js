@@ -78,6 +78,40 @@ Per qualsiasi dubbio: contatta la segreteria.`;
 //   "14:00-15:00", "14-15", "14:00", "9-10:30"
 const TIME_RANGE_RE = /(\d{1,2})(?::(\d{2}))?\s*[-–]\s*(\d{1,2})(?::(\d{2}))?/;
 
+// Tronca un messaggio Telegram (limite hard ~4096) in modo da:
+//   - rispettare un budget conservativo (default 4000 char)
+//   - tagliare all'ultimo newline disponibile sotto il budget, così non
+//     spezziamo a metà di un'entità Markdown (es. `*Aula 12*` diventerebbe
+//     `*Aula` e Telegram risponderebbe 400 → invio fallisce silentemente)
+//   - aggiungere un suffix che spieghi il troncamento
+function truncateForTelegram(text, suffix, maxLen = 4000) {
+  if (text.length <= maxLen) return text;
+  const sliceEnd = Math.max(0, maxLen - suffix.length);
+  // Cerca un newline ragionevole sotto il budget (entro gli ultimi 200 char)
+  const newlineIdx = text.lastIndexOf('\n', sliceEnd);
+  const cut = newlineIdx > sliceEnd - 400 && newlineIdx > 0 ? newlineIdx : sliceEnd;
+  return text.slice(0, cut) + suffix;
+}
+
+// Caratteri "speciali" del Markdown legacy di Telegram. Quando un nome aula,
+// nome sede o input dell'utente contiene `*`, `_`, `` ` ``, `[`, `]` non
+// bilanciati, il Bot API risponde 400 "can't parse entities" e l'invio
+// fallisce silentemente nella pipeline webhook (la 200 al provider è già
+// stata inviata) → l'utente vede solo "doppia spunta" senza risposta.
+//
+// Strategia conservativa: stripping dei caratteri pericolosi dalle stringhe
+// dinamiche prima dell'interpolazione nei template Markdown. Non perfetto
+// (es. "Studio_5" diventa "Studio 5") ma garantisce che il messaggio non
+// rompa mai il rendering. Migrare a MarkdownV2 richiederebbe di rifare
+// anche TUTTI i template statici (anche i `.` e `+` vanno escapati in V2).
+const MD_SPECIAL_RE = /[*_`[\]]/g;
+function mdSafe(s) {
+  return String(s ?? '')
+    .replace(MD_SPECIAL_RE, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Mappa giorni IT → offset isoWeekday
 const DAY_NAMES = {
   lun: 1,
@@ -198,7 +232,9 @@ async function handleListMy({ user }) {
     const start = dayjs(b.startTime);
     const end = dayjs(b.endTime);
     const status = b.status === 'pending_approval' ? ' ⏳' : '';
-    return `• #${b.id} — *${b.room?.name ?? '?'}*${b.room?.building ? ` (${b.room.building.name})` : ''}\n   ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}${status}`;
+    const roomName = mdSafe(b.room?.name ?? '?');
+    const buildingName = b.room?.building ? ` (${mdSafe(b.room.building.name)})` : '';
+    return `• #${b.id} — *${roomName}*${buildingName}\n   ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}${status}`;
   });
   return {
     intent: 'list_my',
@@ -208,6 +244,11 @@ async function handleListMy({ user }) {
 
 // =============================================================================
 // Intent: cancel
+//
+// Cancellazione atomica via UPDATE … WHERE status IN (...): se due `/cancel`
+// arrivano in parallelo, solo il primo trova `status='confirmed'` e succede;
+// il secondo ottiene `affectedRows=0` e risponde "già annullata" senza
+// duplicare side effects (audit, notifiche, ecc.).
 // =============================================================================
 async function handleCancel({ user, id, reason }) {
   const b = await Booking.findByPk(id);
@@ -217,16 +258,34 @@ async function handleCancel({ user, id, reason }) {
   if (b.status !== 'confirmed' && b.status !== 'pending_approval') {
     return {
       intent: 'cancel',
-      reply: `❌ La prenotazione #${id} non è cancellabile (stato: ${b.status}).`,
+      reply: `❌ La prenotazione #${id} non è cancellabile (stato: ${mdSafe(b.status)}).`,
     };
   }
   if (dayjs(b.endTime).isBefore(dayjs())) {
     return { intent: 'cancel', reply: `❌ La prenotazione #${id} è già terminata.` };
   }
-  b.status = 'cancelled';
-  b.cancelledAt = new Date();
-  b.cancelReason = reason ? String(reason).slice(0, 255) : 'Cancellata via bot';
-  await b.save();
+  const cancelReason = reason ? String(reason).slice(0, 255) : 'Cancellata via bot';
+  const [affected] = await Booking.update(
+    {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancelReason,
+    },
+    {
+      where: {
+        id,
+        userId: user.id,
+        status: { [Op.in]: ['confirmed', 'pending_approval'] },
+      },
+    },
+  );
+  if (affected === 0) {
+    // Race con un altro `/cancel` o cambio stato concorrente
+    return {
+      intent: 'cancel',
+      reply: `ℹ️ Prenotazione #${id} già annullata o non più cancellabile.`,
+    };
+  }
   return { intent: 'cancel', reply: `✅ Prenotazione #${id} annullata.` };
 }
 
@@ -249,7 +308,8 @@ async function handleCheck({ roomQuery, dayQuery }) {
     if (!match) {
       return {
         intent: 'check',
-        reply: `❌ Sede "${buildingTerm}" non trovata.\n\n` + renderBuildingsList(buildings),
+        reply:
+          `❌ Sede "${mdSafe(buildingTerm)}" non trovata.\n\n` + renderBuildingsList(buildings),
       };
     }
     buildingId = match.id;
@@ -257,14 +317,14 @@ async function handleCheck({ roomQuery, dayQuery }) {
   }
   const room = await findRoomByQuery(roomTerm, buildingId ? { buildingId } : {});
   if (!room) {
-    const where = buildingName ? ` in *${buildingName}*` : '';
-    return { intent: 'check', reply: `❌ Aula "${roomTerm}"${where} non trovata.` };
+    const where = buildingName ? ` in *${mdSafe(buildingName)}*` : '';
+    return { intent: 'check', reply: `❌ Aula "${mdSafe(roomTerm)}"${where} non trovata.` };
   }
   const day = parseDayQuery(dayQuery);
   if (!day)
     return {
       intent: 'check',
-      reply: `❌ Data "${dayQuery}" non valida. Es: \`venerdì\`, \`2026-04-30\`.`,
+      reply: `❌ Data "${mdSafe(dayQuery)}" non valida. Es: \`venerdì\`, \`2026-04-30\`.`,
     };
   const dayStart = day.startOf('day').toDate();
   const dayEnd = day.endOf('day').toDate();
@@ -277,10 +337,11 @@ async function handleCheck({ roomQuery, dayQuery }) {
     },
     order: [['startTime', 'ASC']],
   });
+  const safeRoomName = mdSafe(room.name);
   if (bookings.length === 0) {
     return {
       intent: 'check',
-      reply: `✅ ${room.name} è completamente libera ${day.format('ddd D MMM')}.`,
+      reply: `✅ ${safeRoomName} è completamente libera ${day.format('ddd D MMM')}.`,
     };
   }
   const occupied = bookings
@@ -288,7 +349,7 @@ async function handleCheck({ roomQuery, dayQuery }) {
     .join(', ');
   return {
     intent: 'check',
-    reply: `📋 *${room.name}* — ${day.format('ddd D MMM')}\n\nOccupata: ${occupied}\n\nIl resto dell'orario (08–20) è libero.`,
+    reply: `📋 *${safeRoomName}* — ${day.format('ddd D MMM')}\n\nOccupata: ${occupied}\n\nIl resto dell'orario (08–20) è libero.`,
   };
 }
 
@@ -333,14 +394,14 @@ async function handleListRooms() {
 
   const lines = ['🏛 *Aule prenotabili*', ''];
   for (const { name: buildingName, rooms } of byBuilding.values()) {
-    lines.push(`🏢 *${buildingName}*`);
+    lines.push(`🏢 *${mdSafe(buildingName)}*`);
     for (const r of rooms) {
-      const code = r.code ? ` \`${r.code}\`` : '';
+      const code = r.code ? ` \`${mdSafe(r.code)}\`` : '';
       const meta = [];
-      if (r.type) meta.push(r.type);
+      if (r.type) meta.push(mdSafe(r.type));
       if (r.capacity) meta.push(`${r.capacity} posti`);
       const metaStr = meta.length ? ` — _${meta.join(' · ')}_` : '';
-      lines.push(`• ${r.name}${code}${metaStr}`);
+      lines.push(`• ${mdSafe(r.name)}${code}${metaStr}`);
     }
     lines.push('');
   }
@@ -349,13 +410,13 @@ async function handleListRooms() {
   );
   lines.push('Per prenotare: `/book <codice>` oppure `/agenda` per vedere il giorno.');
 
-  // Telegram limita a ~4096 caratteri per messaggio. Tronca con avviso.
+  // Telegram limita a ~4096 caratteri per messaggio. Tronca al newline più
+  // vicino per non spezzare un'entità Markdown.
   const text = lines.join('\n');
-  const reply =
-    text.length > 4000
-      ? text.slice(0, 3950) +
-        '\n\n…_(elenco troncato — contatta la segreteria per la lista completa)_'
-      : text;
+  const reply = truncateForTelegram(
+    text,
+    '\n\n…_(elenco troncato — contatta la segreteria per la lista completa)_',
+  );
   return { intent: 'list_rooms', reply };
 }
 
@@ -372,7 +433,7 @@ async function handleAgenda({ dayQuery }) {
   if (!day) {
     return {
       intent: 'agenda',
-      reply: `❌ Data "${dayQuery}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
+      reply: `❌ Data "${mdSafe(dayQuery)}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
     };
   }
 
@@ -434,20 +495,21 @@ async function handleAgenda({ dayQuery }) {
   let freeCount = 0;
 
   for (const { name: buildingName, rooms: bRooms } of byBuilding.values()) {
-    lines.push(`🏢 *${buildingName}*`);
+    lines.push(`🏢 *${mdSafe(buildingName)}*`);
     for (const r of bRooms) {
       const slots = bookingsByRoom.get(r.id) || [];
-      const code = r.code ? ` \`${r.code}\`` : '';
+      const code = r.code ? ` \`${mdSafe(r.code)}\`` : '';
+      const safeName = mdSafe(r.name);
       if (slots.length === 0) {
-        lines.push(`🟢 *${r.name}*${code} — libera`);
+        lines.push(`🟢 *${safeName}*${code} — libera`);
         freeCount += 1;
       } else {
-        lines.push(`🟡 *${r.name}*${code}`);
+        lines.push(`🟡 *${safeName}*${code}`);
         for (const b of slots) {
           const s = dayjs(b.startTime).format('HH:mm');
           const e = dayjs(b.endTime).format('HH:mm');
           const pendBadge = b.status === 'pending_approval' ? ' ⏳' : '';
-          const typeStr = b.type ? ` _${b.type}_` : '';
+          const typeStr = b.type ? ` _${mdSafe(b.type)}_` : '';
           lines.push(`   ▸ ${s}–${e}${typeStr}${pendBadge}`);
         }
       }
@@ -460,11 +522,10 @@ async function handleAgenda({ dayQuery }) {
   }
 
   const text = lines.join('\n');
-  const reply =
-    text.length > 4000
-      ? text.slice(0, 3950) +
-        '\n\n…_(agenda troncata per lunghezza — usa `/check <aula> <data>` per il dettaglio)_'
-      : text;
+  const reply = truncateForTelegram(
+    text,
+    '\n\n…_(agenda troncata per lunghezza — usa `/check <aula> <data>` per il dettaglio)_',
+  );
   return { intent: 'agenda', reply };
 }
 
@@ -551,7 +612,7 @@ async function advanceBookWizard({ session, slots }) {
       if (!match) {
         return {
           reply:
-            `❌ Sede "${slots.buildingQuery}" non riconosciuta.\n\n` +
+            `❌ Sede "${mdSafe(slots.buildingQuery)}" non riconosciuta.\n\n` +
             renderBuildingsList(buildings),
           session: {
             state: 'book_room.building',
@@ -578,14 +639,14 @@ async function advanceBookWizard({ session, slots }) {
   if (!slots.roomId) {
     if (!slots.roomQuery) {
       return {
-        reply: `🚪 Quale aula in *${slots.buildingName}*? Scrivi il *codice* o il *nome*.`,
+        reply: `🚪 Quale aula in *${mdSafe(slots.buildingName)}*? Scrivi il *codice* o il *nome*.`,
         session: { state: 'book_room.room', slots },
       };
     }
     const room = await findRoomByQuery(slots.roomQuery, { buildingId: slots.buildingId });
     if (!room) {
       return {
-        reply: `❌ Aula "${slots.roomQuery}" non trovata in *${slots.buildingName}*. Riprova con un altro nome o codice.`,
+        reply: `❌ Aula "${mdSafe(slots.roomQuery)}" non trovata in *${mdSafe(slots.buildingName)}*. Riprova con un altro nome o codice.`,
         session: { state: 'book_room.room', slots: { ...slots, roomQuery: undefined } },
       };
     }
@@ -635,7 +696,8 @@ async function advanceBookWizard({ session, slots }) {
       if (!match) {
         return {
           reply:
-            `❌ Tipo "${slots.typeQuery}" non riconosciuto.\n\n` + renderBookingTypesList(types),
+            `❌ Tipo "${mdSafe(slots.typeQuery)}" non riconosciuto.\n\n` +
+            renderBookingTypesList(types),
           session: { state: 'book_room.type', slots: { ...slots, typeQuery: undefined } },
         };
       }
@@ -658,10 +720,10 @@ async function advanceBookWizard({ session, slots }) {
     return {
       reply:
         `✅ *Confermi la prenotazione?*\n\n` +
-        `• 🏛 *Sede:* ${slots.buildingName}\n` +
-        `• 🚪 *Aula:* ${slots.roomName}\n` +
+        `• 🏛 *Sede:* ${mdSafe(slots.buildingName)}\n` +
+        `• 🚪 *Aula:* ${mdSafe(slots.roomName)}\n` +
         `• 📅 *Quando:* ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}\n` +
-        `• 🎯 *Tipo:* ${slots.typeLabel}\n\n` +
+        `• 🎯 *Tipo:* ${mdSafe(slots.typeLabel)}\n\n` +
         `Rispondi *si* o *no*.`,
       session: { state: 'book_room.confirm', slots },
     };
@@ -684,20 +746,39 @@ async function finalizeBook({ slots, session }) {
       endTime: new Date(slots.endTime),
     });
     if (!result?.valid) {
+      const errMsg = mdSafe((result?.errors || []).join('; ') || 'regola violata');
       return {
-        reply: `❌ Prenotazione non valida: ${(result?.errors || []).join('; ') || 'regola violata'}.`,
+        reply: `❌ Prenotazione non valida: ${errMsg}.`,
         session: { state: null, slots: null },
       };
     }
   } catch (err) {
     return {
-      reply: `❌ Errore validazione: ${err.message || 'errore generico'}.`,
+      reply: `❌ Errore validazione: ${mdSafe(err.message || 'errore generico')}.`,
       session: { state: null, slots: null },
     };
   }
   // Crea la booking. Se l'aula richiede approvazione e l'utente non è admin,
   // verrà creata in pending (lo stesso percorso di routes/bookings.js).
-  const room = await Room.findByPk(slots.roomId);
+  // Re-check isBookable + building non-cestinato: il wizard può aver
+  // selezionato l'aula molti minuti fa (TTL sessione 15min) e nel frattempo
+  // l'admin può averla disattivata o averne cestinato la sede. Senza questo
+  // re-check creeremmo silenziosamente una booking su risorsa non più valida.
+  const room = await Room.findByPk(slots.roomId, {
+    include: [{ model: Building, as: 'building' }],
+  });
+  if (!room || !room.isBookable) {
+    return {
+      reply: '❌ L’aula selezionata non è più prenotabile. Riprova con `/book`.',
+      session: { state: null, slots: null },
+    };
+  }
+  if (!room.building || room.building.deletedAt) {
+    return {
+      reply: '❌ La sede dell’aula selezionata non è più attiva. Riprova con `/book`.',
+      session: { state: null, slots: null },
+    };
+  }
   const status = room?.requiresApproval && user.role !== 'admin' ? 'pending_approval' : 'confirmed';
   const booking = await Booking.create({
     userId: session.userId,
@@ -711,10 +792,10 @@ async function finalizeBook({ slots, session }) {
   const start = dayjs(slots.startTime);
   const end = dayjs(slots.endTime);
   const summary =
-    `• 🏛 ${slots.buildingName}\n` +
-    `• 🚪 *${slots.roomName}*\n` +
+    `• 🏛 ${mdSafe(slots.buildingName)}\n` +
+    `• 🚪 *${mdSafe(slots.roomName)}*\n` +
     `• 📅 ${start.format('ddd D MMM HH:mm')}–${end.format('HH:mm')}\n` +
-    `• 🎯 ${slots.typeLabel || slots.type}`;
+    `• 🎯 ${mdSafe(slots.typeLabel || slots.type)}`;
   const reply =
     status === 'pending_approval'
       ? `⏳ Richiesta inviata (#${booking.id}). La direzione approva entro 24h, riceverai un messaggio.\n\n${summary}`
@@ -821,7 +902,7 @@ async function handleFreeRooms({ argsLine }) {
   if (!day) {
     return {
       intent: 'free',
-      reply: `❌ Data "${dayQuery}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
+      reply: `❌ Data "${mdSafe(dayQuery)}" non valida. Esempi: \`oggi\`, \`domani\`, \`venerdì\`, \`2026-04-30\`.`,
     };
   }
   let timeRange = null;
@@ -830,7 +911,7 @@ async function handleFreeRooms({ argsLine }) {
     if (!timeRange) {
       return {
         intent: 'free',
-        reply: `❌ Orario "${timeQuery}" non valido. Esempi: \`14-15\`, \`14:00-15:30\`.`,
+        reply: `❌ Orario "${mdSafe(timeQuery)}" non valido. Esempi: \`14-15\`, \`14:00-15:30\`.`,
       };
     }
   }
@@ -849,7 +930,8 @@ async function handleFreeRooms({ argsLine }) {
     if (!buildingFilter) {
       return {
         intent: 'free',
-        reply: `❌ Sede "${buildingQuery}" non trovata.\n\n` + renderBuildingsList(buildings),
+        reply:
+          `❌ Sede "${mdSafe(buildingQuery)}" non trovata.\n\n` + renderBuildingsList(buildings),
       };
     }
   }
@@ -875,7 +957,7 @@ async function handleFreeRooms({ argsLine }) {
     limit: 200,
   });
   if (rooms.length === 0) {
-    const scope = buildingFilter ? ` in *${buildingFilter.name}*` : '';
+    const scope = buildingFilter ? ` in *${mdSafe(buildingFilter.name)}*` : '';
     return {
       intent: 'free',
       reply: `🏛 Nessuna aula prenotabile${scope}. Contatta la segreteria.`,
@@ -931,24 +1013,25 @@ async function handleFreeRooms({ argsLine }) {
   const timeLabel = timeRange
     ? ` ${pad2(timeRange.startH)}:${pad2(timeRange.startM)}–${pad2(timeRange.endH)}:${pad2(timeRange.endM)}`
     : ' (tutto il giorno)';
-  const scopeLabel = buildingFilter ? ` · 🏢 ${buildingFilter.name}` : '';
+  const scopeLabel = buildingFilter ? ` · 🏢 ${mdSafe(buildingFilter.name)}` : '';
 
   const header = `🟢 *Aule libere — ${dayLabel}${timeLabel}*${scopeLabel}`;
 
   if (totalFree === 0) {
+    const safeDayQuery = mdSafe(dayQuery);
     const hint = timeRange
-      ? `Nessuna aula libera nella fascia richiesta. Prova a cambiare orario o usa \`/agenda ${dayQuery}\` per vedere chi prenota cosa.`
-      : `Nessuna aula completamente libera quel giorno. Usa \`/agenda ${dayQuery}\` per vedere le fasce libere.`;
+      ? `Nessuna aula libera nella fascia richiesta. Prova a cambiare orario o usa \`/agenda ${safeDayQuery}\` per vedere chi prenota cosa.`
+      : `Nessuna aula completamente libera quel giorno. Usa \`/agenda ${safeDayQuery}\` per vedere le fasce libere.`;
     return { intent: 'free', reply: `${header}\n\n${hint}` };
   }
 
   const lines = [header, ''];
   for (const { name: buildingName, rooms: bRooms } of byBuilding.values()) {
     // Mostra l'header sede solo se non stiamo già filtrando su una sede sola
-    if (!buildingFilter) lines.push(`🏢 *${buildingName}*`);
+    if (!buildingFilter) lines.push(`🏢 *${mdSafe(buildingName)}*`);
     for (const r of bRooms) {
-      const code = r.code ? ` \`${r.code}\`` : '';
-      lines.push(`• ${r.name}${code}`);
+      const code = r.code ? ` \`${mdSafe(r.code)}\`` : '';
+      lines.push(`• ${mdSafe(r.name)}${code}`);
     }
     if (!buildingFilter) lines.push('');
   }
@@ -956,11 +1039,10 @@ async function handleFreeRooms({ argsLine }) {
   lines.push('Per prenotare: `/book <codice>` (oppure `/book` per il wizard).');
 
   const text = lines.join('\n');
-  const reply =
-    text.length > 4000
-      ? text.slice(0, 3950) +
-        '\n\n…_(elenco troncato — restringi con `@sede` o un orario specifico)_'
-      : text;
+  const reply = truncateForTelegram(
+    text,
+    '\n\n…_(elenco troncato — restringi con `@sede` o un orario specifico)_',
+  );
   return { intent: 'free', reply };
 }
 
@@ -1022,7 +1104,7 @@ function matchBuildingByQuery(buildings, q) {
 
 /** Render della lista sedi numerata, formato Telegram-friendly. */
 function renderBuildingsList(buildings) {
-  return buildings.map((b, i) => `${i + 1}. *${b.name}*`).join('\n');
+  return buildings.map((b, i) => `${i + 1}. *${mdSafe(b.name)}*`).join('\n');
 }
 
 // =============================================================================
@@ -1068,7 +1150,7 @@ function matchBookingTypeByQuery(types, q) {
 
 /** Render della lista tipi numerata. */
 function renderBookingTypesList(types) {
-  return types.map((t, i) => `${i + 1}. *${t.label}*`).join('\n');
+  return types.map((t, i) => `${i + 1}. *${mdSafe(t.label)}*`).join('\n');
 }
 
 /** Parsa una "data" come dayjs all'inizio del giorno. Accetta:

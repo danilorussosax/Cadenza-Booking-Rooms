@@ -31,8 +31,69 @@ const intent = require('./intent');
 const stateMachine = require('./state');
 const rateLimit = require('./rateLimit');
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
+
+// Cap difensivo sul numero di candidati con challenge attiva da scansionare
+// in `consumeBindingOtp`. In condizioni normali ci sono pochi pending OTP
+// (TTL 10min, 1 per utente). Il cap protegge da scenari degenerate (es.
+// migrazione che lascia migliaia di challenge orfane).
+const OTP_CANDIDATES_CAP = Number(process.env.MESSAGING_OTP_SCAN_CAP) || 100;
+
+// =============================================================================
+// Mutex applicativo per (channel, externalId): serializza i webhook concorrenti
+// dello stesso utente, così due messaggi rapidi non corrompono la ChatSession
+// (race classico last-write-wins su state/slots).
+//
+// In-memory: sufficiente per single-server. Per multi-istanza serve una mutex
+// distribuita (Redis SETNX, advisory lock Postgres, ecc.) — ad oggi Cadenza
+// gira a single instance.
+// =============================================================================
+const chatLocks = new Map(); // key → Promise (chain di processing in corso)
+
+function chatLockKey(channel, externalId) {
+  return `${channel}:${externalId}`;
+}
+
+/** Esegue `fn` in mutua esclusione rispetto ad altre invocazioni con la
+ *  stessa chiave. Le invocazioni si serializzano in coda. */
+async function withChatLock(channel, externalId, fn) {
+  const key = chatLockKey(channel, externalId);
+  const previous = chatLocks.get(key) || Promise.resolve();
+  const next = previous
+    .then(() => fn())
+    .catch((err) => {
+      // Lasciamo propagare ai chiamanti, ma se questa promise restasse rejected
+      // bloccherebbe le chiamate future con un .then che riceve l'errore.
+      // Catch + rethrow neutralizza la chain mantenendo la propagation a `fn`.
+      throw err;
+    });
+  // La chain successiva deve attendere completion (anche su rejection),
+  // quindi ricreiamo una promise che si risolve sempre.
+  const settled = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  chatLocks.set(key, settled);
+  // Cleanup: quando la chain corrente si esaurisce, rimuovi l'entry per
+  // evitare crescita infinita (lo stesso identico problema del rate limit).
+  settled.finally(() => {
+    if (chatLocks.get(key) === settled) chatLocks.delete(key);
+  });
+  return next;
+}
 
 const SUPPORTED_CHANNELS = ['telegram', 'whatsapp_cloud', 'signal_cli', 'email_imap'];
+
+/** Strip caratteri Markdown legacy da stringhe interpolate nelle reply.
+ *  Telegram con `parse_mode: 'Markdown'` risponde 400 se trova entità non
+ *  bilanciate (es. firstName "Ann_a Maria"): l'invio fallisce silente nella
+ *  pipeline webhook → utente vede doppia spunta senza risposta. */
+function mdSafeBasic(s) {
+  return String(s ?? '')
+    .replace(/[*_`[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /** Carica settings + credenziali per un canale, decifrando il blob. Restituisce
  *  null se il canale non è configurato o disabilitato. */
@@ -88,10 +149,31 @@ function auditChatMessage({ direction, channel, externalId, userId, payload }) {
 
 /** Handler principale: processa un messaggio inbound già parsato dall'adapter.
  *  `incoming = { channel, externalId, text, raw }`. Ritorna { reply: string }
- *  oppure null se nessuna risposta. */
+ *  oppure null se nessuna risposta.
+ *
+ *  Il lock per (channel, externalId) serializza messaggi concorrenti dello
+ *  stesso utente (es. due tap rapidi su pulsanti, o edit_message): senza
+ *  questo, due webhook in parallelo possono corrompere ChatSession con
+ *  scritture last-write-wins su state/slots. */
 async function handleIncoming(incoming, config) {
+  const { channel, externalId } = incoming;
+  return withChatLock(channel, externalId, () => handleIncomingInner(incoming, config));
+}
+
+async function handleIncomingInner(incoming, config) {
   const { channel, externalId, text } = incoming;
   if (!text) return null;
+
+  // Difensiva contro payload malformati: BotBinding/ChatSession hanno una
+  // colonna STRING(190) sull'externalId. Senza questo check un payload
+  // anomalo (>190 char) farebbe esplodere l'INSERT con ER_DATA_TOO_LONG nel
+  // mezzo della pipeline → eccezione silente → utente non riceve risposta.
+  if (typeof externalId !== 'string' || externalId.length === 0 || externalId.length > 190) {
+    console.error(
+      `[messaging:${channel}] externalId invalido (len=${externalId?.length ?? 'n/a'}), drop.`,
+    );
+    return null;
+  }
 
   // 1) Rate limit
   const rl = rateLimit.check(channel, externalId);
@@ -118,8 +200,9 @@ async function handleIncoming(incoming, config) {
       if (channel === 'whatsapp_cloud' || channel === 'signal_cli') {
         knownUser = await findUserByPhone(externalId);
       }
+      const safeName = mdSafeBasic(knownUser?.firstName);
       const reply = knownUser
-        ? `Ciao ${knownUser.firstName}, prima di poter prenotare devi collegare il bot al tuo account.\n\n👉 Vai su Cadenza → Profilo → Bot messaging, clicca "Genera codice" e inviamelo qui scrivendo:\n   bind XXXXXX`
+        ? `Ciao ${safeName}, prima di poter prenotare devi collegare il bot al tuo account.\n\n👉 Vai su Cadenza → Profilo → Bot messaging, clicca "Genera codice" e inviamelo qui scrivendo:\n   bind XXXXXX`
         : `Numero non riconosciuto. Per usare questo bot devi avere un account su Cadenza con il tuo numero registrato. Contatta la segreteria per assistenza.\n\nSe sei già registrato: Cadenza → Profilo → Bot messaging → Genera codice → invialo qui (bind XXXXXX).`;
       auditChatMessage({
         direction: 'out',
@@ -143,16 +226,32 @@ async function handleIncoming(incoming, config) {
       });
       return { reply };
     }
-    // Crea il binding
-    binding = await BotBinding.create({
-      channel,
-      externalId,
-      userId: result.userId,
-      boundAt: new Date(),
-      lastSeenAt: new Date(),
+    // Crea il binding — `findOrCreate` rende idempotente la double-bind:
+    // se due webhook concorrenti consumano l'OTP e tentano la create insieme,
+    // il secondo intercetta la riga esistente invece di sollevare
+    // SequelizeUniqueConstraintError (eccezione che la pipeline silenzia
+    // perché la 200 al webhook è già stata inviata → utente vedrebbe
+    // doppia spunta senza risposta).
+    [binding] = await BotBinding.findOrCreate({
+      where: { channel, externalId },
+      defaults: {
+        channel,
+        externalId,
+        userId: result.userId,
+        boundAt: new Date(),
+        lastSeenAt: new Date(),
+      },
     });
+    // Se la riga esisteva già (anche con userId diverso, es. utente cambiato
+    // tra revoca e re-bind senza eliminare la vecchia), riallinea ai dati
+    // del nuovo bind.
+    if (binding.userId !== result.userId) {
+      binding.userId = result.userId;
+      binding.boundAt = new Date();
+      await binding.save();
+    }
     const user = await User.findByPk(result.userId);
-    const reply = `✅ Collegamento completato! Ciao ${user?.firstName || ''}.\n\nComandi disponibili:\n• /book — prenota un'aula\n• /list — le mie prenotazioni\n• /cancel — annulla\n• /help — guida completa`;
+    const reply = `✅ Collegamento completato! Ciao ${mdSafeBasic(user?.firstName) || ''}.\n\nComandi disponibili:\n• /book — prenota un'aula\n• /list — le mie prenotazioni\n• /cancel — annulla\n• /help — guida completa`;
     auditChatMessage({
       direction: 'out',
       channel,
@@ -163,9 +262,16 @@ async function handleIncoming(incoming, config) {
     return { reply };
   }
 
-  // 5) Aggiorna lastSeen
-  binding.lastSeenAt = new Date();
-  await binding.save();
+  // 5) Aggiorna lastSeen — best-effort, non deve mai bloccare la pipeline.
+  //    Un fallimento qui (deadlock, lock contention, DB blip) non dovrebbe
+  //    impedire all'utente di ricevere la risposta al suo messaggio.
+  //    Usiamo `update` invece di `save()` sull'instance per evitare
+  //    optimistic locking conflicts con altre webhook concorrenti.
+  try {
+    await BotBinding.update({ lastSeenAt: new Date() }, { where: { id: binding.id } });
+  } catch (err) {
+    console.error(`[messaging:${channel}] lastSeenAt update error (non-blocking):`, err.message);
+  }
 
   // 6) Carica/crea sessione
   const session = await stateMachine.loadOrCreate({ channel, externalId, userId: binding.userId });
@@ -208,15 +314,17 @@ function parseBindingOtp(text) {
 }
 
 /** Cerca un utente con `botBindingChallenge` valido che matcha l'OTP fornito.
- *  Naturalmente lento (scan tabella utenti) ma lo spazio dei pending è
- *  piccolo (UN binding pending alla volta per utente, scadenza 10 min). */
+ *  Filtra a livello DB (botBindingChallenge IS NOT NULL) per evitare di
+ *  scaricare tutti gli utenti ad ogni messaggio "bind" (DoS amplifier),
+ *  e applica un cap difensivo sul numero di candidati da scansionare. */
 async function consumeBindingOtp(otp) {
-  // Scan utenti con challenge non null. Limitiamo per sicurezza.
   const candidates = await User.findAll({
-    where: {
-      /* botBindingChallenge: { [Op.ne]: null } — usiamo filter applicativo */
-    },
+    where: { botBindingChallenge: { [Op.ne]: null } },
     attributes: ['id', 'botBindingChallenge'],
+    // Ordina per id desc così, in caso di overflow del cap, prendiamo le
+    // challenge più recenti (più probabili di essere quelle attive).
+    order: [['id', 'DESC']],
+    limit: OTP_CANDIDATES_CAP,
   });
   const now = Date.now();
   const candidateUsers = candidates.filter((u) => {

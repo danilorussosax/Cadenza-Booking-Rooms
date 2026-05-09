@@ -11,6 +11,12 @@
 const PER_MIN = Number(process.env.MESSAGING_RATE_PER_MIN) || 30;
 const PER_DAY = Number(process.env.MESSAGING_RATE_PER_DAY) || 200;
 const COOLDOWN_MS = Number(process.env.MESSAGING_COOLDOWN_MS) || 60 * 60 * 1000;
+// Sweep ogni 30 min delle entry obsolete: entry inattiva da >24h e senza
+// cooldown attivo viene scartata. Per bot pubblici Telegram il numero di
+// chat-id univoci che scrivono una volta tende a +∞ — senza purga la Map
+// cresce all'infinito (memory leak).
+const SWEEP_INTERVAL_MS = Number(process.env.MESSAGING_RATE_SWEEP_MS) || 30 * 60 * 1000;
+const ENTRY_TTL_MS = Number(process.env.MESSAGING_RATE_ENTRY_TTL_MS) || 24 * 60 * 60 * 1000;
 
 const store = new Map(); // key → { minWindowStart, minCount, dayWindowStart, dayCount, cooldownUntil }
 
@@ -65,4 +71,55 @@ function reset(channel, externalId) {
   else store.clear();
 }
 
-module.exports = { check, reset, PER_MIN, PER_DAY, COOLDOWN_MS };
+/** Purga le entry inattive: nessun messaggio nelle ultime ENTRY_TTL_MS e
+ *  cooldown scaduto. Lasciamo intatte le entry con cooldown ancora attivo
+ *  per non perdere la protezione anti-flood. */
+function sweep() {
+  const now = Date.now();
+  let dropped = 0;
+  for (const [k, s] of store.entries()) {
+    const stale = now - s.dayWindowStart >= ENTRY_TTL_MS;
+    const noCooldown = s.cooldownUntil <= now;
+    if (stale && noCooldown) {
+      store.delete(k);
+      dropped += 1;
+    }
+  }
+  return dropped;
+}
+
+// Avvia lo sweeper solo nel runtime (non in test, per evitare side effect su
+// import + permettere ai test di pilotare manualmente con `sweep()`/`reset()`).
+let sweepTimer = null;
+if (process.env.NODE_ENV !== 'test') {
+  sweepTimer = setInterval(() => {
+    try {
+      sweep();
+    } catch (err) {
+      console.error('[messaging:rateLimit] sweep error:', err.message);
+    }
+  }, SWEEP_INTERVAL_MS);
+  // unref così il timer non tiene vivo il processo (utile per shutdown puliti)
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+}
+
+/** Stop dello sweeper (utile per shutdown grazioso o teardown test). */
+function stopSweeper() {
+  if (sweepTimer) {
+    clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
+}
+
+module.exports = {
+  check,
+  reset,
+  sweep,
+  stopSweeper,
+  PER_MIN,
+  PER_DAY,
+  COOLDOWN_MS,
+  ENTRY_TTL_MS,
+  // Esposto per i test
+  _store: store,
+};

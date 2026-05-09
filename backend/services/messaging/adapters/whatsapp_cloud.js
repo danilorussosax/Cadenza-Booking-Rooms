@@ -33,10 +33,20 @@ function verifyWebhook(req, config) {
   const sig = req.get('X-Hub-Signature-256') || '';
   if (!sig.startsWith('sha256=')) return false;
   const provided = sig.slice('sha256='.length);
-  // req.rawBody deve essere stato preservato dall'app (vedi app.js,
-  // express.json({ verify: ... })). Senza rawBody non possiamo verificare.
-  const raw = req.rawBody || JSON.stringify(req.body || {});
-  const expected = crypto.createHmac('sha256', appSecret).update(raw).digest('hex');
+  // `req.rawBody` deve essere stato preservato dall'app (vedi app.js,
+  // express.json({ verify: ... })). Senza il raw body byte-per-byte
+  // l'HMAC è ricostruibile solo per coincidenza: un fallback a
+  // `JSON.stringify(req.body)` produrrebbe rejection deterministica del
+  // webhook con messaggio "firma non valida" pur essendo un bug nostro.
+  // Meglio fallire esplicitamente con log.
+  if (!req.rawBody) {
+    console.error(
+      '[whatsapp_cloud] verifyWebhook: req.rawBody mancante — controlla che ' +
+        'app.js usi express.json({ verify: ... }) per le rotte /api/messaging/.',
+    );
+    return false;
+  }
+  const expected = crypto.createHmac('sha256', appSecret).update(req.rawBody).digest('hex');
   if (provided.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
 }

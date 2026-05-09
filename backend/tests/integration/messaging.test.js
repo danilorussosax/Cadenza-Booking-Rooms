@@ -239,6 +239,140 @@ describe('Bot messaging — webhook signature & binding', () => {
     ).toBeNull();
   });
 
+  // Regressione #1 (Markdown injection): nome aula con `_` non rompe l'invio.
+  // Prima del fix il render `*Test_Site*` faceva 400 da Telegram → silent fail.
+  it('Markdown injection: nome aula con caratteri speciali viene sanitizzato', async () => {
+    const user = await createUser({ status: 'approved' });
+    await configureTelegram();
+    const { Building, Room } = require('../../models');
+    const inst = await require('../factories').createInstitute({ name: 'Test_Inst' });
+    const sede = await Building.create({ instituteId: inst.id, name: 'Sede_Storica' });
+    await Room.create({ buildingId: sede.id, name: 'Aula_*42*', code: 'A_42', floor: 'PT' });
+    await BotBinding.create({
+      channel: 'telegram',
+      externalId: '9001',
+      userId: user.id,
+      boundAt: new Date(),
+    });
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(9001, '/aule'));
+    const r = await waitForReply();
+    expect(r.text).toBeTruthy();
+    // I caratteri Markdown speciali devono essere stati strippati (non
+    // appaiono `_`, `*` non bilanciati nel testo finale)
+    expect(r.text).not.toMatch(/[_*]42[_*]/);
+    // Lo strip preserva l'idea del nome con spazi al loro posto
+    expect(r.text).toContain('Sede Storica');
+  });
+
+  // Regressione #2/#7 (race binding): doppio bind con OTP valido non corrompe.
+  // Con findOrCreate idempotente il secondo bind trova la riga esistente.
+  it('Doppio bind con OTP non genera eccezione (idempotente con findOrCreate)', async () => {
+    const { user, authHeader } = await createAuthedUser({ status: 'approved' });
+    await configureTelegram();
+    const initRes = await request(app)
+      .post('/api/users/me/bot-bindings/init')
+      .set('Authorization', authHeader);
+    const otp = initRes.body.otp;
+
+    // Primo bind
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(202, `bind ${otp}`));
+    await waitForReply();
+    const firstCount = await BotBinding.count({
+      where: { channel: 'telegram', externalId: '202' },
+    });
+    expect(firstCount).toBe(1);
+
+    // Re-init OTP (la prima è stata consumata) e ri-bind sullo stesso chatId
+    const init2 = await request(app)
+      .post('/api/users/me/bot-bindings/init')
+      .set('Authorization', authHeader);
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(202, `bind ${init2.body.otp}`));
+    await waitForReply();
+    // Nessun duplicato (UNIQUE rispettato), riga riassegnata se necessario
+    const finalCount = await BotBinding.count({
+      where: { channel: 'telegram', externalId: '202' },
+    });
+    expect(finalCount).toBe(1);
+    const binding = await BotBinding.findOne({
+      where: { channel: 'telegram', externalId: '202' },
+    });
+    expect(binding.userId).toBe(user.id);
+  });
+
+  // Regressione #11 (externalId length): payload con chat_id anomalo non
+  // fa esplodere l'INSERT — viene droppato silenziosamente con log.
+  it('externalId >190 char viene droppato senza eccezione', async () => {
+    await configureTelegram();
+    const longId = '9'.repeat(250); // > 190
+    const res = await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(longId, '/help'));
+    expect(res.status).toBe(200);
+    // Nessuna reply attesa (drop silenzioso lato bot)
+    const sent = await waitForReply(150);
+    expect(sent).toBeNull();
+    // Niente sessione/binding creati
+    const sessionCount = await ChatSession.count({
+      where: { channel: 'telegram', externalId: longId },
+    });
+    expect(sessionCount).toBe(0);
+  });
+
+  // Regressione #12 (cancel race): doppio /cancel atomicamente serializzato
+  it('Doppio /cancel concorrente non duplica side effects', async () => {
+    const user = await createUser({ status: 'approved' });
+    await configureTelegram();
+    await BotBinding.create({
+      channel: 'telegram',
+      externalId: '303',
+      userId: user.id,
+      boundAt: new Date(),
+    });
+    const { Booking, Building, Room } = require('../../models');
+    const inst = await require('../factories').createInstitute({ name: 'CancelTest' });
+    const sede = await Building.create({ instituteId: inst.id, name: 'Sede' });
+    const room = await Room.create({ buildingId: sede.id, name: 'A', floor: 'PT' });
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const futureEnd = new Date(future.getTime() + 60 * 60 * 1000);
+    const booking = await Booking.create({
+      userId: user.id,
+      roomId: room.id,
+      startTime: future,
+      endTime: futureEnd,
+      type: 'studio_individuale',
+      status: 'confirmed',
+      purpose: 'test',
+    });
+
+    // Due cancel back-to-back: il lock chat serializza, ma anche se non lo
+    // facesse, il fix transazionale evita doppio update.
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(303, `/cancel ${booking.id}`));
+    await waitForReply();
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(303, `/cancel ${booking.id}`));
+    const r = await waitForReply();
+    // Il secondo cancel ottiene il messaggio "già annullata" (no duplica)
+    expect(r.text).toMatch(/già annullata|non.*cancellabile/i);
+  });
+
   // Regressione: dopo revoca + re-bind dallo stesso chatId, i comandi devono
   // continuare a funzionare. Il bug originale: ChatSession è paranoid (soft
   // delete), revocando il binding la riga restava con deletedAt valorizzato,
