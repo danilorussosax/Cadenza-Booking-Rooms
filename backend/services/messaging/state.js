@@ -18,8 +18,30 @@ const { ChatSession } = require('../../models');
 const SESSION_TTL_MIN = Number(process.env.MESSAGING_SESSION_TTL_MIN) || 15;
 
 async function loadOrCreate({ channel, externalId, userId }) {
-  let session = await ChatSession.findOne({ where: { channel, externalId } });
+  // `paranoid: false` è cruciale: ChatSession ha l'index UNIQUE su
+  // (channel, externalId) lato DB e non distingue le righe soft-deleted.
+  // Se l'utente revoca il binding (routes/botBindings.js fa
+  // `ChatSession.destroy(...)`, che è un soft-delete) e poi ricolleg ail
+  // bot, una findOne senza `paranoid: false` non vede la riga: tentiamo
+  // INSERT, violiamo l'UNIQUE, eccezione silente nella pipeline webhook
+  // (200 già inviato a Telegram, adapter.send mai chiamato) → "doppia
+  // spunta ma niente risposta". Includendo le soft-deleted le possiamo
+  // ripristinare e riusare per il nuovo binding.
+  let session = await ChatSession.findOne({
+    where: { channel, externalId },
+    paranoid: false,
+  });
   if (session) {
+    // Re-bind dopo revoca: resuscita la riga soft-deleted e parte fresca.
+    if (session.deletedAt) {
+      await session.restore();
+      session.userId = userId ?? null;
+      session.state = null;
+      session.slots = null;
+      session.expiresAt = null;
+      await session.save();
+      return session;
+    }
     // Se userId era null e ora il binding ha valore, allinea
     if (!session.userId && userId) {
       session.userId = userId;

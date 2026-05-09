@@ -17,6 +17,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { BotBinding, ChatSession } = require('../models');
+const rateLimit = require('../services/messaging/rateLimit');
 
 const OTP_TTL_MIN = 10;
 const OTP_LEN = 6;
@@ -81,6 +82,10 @@ router.delete('/:id', async (req, res, next) => {
       where: { channel: binding.channel, externalId: binding.externalId },
     });
     await binding.destroy();
+    // Reset rate limiter per (channel, externalId): se l'utente ha
+    // accidentalmente floodato durante un debug del binding, evitiamo che
+    // resti un cooldown attivo dopo la revoca.
+    rateLimit.reset(binding.channel, binding.externalId);
     res.json({ message: 'Binding revocato' });
   } catch (err) {
     next(err);

@@ -238,4 +238,77 @@ describe('Bot messaging — webhook signature & binding', () => {
       await ChatSession.findOne({ where: { channel: 'telegram', externalId: '777' } }),
     ).toBeNull();
   });
+
+  // Regressione: dopo revoca + re-bind dallo stesso chatId, i comandi devono
+  // continuare a funzionare. Il bug originale: ChatSession è paranoid (soft
+  // delete), revocando il binding la riga restava con deletedAt valorizzato,
+  // ma l'index UNIQUE su (channel, externalId) bloccava la creazione di una
+  // nuova riga. Risultato: eccezione silente nella pipeline → "doppia spunta"
+  // su Telegram ma nessuna risposta del bot.
+  it('revoke + re-bind + /help → bot risponde (no eccezione UNIQUE su ChatSession)', async () => {
+    const { user, authHeader } = await createAuthedUser({ status: 'approved' });
+    await configureTelegram();
+    const CHAT_ID = '888';
+
+    // 1) Primo bind: init OTP + bind dal canale
+    const init1 = await request(app)
+      .post('/api/users/me/bot-bindings/init')
+      .set('Authorization', authHeader);
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(Number(CHAT_ID), `bind ${init1.body.otp}`));
+    await waitForReply();
+    const binding1 = await BotBinding.findOne({
+      where: { channel: 'telegram', externalId: CHAT_ID },
+    });
+    expect(binding1).not.toBeNull();
+
+    // /help dopo il primo bind → deve funzionare
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(Number(CHAT_ID), '/help'));
+    let reply = await waitForReply();
+    expect(reply?.text).toMatch(/Cadenza.*Bot/);
+
+    // 2) Revoca binding (soft-delete della ChatSession lato backend)
+    await request(app)
+      .delete(`/api/users/me/bot-bindings/${binding1.id}`)
+      .set('Authorization', authHeader);
+
+    // 3) Nuovo init OTP + re-bind dallo stesso chatId
+    const init2 = await request(app)
+      .post('/api/users/me/bot-bindings/init')
+      .set('Authorization', authHeader);
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(Number(CHAT_ID), `bind ${init2.body.otp}`));
+    reply = await waitForReply();
+    expect(reply?.text).toMatch(/Collegamento completato/i);
+
+    // 4) Comando /help dopo il re-bind: il bot DEVE rispondere.
+    //    Prima del fix: l'eccezione UNIQUE su INSERT ChatSession bloccava
+    //    silentemente questa risposta.
+    lastSent = null;
+    await request(app)
+      .post('/api/messaging/telegram/webhook')
+      .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)
+      .send(tgPayload(Number(CHAT_ID), '/help'));
+    reply = await waitForReply();
+    expect(reply?.text).toMatch(/Cadenza.*Bot/);
+    expect(reply?.text).toContain('/book');
+
+    // La ChatSession è stata "ressuscitata", non duplicata
+    const sessions = await ChatSession.findAll({
+      where: { channel: 'telegram', externalId: CHAT_ID },
+      paranoid: false,
+    });
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].deletedAt).toBeNull();
+    expect(sessions[0].userId).toBe(user.id);
+  });
 });
