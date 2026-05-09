@@ -67,16 +67,25 @@ header-includes:
 
 ## Cosa c'è di nuovo in v1.5 (9 maggio 2026)
 
-> Questa edizione del manuale è stata **ripulita** dei contenuti puramente tecnici (API, codici di errore, dettagli implementativi). L'obiettivo è renderla una guida pratica utilizzabile da chi gestisce il Conservatorio quotidianamente, lasciando ai documenti di sviluppo i dettagli per il personale IT.
+> Questa edizione del manuale è stata **ripulita** dei contenuti puramente tecnici (API, codici di errore, dettagli implementativi) e arricchita di **scenari guidati** ed **esempi reali** sulle aree più complesse (Regole/Quote/Eccezioni e Monte Ore). L'obiettivo è renderla una guida pratica utilizzabile da chi gestisce il Conservatorio quotidianamente, lasciando ai documenti di sviluppo i dettagli per il personale IT.
 
 Modifiche principali rispetto alla v1.4:
 
 - Linguaggio più semplice e diretto, meno gergo informatico.
 - Rimossi i riferimenti a chiamate API, codici d'errore, query SQL, comandi `curl`.
-- Rimossi i mockup testuali "Riferimento UI" duplicati: dove non c'è uno screenshot, una breve descrizione del layout sostituisce il blocco ASCII.
+- Rimossi i mockup testuali "Riferimento UI" duplicati: ora ci sono **screenshot reali** della UI per tutte le pagine principali.
 - Tabelle dei campi form alleggerite: nomi e significati, senza limiti di caratteri o dettagli di validazione.
 - Sezione "Sicurezza e hardening" (ex §16) rimossa: i suoi contenuti vivono ora in `docs/SECURITY.md` e `docs/AUDIT_QUALITA_PRODUZIONE.md`, dove sono più pertinenti.
 - Aggiornata la nuova feature **Eccezioni con scope per aula** (§6.3) e il **toggle vista calendario 1 / 3 giorni** della dashboard utente (§2).
+- **Nuovi screenshot**: dashboard utente (1 e 3 giorni), pagina di prenotazione, le mie prenotazioni, aule raggruppate per edificio, profilo, dialog "Nuova eccezione" con campo Aula.
+- **Approfondimento §6 — Regole / Quote / Eccezioni**:
+  - §6.1bis con 3 scenari guidati di configurazione "Per ruolo" (Conservatorio piccolo, grande, sessione esami)
+  - §6.2 ampliato con la spiegazione "regola vs quota in una frase", la lista dei tetti combinabili e una **sequenza passo-passo** di come Cadenza valuta una prenotazione contro più quote
+  - §6.3 ampliato con **6 scenari guidati** completi (Aula in ristrutturazione, sessione esami, sala concerti riservata, aula a numero chiuso, vacanze di Natale, sciopero) ciascuno con i parametri esatti del form
+- **Approfondimento §8 — Monte Ore**:
+  - §8.2bis nuovo: **flusso completo in 5 fasi** (Settings → Inserimento → Approvazione → Generazione → Variazioni) con tabella stati
+  - §8.5bis nuovo: **5 casi guidati** durante la revisione delle proposte (entro soglia, sotto soglia, aula non assegnata, conflitto generazione, fuori vincolo CCNL)
+  - §8.6 ampliato: tabella dei **4 tipi di amendment** + spiegazione del tetto annuale di variazioni
 
 Per le note tecniche di rilascio (changelog di versione 2.x della piattaforma) vedi `docs/AUDIT_QUALITA_PRODUZIONE.md`.
 
@@ -122,10 +131,23 @@ Un utente ha sempre **un solo ruolo** alla volta. Il cambio di ruolo (es. promoz
 
 ## 2. Accesso all'area Amministrazione
 
+### 2.1 Login
+
+![Schermata di login — scelta del provider o email + password](screenshots/login.png)
+
 1. Vai a `https://<dominio-conservatorio>/login`.
 2. Click su **"Accedi con email"** → inserisci email e password.
 3. Inserisci il codice di sicurezza ricevuto via mail (validità 10 minuti).
-4. Una volta loggato come admin, la sidebar a sinistra mostra in basso la sezione **"AMMINISTRAZIONE"** con queste voci:
+
+![Schermata di login con il form email + password aperto](screenshots/login-email.png)
+
+> **Primo accesso?** Dopo aver creato l'account, la pagina ti chiede di completare il profilo (matricola, corso, ecc.) prima di poter usare il sistema.
+
+![Pagina di completamento profilo al primo accesso](screenshots/complete-profile.png)
+
+### 2.2 Sidebar Amministrazione
+
+Una volta loggato come admin, la sidebar a sinistra mostra in basso la sezione **"AMMINISTRAZIONE"** con queste voci:
 
 ```
 AMMINISTRAZIONE
@@ -144,9 +166,30 @@ AMMINISTRAZIONE
 
 Le voci **Monte Ore** e **Inventario strumenti** sono nascondibili da _Impostazioni Server → Moduli_ se il Conservatorio non li usa (vedi §12.9).
 
-### Vista del calendario in dashboard (1 / 3 giorni)
+### 2.3 Dashboard utente
 
-Sulla dashboard utente la card del calendario ha un toggle in alto a destra: **`1 giorno · 3 giorni`**. Quando è attiva la modalità "3 giorni" vedi affiancati il giorno corrente e i due successivi. La preferenza viene ricordata sul tuo browser, e le frecce di navigazione avanzano in passi coerenti (1 oppure 3 giorni).
+La dashboard è la **prima pagina** che vedi dopo il login. Riassume in un colpo d'occhio: prossime prenotazioni, calendario aule, eventuali notifiche.
+
+![Dashboard utente — vista 1 giorno (default)](screenshots/dashboard-overview.png)
+
+### 2.4 Vista del calendario in dashboard (1 / 3 giorni)
+
+Sulla dashboard la card del calendario ha un toggle in alto a destra: **`1 giorno · 3 giorni`**. Quando è attiva la modalità "3 giorni" vedi affiancati il giorno corrente e i due successivi. La preferenza viene ricordata sul tuo browser, e le frecce di navigazione avanzano in passi coerenti (1 oppure 3 giorni).
+
+![Dashboard — vista calendario "3 giorni" affiancati](screenshots/dashboard-calendario-3giorni.png)
+
+### 2.5 Pagine principali per l'utente
+
+Tutti gli utenti (studente / docente / admin) hanno accesso alle stesse pagine "operative". L'admin in più ha la sezione AMMINISTRAZIONE descritta sopra.
+
+- **Prenota** (`/booking`) — cerchi l'aula, scegli giorno e orario, prenoti.
+  ![Pagina di prenotazione — selezione aula + slot 30 min](screenshots/booking-page.png)
+- **Le mie prenotazioni** (`/my-bookings`) — riepilogo con tab future / passate / annullate.
+  ![Le mie prenotazioni — tab future, passate, annullate](screenshots/my-bookings.png)
+- **Aule** (`/rooms`) — directory raggruppata per edificio con foto e dotazioni.
+  ![Pagina Aule — sezioni espandibili per edificio](screenshots/rooms-grouped.png)
+- **Profilo** (`/profile`) — anagrafica, password, preferenze notifiche, link iCal personale.
+  ![Pagina Profilo — anagrafica e preferenze](screenshots/profile-page.png)
 
 > **Differenza tra "Sidebar Operazioni" e "Impostazioni Server"**: le prime 11 voci della sidebar sono per le **attività quotidiane**. _Impostazioni Server_ raggruppa invece la **configurazione del sistema** (mail, QR, display, audit, backup, moduli) ed è la voce che apri raramente.
 
@@ -436,11 +479,51 @@ ruolo admin:
 
 > I campi a `0` significano "nessun limite". Non confonderli con "campo non valorizzato".
 
+### 6.1bis Scenari guidati per la configurazione "Per ruolo"
+
+Per aiutarti a partire, ecco tre profili di Conservatorio reali e i parametri consigliati. Adattali poi alla tua realtà locale.
+
+#### Scenario A — Conservatorio piccolo / medio (≤ 200 studenti, 1 sede)
+
+| Parametro                 | Studente | Docente | Razionale                                                           |
+| ------------------------- | -------- | ------- | ------------------------------------------------------------------- |
+| Max prenotazioni attive   | 5        | 15      | Lo studente non deve "occupare" il calendario settimane in anticipo |
+| Max ore / settimana       | 12       | 30      | 2h al giorno × 6 giorni per lo studente è generoso                  |
+| Max ore / giorno          | 4        | 8       | Studente non studia per 8h, docente sì                              |
+| Durata max prenotazione   | 120      | 240     | Lo studente fa lezione + studio personale                           |
+| Anticipo max (gg)         | 14       | 60      | Il docente programma il semestre, lo studente vede 2 settimane      |
+| Anticipo min (min)        | 15       | 0       | Lo studente deve "decidersi" 15 min prima                           |
+| Cancel cutoff (h)         | 2        | 2       | Sotto le 2h conta come no-show                                      |
+| Orario apertura/chiusura  | 08-22    | 07-23   | Il docente inizia presto e chiude più tardi                         |
+| Cooldown tra prenotazioni | 30 min   | 0       | Anti-aggiramento del cap giornaliero per gli studenti               |
+
+#### Scenario B — Conservatorio grande (> 400 studenti, 2-3 sedi, sala concerti)
+
+Stessi parametri di A, con queste differenze:
+
+- **Max ore / settimana studente: 8** (più persone in coda → ognuno ne usa di meno)
+- **Max ore / giorno studente: 3**
+- **Anticipo max studente: 7 gg** (rotazione più rapida)
+- Aggiungi una **quota dedicata** sulle aule "premium" (vedi §6.2 esempio Q3)
+- Considera il **cooldown 60 min** per gli studenti se vedi che concatenano sistematicamente
+
+#### Scenario C — Sessione esami / saggi (modalità intensiva, 2-3 settimane all'anno)
+
+Non cambiare le regole base. Crea invece **eccezioni temporanee** (vedi §6.3) per:
+
+- Sospendere quota weekend (`time_window` con `daysOfWeek=sab+dom`, `Ore max=999`)
+- Aprire l'orario serale fino alle 24 per i docenti (eccezione su ruolo docente)
+- Limitare l'aula concerti a "solo prenotazioni dell'esame" (eccezione `block` con scope aula)
+
+Le eccezioni scadono in automatico alla data finale: niente da ricordare di ripristinare a posteriori.
+
 ### 6.2 Tab "Quote"
 
 ![Tab Quote — limiti granulari per stanza, edificio, tipo aula](screenshots/rules-quote.png)
 
 Una **quota** è un sotto-limite più stringente per uno specifico target. Cadenza applica **prima** la regola per ruolo e **poi** tutte le quote che corrispondono al target della prenotazione, prendendo il limite più basso.
+
+> **In una frase**: "_la regola di ruolo dice quanto vale per tutto il sistema; la quota dice quanto vale per una specifica risorsa_". Se per uno studente il ruolo dice 12 h/sett ma esiste una quota "Aula 12: max 2h/sett per studente", quello studente farà al massimo 2h in Aula 12 + altre 10h sparse altrove.
 
 #### Tipi di scope
 
@@ -452,15 +535,49 @@ Una **quota** è un sotto-limite più stringente per uno specifico target. Caden
 | `building`      | edificio_centrale              | Limite per edificio (utile se uno è in ristrutturazione)       |
 | `global`        | \*                             | Limite globale (oltre quello di ruolo)                         |
 
-#### Esempio pratico
+#### Tetti che puoi mettere su una quota
 
-| #   | Ruolo    | Scope    | Scope value                 | Max h/sett | Giorni  | Note                                                |
-| --- | -------- | -------- | --------------------------- | ---------- | ------- | --------------------------------------------------- |
-| Q1  | studente | roomType | concerto                    | 0          | tutti   | Studenti non possono prenotare sale concerti        |
-| Q2  | docente  | roomType | concerto                    | 0          | tutti   | Idem per docenti — solo Direzione                   |
-| Q3  | studente | room     | "Aula 12 — Pianoforte coda" | 2          | tutti   | Aula molto richiesta: max 2h/settimana per studente |
-| Q4  | studente | global   | \*                          | 6          | sab-dom | Limite weekend: 6h totali sab+dom                   |
-| Q5  | studente | building | "Sede succursale"           | 0          | tutti   | Edificio in ristrutturazione                        |
+Ogni quota può combinare uno o più di questi tetti — Cadenza applica il **più stringente** che trova:
+
+| Tetto                  | Significato                                 |
+| ---------------------- | ------------------------------------------- |
+| Max ore / giorno       | Tetto giornaliero su quel target            |
+| Max ore / settimana    | Tetto settimanale (lun–dom)                 |
+| Max ore / mese         | Tetto del mese solare                       |
+| Max prenotazioni       | Numero massimo di prenotazioni nel periodo  |
+| Giorni della settimana | Lista giorni cui si applica (vuoto = tutti) |
+| Fascia oraria          | Inizio – Fine entro cui la quota agisce     |
+
+> Almeno **un tetto** > 0 deve essere presente: una quota "0 ore in tutto" significa "blocca completamente quel target per quel ruolo" e ha un nome dedicato (eccezione `block`, vedi §6.3).
+
+#### Esempi pratici di quote
+
+| #   | Ruolo    | Scope           | Scope value                 | Tetto                 | Giorni  | Orario      | Note                                                   |
+| --- | -------- | --------------- | --------------------------- | --------------------- | ------- | ----------- | ------------------------------------------------------ |
+| Q1  | studente | `roomType`      | concerto                    | 0                     | tutti   | —           | Studenti non possono prenotare sale concerti           |
+| Q2  | docente  | `roomType`      | concerto                    | 4 h/mese              | tutti   | —           | Docenti: sala concerti solo per prove serie            |
+| Q3  | studente | `room`          | "Aula 12 — Pianoforte coda" | 2 h/sett              | tutti   | —           | Aula contesa: massimo 2h/settimana per studente        |
+| Q4  | studente | `global`        | \*                          | 6 h totali            | sab-dom | —           | Limite weekend: 6h totali sab + dom                    |
+| Q5  | studente | `building`      | "Sede succursale"           | 0                     | tutti   | —           | Edificio in ristrutturazione                           |
+| Q6  | studente | `equipmentType` | pianoforte_coda             | 4 h/sett              | tutti   | —           | Solo se studente di pianoforte può prenotare il "coda" |
+| Q7  | docente  | `roomType`      | concerto                    | 8 h/sett              | tutti   | 18:00–22:00 | Concerto disponibile solo la sera per i docenti        |
+| Q8  | studente | `room`          | "Sala 3 — Sala prove"       | 3 h/giorno · 9 h/sett | tutti   | 09:00–22:00 | Limite giornaliero + settimanale combinati             |
+
+#### Sequenza di applicazione (cosa succede passo-passo)
+
+Quando uno studente prova a prenotare 2h in Aula 12 (pianoforte coda) il martedì dalle 14 alle 16, Cadenza fa così:
+
+1. Verifica la regola di ruolo (es. studente: max 12 h/sett · max 4 h/giorno) → OK ammesso ne ha già fatte 8 nella settimana e 0 nella giornata.
+2. Cerca le quote che riguardano questa prenotazione:
+   - Q3 `room` "Aula 12" — max 2 h/sett → contiamo le ore già prenotate in Aula 12 questa settimana
+   - Q6 `equipmentType` pianoforte_coda — max 4 h/sett → contiamo le ore in qualunque aula con questa dotazione
+3. **Limite più stretto vince**. Se Q3 dice ne ha già 1h e Q6 dice 2h:
+   - Q3 ammette ancora 1h
+   - Q6 ammette ancora 2h
+   - **Cadenza accetta solo 1h** (il minimo dei due) → l'utente vede "Hai raggiunto il limite per Aula 12".
+4. Se nulla blocca, la prenotazione viene salvata (oppure va in approvazione se l'aula lo richiede).
+
+> **Quote vs eccezioni**: la quota è **strutturale e permanente** ("Aula 12 vale così tutto l'anno"). L'eccezione è **temporanea** ("dal 1 al 30 giugno cambiamo le regole"). Vedi §6.3 per le eccezioni.
 
 ### 6.2bis Tab "Quote prestiti"
 
@@ -474,18 +591,29 @@ Stesso schema delle quote aule, ma applicato all'**inventario strumenti**:
 | Max giorni anno | Quanti giorni cumulati in un anno solare                |
 | Attivo          | Disabilita la quota senza eliminarla                    |
 
-### 6.3 Tab "Eccezioni" — `BookingRuleException`
+### 6.3 Tab "Eccezioni"
 
 ![Tab Eccezioni — override temporanei per utenti o aule specifiche](screenshots/rules-eccezioni.png)
+
+Le eccezioni sono **regole temporanee** che entrano in gioco al posto (o in aggiunta) di quelle normali. La differenza con le quote di §6.2 è la **scadenza**: una quota vale finché non la cancelli; un'eccezione ha una data di inizio e una di fine.
 
 Le eccezioni **sospendono o sostituiscono** una regola/quota per:
 
 - una **finestra temporale** specifica (es. "durante la sessione esami sospendi la quota weekend")
-- uno **specifico utente** (es. "Prof. Rossi: nessun limite settimanale per maggio per le prove dell'esame finale")
+- uno **specifico ruolo** (es. "tutti gli studenti dal 1 al 15 giugno")
 - una **specifica aula** ⭐ NUOVO (es. "Aula 5: max 2h/giorno per gli studenti dal 1 al 30 giugno")
 - una combinazione delle precedenti (ruolo + aula + finestra)
 
 L'eccezione ha priorità sulla regola/quota originaria. Ogni modifica viene tracciata nel registro attività.
+
+#### Due tipi di eccezione
+
+Cadenza supporta due tipi di eccezione, da scegliere al momento della creazione:
+
+| Tipo          | Cosa fa                                                                                                                                                                                         | Caso d'uso tipico                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `block`       | **Chiusura totale** del target nella finestra. Nessuna prenotazione passa.                                                                                                                      | Aula in ristrutturazione, sciopero, festa patronale, evento istituzionale che occupa l'intera struttura                            |
+| `time_window` | **Cambia il limite di ore** nella finestra. La prenotazione passa solo se sotto il nuovo tetto. Può **rilassare** (più ore del solito) o **stringere** (meno ore) rispetto alla regola normale. | Sessione esami: "lo studente può fare 999h/sett (di fatto illimitato)" oppure "Aula 5 a numero chiuso: max 2h/giorno per studente" |
 
 #### Lista eccezioni — toolbar e filtri
 
@@ -499,6 +627,8 @@ In alto sopra la tabella:
 Ogni riga della lista mostra: nome dell'eccezione + tipo (`block` viola scuro · `time_window` ambra), il badge ruolo, il badge viola **"Aula X"** se è scoped, la finestra date e l'icona attiva/non attiva.
 
 #### Form Eccezione
+
+![Dialog Nuova Eccezione — campi del form, incluso il Select Aula](screenshots/rules-eccezione-dialog.png)
 
 | Campo                  | Descrizione                                                                 |
 | ---------------------- | --------------------------------------------------------------------------- |
@@ -522,6 +652,102 @@ Ogni riga della lista mostra: nome dell'eccezione + tipo (`block` viola scuro ·
 > - Aula = "Tutte" → la regola vale **per tutte le aule** (eccezione globale).
 
 > **Nudge visivo**: se la data finale è nel passato, un banner azzurro avvisa che l'eccezione ignorerà comunque le nuove prenotazioni.
+
+#### Scenari guidati per le eccezioni
+
+I 6 casi più frequenti, con i parametri esatti da inserire nel form:
+
+##### Scenario 1 — Aula in ristrutturazione (1 settimana)
+
+> _"L'Aula 7 viene tinteggiata dal 12 al 18 maggio. Nessuno deve prenotarla."_
+
+| Campo        | Valore                          |
+| ------------ | ------------------------------- |
+| Nome         | "Aula 7 — tinteggiatura"        |
+| Tipo         | `block`                         |
+| Si applica a | Tutti                           |
+| Aula         | "Sede Storica · Aula 7"         |
+| Dal · Al     | 2026-05-12 · 2026-05-18         |
+| Note         | "Riapertura prevista lunedì 19" |
+
+> Al salvataggio Cadenza ti chiede se ci sono già prenotazioni in quel range. Vedi più sotto **"Sovrapposizioni storiche"**.
+
+##### Scenario 2 — Sessione esami: weekend illimitato per docenti (2 settimane)
+
+> _"Dal 10 al 25 giugno i docenti possono prenotare anche sabato/domenica senza il tetto weekend di 6h."_
+
+| Campo                  | Valore                                  |
+| ---------------------- | --------------------------------------- |
+| Nome                   | "Esami giugno — weekend libero docenti" |
+| Tipo                   | `time_window`                           |
+| Si applica a           | Solo docenti                            |
+| Aula                   | Tutte le aule                           |
+| Ore max nella finestra | 999 (di fatto illimitato)               |
+| Giorni                 | sab + dom                               |
+| Dal · Al               | 2026-06-10 · 2026-06-25                 |
+
+##### Scenario 3 — Sala concerti riservata per saggio finale (1 giorno)
+
+> _"Il 15 giugno la sala concerti è prenotabile SOLO da chi ha l'esame, dalle 18 alle 23."_
+
+Combo di due eccezioni:
+
+1. `block` su sala concerti per tutti dalle 00 alle 18 + dalle 23 alle 24 → la sala è chiusa fuori orario.
+2. Prenoti tu (admin) la sala concerti per il candidato — la prenotazione passa perché un admin può sempre forzare se serve.
+
+In alternativa, più rapida: una singola eccezione `block` su tutte le aule **eccetto** chi ha già la prenotazione manuale fatta dall'admin (Cadenza non blocca le prenotazioni create prima dell'eccezione).
+
+##### Scenario 4 — Aula contesa: numero chiuso temporaneo (1 mese)
+
+> _"L'Aula 12 (con il pianoforte coda) è troppo richiesta a maggio. Limitiamola a max 2h/giorno per studente, dal 1 al 31 maggio."_
+
+| Campo                  | Valore                           |
+| ---------------------- | -------------------------------- |
+| Nome                   | "Aula 12 — numero chiuso maggio" |
+| Tipo                   | `time_window`                    |
+| Si applica a           | Solo studenti                    |
+| Aula                   | "Sede Storica · Aula 12"         |
+| Ore max nella finestra | 2 (= max 2h/giorno)              |
+| Giorni                 | tutti                            |
+| Dal · Al               | 2026-05-01 · 2026-05-31          |
+
+> Importante: la finestra "ore max" qui è interpretata come **massimo per giorno** (la finestra giornaliera). Per cambiarla in settimanale, usa una quota in §6.2 invece di un'eccezione.
+
+##### Scenario 5 — Vacanze di Natale: chiusura totale (2 settimane)
+
+> _"Dal 24 dicembre al 6 gennaio nessuno deve poter prenotare niente."_
+
+| Campo        | Valore                  |
+| ------------ | ----------------------- |
+| Nome         | "Chiusura natalizia"    |
+| Tipo         | `block`                 |
+| Si applica a | Tutti                   |
+| Aula         | Tutte le aule           |
+| Dal · Al     | 2026-12-24 · 2027-01-06 |
+
+> In alternativa puoi usare il modulo Monte Ore → tab Sospensioni (§8.4): più ricco, perché ti gestisce anche gli slot Monte Ore esistenti.
+
+##### Scenario 6 — Sciopero / festa patronale (1 giorno)
+
+> _"Il 16 ottobre è la festa di Santa Cecilia, patrona dei musicisti. Conservatorio chiuso."_
+
+| Campo        | Valore               |
+| ------------ | -------------------- |
+| Nome         | "Santa Cecilia 2026" |
+| Tipo         | `block`              |
+| Si applica a | Tutti                |
+| Aula         | Tutte le aule        |
+| Dal · Al     | 2026-10-16 (singola) |
+
+#### Combinazione di più eccezioni
+
+Le eccezioni sono **additive**: tutte quelle che corrispondono al target della prenotazione vengono valutate. Se due eccezioni si toccano:
+
+- Due `block` → l'utente vede comunque "aula chiusa".
+- Un `block` + un `time_window` → vince il `block` (il blocco totale è più stringente).
+- Due `time_window` → vince il limite più basso.
+
+Esempio: hai un'eccezione "Aula 12 max 2h/giorno per maggio" (Scenario 4) e ne crei una seconda "Esami giugno — weekend libero" (Scenario 2). Per uno studente che prova a prenotare l'Aula 12 il sabato 1 giugno, vale solo la prima (la seconda è per docenti).
 
 #### Sovrapposizioni storiche al setup di chiusure
 
@@ -640,6 +866,39 @@ Per ogni docente Cadenza memorizza:
 - **Sospensioni didattiche**: festività, ferie, esami → escludono date dalla generazione degli slot.
 - **Variazioni** (amendments): cambiamenti su una proposta già approvata.
 
+### 8.2bis Il flusso completo del Monte Ore (vista d'insieme)
+
+Il Monte Ore copre un intero anno accademico e attraversa **5 fasi**. Sapere in che fase sei in un dato momento ti dice cosa fare e cosa aspettarti dai docenti.
+
+```
+  Fase 1               Fase 2                   Fase 3              Fase 4                    Fase 5
+  ──────────           ──────────────           ─────────────       ───────────────────       ──────────────────
+  Settings             Inserimento              Approvazione        Generazione                Variazioni
+  (admin)              (docente)                (admin)             (admin)                    (docente → admin)
+  ──────────           ──────────────           ─────────────       ───────────────────       ──────────────────
+  set/ott              metà set – metà ott      ott (rolling)       metà ott                   tutto l'anno
+  ↓                    ↓                        ↓                   ↓                          ↓
+  • anno accad.        • compila griglia        • esamina lista     • crea le prenotazioni    • il docente chiede
+  • finestra           • aule + giorni          • approva o         • slot Monte Ore →          una modifica
+    lezioni              + orari                  rifiuta             Booking nel calendario   • admin accetta
+  • finestra           • totale h vs soglia     • controlla         • email broadcast            o rifiuta
+    inserimento        • submit                   contratto                                    • amendment
+  • soglia 324h                                                                                  contatore (tetto
+  • sospensioni                                                                                  annuo)
+```
+
+**Stati del flusso di una proposta**:
+
+| Stato       | Chi può cambiarlo | Cosa succede                                                                           |
+| ----------- | ----------------- | -------------------------------------------------------------------------------------- |
+| `bozza`     | Docente           | Sta compilando, può salvare e tornare. Nessuno la vede.                                |
+| `in attesa` | Docente → Admin   | Il docente ha cliccato "Invia". Compare nella tab Proposte dell'admin.                 |
+| `approvata` | Admin             | Tutto ok dal punto di vista contrattuale. Le aule sono assegnate. Manca solo generare. |
+| `rifiutata` | Admin             | Il docente riceve email con motivo. La proposta torna a "bozza" se vuole rilavorarla.  |
+| `generata`  | Admin             | Le prenotazioni sono nel calendario aule. Il docente le vede in `/my-bookings`.        |
+
+> **Differenza tra "approvata" e "generata"**: il primo è la **firma contrattuale** ("ok, il piano è valido"), il secondo è la **materializzazione operativa** ("ho creato 800 prenotazioni nel calendario"). Le tieni separate per poter approvare in batch e poi generare quando il calendario è davvero pronto.
+
 ### 8.3 Configurazione settings (admin · una volta all'anno)
 
 URL diretto: `/admin/monte-ore/settings`.
@@ -704,6 +963,54 @@ Bottoni nel dialog di dettaglio:
 
 In media, approva direttamente le proposte dei docenti senior; usa "approva con modifiche" per spostare i nuovi docenti su aule meno richieste. Il rifiuto puro va riservato alle proposte fuori vincolo (≥4 giorni/sett, <324h/anno, fuori finestra).
 
+### 8.5bis Casi guidati durante la revisione delle proposte
+
+Mentre esamini le proposte, ti capiteranno di sicuro questi 5 casi. Ecco cosa fare in ciascuno.
+
+#### Caso A — Docente entro la soglia, aule libere
+
+Il caso ideale. Apri la proposta, vedi il totale ore = 324 (o sopra), nessun warning sulle aule. Click **Approva** → si arricchisce di un timestamp e passa a "Approvata". Quando hai approvato tutti i docenti del corso/sezione, torna in lista e usa **Crea prenotazioni** per generare in batch (vedi §8.7).
+
+#### Caso B — Docente sotto soglia (es. 312 h vs 324)
+
+In dialog vedi una banda gialla "**totale 312 h vs 324 richieste**". Possibili cause:
+
+- Sospensioni dell'anno (Natale, Pasqua) sottratte automaticamente → totale "lordo" 324 ma "netto" 312.
+- Il docente ha lasciato fuori una fascia perché in dubbio sull'aula.
+
+Cosa fare:
+
+1. **Chiedi al docente** via mail o di persona: "ti mancano 12 ore — vuoi aggiungere un'altra fascia?"
+2. Se sì, **rifiuta** con motivo "Manca un giorno di lezione, riapri la proposta in bozza e aggiungi una fascia di 4h × 3 settimane".
+3. Se no (es. lui ha L. 104 al 50%), considera la **deroga individuale** (§8.10): porta la sua soglia a 162 h e riapprova.
+
+#### Caso C — Aula non assegnata su una fascia (warning icon)
+
+Una fascia mostra ⚠ "aula da assegnare". Significa che il docente ha indicato giorno + orario ma non ha potuto scegliere un'aula (era già occupata da altri docenti o non aveva permessi). Cosa fare:
+
+1. Apri la fascia (✎ Modifica) → seleziona un'aula compatibile.
+2. Salva. Cadenza ricontrolla la disponibilità. Se OK la fascia diventa verde.
+3. Se nessuna aula libera, prova a **spostare la fascia** ad un altro slot orario (es. martedì 14-17 → giovedì 15-18) e riassegnare.
+
+#### Caso D — Conflitto al momento della generazione
+
+Hai cliccato **Crea prenotazioni** ma 3 slot non sono passati per overlap (un'altra prenotazione "manuale" si era infilata in quell'orario). La proposta torna in stato **"Approvata"** con un report che dice quali slot mancano.
+
+Workflow:
+
+1. Apri la proposta → vedi "3 slot non generati" + dettaglio (data + ora + aula).
+2. Vai in `/admin/activity-log` → cerca la prenotazione conflittuale → cancella o sposta.
+3. Torna sulla proposta → click **Crea prenotazioni** di nuovo. Stavolta passa.
+
+> **Trick**: prima di generare in massa fai un giro dell'/admin/activity-log filtrando per range di date della finestra lezioni. Se vedi prenotazioni "ad hoc" (es. studenti che si sono prenotati la prima settimana di ottobre) cancella o spostale prima.
+
+#### Caso E — Docente fuori vincolo (5 giorni/settimana)
+
+Il vincolo CCNL è 2-4 giorni/sett. Se il docente fa 5 giorni, in dialog vedi un alert rosso. Non puoi approvare. Cosa fare:
+
+1. **Rifiuta** con motivo "vincolo CCNL: max 4 giorni/sett, ridistribuisci le ore in 4 giorni".
+2. Se è un docente con **bypass del vincolo** (es. supplente part-time concordato per fare 5 giorni × 1h), imposta la deroga individuale (§8.10) → spunta "Esente dal vincolo 2-4 gg/sett" → approva.
+
 ### 8.6 Tab "Richieste variazioni"
 
 ![Tab Richieste variazioni — coda amendment con badge pending](screenshots/monteore-amendments.png)
@@ -716,6 +1023,17 @@ Una volta che la proposta è approvata, il docente può chiedere di **modificare
 
 La tabella mostra: docente · AA, tipo (Disattivazione · Riattivazione · Cambio orario · Nuovo giorno), riepilogo dello slot toccato, note del docente, stato (In attesa · Auto-approvata · Approvata · Rifiutata) e i bottoni di azione.
 
+#### I 4 tipi di amendment in dettaglio
+
+| Tipo               | Cosa chiede il docente                                                                  | Effetto sul calendario quando approvi                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Disattivazione** | "Cancella la lezione del 12 ottobre"                                                    | Lo slot Monte Ore viene marcato `inattivo`; la prenotazione corrispondente nel calendario aule viene annullata |
+| **Riattivazione**  | "La lezione che avevo cancellato del 12 ottobre rimettila"                              | Lo slot torna `attivo` e Cadenza ricrea la prenotazione (se l'aula è ancora libera in quella fascia)           |
+| **Cambio orario**  | "Quella del lunedì 14:00 spostala alle 16:00"                                           | Lo slot mantiene la stessa data ma nuovi orari; la prenotazione viene aggiornata                               |
+| **Nuovo giorno**   | "Voglio aggiungere una lezione il giovedì 13 ottobre, sono in ritardo con il programma" | Cadenza ti chiede in dialog quale aula assegnare → crea il nuovo slot e la prenotazione                        |
+
+Per ognuno il docente scrive una **nota** che tu vedi in chiaro al momento di approvare. Es. "spostamento per visita medica" o "recupero della classe X".
+
 #### Auto-approve per casi semplici
 
 Per ridurre il carico amministrativo puoi attivare in _Settings → Monte Ore_ l'**auto-approve amendments** per:
@@ -724,6 +1042,10 @@ Per ridurre il carico amministrativo puoi attivare in _Settings → Monte Ore_ l
 - cancellazioni con almeno 24h di anticipo
 
 Tutti gli altri restano in stato "In attesa" e richiedono la tua approvazione manuale.
+
+#### Tetto annuale di amendments
+
+Per evitare che la proposta venga riscritta di settimana in settimana, in _Settings → Monte Ore_ puoi impostare un **massimo di amendments per proposta per anno** (default: 3). Quando un docente raggiunge il tetto, vedrà un alert e non potrà più richiedere variazioni. In casi eccezionali tu admin puoi sempre **applicare modifiche manualmente** (modifica diretta della proposta) senza intaccare il contatore.
 
 ### 8.7 Generazione slot e materializzazione prenotazioni
 

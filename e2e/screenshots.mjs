@@ -135,9 +135,9 @@ async function shot(page, url, file, opts = {}) {
     await page.getByRole('option', { name: /docente/i }).click();
     await page.waitForTimeout(400);
   }
-  // Click sul primo bottone "Modifica" (icona pencil): cerchiamo il primo button con aria-label modifica
+  // Click sul primo bottone "Modifica" (icona pencil)
   const editBtn = page
-    .locator('button[aria-label*="odif" i], button:has(svg.lucide-pencil)')
+    .locator('button[title="Modifica"], button[aria-label*="odif" i]')
     .first();
   if (await editBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
     await editBtn.click();
@@ -201,21 +201,105 @@ async function shot(page, url, file, opts = {}) {
   await shot(page, '/admin/announcements', 'announcements-overview.png', { fullPage: true });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // §12 Impostazioni server (tab interne)
+  // §12 Impostazioni server — usa ?tab=<macro>&sub=<sub> (URL effettivo dell'hub)
   // ═══════════════════════════════════════════════════════════════════════════
-  await shot(page, '/admin/server-settings/qrcodes', 'server-settings-qrcodes.png');
-  await shot(page, '/admin/server-settings/display', 'server-settings-display.png');
-  await shot(page, '/admin/server-settings/audit-log', 'server-settings-audit-log.png');
-  await shot(page, '/admin/server-settings/backups', 'server-settings-backups.png');
-  await shot(page, '/admin/server-settings/moduli', 'server-settings-moduli.png', {
+  await shot(page, '/admin/server-settings?tab=aspetto', 'server-settings-aspetto.png', {
     fullPage: true,
   });
-  await shot(page, '/admin/mail-outbox', 'mail-outbox-overview.png', { fullPage: true });
+  await shot(
+    page,
+    '/admin/server-settings?tab=servizi&sub=mail',
+    'server-settings-servizi-mail.png',
+    { fullPage: true },
+  );
+  await shot(
+    page,
+    '/admin/server-settings?tab=servizi&sub=messaging',
+    'server-settings-servizi-messaging.png',
+    { fullPage: true },
+  );
+  await shot(
+    page,
+    '/admin/server-settings?tab=servizi&sub=mail-outbox',
+    'mail-outbox-overview.png',
+    { fullPage: true },
+  );
+  await shot(
+    page,
+    '/admin/server-settings?tab=servizi&sub=backups',
+    'server-settings-backups.png',
+    { fullPage: true },
+  );
+  await shot(page, '/admin/server-settings?tab=qrcodes', 'server-settings-qrcodes.png');
+  await shot(page, '/admin/server-settings?tab=display', 'server-settings-display.png');
+  await shot(page, '/admin/server-settings?tab=audit-log', 'server-settings-audit-log.png');
+  await shot(page, '/admin/server-settings?tab=moduli', 'server-settings-moduli.png', {
+    fullPage: true,
+  });
 
   // §6 Tab "Quote prestiti" (mancante nelle versioni precedenti)
   await shot(page, '/admin/rules', 'rules-quote-prestiti.png', {
     beforeShot: (p) => clickTab(p, /quote prestiti|loan quotas/i),
   });
+
+  // §6.3 Dialog "Nuova eccezione" aperto con Select Aula visibile (v1.5)
+  await page.goto(`${BASE_URL}/admin/rules`);
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await clickTab(page, /eccezioni|exceptions/i);
+  await page.waitForTimeout(400);
+  // Cerca il bottone "Nuova eccezione" (PlusCircle + label) e clicca
+  const newExceptBtn = page
+    .getByRole('button', { name: /nuova eccezione|aggiungi eccezione|new exception/i })
+    .first();
+  if (await newExceptBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await newExceptBtn.click();
+    await page.waitForTimeout(800);
+    await page.screenshot({
+      path: resolve(OUT_DIR, 'rules-eccezione-dialog.png'),
+      fullPage: false,
+    });
+    console.log('  ✓ rules-eccezione-dialog.png');
+    // Chiudi il dialog (ESC) per non sporcare gli screenshot successivi
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  } else {
+    console.log('  ⚠ Bottone "Nuova eccezione" non trovato');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISTA UTENTE — Dashboard, calendario, prenotazione, profilo
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Dashboard utente — vista 1 giorno (default)
+  await shot(page, '/dashboard', 'dashboard-overview.png', { fullPage: true });
+
+  // Dashboard utente — toggle "3 giorni" (clicca il bottone)
+  await page.goto(`${BASE_URL}/dashboard`);
+  await page.waitForLoadState('networkidle').catch(() => {});
+  const threeDaysBtn = page.getByRole('button', { name: /^3 giorni|^3 days|^3 días/i }).first();
+  if (await threeDaysBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await threeDaysBtn.click();
+    await page.waitForTimeout(900);
+    await page.screenshot({
+      path: resolve(OUT_DIR, 'dashboard-calendario-3giorni.png'),
+      fullPage: false,
+    });
+    console.log('  ✓ dashboard-calendario-3giorni.png');
+  } else {
+    console.log('  ⚠ Bottone toggle "3 giorni" non trovato');
+  }
+
+  // Pagina prenotazione (selezione aula + slot)
+  await shot(page, '/booking', 'booking-page.png', { fullPage: true });
+
+  // Le mie prenotazioni
+  await shot(page, '/my-bookings', 'my-bookings.png', { fullPage: true });
+
+  // Vista pubblica /rooms (raggruppata per edificio)
+  await shot(page, '/rooms', 'rooms-grouped.png', { fullPage: true });
+
+  // Profilo utente
+  await shot(page, '/profile', 'profile-page.png', { fullPage: true });
 
   // §3.4 OAuth providers form (sezione bassa di /admin/users)
   await page.goto(`${BASE_URL}/admin/users`);
