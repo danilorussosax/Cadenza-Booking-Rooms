@@ -26,7 +26,6 @@ import type { PublicConcert } from '@/types';
 import { BOOKING_TYPE_LABEL, BOOKING_TYPE_STYLES } from '@/lib/bookings';
 import { cn } from '@/lib/utils';
 import { detectBrowserLanguage } from '@/i18n';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { FullscreenToggle } from '@/components/FullscreenToggle';
 import { useFullscreen, useIdle } from '@/hooks/useFullscreen';
 import { useDisplayScale } from '@/hooks/useDisplayScale';
@@ -118,6 +117,26 @@ export default function Display() {
     }, 1000);
     return () => {
       clearInterval(t);
+    };
+  }, []);
+
+  // Force tema chiaro sul kiosk: il /display è pubblico e gira su dispositivi
+  // diversi (Mac admin, smart TV con OS in dark, monitor HDMI dedicati). Senza
+  // forzatura ogni dispositivo mostra una palette diversa in base al suo
+  // `prefers-color-scheme` di sistema → kiosk non coerenti.
+  //
+  // Strategia identica all'auto-detect lingua qui sotto: salviamo lo stato
+  // tema corrente all'apertura, applichiamo light, ripristiniamo all'unmount
+  // così non sporchiamo le preferenze dell'admin/utente loggato.
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    const previousColorScheme = root.style.colorScheme;
+    root.classList.remove('dark');
+    root.style.colorScheme = 'light';
+    return () => {
+      if (wasDark) root.classList.add('dark');
+      root.style.colorScheme = previousColorScheme;
     };
   }, []);
 
@@ -444,8 +463,11 @@ export default function Display() {
               )}
             </span>
           </div>
+          {/* ThemeToggle nascosto: il tema è forzato chiaro su /display per
+              avere kiosk con palette identica indipendente dall'OS. Lasciare
+              il toggle confonderebbe (cambia, ma il primo refresh ritorna
+              chiaro). FullscreenToggle resta invece utile sul kiosk. */}
           <div className={cn('flex items-center gap-1 transition-opacity', hideUi && 'opacity-0')}>
-            <ThemeToggle />
             <FullscreenToggle />
           </div>
         </div>
