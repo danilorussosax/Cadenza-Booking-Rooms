@@ -340,18 +340,24 @@ export default function Display() {
   return (
     <div
       className={cn(
-        'flex h-dvh flex-col overflow-hidden bg-background text-foreground',
+        // h-screen (100vh) invece di h-dvh: Hisense VIDAA, Tizen pre-2022 e
+        // webOS pre-2022 non supportano `dvh`. Sui TV l'URL bar non c'è,
+        // quindi 100vh = viewport pieno effettivo: nessuna regressione.
+        'flex h-screen flex-col overflow-hidden bg-background text-foreground',
         hideUi && 'cursor-none',
       )}
     >
-      {/* Header */}
-      <header className="flex shrink-0 flex-col gap-4 border-b px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-10 2xl:px-14 2xl:py-6">
-        <div className="flex items-center gap-4 2xl:gap-6">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 2xl:h-20 2xl:w-20">
+      {/* Header compatto su singola riga: logo + nome istituto a sinistra,
+          data·orario·live indicator + toggles a destra. Altezza target
+          ~48-72px (vs ~100-140px del layout precedente) per dedicare il
+          massimo spazio verticale al calendario delle prenotazioni. */}
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2 lg:gap-6 lg:px-8 2xl:px-12 2xl:py-3">
+        <div className="flex min-w-0 items-center gap-3 2xl:gap-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20 2xl:h-12 2xl:w-12">
             <img
               src={institute?.logoUrl?.trim() ? institute.logoUrl : appIcon}
               alt=""
-              className="h-10 w-10 object-contain 2xl:h-14 2xl:w-14"
+              className="h-7 w-7 object-contain 2xl:h-9 2xl:w-9"
               onError={(e) => {
                 // logoUrl rotto/404: cade sull'icona app dell'istituto.
                 // Se anche quella fallisce, l'asset statico /cadenza.png è
@@ -365,39 +371,39 @@ export default function Display() {
               }}
             />
           </div>
-          <div>
-            <h1 className="font-display text-2xl font-medium leading-tight lg:text-3xl xl:text-4xl 2xl:text-5xl">
-              {institute?.name ?? t('display.title_default')}
-            </h1>
-          </div>
+          <h1 className="truncate font-display text-base font-medium leading-tight sm:text-lg lg:text-xl 2xl:text-2xl">
+            {institute?.name ?? t('display.title_default')}
+          </h1>
         </div>
 
-        <div className="flex items-center gap-4 2xl:gap-6">
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground 2xl:text-base">
-              {now.format('dddd D MMMM YYYY')}
-            </p>
-            <p className="font-display text-4xl font-medium tabular-nums tracking-tight lg:text-5xl xl:text-6xl 2xl:text-7xl">
+        <div className="flex shrink-0 items-center gap-3 2xl:gap-4">
+          <div className="flex items-baseline gap-2 2xl:gap-3">
+            <span className="hidden text-[0.6875rem] uppercase tracking-wider text-muted-foreground sm:inline 2xl:text-sm">
+              {now.format('ddd D MMM')}
+            </span>
+            <span className="font-display text-xl font-medium tabular-nums tracking-tight sm:text-2xl lg:text-3xl 2xl:text-4xl">
               {now.format('HH:mm')}
-              <span className="text-muted-foreground">:{now.format('ss')}</span>
-            </p>
-            <p className="mt-1 inline-flex items-center gap-1.5 text-[0.625rem] uppercase tracking-wider 2xl:text-sm">
+              <span className="text-base text-muted-foreground sm:text-lg lg:text-xl 2xl:text-2xl">
+                :{now.format('ss')}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1 text-[0.625rem] uppercase tracking-wider 2xl:text-xs">
               {isLive ? (
                 <>
-                  <Wifi className="h-3 w-3 text-emerald-500 2xl:h-4 2xl:w-4" />
-                  <span className="text-emerald-600 dark:text-emerald-400">
+                  <Wifi className="h-3 w-3 text-emerald-500 2xl:h-3.5 2xl:w-3.5" />
+                  <span className="hidden text-emerald-600 dark:text-emerald-400 lg:inline">
                     {t('display.live')}
                   </span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="h-3 w-3 text-amber-500 2xl:h-4 2xl:w-4" />
-                  <span className="text-amber-600 dark:text-amber-400">
+                  <WifiOff className="h-3 w-3 text-amber-500 2xl:h-3.5 2xl:w-3.5" />
+                  <span className="hidden text-amber-600 dark:text-amber-400 lg:inline">
                     {t('display.reconnecting')}
                   </span>
                 </>
               )}
-            </p>
+            </span>
           </div>
           <div className={cn('flex items-center gap-1 transition-opacity', hideUi && 'opacity-0')}>
             <ThemeToggle />
