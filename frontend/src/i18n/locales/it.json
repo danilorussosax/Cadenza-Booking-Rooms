@@ -962,6 +962,7 @@
       "no_equipment": "Nessuna strumentazione",
       "bookable": "Prenotabile",
       "not_bookable": "Non prenotabile",
+      "unknown_floor": "Piano non specificato",
       "seats_one": "{{count}} posto",
       "seats_other": "{{count}} posti",
       "select_room_aria": "Seleziona {{name}}",

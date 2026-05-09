@@ -12,6 +12,7 @@ import {
   DoorOpen,
   Download,
   FileUp,
+  Layers,
   Pencil,
   Plus,
   Trash2,
@@ -23,7 +24,7 @@ import { structureApi } from '@/api/structure';
 import { httpErrorMessage } from '@/lib/api';
 import { ROOM_TYPE_LABEL } from '@/lib/bookings';
 import { buildingColor } from '@/lib/buildingColor';
-import { sortRoomsForBuilding } from '@/lib/sortRooms';
+import { groupRoomsByFloor, sortRoomsForBuilding } from '@/lib/sortRooms';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -738,6 +739,9 @@ function InstituteCard({
               // aula con confronto numerico-aware. Crea un nuovo array per non
               // mutare la response query.
               const sortedRooms = sortRoomsForBuilding(building.rooms, building);
+              // Stessa cosa, ma raggruppata per piano per il rendering
+              // (sezioni con header). I piani vuoti non compaiono.
+              const roomsByFloor = groupRoomsByFloor(building.rooms, building);
               const buildingSelected = selectedBuildings.has(building.id);
               return (
                 <div key={building.id} className={cn(buildingSelected && 'bg-primary/5')}>
@@ -858,33 +862,53 @@ function InstituteCard({
                               {sortedRooms.length}
                             </span>
                           </div>
-                          <ul className="divide-y">
-                            {sortedRooms.map((room) => (
-                              <RoomRow
-                                key={room.id}
-                                room={room}
-                                isSelected={selectedRooms.has(room.id)}
-                                onToggleSelect={() => {
-                                  onToggleRoomSelected(room.id);
-                                }}
-                                onEdit={() => {
-                                  onEditRoom(building, room);
-                                }}
-                                onDelete={() => {
-                                  onDeleteRoom(room);
-                                }}
-                                onAddEquipment={() => {
-                                  onAddEquipment(room);
-                                }}
-                                onEditEquipment={(e) => {
-                                  onEditEquipment(room, e);
-                                }}
-                                onDeleteEquipment={(e) => {
-                                  onDeleteEquipment(e);
-                                }}
-                              />
+                          <div className="divide-y">
+                            {roomsByFloor.map(({ floor, rooms: floorRooms }) => (
+                              <section key={floor || '_unknown'}>
+                                <header className="flex items-center justify-between gap-2 bg-muted/40 px-5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <Layers className="h-3 w-3" />
+                                    {floor || t('admin.structure.unknown_floor')}
+                                  </span>
+                                  <span className="font-mono tabular-nums">
+                                    {t(
+                                      floorRooms.length === 1
+                                        ? 'admin.structure.rooms_count_one'
+                                        : 'admin.structure.rooms_count_other',
+                                      { count: floorRooms.length },
+                                    )}
+                                  </span>
+                                </header>
+                                <ul className="divide-y">
+                                  {floorRooms.map((room) => (
+                                    <RoomRow
+                                      key={room.id}
+                                      room={room}
+                                      isSelected={selectedRooms.has(room.id)}
+                                      onToggleSelect={() => {
+                                        onToggleRoomSelected(room.id);
+                                      }}
+                                      onEdit={() => {
+                                        onEditRoom(building, room);
+                                      }}
+                                      onDelete={() => {
+                                        onDeleteRoom(room);
+                                      }}
+                                      onAddEquipment={() => {
+                                        onAddEquipment(room);
+                                      }}
+                                      onEditEquipment={(e) => {
+                                        onEditEquipment(room, e);
+                                      }}
+                                      onDeleteEquipment={(e) => {
+                                        onDeleteEquipment(e);
+                                      }}
+                                    />
+                                  ))}
+                                </ul>
+                              </section>
                             ))}
-                          </ul>
+                          </div>
                         </>
                       )}
                     </motion.div>
@@ -940,7 +964,6 @@ function RoomRow({
             </Badge>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {room.floor} ·{' '}
             {t(room.capacity === 1 ? 'admin.structure.seats_one' : 'admin.structure.seats_other', {
               count: room.capacity,
             })}

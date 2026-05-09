@@ -962,6 +962,7 @@
       "no_equipment": "No equipment",
       "bookable": "Bookable",
       "not_bookable": "Not bookable",
+      "unknown_floor": "Floor not specified",
       "seats_one": "{{count}} seat",
       "seats_other": "{{count}} seats",
       "select_room_aria": "Select {{name}}",

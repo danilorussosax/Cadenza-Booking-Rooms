@@ -962,6 +962,7 @@
       "no_equipment": "Sin equipamiento",
       "bookable": "Reservable",
       "not_bookable": "No reservable",
+      "unknown_floor": "Planta no especificada",
       "seats_one": "{{count}} plaza",
       "seats_other": "{{count}} plazas",
       "select_room_aria": "Seleccionar {{name}}",

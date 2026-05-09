@@ -35,6 +35,40 @@ export function sortRoomsForBuilding<T extends Pick<Room, 'name' | 'floor'>>(
 }
 
 /**
+ * Raggruppa le aule di un edificio per piano, restituendo le sezioni
+ * nell'ordine logico definito da `building.floors`. Ogni sezione ha le
+ * aule già ordinate per nome (numeric-aware), grazie al pre-sort.
+ *
+ * Output: array di `{ floor, rooms }` dove `floor` è la stringa del piano
+ * così come compare in `Building.floors` (es. "Piano Terra", "1º Piano").
+ * Eventuali piani non presenti in `Building.floors` (incoerenza dati) vanno
+ * in fondo nell'ordine alfabetico naturale.
+ */
+export function groupRoomsByFloor<T extends Pick<Room, 'name' | 'floor'>>(
+  rooms: readonly T[],
+  building: Pick<Building, 'floors'> | null | undefined,
+): { floor: string; rooms: T[] }[] {
+  // Riusa l'ordinamento esistente (piano → nome numeric-aware)
+  const sorted = sortRoomsForBuilding(rooms, building);
+  // Costruisci sezioni preservando l'ordine d'apparizione (già canonico
+  // grazie al sort): la prima volta che incontriamo un nuovo `floor`,
+  // creiamo una sezione e ci accodiamo le aule successive.
+  const sections: { floor: string; rooms: T[] }[] = [];
+  let current: { floor: string; rooms: T[] } | null = null;
+  for (const r of sorted) {
+    // L'optional-chain qui (`current?.floor !== …`) farebbe perdere il type
+    // narrowing nel push() sotto, quindi manteniamo la forma esplicita.
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+    if (!current || current.floor !== r.floor) {
+      current = { floor: r.floor, rooms: [] };
+      sections.push(current);
+    }
+    current.rooms.push(r);
+  }
+  return sections;
+}
+
+/**
  * Ordina una lista FLAT di aule (cross-edificio): edificio → piano → nome.
  * Richiede `room.building` valorizzato (incluso nelle response API standard).
  *
