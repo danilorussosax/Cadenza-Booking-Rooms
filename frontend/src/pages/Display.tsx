@@ -17,6 +17,7 @@ import {
   type PublicAgenda,
   type PublicAnnouncement,
   type PublicBuilding,
+  type PublicStats,
 } from '@/api/public';
 import { dayjs } from '@/lib/date';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
@@ -415,42 +416,9 @@ export default function Display() {
         </div>
       )}
 
-      {/* Stats KPI row — compact per liberare spazio verticale al calendario,
-          così quando ci sono molte aule il body riesce a mostrarle tutte. */}
-      <section className="grid shrink-0 grid-cols-2 gap-2 px-6 py-2 lg:grid-cols-4 lg:gap-3 lg:px-10 2xl:gap-4 2xl:px-14 2xl:py-2.5">
-        <KpiCard
-          label={t('display.kpi.in_use')}
-          value={stats ? `${stats.today.inUse}/${stats.today.roomsTotal}` : '—'}
-          subtitle={
-            stats ? t('display.kpi.in_use_subtitle', { pct: stats.today.occupancyPct }) : ''
-          }
-          icon={Activity}
-          accent="emerald"
-        />
-        <KpiCard
-          label={t('display.kpi.bookings_today')}
-          value={stats ? stats.today.bookings : '—'}
-          subtitle={
-            stats ? t('display.kpi.bookings_today_subtitle', { hours: stats.today.hours }) : ''
-          }
-          icon={CalendarDays}
-          accent="sky"
-        />
-        <KpiCard
-          label={t('display.kpi.week')}
-          value={stats ? stats.week.bookings : '—'}
-          subtitle={stats ? t('display.kpi.week_subtitle', { hours: stats.week.hours }) : ''}
-          icon={TrendingUp}
-          accent="violet"
-        />
-        <KpiCard
-          label={t('display.kpi.active_rooms')}
-          value={stats?.today.roomsTotal ?? '—'}
-          subtitle={t('display.kpi.active_rooms_subtitle')}
-          icon={Building2}
-          accent="amber"
-        />
-      </section>
+      {/* Le statistiche d'uso (in uso, oggi, settimana, aule attive) sono
+          state spostate in fondo alla legenda del BuildingTable: questo
+          recupera lo spazio verticale per la tabella delle prenotazioni. */}
 
       {/* Rotazione delle slide: edifici (timetable) + concerti (locandina).
           Il setTimeout usa l'intervalSec della slide corrente (vedi /admin/display). */}
@@ -479,6 +447,7 @@ export default function Display() {
                 building={currentSlide.building}
                 weekStart={weekStart}
                 index={currentIndex}
+                stats={stats}
               />
             </motion.div>
           )}
@@ -660,56 +629,6 @@ function DebugOverlay({ info }: { info: DebugInfo }) {
   );
 }
 
-// ===========================
-// KPI Card
-// ===========================
-function KpiCard({
-  label,
-  value,
-  subtitle,
-  icon: Icon,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  subtitle?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  accent: 'emerald' | 'sky' | 'violet' | 'amber';
-}) {
-  const accents = {
-    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 ring-emerald-500/20',
-    sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-300 ring-sky-500/20',
-    violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-300 ring-violet-500/20',
-    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300 ring-amber-500/20',
-  } as const;
-
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-card p-2.5 lg:p-3 2xl:gap-4 2xl:p-4">
-      <div
-        className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 2xl:h-12 2xl:w-12',
-          accents[accent],
-        )}
-      >
-        <Icon className="h-5 w-5 2xl:h-6 2xl:w-6" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground 2xl:text-[0.75rem]">
-          {label}
-        </p>
-        <p className="font-display text-2xl font-medium leading-none xl:text-3xl 2xl:text-4xl">
-          {value}
-        </p>
-        {subtitle && (
-          <p className="mt-0.5 truncate text-[0.6875rem] text-muted-foreground 2xl:text-xs">
-            {subtitle}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // Palette per distinguere gli edifici a colpo d'occhio (ciclica se >4)
 const BUILDING_ACCENTS = [
   'bg-sky-100 text-sky-700 ring-sky-300/60 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/30',
@@ -726,10 +645,15 @@ function BuildingTable({
   building,
   weekStart,
   index,
+  stats,
 }: {
   building: PublicBuilding;
   weekStart: string;
   index: number;
+  /** Statistiche d'uso istituto-wide. Se presenti vengono mostrate compatte
+   *  in fondo alla legenda, dopo i codici colore — sostituisce il tile-row
+   *  separato che occupava una banda verticale dedicata. */
+  stats: PublicStats | undefined;
 }) {
   const { t } = useTranslation();
   // Aule ordinate per piano (Building.floors) → nome (numeric-aware) per
@@ -810,26 +734,92 @@ function BuildingTable({
         )}
       </div>
 
-      {/* Legend: dot tipologia + nota chiarificatrice "ogni cella = 30 min" */}
-      <div className="flex flex-wrap items-center gap-2.5 border-t bg-muted/20 px-4 py-1.5 text-[0.625rem] uppercase tracking-wider text-muted-foreground 2xl:gap-4 2xl:px-6 2xl:py-2 2xl:text-xs">
-        {(['studio_individuale', 'lezione', 'prova', 'concerto'] as BookingType[]).map((type) => (
-          <span key={type} className="inline-flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 rounded-sm', BOOKING_TYPE_STYLES[type].dot)} />
-            {t(BOOKING_TYPE_LABEL[type])}
+      {/* Legenda + statistiche d'uso compatte sulla stessa banda inferiore.
+          Layout: codici colore tipologia + cell-30min a sinistra, statistiche
+          d'uso a destra (in_use, oggi, settimana, aule attive). flex-wrap
+          fa scendere a riga successiva sotto risoluzioni strette senza
+          rubare altezza al body della tabella. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-t bg-muted/20 px-4 py-1.5 text-[0.625rem] uppercase tracking-wider text-muted-foreground 2xl:gap-x-6 2xl:px-6 2xl:py-2 2xl:text-xs">
+        <div className="flex flex-wrap items-center gap-2.5 2xl:gap-4">
+          {(['studio_individuale', 'lezione', 'prova', 'concerto'] as BookingType[]).map((type) => (
+            <span key={type} className="inline-flex items-center gap-1.5">
+              <span className={cn('h-2 w-2 rounded-sm', BOOKING_TYPE_STYLES[type].dot)} />
+              {t(BOOKING_TYPE_LABEL[type])}
+            </span>
+          ))}
+          <span aria-hidden className="text-muted-foreground/40">
+            ·
           </span>
-        ))}
-        <span aria-hidden className="text-muted-foreground/40">
-          ·
-        </span>
-        <span className="inline-flex items-center gap-1.5 normal-case text-muted-foreground/90">
-          <span
-            aria-hidden
-            className="inline-block h-2 w-2 border border-dashed border-muted-foreground/60 bg-background"
-          />
-          {t('display.legend.cell_30min')}
-        </span>
+          <span className="inline-flex items-center gap-1.5 normal-case text-muted-foreground/90">
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 border border-dashed border-muted-foreground/60 bg-background"
+            />
+            {t('display.legend.cell_30min')}
+          </span>
+        </div>
+        <LegendStats stats={stats} />
       </div>
     </motion.section>
+  );
+}
+
+// ===========================
+// LegendStats — statistiche compatte renderizzate inline nella legenda del
+// BuildingTable. Sostituisce la riga di KpiCard separata che occupava una
+// banda verticale dedicata. Format: `icon valore label` separato da `·`,
+// con le 4 voci classiche (in uso, oggi, settimana, aule attive).
+// Se `stats` è undefined (loading/offline) mostra placeholder neutri.
+// ===========================
+function LegendStats({ stats }: { stats: PublicStats | undefined }) {
+  const { t } = useTranslation();
+  const items = [
+    {
+      Icon: Activity,
+      tone: 'text-emerald-600 dark:text-emerald-300',
+      value: stats ? `${stats.today.inUse}/${stats.today.roomsTotal}` : '—',
+      label: stats ? t('display.kpi.in_use_subtitle', { pct: stats.today.occupancyPct }) : '',
+      title: t('display.kpi.in_use'),
+    },
+    {
+      Icon: CalendarDays,
+      tone: 'text-sky-600 dark:text-sky-300',
+      value: stats ? String(stats.today.bookings) : '—',
+      label: stats ? t('display.kpi.bookings_today_subtitle', { hours: stats.today.hours }) : '',
+      title: t('display.kpi.bookings_today'),
+    },
+    {
+      Icon: TrendingUp,
+      tone: 'text-violet-600 dark:text-violet-300',
+      value: stats ? String(stats.week.bookings) : '—',
+      label: stats ? t('display.kpi.week_subtitle', { hours: stats.week.hours }) : '',
+      title: t('display.kpi.week'),
+    },
+    {
+      Icon: Building2,
+      tone: 'text-amber-600 dark:text-amber-300',
+      value: stats ? String(stats.today.roomsTotal) : '—',
+      label: t('display.kpi.active_rooms_subtitle'),
+      title: t('display.kpi.active_rooms'),
+    },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 normal-case 2xl:gap-x-5">
+      {items.map(({ Icon, tone, value, label, title }, i) => (
+        <span key={title} className="inline-flex items-center gap-1.5" title={title}>
+          {i > 0 && (
+            <span aria-hidden className="text-muted-foreground/40">
+              ·
+            </span>
+          )}
+          <Icon className={cn('h-3 w-3 shrink-0 2xl:h-3.5 2xl:w-3.5', tone)} />
+          <span className="font-display text-[0.75rem] font-medium text-foreground 2xl:text-sm">
+            {value}
+          </span>
+          {label && <span className="text-muted-foreground/90">{label}</span>}
+        </span>
+      ))}
+    </div>
   );
 }
 
