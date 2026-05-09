@@ -46,17 +46,33 @@ function issueToken(emailHint) {
   return JSON.parse(jsonLine);
 }
 
+// Versione corrente della Privacy Policy: deve combaciare con
+// `frontend/src/pages/legal/policyVersions.ts` per impedire la riapparizione
+// del cookie banner. Aggiornare se cambia.
+const PRIVACY_POLICY_VERSION = '2026-04-29';
+
 async function authenticatedContext(browser, token, user) {
   const ctx = await browser.newContext({ viewport: VIEWPORT, locale: 'it-IT' });
-  // Iniettiamo token + user cache prima di ogni navigazione.
+  // Iniettiamo token + user cache + consenso cookie prima di ogni navigazione,
+  // così non compare il banner GDPR negli screenshot.
   await ctx.addInitScript(
-    ({ tk, usr }) => {
+    ({ tk, usr, policyVer }) => {
       try {
         window.localStorage.setItem('conservatory_token', tk);
         window.localStorage.setItem('conservatory_user', JSON.stringify(usr));
+        window.localStorage.setItem(
+          'conservatory_cookie_consent_v1',
+          JSON.stringify({
+            necessary: true,
+            functional: true,
+            analytics: false,
+            policyVersion: policyVer,
+            decidedAt: new Date().toISOString(),
+          }),
+        );
       } catch {}
     },
-    { tk: token, usr: user },
+    { tk: token, usr: user, policyVer: PRIVACY_POLICY_VERSION },
   );
   return ctx;
 }
