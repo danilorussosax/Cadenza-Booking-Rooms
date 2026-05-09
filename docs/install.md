@@ -596,6 +596,56 @@ systemctl restart cadenza
 
 Dalla console Hetzner: server → **Snapshots** → "Take snapshot". Per dev/test prendine uno prima di un cambio rischioso.
 
+### Spostare l'app su un altro dominio (es. da `prenotazioneaule.it` a `rota.prenotazioneaule.it`)
+
+Lo script `scripts/migrate-domain.sh` automatizza la migrazione in **4 fasi guidate** con backup, healthcheck e rollback:
+
+| Fase        | Cosa fa                                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preflight` | Verifica DNS, emette il certificato Let's Encrypt sul nuovo dominio, crea il server block nginx fianco a fianco al vecchio (zero downtime)                              |
+| `cutover`   | Backup `.env`, sostituisce `FRONTEND_URL` e `APP_URL`, riavvia il backend (auto-detect pm2/systemd), healthcheck                                                        |
+| `redirect`  | Riconfigura il vecchio dominio come 301 al nuovo, **mantenendo attivi** `/api/bookings/ical` e `/check-in/room/*` per non rompere sottoscrizioni iCal e QR già stampati |
+| `finalize`  | (dopo ~90 giorni) cleanup del vecchio vhost                                                                                                                             |
+
+Esempio:
+
+```bash
+# 1) Aggiungi prima il record DNS A/AAAA per il nuovo sottodominio
+# 2) Sul VPS:
+sudo bash scripts/migrate-domain.sh \
+  --old prenotazioneaule.it \
+  --new rota.prenotazioneaule.it \
+  --phase preflight
+
+# 3) Aggiungi i nuovi redirect URI nei provider OAuth (Google + Microsoft)
+#    e aggiorna la UI admin Cadenza → Server Settings → OAuth con i nuovi callback.
+
+# 4) Cutover (richiede conferma):
+sudo bash scripts/migrate-domain.sh \
+  --old prenotazioneaule.it \
+  --new rota.prenotazioneaule.it \
+  --phase cutover
+
+# 5) Re-registra il webhook Telegram dalla UI admin
+#    (Server Settings → Servizi → Messaging → Telegram → "Configura automaticamente")
+
+# 6) Redirect del vecchio dominio:
+sudo bash scripts/migrate-domain.sh \
+  --old prenotazioneaule.it \
+  --new rota.prenotazioneaule.it \
+  --phase redirect
+
+# 7) Dopo ~90 giorni, cleanup finale:
+sudo bash scripts/migrate-domain.sh \
+  --old prenotazioneaule.it \
+  --new rota.prenotazioneaule.it \
+  --phase finalize
+```
+
+Flag utili: `--dry-run` (mostra solo cosa farebbe), `--yes` (skippa le conferme per CI), `--service NAME` (override auto-detect pm2/systemd), `--env-file PATH` (override path del `.env`).
+
+I backup di ogni fase finiscono in `~/cadenza-migration-backups/<timestamp>/`.
+
 ### Rinnovo certificato (Scenario A)
 
 Automatico via timer di certbot. Verifica:
