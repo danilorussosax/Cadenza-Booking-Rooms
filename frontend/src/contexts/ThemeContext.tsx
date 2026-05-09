@@ -18,6 +18,11 @@ interface ThemeContextValue {
   resolved: ResolvedTheme;
   setTheme: (theme: Theme) => void;
   toggle: () => void;
+  /** Forza un tema specifico senza scrivere in localStorage. Utile per
+   *  pagine kiosk (`/display`) che devono avere palette consistente
+   *  indipendentemente dalle preferenze OS del dispositivo. Passare `null`
+   *  per rimuovere la forzatura e tornare al tema utente/sistema. */
+  setForceTheme: (theme: ResolvedTheme | null) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
@@ -43,6 +48,9 @@ function applyClass(resolved: ResolvedTheme) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => readStored());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => systemPrefers());
+  // Override non-persistente: quando valorizzato vince su `theme` e
+  // `systemTheme`. Usato da /display per forzare la palette del kiosk.
+  const [forceTheme, setForceTheme] = useState<ResolvedTheme | null>(null);
 
   // Watch system preference changes
   useEffect(() => {
@@ -58,7 +66,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const resolved: ResolvedTheme = theme === 'system' ? systemTheme : theme;
+  const resolved: ResolvedTheme = forceTheme ?? (theme === 'system' ? systemTheme : theme);
 
   // Apply class
   useEffect(() => {
@@ -82,7 +90,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ theme, resolved, setTheme, toggle }),
+    () => ({ theme, resolved, setTheme, toggle, setForceTheme }),
     [theme, resolved, setTheme, toggle],
   );
 

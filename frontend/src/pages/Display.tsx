@@ -27,6 +27,7 @@ import { BOOKING_TYPE_LABEL, BOOKING_TYPE_STYLES } from '@/lib/bookings';
 import { cn } from '@/lib/utils';
 import { detectBrowserLanguage } from '@/i18n';
 import { FullscreenToggle } from '@/components/FullscreenToggle';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useFullscreen, useIdle } from '@/hooks/useFullscreen';
 import { useDisplayScale } from '@/hooks/useDisplayScale';
 import { useAppIcon } from '@/hooks/useAppIcon';
@@ -121,24 +122,25 @@ export default function Display() {
   }, []);
 
   // Force tema chiaro sul kiosk: il /display è pubblico e gira su dispositivi
-  // diversi (Mac admin, smart TV con OS in dark, monitor HDMI dedicati). Senza
+  // diversi (Mac admin, smart TV con OS dark, monitor HDMI dedicati). Senza
   // forzatura ogni dispositivo mostra una palette diversa in base al suo
   // `prefers-color-scheme` di sistema → kiosk non coerenti.
   //
-  // Strategia identica all'auto-detect lingua qui sotto: salviamo lo stato
-  // tema corrente all'apertura, applichiamo light, ripristiniamo all'unmount
-  // così non sporchiamo le preferenze dell'admin/utente loggato.
+  // IMPORTANTE: dobbiamo usare `setForceTheme` del ThemeContext invece di
+  // manipolare direttamente `documentElement.classList`. Il `ThemeProvider`
+  // ha un `useEffect` che ri-applica la classe `.dark` ogni volta che il
+  // suo stato cambia (e fa una "init" applicazione al mount). Manipolare
+  // la classe a mano viene sovrascritto subito dal provider parent
+  // (gli effects dei figli girano PRIMA dei parent in React → la nostra
+  // rimozione viene ri-applicata dal provider). `setForceTheme` invece
+  // imposta uno state che il provider rispetta come override.
+  const { setForceTheme } = useTheme();
   useEffect(() => {
-    const root = document.documentElement;
-    const wasDark = root.classList.contains('dark');
-    const previousColorScheme = root.style.colorScheme;
-    root.classList.remove('dark');
-    root.style.colorScheme = 'light';
+    setForceTheme('light');
     return () => {
-      if (wasDark) root.classList.add('dark');
-      root.style.colorScheme = previousColorScheme;
+      setForceTheme(null);
     };
-  }, []);
+  }, [setForceTheme]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Auto-rilevamento lingua del browser per il kiosk
