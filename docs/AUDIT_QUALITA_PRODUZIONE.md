@@ -1,20 +1,74 @@
-# Cadenza · Audit Qualità / Stabilità / Sicurezza (v2.6)
+# Cadenza · Audit Qualità / Stabilità / Sicurezza (v2.7)
 
-> **Data audit**: 5 maggio 2026 · **Versione**: 2.6 (incremento v2.5 — sistema email robusto end-to-end: outbox pattern + worker async + admin UI + throttle/bounce, manuale admin v1.3)
+> **Data audit**: 9 maggio 2026 · **Versione**: 2.7 (incremento v2.6 — eccezioni con scope per aula + dashboard 1/3 giorni + cleanup lint/zod + tooling deploy `--update-deps` + 2 fix UX admin)
 > **Auditore**: analisi automatica del codice (`npm test`, `npm audit`, `tsc`, `eslint`, coverage) + scan accessibilità (`vitest-axe` unit + `@axe-core/playwright` e2e) + audit mobile UX framework `ui-ux-pro-max` skill (priorità 1-10, 36 mobile-rules) + verifica delivery layer email (outbox + retry + dead-letter)
-> **Scope**: backend Node 20 + Express + Sequelize + Postgres, frontend React 18 + TypeScript strict + Vite + shadcn/ui, e2e Playwright, CI GitHub Actions
+> **Scope**: backend Node 20 + Express + Sequelize + Postgres, frontend React 19 + TypeScript 6 strict + Vite 8 + Tailwind 4 + shadcn/ui, e2e Playwright, CI GitHub Actions
 
 ---
 
 ## Punteggi sintetici
 
-| Dimensione            | v1.0 (28/4) | v2.0 (30/4 mat) | v2.2 (30/4 notte) | v2.3 (1/5 sera) | v2.4 (2/5 mat) | v2.5 (2/5 sera) | **v2.6 (5/5)** | Δ vs v2.5 |
-| --------------------- | ----------- | --------------- | ----------------- | --------------- | -------------- | --------------- | -------------- | --------- |
-| Qualità del codice    | 75 / 100    | 86 / 100        | 90 / 100          | 91 / 100        | 92 / 100       | 93 / 100        | **94 / 100**   | +1        |
-| Stabilità             | 78 / 100    | 91 / 100        | 95 / 100          | 96 / 100        | 97 / 100       | 97 / 100        | **98 / 100**   | +1        |
-| Sicurezza             | 82 / 100    | 89 / 100        | 94 / 100          | 94 / 100        | 94 / 100       | 94 / 100        | **95 / 100**   | +1        |
-| Maturità sviluppo     | 77 / 100    | 89 / 100        | 93 / 100          | 93 / 100        | 94 / 100       | 95 / 100        | **96 / 100**   | +1        |
-| **TOTALE PRODUZIONE** | 78 / 100    | 89 / 100        | 93 / 100          | 94 / 100        | 95 / 100       | 96 / 100        | **97 / 100**   | **+1**    |
+| Dimensione            | v1.0 (28/4) | v2.0 (30/4 mat) | v2.2 (30/4 notte) | v2.3 (1/5 sera) | v2.4 (2/5 mat) | v2.5 (2/5 sera) | v2.6 (5/5) | **v2.7 (9/5)** | Δ vs v2.6 |
+| --------------------- | ----------- | --------------- | ----------------- | --------------- | -------------- | --------------- | ---------- | -------------- | --------- |
+| Qualità del codice    | 75 / 100    | 86 / 100        | 90 / 100          | 91 / 100        | 92 / 100       | 93 / 100        | 94 / 100   | **95 / 100**   | +1        |
+| Stabilità             | 78 / 100    | 91 / 100        | 95 / 100          | 96 / 100        | 97 / 100       | 97 / 100        | 98 / 100   | **98 / 100**   | =         |
+| Sicurezza             | 82 / 100    | 89 / 100        | 94 / 100          | 94 / 100        | 94 / 100       | 94 / 100        | 95 / 100   | **95 / 100**   | =         |
+| Maturità sviluppo     | 77 / 100    | 89 / 100        | 93 / 100          | 93 / 100        | 94 / 100       | 95 / 100        | 96 / 100   | **96 / 100**   | =         |
+| **TOTALE PRODUZIONE** | 78 / 100    | 89 / 100        | 93 / 100          | 94 / 100        | 95 / 100       | 96 / 100        | 97 / 100   | **97 / 100**   | **=**     |
+
+**TL;DR (v2.7)**: turn di **rifinitura** post-v2.6, focus su un'estensione concreta del motore Eccezioni e su quality housekeeping. Highlights: (a) **Eccezioni con scope per aula** (commit `8805675`): nuovo campo `roomId` nullable su `BookingRuleException` con FK CASCADE su `Room` e indici `(roomId)` + composito `(role, roomId, isActive)` per il lookup hot-path del validator. Migration sequelize-cli idempotente + helper `ensureNullableIntColumn` in `preSyncMigrations` per upgrade su DB esistenti senza downtime. Backend: `bookingValidator` scarta eccezioni scoped che non matchano `room.id`; per `time_window` il conteggio "ore già prenotate" è ristretto all'aula scoped (semantica "max Xh **in aula Y** nella finestra"); `exceptionOverlapService` filtra `Booking.roomId` quando l'eccezione è scoped. Frontend: nuovo Select "Aula" su `ExceptionsTopLevel` (filtro lista) + `ExceptionDialog` (form), default "Tutte le aule" pre-popolato dal filtro lista, badge viola "Aula X" sulle eccezioni scoped, lista aule cached 5 min. **+3 nuovi test integration** (`exceptionRoomScope.test.js`: block scoped, coesistenza con globali, findOverlappingBookings filtro roomId). (b) **Dashboard — toggle 1 giorno / 3 giorni** (commit `cb94ded`): toggle pulsanti `1 giorno · 3 giorni` nell'header card calendario. La modalità `three` mostra giorno corrente + 2 successivi affiancati riusando `WeeklyRoomTimetable` con `daysCount=3`. Preferenza persistita in `localStorage`, frecce di navigazione coerenti con la modalità (step 1 o 3 giorni), query `bookings` estesa al range completo. i18n IT/EN/ES (4 chiavi). (c) **Fix structure — aule orfane** (commit `b519c7d`): `GET /api/structure/rooms` e `/search` restituivano anche aule il cui edificio era stato soft-deleted (`Building` paranoid, ma il delete non cascada su `Room` paranoid). Aggiunto `required: true` sull'include Building → INNER JOIN, eliminato il dato fantasma nei Select admin. (d) **Fix UX rules — label "Sede · Aula"** (commit `cfb3003`): nei Select aula del filtro lista e del dialog Eccezioni la label è ora `Sede · Aula` (es. "Conservatorio Storico · Aula 12"), ordinata `localeCompare('it')` per non confondere aule con numeri ripetuti tra edifici diversi. (e) **Server settings — blocklist icone Cadenza** (commit `439566f`): `EXCLUDED_NAMES` in `routes/appIcons.js` esclude `cadenza.png`, `cadenza-bars.svg`, `cadenza-classic.png` dalla griglia "Aspetto"; i file restano sul filesystem perché `/cadenza.png` è il fallback finale di `useAppIcon.ts`/`Display.tsx`/`AppIconSection.tsx`. (f) **Deploy tooling — `--update-deps`** (commit `dec05df`): nuovo flag su `deploy.sh` che, prima del deploy, esegue `npm outdated` su `backend/` e `frontend/` e chiede per ciascuno se applicare aggiornamenti **semver-safe** via `npm update` (rispetta i range `^/~`, niente major bump). Le modifiche al `package-lock.json` vengono raccolte dal normale flusso (rsync + `npm ci`). (g) **Quality housekeeping**: `aae1ee8` risolve 60 warning ESLint (escluso `z.string().email` mantenuto per compat zod v3+v4); `900ac11` sostituisce `z.email()` con `z.string().email()` (compat v3+v4); `6d42fe6` bump commitlint + lint-staged a major + dipendenze minor/patch su backend/frontend. **Test backend +3** (599 → 602 pass), zero regressioni a11y/mobile/E2E, lint pulito.
+
+### 0pre-pre. Cosa è cambiato dal v2.6 (sintesi diff v2.7)
+
+| Metrica                                      | v2.6                    | **v2.7**                                                             | Variazione vs v2.6 |
+| -------------------------------------------- | ----------------------- | -------------------------------------------------------------------- | ------------------ |
+| Test backend                                 | 599 (+5 skipped)        | **602 (+5 skipped)**                                                 | **+3**             |
+| Test frontend (Vitest + RTL)                 | 17 file, 106 test       | **17 file, 106 test**                                                | invariato          |
+| File test integration                        | 41 file                 | **42 file** (+ `exceptionRoomScope.test.js`)                         | +1                 |
+| **Eccezioni con scope per aula**             | n/a (solo per ruolo)    | **`BookingRuleException.roomId` nullable + CASCADE Room + 2 indici** | nuovo              |
+| **Dashboard toggle 1/3 giorni**              | n/a (vista singola)     | **`localStorage` preference + nav step coerente + i18n 4 chiavi**    | nuovo              |
+| **`GET /api/structure/rooms` filter orfane** | restituiva orfane       | **INNER JOIN Building → solo aule con edificio attivo**              | fix                |
+| **Select aula label "Sede · Aula"**          | solo `r.name`           | **`Sede · Aula` ordinato `localeCompare('it')`**                     | UX                 |
+| **Blocklist icone admin (`appIcons.js`)**    | espone tutte le `*.png` | **esclude `cadenza*.png/svg` (DEFAULT_ICON resta come fallback)**    | UX                 |
+| **`deploy.sh --update-deps`**                | n/a                     | **`npm outdated` + scelta y/N per workspace + `npm update` semver**  | nuovo              |
+| **Lint warning ESLint frontend**             | 60                      | **0** (escluso `z.string().email` per compat zod)                    | -60                |
+| **`z.email()` → `z.string().email()`**       | parziale                | **completo** (compat zod v3+v4 dopo bump Fase E)                     | +compat            |
+| **Bump dev tool minor**                      | —                       | **commitlint + lint-staged + minor backend/frontend**                | +sicurezza         |
+
+**Nuovi file in v2.7 (3)**:
+
+```
+backend/migrations/2026...-add-roomid-to-booking-rule-exceptions.js  ← migration sequelize-cli idempotente
+backend/tests/integration/exceptionRoomScope.test.js                 ← 3 test scope per aula
+                                                                       (block scoped, coesistenza globale,
+                                                                        findOverlappingBookings filtro roomId)
+```
+
+(più estensioni a `BookingRuleException.js`, `routes/rules.js`, `bookingValidator.js`, `exceptionOverlapService.js`, `frontend/src/pages/admin/Rules.tsx`, `frontend/src/api/rules.ts`, `frontend/src/types/index.ts`)
+
+**Commit v2.7 (10)**:
+
+```
+cb94ded  feat(dashboard): toggle vista calendario 1 giorno / 3 giorni consecutivi
+900ac11  fix(zod): sostituisce z.email() con z.string().email() per compat v3+v4
+6d42fe6  build(deps): bump commitlint+lint-staged a major + minor/patch backend/frontend
+aae1ee8  chore(lint): risolve 60 warning ESLint (escluso z.string().email per compat zod)
+8805675  feat(rules): eccezioni prenotazione con scope per aula
+439566f  feat(server-settings): nasconde le icone cadenza-* dalla griglia di scelta
+cfb3003  fix(rules): mostra sede + nome aula nei Select del dialog Eccezioni
+b519c7d  fix(structure): nasconde aule orfane di edifici soft-deleted
+dec05df  feat(deploy): aggiunge flag --update-deps per npm outdated/update
+051f361  docs(audit): aggiorna a v2.6 con sistema email robusto + manuale admin (chiusura v2.6)
+```
+
+**Modifiche a sezioni precedenti (v2.6 vs v2.7)**:
+
+| Sezione audit       | Cosa è cambiato                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| §1.1 Volume         | Test backend `599 → 602` pass (+3); 42 file test integration (+1: `exceptionRoomScope.test.js`)                                           |
+| §3.1 Test suite     | +3 test scope-per-aula su eccezioni                                                                                                       |
+| §5.2 Build / deploy | `deploy.sh --update-deps` documentato + path corretto (`./deploy.sh` in root, non `scripts/deploy.sh`)                                    |
+| §2.3 Documentazione | `MANUALE_ADMIN.md` v1.4 con sezione "Cosa c'è di nuovo"; §6.3 esteso con scope per aula + Select "Aula"; ARCHITECTURE §3 modello aggiunto |
 
 **TL;DR (v2.6)**: il sistema email diventa **production-grade** con un pattern outbox completo. Highlights: (a) **Fase 1 — Outbox pattern + worker async** (commit `4705d63`): nuovo modello `MailOutbox` (114 LOC) + worker scheduler con backoff esponenziale (`mailOutboxScheduler.js` 206 LOC) + `enqueueMail()` con idempotency key (dedup naturale su retry). I cinque emitter di dominio (`bookingEmail`, `instrumentLoanEmail`, `announcementEmail`, `passwordResetEmail`, `securityEmail`) ora delegano all'outbox; il flusso 2FA usa "try sync → fallback async" per non bloccare l'utente se SMTP fa flap; pool SMTP riusato tra worker e invii sincroni. **+13 test integration** (enqueue, retry, dead, idempotency, priority). (b) **Fase 2 — Admin UI Coda email** (commit `3bf16f1`): pagina `/admin/mail-outbox` (425 LOC React) come sub-tab di Server Settings, con health banner SMTP (4 stati), filtri stato (pending/sent/dead) + ricerca, tabella con tentativi, bottoni Retry/Delete, polling 30s. Endpoint `GET /health`, `/counts`, `/list`, `POST /:id/retry`, `DELETE /:id`. (c) **Fase 3 — Throttle per destinatario + hard-bounce detection** (commit `e53d647`): nuovo campo `throttlePerRecipientPerHour` in `MailSettings` (0–1000), `emailBouncedAt` su `User`, parser bounce code 5xx in worker → marca utente come bounced + skip futuri invii; UI form Utente mostra alert giallo "Email rimbalzata" + bottone "Riattiva" (`POST /api/users/:id/reset-bounce`). (d) **Fase 4 — Cleanup retention** (commit `1751dd2`): `retentionScheduler` ora pulisce `mail_outbox` `sent` > 30 gg al tick giornaliero; preserva `dead` per audit. (e) **Fase 5 — Fix UX configurazione SMTP** (commit `5d67a48`): rilevatore typo `smpt.` (alert ambra con "Forse intendevi smtp..." + bottone auto-correct), validazione port/secure mismatch (465 → tls implicito, 587/25 → starttls). (f) **Fase 6 — Test invio per template** (commit `12717d6`): endpoint `POST /api/mail-templates/:kind/test` con sample context, dropdown nella card Test invio per provare ogni template in produzione senza creare record fittizi. (g) **Documentazione**: README aggiornato con sezione "Sistema email robusto" + bump conteggio test; **manuale admin riscritto a v1.3** (1337 → 2323 LOC, +74%) con descrizioni visive complete per ogni voce della sidebar (Riferimento UI mockup ASCII dove screenshot non ancora generati); `e2e/screenshots.mjs` esteso a 22 pagine admin aggiuntive; `docs/screenshots/README.md` mappa 36 file ↔ sezione. (h) **Test pipeline display annunci** (commit `fb2a908`): 7 nuovi test integration verificano che gli annunci pubblicati dall'admin compaiano sul kiosk `/display` (filtri isActive/expiresAt/pinned, audience targeting per edificio, ordinamento). (i) **UX auth** (commit `1146c38`): rotazione di 8 aforismi musicali autentici sul brand panel (Bach, Schopenhauer, Stravinsky, ecc.) — micro-tocco di carattere. **Test backend +49** (550 → 599 pass), test frontend invariati (106), zero regressioni a11y/mobile/E2E.
 
@@ -946,13 +1000,14 @@ cd backend && npx vitest run tests/unit/csvImporter.test.js tests/integration/is
 
 ### 5.2 Build / deploy
 
-|                      |                                                      |
-| -------------------- | ---------------------------------------------------- |
-| Build frontend       | `npm run build` (3.7s su Apple Silicon)              |
-| Build PWA            | Workbox SW generato, precache 69 entries             |
-| Deploy production    | `bash scripts/deploy.sh` idempotente                 |
-| Backup pre-deploy    | automatico (auto-pulizia 7gg via retentionScheduler) |
-| Restart con downtime | <30s tramite pm2 reload                              |
+|                      |                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Build frontend       | `npm run build` (3.7s su Apple Silicon)                                                                                   |
+| Build PWA            | Workbox SW generato, precache 69 entries                                                                                  |
+| Deploy production    | `./deploy.sh` (Mac → VPS rsync + pm2 restart) · flag `--update-deps` opt per `npm outdated/update` semver-safe pre-deploy |
+| Provisioning VPS     | `bash scripts/install.sh` idempotente (Ubuntu 24.04, postgres + nginx + systemd)                                          |
+| Backup pre-deploy    | automatico (auto-pulizia 7gg via retentionScheduler)                                                                      |
+| Restart con downtime | <30s tramite pm2 reload                                                                                                   |
 
 ### 5.3 Velocità sviluppo dimostrata (ultimi turni di lavoro)
 

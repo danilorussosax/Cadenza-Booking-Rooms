@@ -564,6 +564,24 @@ sudo -u cadenza -H bash -c '
 systemctl restart cadenza
 ```
 
+### Aggiornare l'app (push da workstation con `deploy.sh`)
+
+Per il flusso "push" da Mac/Linux locale verso il VPS (build frontend in locale + rsync incrementale + restart pm2 + healthcheck) il repo include lo script idempotente `deploy.sh` nella root del monorepo:
+
+```bash
+./deploy.sh                # interattivo (chiede conferma sul diff dry-run)
+./deploy.sh --yes          # senza conferma (CI / uso rapido)
+./deploy.sh --no-build     # salta la build frontend (se già fatta)
+./deploy.sh --update-deps  # ⭐ NEW: pre-deploy `npm outdated` su backend/ e
+                           # frontend/, chiede per ciascuno se applicare
+                           # aggiornamenti semver-safe via `npm update`
+                           # (rispetta i range ^/~ in package.json — niente
+                           # major bump). Le modifiche al package-lock.json
+                           # vengono raccolte dal normale flusso (rsync + npm ci).
+```
+
+Lo script verifica che il VPS non abbia moduli più moderni del locale (per non regredire le versioni installate sul server) e fa healthcheck post-deploy. Le credenziali SSH/host sono nelle prime righe dello script, da personalizzare al primo uso.
+
 ### Migrazioni schema dopo cambi al modello
 
 ```bash

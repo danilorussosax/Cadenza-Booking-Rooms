@@ -2,7 +2,7 @@
 title: 'Cadenza · Manuale Amministratore'
 subtitle: 'Sistema di gestione e prenotazione aule per Conservatorio musicale'
 author: 'Danilo Russo, docente del Conservatorio'
-date: '5 maggio 2026'
+date: '9 maggio 2026'
 lang: it
 papersize: a4
 documentclass: article
@@ -25,8 +25,8 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.3}
-  - \fancyhead[R]{\small 5 maggio 2026}
+  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.4}
+  - \fancyhead[R]{\small 9 maggio 2026}
   - \fancyfoot[C]{\small\thepage\ / \pageref*{LastPage}}
   - \renewcommand{\headrulewidth}{0.4pt}
 ---
@@ -75,9 +75,26 @@ header-includes:
 
 # Cadenza · Manuale Amministratore
 
-> **Versione**: 1.3 · **Data**: 5 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.4 · **Data**: 9 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: Direttori, DSGA, responsabili IT e coordinatori didattici dei Conservatori
 > **Prerequisiti**: account con ruolo `admin` su una installazione Cadenza già provisionata
+
+---
+
+## Cosa c'è di nuovo in v1.4 (9 maggio 2026)
+
+> Aggiornamento di **rifinitura** post-v1.3, focalizzato su un'estensione concreta del motore Eccezioni e su piccole correzioni UX dell'admin.
+
+| Tema                                         | Aggiunte / fix v1.4                                                                                                                                            | Riferimento manuale |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **Eccezioni con scope per aula** ⭐          | Nuovo Select "Aula" su lista e dialog (`BookingRuleException.roomId` nullable, retro-compatibile). Badge viola "Aula X" sulle eccezioni scoped                 | §6.3                |
+| **Label "Sede · Aula" nei Select**           | I Select aula nel dialog e nel filtro lista mostrano `Sede · Aula` (es. "Conservatorio Storico · Aula 12"), ordinati `localeCompare('it')` per non confondersi | §6.3                |
+| **Aule orfane di edifici soft-deleted**      | `GET /api/structure/rooms` e `/search` ora applicano `INNER JOIN` su `Building`: aule il cui edificio è stato cestinato non compaiono più nei Select admin     | §5, §6.3            |
+| **Dashboard — toggle vista 1 / 3 giorni**    | Header del calendario dashboard con pulsanti `1 giorno · 3 giorni`. La preferenza è persistita per browser; le frecce avanzano in step coerenti                | §2 (login & home)   |
+| **Aspetto server — blocklist icone Cadenza** | Nelle Impostazioni → Aspetto, le icone `cadenza.png`, `cadenza-bars.svg` e `cadenza-classic.png` sono escluse dalla griglia di scelta (restano sul filesystem) | §12 → Aspetto       |
+| **Deploy — flag `--update-deps`**            | `./deploy.sh --update-deps` esegue `npm outdated` su backend e frontend e chiede per ciascuno se applicare aggiornamenti semver-safe via `npm update`          | §16 / install.md    |
+
+Le novità di v1.3 (descrizioni visive complete per ogni voce, mockup ASCII, mappa screenshot 36 file) restano invariate.
 
 ---
 
@@ -844,23 +861,52 @@ Le eccezioni **sospendono o sostituiscono** una regola/quota per:
 
 - una **finestra temporale** specifica (es. "durante la sessione esami sospendi quota weekend")
 - uno **specifico utente** (es. "Prof. Rossi: nessun limite settimanale per il mese di maggio per le prove dell'esame finale")
-- una **specifica aula** (es. "Aula 5: prenotabile solo da chi ha permesso speciale, dal 1 al 30 giugno")
+- una **specifica aula** ⭐ NUOVO v2.7 (es. "Aula 5: max 2h/giorno per gli studenti dal 1 al 30 giugno")
+- una combinazione delle precedenti (ruolo + aula + finestra)
 
 L'eccezione ha priorità sulla regola/quota originaria. Tracciato in **Audit Log** con motivo testuale obbligatorio.
 
+#### Lista eccezioni — toolbar e filtri
+
+In alto sopra la tabella:
+
+| Filtro    | Comportamento                                                                                                                                                                           |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ruolo** | Select `Tutti i ruoli` · `Studenti` · `Docenti` · `Admin` — filtra solo le eccezioni con quel `role`                                                                                    |
+| **Aula**  | Select `Tutte le aule` + elenco aule ordinato per `Sede · Aula` (es. "Conservatorio Storico · Aula 12"), così se l'istituto ha più edifici con numeri ripetuti si distingue chiaramente |
+
+La label "Sede · Aula" è applicata anche al Select del dialog (vedi sotto). Le aule la cui Sede è stata soft-deleted da `/admin/structure` non compaiono in nessuno dei due Select (filtro `INNER JOIN` su Building).
+
+Ogni riga della lista mostra:
+
+- nome dell'eccezione + tipo (`block` viola scuro · `time_window` ambra)
+- badge ruolo (verde studenti · azzurro docenti · viola admin)
+- **badge viola "Aula X"** se `roomId` è valorizzato (eccezione scoped a una specifica aula)
+- finestra date (`dateFrom – dateTo` o "data singola")
+- icona attiva/non attiva (verde/grigio)
+
 #### Form Eccezione
 
-| Campo                  | Tipo          | Validazioni                                                                    |
-| ---------------------- | ------------- | ------------------------------------------------------------------------------ |
-| Nome                   | Text          | required, non vuoto                                                            |
-| Tipo                   | Select        | `block` (chiusura totale) · `time_window` (limite ore in finestra)             |
-| Si applica a           | Select        | `all` · solo studenti · solo docenti · solo admin                              |
-| Ore max nella finestra | Number        | required se `kind=time_window`; step 0.5, min 0.25                             |
-| Giorni della settimana | Toggle multi  | 7 bottoni Lun–Dom; vuoto = ogni giorno                                         |
-| Data singola / range   | Switch + Date | toggle "Data singola" mostra solo `dateFrom`; altrimenti `dateFrom` + `dateTo` |
-| Fascia oraria          | Time + Time   | optional; entrambi presenti, `startTime < endTime`                             |
-| Note                   | Textarea      | optional                                                                       |
-| Attivo                 | Switch        | "Disattivala per disabilitarla senza eliminarla"                               |
+| Campo                  | Tipo          | Validazioni                                                                                        |
+| ---------------------- | ------------- | -------------------------------------------------------------------------------------------------- |
+| Nome                   | Text          | required, non vuoto                                                                                |
+| Tipo                   | Select        | `block` (chiusura totale) · `time_window` (limite ore in finestra)                                 |
+| Si applica a           | Select        | `all` · solo studenti · solo docenti · solo admin                                                  |
+| **Aula** ⭐ NUOVO v2.7 | Select        | default `Tutte le aule` (= `roomId=null`, retro-compatibile); altrimenti scegli una specifica aula |
+| Ore max nella finestra | Number        | required se `kind=time_window`; step 0.5, min 0.25                                                 |
+| Giorni della settimana | Toggle multi  | 7 bottoni Lun–Dom; vuoto = ogni giorno                                                             |
+| Data singola / range   | Switch + Date | toggle "Data singola" mostra solo `dateFrom`; altrimenti `dateFrom` + `dateTo`                     |
+| Fascia oraria          | Time + Time   | optional; entrambi presenti, `startTime < endTime`                                                 |
+| Note                   | Textarea      | optional                                                                                           |
+| Attivo                 | Switch        | "Disattivala per disabilitarla senza eliminarla"                                                   |
+
+> **Pre-popolamento aula**: se apri il dialog mentre il filtro lista "Aula" è valorizzato, il Select del form parte già su quella aula (puoi sempre cambiarlo a "Tutte le aule"). La lista aule è cachata 5 minuti per evitare round-trip ad ogni apertura del dialog.
+
+> **Semantica scope aula**:
+>
+> - `block` con `roomId=N` → blocca solo prenotazioni su aula N (es. ristrutturazione di una singola aula). Le altre aule restano libere.
+> - `time_window` con `roomId=N` → "max Xh **in aula N**" — il conteggio ore già prenotate è ristretto all'aula scoped, non somma le ore in altre aule. Esempio: "Aula 12: max 2h/giorno per studente, dal 1 al 30 giugno" non impedisce allo studente di fare altre 2h nell'Aula 5 lo stesso giorno.
+> - `roomId=null` (default) → la regola vale **per tutte le aule** dell'istituto (eccezione globale). Equivalente al comportamento storico pre-v2.7.
 
 > **Nudge UI**: se `dateTo < oggi` (eccezione retrodatata che copre solo il passato), un banner azzurro avvisa "Questa eccezione copre solo date passate — verrà ignorata da nuove prenotazioni".
 

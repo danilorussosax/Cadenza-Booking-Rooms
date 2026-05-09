@@ -46,9 +46,11 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 - Prenotazione self-service con grid 30 minuti, 7-23
 - Regole e quote configurabili per ruolo (durata min/max, anticipo, finestra oraria, quota settimanale)
+- **Eccezioni con scope per ruolo + aula** (`block` o `time_window`): override temporanei per ristrutturazioni, sessioni esami, masterclass, con anteprima sovrapposizioni storiche e batch-cancel transazionale
 - **Approval workflow** per aule speciali (sala concerti, auditorium)
 - **Anti-ghost booking**: check-in tramite QR code stampato in aula, auto-cancellazione con grace period
 - **Waitlist** con claim window e auto-promote
+- **Dashboard** con toggle "1 giorno · 3 giorni" sul calendario (preferenza persistita per browser, frecce di navigazione coerenti con la modalità)
 - Vista settimanale aule × giorni con export PDF A4 landscape per edificio
 - iCal export per ogni utente con token
 
@@ -191,7 +193,7 @@ UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**,
 | Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                      |
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente             |
 | Monitoring    | Sentry v10 (opt-in)                                            |
-| Testing       | Vitest 592 test backend + 106 component/lib + Playwright 4 E2E |
+| Testing       | Vitest 602 test backend + 106 component/lib + Playwright 8 E2E |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                 |
 
 ---
@@ -419,7 +421,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale**: 77 test backend integration + 10 component test frontend + 4 E2E Playwright. CI GitHub Actions con gate su label per gli E2E.
+**Copertura attuale**: ~602 test backend (44 file integration + 6 unit) + 106 component test frontend (17 file, di cui 10 a11y `vitest-axe`) + 8 E2E Playwright (4 a11y + 4 business). CI GitHub Actions con gate su label per gli E2E.
 
 ---
 

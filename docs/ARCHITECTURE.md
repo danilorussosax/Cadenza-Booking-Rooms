@@ -85,7 +85,8 @@ BookingRule        ── 1 record per ruolo (studente/docente/admin)
 - **Equipment** — `roomId`, `name`, `type`, `brand`, `model`, `quantity`, `isWorking`
 - **EquipmentTemplate** — catalogo dotazioni: `name` (unico), `type`
 - **Booking** — `userId`, `roomId`, `startTime`, `endTime`, `purpose`, `type` (studio_individuale · lezione · prova · concerto · altro), `status` (confirmed · cancelled · completed · no_show), `checkInToken` (UUID anti ghost-booking), `checkedInAt`, `autoCancelledAt`
-- **BookingRule** — un record per ruolo: `maxActiveBookings`, `maxHoursPerWeek`, `maxHoursPerDay`, `min/maxBookingDurationMinutes`, `min/maxAdvance...`, `cancellationDeadlineHours`, `allowed/Start/EndTime`, ...
+- **BookingRule** — un record per ruolo: `maxActiveBookings`, `maxHoursPerWeek`, `maxHoursPerDay`, `min/maxBookingDurationMinutes`, `min/maxAdvance...`, `cancellationDeadlineHours`, `allowed/Start/EndTime`, `minIntervalBetweenBookingsMinutes` (cooldown), ...
+- **BookingRuleException** — eccezioni temporanee a regole/quote: `name`, `kind` (`block` · `time_window`), `role` (`all` · ruolo specifico), `roomId` (nullable — null = vale per tutte le aule, valorizzato = scope su singola aula), `dateFrom/dateTo`, `startTime/endTime`, `daysOfWeek[]`, `maxHoursInWindow`, `isActive`, `notes`. FK CASCADE su `Room`. Indici: `(roomId)` e composito `(role, roomId, isActive)` per il lookup hot-path nel validator.
 
 ## 4. Autenticazione e autorizzazione
 
@@ -517,7 +518,8 @@ BookingRule        ── 1 record per role (student/teacher/admin)
 - **Equipment** — `roomId`, `name`, `type`, `brand`, `model`, `quantity`, `isWorking`
 - **EquipmentTemplate** — equipment catalog: `name` (unique), `type`
 - **Booking** — `userId`, `roomId`, `startTime`, `endTime`, `purpose`, `type` (individual_study · lesson · rehearsal · concert · other), `status` (confirmed · cancelled · completed · no_show)
-- **BookingRule** — one record per role: `maxActiveBookings`, `maxHoursPerWeek`, `maxHoursPerDay`, `min/maxBookingDurationMinutes`, `min/maxAdvance...`, `cancellationDeadlineHours`, `allowed/Start/EndTime`, …
+- **BookingRule** — one record per role: `maxActiveBookings`, `maxHoursPerWeek`, `maxHoursPerDay`, `min/maxBookingDurationMinutes`, `min/maxAdvance...`, `cancellationDeadlineHours`, `allowed/Start/EndTime`, `minIntervalBetweenBookingsMinutes` (cooldown), …
+- **BookingRuleException** — temporary overrides of rules/quotas: `name`, `kind` (`block` · `time_window`), `role` (`all` · specific role), `roomId` (nullable — null = applies to every room, set = scoped to a single room), `dateFrom/dateTo`, `startTime/endTime`, `daysOfWeek[]`, `maxHoursInWindow`, `isActive`, `notes`. FK CASCADE on `Room`. Indices: `(roomId)` and composite `(role, roomId, isActive)` for the validator's hot-path lookup.
 
 ## 4. Authentication & authorization
 
