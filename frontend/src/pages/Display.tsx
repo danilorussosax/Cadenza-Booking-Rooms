@@ -197,7 +197,16 @@ export default function Display() {
   // Vista settimanale (Lun→Sab) per coerenza con la dashboard. Il kiosk
   // ricalcola weekStart in base a `now` (chiave di refetch) così a mezzanotte
   // di lunedì la query si invalida automaticamente.
-  const weekStart = useMemo(() => dayjs(now).startOf('isoWeek').format('YYYY-MM-DD'), [now]);
+  //
+  // Domenica (`isoWeekday() === 7`): la settimana corrente Lun-Sab è esaurita
+  // (sabato è passato) e mostrarla è informazione morta. Saltiamo direttamente
+  // alla settimana successiva — al passaggio Sab→Dom la stringa weekStart
+  // cambia e la query si invalida sola.
+  const weekStart = useMemo(() => {
+    const today = dayjs(now);
+    const base = today.isoWeekday() === 7 ? today.add(1, 'day') : today;
+    return base.startOf('isoWeek').format('YYYY-MM-DD');
+  }, [now]);
   const weekEnd = useMemo(() => dayjs(weekStart).add(5, 'day').format('YYYY-MM-DD'), [weekStart]);
   const agendaQuery = useQuery<PublicAgenda>({
     queryKey: ['public', 'agenda', 'week', weekStart],
