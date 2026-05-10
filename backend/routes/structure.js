@@ -606,6 +606,19 @@ router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req,
             transaction: t,
           });
         }
+        // Cascade del soft-delete: paranoid Sequelize non propaga ai figli,
+        // quindi se non destroy() esplicitamente Room/Building i record
+        // restano alive con `deletedAt IS NULL`. Risultato: le query che
+        // non joinano via Building (es. /public/stats roomsTotal) contano
+        // aule "orfane" non visibili dall'albero Structure.
+        await Room.destroy({
+          where: { buildingId: { [Op.in]: buildingIds } },
+          transaction: t,
+        });
+        await Building.destroy({
+          where: { instituteId: inst.id },
+          transaction: t,
+        });
       }
       await inst.destroy({ transaction: t });
       return removedBookings;
@@ -791,6 +804,12 @@ router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, 
       if (roomIds.length > 0) {
         removedBookings = await Booking.destroy({
           where: { roomId: { [Op.in]: roomIds } },
+          transaction: t,
+        });
+        // Cascade del soft-delete: senza questo le aule restano `deletedAt
+        // IS NULL` e gonfiano i counter che non joinano via Building.
+        await Room.destroy({
+          where: { buildingId: b.id },
           transaction: t,
         });
       }
