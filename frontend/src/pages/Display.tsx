@@ -491,7 +491,7 @@ export default function Display() {
 
       {/* Rotazione delle slide: edifici (timetable) + concerti (locandina).
           Il setTimeout usa l'intervalSec della slide corrente (vedi /admin/display). */}
-      <div className="relative flex min-h-0 flex-1 overflow-hidden px-6 py-3 lg:px-10 2xl:px-14 2xl:py-4">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden px-2 py-2 lg:px-3 2xl:px-4 2xl:py-3">
         {slides.length === 0 && agendaQuery.isLoading && (
           <div className="flex flex-1 items-center justify-center rounded-2xl border bg-card p-10 text-center text-muted-foreground">
             {t('display.loading_agenda')}
@@ -786,7 +786,7 @@ function BuildingTable({
       {/* Body autoFit: tutte le aule sempre visibili senza scroll, le righe
           si rimpiccioliscono fino al floor minRowRem (1.25rem). overflow-hidden
           per rimuovere lo scroll-bar verticale che spezzava il layout pieno. */}
-      <div className="flex min-h-0 flex-1 overflow-hidden p-2 2xl:p-3">
+      <div className="flex min-h-0 flex-1 overflow-hidden p-1 2xl:p-1.5">
         {sortedRooms.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-muted-foreground">
             {t('display.no_rooms_configured')}
