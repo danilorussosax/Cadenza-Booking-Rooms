@@ -782,28 +782,18 @@ function InstituteCard({
                       >
                         <Building2 className="h-4 w-4" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0">
                         <p className="truncate font-medium">{building.name}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">
-                            {t(
-                              building.rooms.length === 1
-                                ? 'admin.structure.rooms_count_one'
-                                : 'admin.structure.rooms_count_other',
-                              { count: building.rooms.length },
-                            )}
-                          </span>
-                          {building.floors.map((floor) => (
-                            <Badge
-                              key={floor}
-                              variant="secondary"
-                              className="gap-1 px-1.5 py-0 text-[10px] font-medium"
-                            >
-                              <Layers className="h-2.5 w-2.5" />
-                              {floor}
-                            </Badge>
-                          ))}
-                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {t(
+                            building.rooms.length === 1
+                              ? 'admin.structure.rooms_count_one'
+                              : 'admin.structure.rooms_count_other',
+                            { count: building.rooms.length },
+                          )}
+                          {' · '}
+                          {building.floors.join(', ')}
+                        </p>
                       </div>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
@@ -881,12 +871,12 @@ function InstituteCard({
                           <div className="divide-y">
                             {roomsByFloor.map(({ floor, rooms: floorRooms }) => (
                               <section key={floor || '_unknown'}>
-                                <header className="flex items-center justify-between gap-2 border-l-2 border-primary/60 bg-muted/60 px-5 py-2 text-xs">
-                                  <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                                    <Layers className="h-3.5 w-3.5 text-primary" />
+                                <header className="flex items-center justify-between gap-2 bg-muted/40 px-5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <Layers className="h-3 w-3" />
                                     {floor || t('admin.structure.unknown_floor')}
                                   </span>
-                                  <span className="font-mono tabular-nums text-muted-foreground">
+                                  <span className="font-mono tabular-nums">
                                     {t(
                                       floorRooms.length === 1
                                         ? 'admin.structure.rooms_count_one'
