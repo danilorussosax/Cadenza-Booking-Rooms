@@ -278,7 +278,26 @@ router.get('/stats', async (req, res) => {
   const nowDate = now.toDate();
 
   const [roomsTotal, todayBookings, weekBookings] = await Promise.all([
-    Room.count({ where: { isBookable: true } }),
+    // Defense-in-depth: i delete handler ora cascadano il soft-delete e la
+    // migration cleanup-orphan-rooms-and-buildings sistema lo storico, ma
+    // qui filtriamo comunque via Building→Institute (required: true) per
+    // escludere eventuali aule orfane sopravvissute. Senza questo, KPI
+    // "Aule attive" su /display includerebbe rooms con parent paranoid-
+    // deleted (non visibili dall'admin Structure → numeri non allineati).
+    Room.count({
+      where: { isBookable: true },
+      include: [
+        {
+          model: Building,
+          as: 'building',
+          attributes: [],
+          required: true,
+          include: [{ model: Institute, as: 'institute', attributes: [], required: true }],
+        },
+      ],
+      distinct: true,
+      col: 'id',
+    }),
     Booking.findAll({
       where: {
         status: 'confirmed',
