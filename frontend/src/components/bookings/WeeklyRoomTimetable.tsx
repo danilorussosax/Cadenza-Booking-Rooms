@@ -55,7 +55,7 @@ interface Props {
   rooms: WeeklyRoom[];
   blocks: WeeklyBlock[];
   startHour?: number; // default 8
-  endHour?: number; // default 20
+  endHour?: number; // default 21
   slotMinutes?: number; // default 30
   daysCount?: number; // default 6 (Lun-Sab); usa 7 per includere domenica
   /** Indica visivamente l'ora corrente nel giorno odierno se cade nel range. */
@@ -97,7 +97,7 @@ export function WeeklyRoomTimetable({
   rooms,
   blocks,
   startHour = 8,
-  endHour = 20,
+  endHour = 21,
   slotMinutes = 30,
   daysCount = 6,
   showNowIndicator = true,
@@ -110,8 +110,8 @@ export function WeeklyRoomTimetable({
 }: Props) {
   const { t } = useTranslation();
   const totalMinutes = (endHour - startHour) * 60;
-  const slotsPerDay = totalMinutes / slotMinutes; // 24 con 8→20 e 30'
-  const totalHours = endHour - startHour; // 12
+  const slotsPerDay = totalMinutes / slotMinutes; // 26 con 8→21 e 30'
+  const totalHours = endHour - startHour; // 13
 
   // Stato drag-to-select: tracciamo room/giorno e gli slot di inizio/fine.
   // Il drag è confinato a una singola cella (room × giorno): l'utente non
@@ -291,7 +291,7 @@ export function WeeklyRoomTimetable({
               )}
               style={{ height: `${hourHeaderRem}rem` }}
             >
-              {/* 12 etichette ora distribuite con flex-1: ogni etichetta copre
+              {/* 13 etichette ora distribuite con flex-1: ogni etichetta copre
                   un blocco di 2 slot (1 ora intera) ed è centrata orizzontalmente
                   nella propria cella, così il numero appare al centro dell'ora
                   invece che al bordo iniziale. */}

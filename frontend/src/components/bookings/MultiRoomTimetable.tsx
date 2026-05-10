@@ -27,7 +27,7 @@ export function MultiRoomTimetable({
   rooms,
   bookings,
   startHour = 8,
-  endHour = 20,
+  endHour = 21,
   slotMinutes = 30,
   currentUserId,
   onSlotClick,

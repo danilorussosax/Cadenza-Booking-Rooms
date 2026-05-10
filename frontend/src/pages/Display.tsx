@@ -708,7 +708,7 @@ const BUILDING_ACCENTS = [
 
 // ===========================
 // Building timetable (kiosk): vista settimanale (Lun-Sab) → aule × giorni
-// con slot 30' (08:00–20:00). Riusa il componente WeeklyRoomTimetable.
+// con slot 30' (08:00–21:00). Riusa il componente WeeklyRoomTimetable.
 // ===========================
 function BuildingTable({
   building,
