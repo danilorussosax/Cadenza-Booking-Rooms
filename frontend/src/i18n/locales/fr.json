@@ -1,0 +1,1973 @@
+{
+  "app": {
+    "name": "Cadenza",
+    "subtitle": "Réservation de salles",
+    "tagline": "Système de réservation de salles",
+    "institute_default": "Conservatoire"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "save_continue": "Enregistrer et continuer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "close": "Fermer",
+    "back": "Retour",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "confirm": "Confirmer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "all": "Tous",
+    "none": "Aucun",
+    "yes": "Oui",
+    "no": "Non",
+    "enabled": "Actif",
+    "disabled": "Désactivé",
+    "or": "ou",
+    "optional": "facultatif",
+    "required": "obligatoire",
+    "actions": "Actions",
+    "status": "Statut",
+    "name": "Nom",
+    "code": "Code",
+    "description": "Description",
+    "copy": "Copier",
+    "copied": "Copié",
+    "show": "Afficher",
+    "hide": "Masquer",
+    "logout": "Se déconnecter",
+    "skip_to_content": "Aller au contenu",
+    "discard_changes_title": "Abandonner les modifications ?",
+    "discard_changes_description": "Vous avez des modifications non enregistrées dans ce formulaire. Si vous fermez maintenant, elles seront perdues.",
+    "discard_changes_confirm": "Abandonner",
+    "offline_banner": "Vous êtes hors ligne. Les modifications seront enregistrées au retour de la connexion.",
+    "settings": "Paramètres",
+    "administration": "Administration",
+    "open": "Ouvrir",
+    "view": "Voir",
+    "details": "Détails",
+    "from": "Du",
+    "to": "Au",
+    "select": "Sélectionner",
+    "select_placeholder": "Sélectionner…",
+    "no_results": "Aucun résultat",
+    "logout_switch_account": "Se déconnecter et se connecter avec un autre compte",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "tomorrow": "Demain",
+    "and": "et",
+    "of": "de",
+    "verify": "Vérifier",
+    "regenerate": "Régénérer",
+    "import": "Importer",
+    "export": "Exporter",
+    "download": "Télécharger",
+    "upload": "Téléverser",
+    "rename": "Renommer",
+    "send": "Envoyer",
+    "preview": "Aperçu",
+    "reset": "Réinitialiser",
+    "active": "Actif",
+    "inactive": "Désactivé",
+    "irreversible": "L'opération est irréversible."
+  },
+  "language": {
+    "label": "Langue",
+    "italian": "Italiano",
+    "english": "English",
+    "spanish": "Español",
+    "select": "Sélectionner la langue"
+  },
+  "theme": {
+    "light": "Thème clair",
+    "dark": "Thème sombre",
+    "system": "Thème système"
+  },
+  "roles": {
+    "admin": "Administrateur",
+    "docente": "Enseignant",
+    "studente": "Étudiant",
+    "admin_short": "Admin",
+    "docente_short": "Ens.",
+    "studente_short": "Étud."
+  },
+  "user_status": {
+    "pending": "En attente",
+    "approved": "Approuvé",
+    "rejected": "Refusé"
+  },
+  "nav": {
+    "primary_label": "Navigation principale",
+    "dashboard": "Tableau de bord",
+    "booking": "Réserver",
+    "my_bookings": "Mes réservations",
+    "rooms": "Salles",
+    "profile": "Profil",
+    "instruments": "Instruments",
+    "my_loans": "Mes emprunts",
+    "admin_users": "Utilisateurs",
+    "admin_structure": "Structure",
+    "admin_courses": "Cursus",
+    "admin_rules": "Règles de réservation",
+    "admin_booking_types": "Types de réservation",
+    "admin_mail": "Service Courrier",
+    "admin_mail_outbox": "File d'attente e-mails",
+    "admin_messaging": "Bot messagerie",
+    "admin_backups": "Sauvegardes",
+    "admin_audit_log": "Journal d'audit",
+    "admin_activity_log": "Journal d'activité",
+    "admin_analytics": "Statistiques",
+    "admin_announcements": "Annonces",
+    "admin_approvals": "Approbations de réservations",
+    "admin_bookings": "Réservations",
+    "admin_instruments": "Inventaire des instruments",
+    "admin_display": "Infopoint",
+    "admin_integrations_isidata": "Import Isidata",
+    "admin_server_settings": "Paramètres serveur",
+    "monte_ore": "Quota horaire",
+    "admin_monte_ore": "Gestion quota horaire"
+  },
+  "auth": {
+    "login": {
+      "title": "Bon retour",
+      "subtitle": "Connectez-vous avec votre e-mail et votre mot de passe.",
+      "title_choices": "Connexion requise",
+      "subtitle_choices": "Vous devez vous connecter pour utiliser Cadenza. Si vous n'avez pas encore de compte, vous pouvez en demander un.",
+      "submit": "Se connecter",
+      "use_email": "Se connecter avec e-mail",
+      "register": "S'inscrire",
+      "no_account": "Vous n'avez pas de compte ?",
+      "back_to_options": "Retour aux options",
+      "continue_google": "Continuer avec Google",
+      "continue_microsoft": "Continuer avec Microsoft"
+    },
+    "register": {
+      "title": "Créez votre compte",
+      "subtitle": "Quelques informations suffisent pour commencer à réserver les salles.",
+      "submit": "Créer un compte",
+      "have_account": "Vous avez déjà un compte ?",
+      "login": "Se connecter",
+      "matricola_hint": "facultatif pour le moment",
+      "complete_later": "Vous pourrez compléter le numéro d'étudiant et le cursus après l'inscription."
+    },
+    "complete_profile": {
+      "title": "Compléter le profil",
+      "subtitle": "Confirmez votre rôle et vos informations de base pour accéder à l'application.",
+      "role_question": "Êtes-vous étudiant ou enseignant ?",
+      "teacher_warning": "Les comptes enseignants doivent être approuvés par un administrateur avant activation."
+    },
+    "pending": {
+      "title": "En attente d'approbation",
+      "subtitle": "Votre compte enseignant a été enregistré avec succès. Un administrateur va le vérifier sous peu : vous obtiendrez un accès complet dès qu'il sera approuvé.",
+      "rejected_title": "Compte refusé",
+      "rejected_subtitle": "L'administrateur a refusé votre demande d'inscription. Pour plus d'informations, contactez le secrétariat.",
+      "verify_status": "Vérifier le statut",
+      "quote": "La patience est un arbre aux racines amères mais aux fruits très doux.",
+      "quote_attribution": "Proverbe ancien"
+    },
+    "oauth_callback": {
+      "title": "Connexion en cours",
+      "subtitle": "Nous vérifions les identifiants du fournisseur…",
+      "error_title": "Échec de la connexion",
+      "missing_token": "Jeton d'accès manquant. Veuillez réessayer de vous connecter.",
+      "back_to_login": "Retour à la connexion"
+    },
+    "fields": {
+      "first_name": "Prénom",
+      "last_name": "Nom",
+      "email": "E-mail",
+      "email_institutional": "E-mail institutionnel",
+      "email_placeholder": "prenom.nom@conservatoire.fr",
+      "password": "Mot de passe",
+      "password_placeholder_min": "Au moins 8 caractères",
+      "role": "Rôle",
+      "matricola": "Numéro d'étudiant",
+      "matricola_placeholder": "ex. 12345",
+      "course": "Cursus",
+      "course_placeholder": "Sélectionnez un cursus",
+      "course_placeholder_optional": "Sélectionner (facultatif)",
+      "course_loading": "Chargement des cursus…"
+    },
+    "validation": {
+      "email_invalid": "E-mail invalide",
+      "email_required": "Saisissez une adresse e-mail valide",
+      "password_required": "Le mot de passe est obligatoire",
+      "password_min": "Le mot de passe doit comporter au moins 8 caractères",
+      "first_name_required": "Saisissez le prénom",
+      "last_name_required": "Saisissez le nom",
+      "matricola_required_student": "Le numéro d'étudiant est obligatoire pour les étudiants",
+      "course_required": "Sélectionnez votre cursus",
+      "passwords_mismatch": "Les mots de passe ne correspondent pas",
+      "confirm_password_required": "Confirmez le nouveau mot de passe"
+    },
+    "auth_layout": {
+      "tagline": "Étudie, répète, exécute.",
+      "tagline2": "Une salle pour chaque note.",
+      "complete_quote": "Chaque détail est une note : ensemble ils composent ta musique.",
+      "complete_attribution": "Équipe du Conservatoire",
+      "quotes": [
+        {
+          "text": "Sans la musique, la vie serait une erreur.",
+          "attribution": "Friedrich Nietzsche"
+        },
+        {
+          "text": "La musique exprime ce qui ne peut être dit et sur quoi il est impossible de se taire.",
+          "attribution": "Felix Mendelssohn"
+        },
+        {
+          "text": "Envoyer de la lumière dans les profondeurs du cœur humain : voilà le devoir de l'artiste.",
+          "attribution": "Robert Schumann"
+        },
+        {
+          "text": "La musique est la langue des affects.",
+          "attribution": "Carl Philipp Emanuel Bach"
+        },
+        {
+          "text": "Pour faire de la musique, il ne suffit pas de savoir écrire de la musique.",
+          "attribution": "Igor Stravinsky"
+        },
+        {
+          "text": "La tradition est le souvenir de la dernière mauvaise exécution.",
+          "attribution": "Arturo Toscanini"
+        },
+        {
+          "text": "Revenons à l'ancien, ce sera un progrès.",
+          "attribution": "Giuseppe Verdi"
+        },
+        {
+          "text": "Il n'y a pas de silence. Il n'y a que quelque chose que je n'entends pas.",
+          "attribution": "John Cage"
+        }
+      ]
+    },
+    "twofa": {
+      "title": "Vérification en deux étapes",
+      "subtitle_email": "Nous avons envoyé un code à 6 chiffres à {{email}}. Il expire dans {{minutes}} minutes.",
+      "subtitle_recovery": "Saisissez l'un de vos codes de récupération (à usage unique).",
+      "code_label": "Code reçu par e-mail",
+      "recovery_label": "Code de récupération",
+      "use_recovery": "Utiliser un code de récupération",
+      "use_email": "Utiliser un nouveau code par e-mail",
+      "resend": "Vous n'avez pas reçu l'e-mail ? Envoyer un nouveau code",
+      "resending": "Envoi en cours…",
+      "verify": "Vérifier et se connecter"
+    }
+  },
+  "dashboard": {
+    "title": "Bonjour, {{name}}",
+    "subtitle": "Voici un aperçu de vos réservations.",
+    "greeting_morning": "Bonjour",
+    "greeting_afternoon": "Bon après-midi",
+    "greeting_evening": "Bonsoir",
+    "greeting_night": "Bonne nuit",
+    "hero_question": "Prêt à étudier aujourd'hui ?",
+    "today_welcome": "{{date}} · bienvenue dans le système de réservation du Conservatoire.",
+    "calendar_title": "Calendrier des salles (journalier)",
+    "calendar_help": "Première colonne : salle · Créneaux de 30 minutes (08:00–20:00). Cliquez ou glissez sur une plage libre pour réserver.",
+    "calendar_range": {
+      "label": "Vue calendrier",
+      "single": "1 jour",
+      "three": "3 jours",
+      "range_label": "Du {{from}} au {{to}}"
+    },
+    "prev_day": "Jour précédent",
+    "next_day": "Jour suivant",
+    "prev_week": "Semaine précédente",
+    "next_week": "Semaine suivante",
+    "this_week": "Cette semaine",
+    "today": "Aujourd'hui",
+    "export_weekly_pdf": "Exporter PDF hebdomadaire",
+    "no_bookings_yet": "Aucune réservation à l'agenda",
+    "no_bookings_yet_subtitle": "Commencez en réservant une salle pour vos répétitions ou vos cours.",
+    "stats": {
+      "active_bookings": "Réservations actives",
+      "active_bookings_hint": "Confirmées à partir de maintenant",
+      "weekly_remaining_hours": "Heures restantes (semaine)",
+      "weekly_remaining_unlimited": "{{used}} h réservées · aucune limite",
+      "weekly_remaining_hint": "Sur {{max}} h · {{used}} h déjà réservées",
+      "available_rooms": "Salles disponibles",
+      "available_rooms_hint": "Avec réservation active",
+      "next_session": "Prochaine session",
+      "next_session_none": "Aucune à l'agenda",
+      "active_loans": "Emprunts actifs",
+      "active_loans_hint": "{{pending}} en attente d'approbation",
+      "pending_bookings_approvals": "Réservations à approuver",
+      "pending_bookings_approvals_hint": "Demandes sur des salles avec approbation",
+      "pending_amendments": "Modifications quota horaire",
+      "pending_amendments_hint": "Demandes enseignants en attente"
+    },
+    "kpi": {
+      "next_booking": "Prochaine réservation",
+      "next_booking_none": "Aucune réservation à venir",
+      "weekly_used": "Heures réservées (semaine)",
+      "weekly_remaining": "Heures restantes cette semaine",
+      "daily_remaining": "Heures restantes aujourd'hui",
+      "unlimited": "Illimitées"
+    },
+    "next_bookings": {
+      "title": "Prochaines réservations",
+      "see_all": "Voir tout",
+      "empty": "Vous n'avez aucune réservation à venir. Commencez tout de suite !",
+      "create": "Réserver une salle"
+    },
+    "loans": {
+      "title": "Mes emprunts",
+      "see_all": "Voir tout"
+    },
+    "quick_actions": {
+      "title": "Actions rapides",
+      "new_booking": "Nouvelle réservation",
+      "view_rooms": "Explorer les salles",
+      "my_bookings": "Mes réservations"
+    },
+    "pending_approvals": {
+      "title": "Réservations en attente d'approbation",
+      "subtitle": "{{count}} demandes en attente de l'administrateur.",
+      "subtitle_one": "{{count}} demande en attente de l'administrateur.",
+      "see_all": "Voir tout"
+    }
+  },
+  "my_bookings": {
+    "title": "Mes réservations",
+    "subtitle": "Gérez toutes vos réservations passées, futures et annulées.",
+    "new_booking": "Nouvelle réservation",
+    "export_ical": "Exporter iCal",
+    "export_ical_title": "Télécharger les réservations des 90 prochains jours au format iCalendar (.ics)",
+    "tabs": {
+      "future": "À venir",
+      "past": "Passées",
+      "cancelled": "Annulées",
+      "all": "Toutes"
+    },
+    "empty": {
+      "future_title": "Aucune réservation à venir",
+      "future_subtitle": "Commencez tout de suite en réservant une salle pour vos répétitions ou vos cours.",
+      "past_title": "Aucune réservation passée",
+      "past_subtitle": "Les sessions terminées apparaîtront ici.",
+      "cancelled_title": "Aucune réservation annulée",
+      "cancelled_subtitle": "Les réservations que vous annulerez apparaîtront ici.",
+      "all_title": "Aucune réservation",
+      "all_subtitle": "Lorsque vous créerez votre première réservation, elle apparaîtra ici.",
+      "create": "Réserver une salle"
+    },
+    "toast": {
+      "ical_downloaded": "Fichier iCal téléchargé",
+      "session_expired": "Session expirée — veuillez vous reconnecter.",
+      "export_failed": "Échec de l'exportation"
+    }
+  },
+  "calendar_subscription": {
+    "title": "S'abonner au calendrier",
+    "description": "Ajoutez vos réservations au calendrier de votre système (Google Calendar, Apple Calendar, Outlook…). Le calendrier se met à jour automatiquement avec les réservations des 90 prochains jours — pas besoin d'ajouter chaque événement manuellement.",
+    "loading": "Chargement du lien…",
+    "webcal_label": "Lien d'abonnement (webcal://)",
+    "https_label": "Lien direct (https://)",
+    "show_token": "Afficher le jeton",
+    "hide_token": "Masquer le jeton",
+    "copy_link": "Copier le lien",
+    "webcal_help": "Ouvrez le lien sur un appareil disposant d'un calendrier installé — il vous sera demandé d'ajouter le calendrier en lecture seule. Sur Google Calendar, utilisez « Autres calendriers → À partir d'une URL » et collez la version https:// ci-dessous.",
+    "warning": "Le lien contient un jeton secret en lecture seule. Ne le partagez pas : quiconque le possède peut voir votre calendrier de réservations. Si vous le perdez ou suspectez qu'il a été divulgué, régénérez-le.",
+    "regenerate": "Régénérer le jeton",
+    "regenerate_confirm": "En régénérant le jeton, le lien précédent cessera de fonctionner. Continuer ?",
+    "regenerated": "Lien régénéré — l'ancien ne fonctionne plus",
+    "copied": "{{label}} copié",
+    "copy_failed": "Impossible de copier automatiquement — sélectionnez et copiez manuellement",
+    "label_webcal": "Lien webcal",
+    "label_https": "Lien https",
+    "retry": "Réessayer"
+  },
+  "booking": {
+    "title": "Réserver une salle",
+    "subtitle": "Choisissez une salle et une date : cliquez sur un créneau libre pour réserver.",
+    "select_room_first": "Sélectionnez une salle pour afficher la disponibilité.",
+    "click_help": "Cliquez sur un créneau libre · Cliquez sur l'une de vos réservations pour l'annuler",
+    "action_duplicate": "Dupliquer",
+    "action_duplicate_help": "Crée une nouvelle réservation en copiant la salle, le type et les détails (date décalée de 7 jours)",
+    "form_validation": {
+      "room_required": "Sélectionnez une salle",
+      "start_required": "Définissez l'heure de début",
+      "end_required": "Définissez l'heure de fin",
+      "end_after_start": "L'heure de fin doit être postérieure à celle de début.",
+      "studio_min_duration": "L'étude individuelle doit durer au moins 1 heure."
+    },
+    "form": {
+      "title_new": "Nouvelle réservation",
+      "title_edit": "Modifier la réservation",
+      "title_duplicate": "Dupliquer la réservation",
+      "title_description": "Vérifiez la disponibilité et confirmez pour bloquer la salle.",
+      "title_duplicate_description": "Les champs sont pré-remplis à partir de la réservation d'origine. La date a été décalée de 7 jours : modifiez-la si nécessaire.",
+      "purpose_title": "Titre (facultatif)",
+      "purpose_placeholder_short": "ex. Étude du répertoire de Bach",
+      "notes": "Notes (facultatif)",
+      "notes_placeholder": "Exigences ou remarques éventuelles",
+      "type_activity": "Type d'activité",
+      "submit_book": "Réserver",
+      "weeks": "semaines (même jour et même heure)",
+      "weeks_per": "pendant",
+      "skip_conflicts": "Les occurrences en conflit seront automatiquement ignorées.",
+      "recurring_created_some_skipped": "{{created}} réservations créées · {{skipped}} ignorées pour cause de conflits",
+      "recurring_created": "{{count}} réservations récurrentes créées",
+      "created_success": "Réservation créée avec succès",
+      "start": "Début",
+      "end": "Fin",
+      "room": "Salle",
+      "room_loading": "Chargement des salles…",
+      "date": "Date",
+      "start_time": "Heure de début",
+      "end_time": "Heure de fin",
+      "purpose": "Objet / Notes",
+      "purpose_placeholder": "Ex. étude individuelle, cours de piano, répétition d'ensemble…",
+      "type": "Type",
+      "type_studio_individuale": "Étude individuelle",
+      "type_lezione": "Cours",
+      "type_prova": "Répétition",
+      "type_concerto": "Concert",
+      "type_altro": "Autre",
+      "recurring": "Répéter chaque semaine",
+      "recurring_label": "Créer une réservation récurrente",
+      "recurring_until": "Jusqu'au",
+      "recurring_help": "Une réservation hebdomadaire sera créée pour chaque occurrence.",
+      "submit_create": "Confirmer la réservation",
+      "submit_update": "Enregistrer les modifications",
+      "save_as_template": "Enregistrer comme modèle",
+      "on_behalf_of": "Réserver au nom de",
+      "on_behalf_self": "Moi-même",
+      "updated_success": "Réservation mise à jour"
+    },
+    "template": {
+      "save_dialog_title": "Enregistrer comme modèle",
+      "save_dialog_description": "Mémorise la combinaison actuelle (salle, jour de la semaine, horaire, type, objet) pour la réutiliser en un clic depuis le tableau de bord.",
+      "name_label": "Nom du modèle",
+      "name_placeholder": "ex. Étude violon lundi matin",
+      "favorite_label": "Afficher dans le « Quick book » du tableau de bord",
+      "favorite_hint": "Maximum 3 modèles favoris simultanément.",
+      "save_button": "Enregistrer le modèle",
+      "saved_toast": "Modèle « {{name}} » enregistré",
+      "quick_book_title": "Quick book",
+      "quick_book_help": "Un clic réserve la prochaine occurrence du jour choisi.",
+      "quick_book_action_title": "Réserver depuis le modèle : {{name}}",
+      "quick_booked_toast": "Réservation créée pour {{when}}"
+    },
+    "type_label": "Type",
+    "status": {
+      "confirmed": "Confirmée",
+      "cancelled": "Annulée",
+      "completed": "Terminée",
+      "no_show": "Absent"
+    },
+    "cancel": {
+      "title": "Annuler la réservation ?",
+      "description": "La salle sera libérée et d'autres utilisateurs pourront la réserver.",
+      "reason": "Motif (facultatif)",
+      "reason_placeholder": "Ex. Changement de programme",
+      "confirm": "Annuler la réservation",
+      "deadline_warning": "L'annulation requiert un préavis minimum de {{hours}} heures."
+    },
+    "actions": {
+      "edit": "Modifier",
+      "cancel": "Annuler",
+      "view": "Voir"
+    },
+    "list_item": {
+      "duration": "Durée",
+      "starts_in": "Commence dans {{when}}"
+    },
+    "toast": {
+      "created": "Réservation créée",
+      "updated": "Réservation mise à jour",
+      "cancelled": "Réservation annulée"
+    }
+  },
+  "rooms": {
+    "title": "Salles du Conservatoire",
+    "subtitle": "Explorez les espaces disponibles et réservez directement d'ici.",
+    "search_placeholder": "Rechercher par nom, bâtiment, équipement…",
+    "filter_type": "Type",
+    "filter_building": "Bâtiment",
+    "all_types": "Tous les types",
+    "all_buildings": "Tous les bâtiments",
+    "capacity": "{{count}} places",
+    "capacity_one": "1 place",
+    "floor": "Étage {{floor}}",
+    "no_rooms": "Aucune salle trouvée",
+    "no_rooms_filtered_title": "Aucune salle ne correspond aux filtres",
+    "no_rooms_filtered_subtitle": "Essayez de modifier le terme de recherche ou le bâtiment sélectionné.",
+    "book_room": "Réserver",
+    "type_label": "Type de salle",
+    "equipment_label": "Équipement",
+    "equipment_more": "+{{count}} autres",
+    "advanced_filters": "Filtres avancés",
+    "advanced_filters_help": "Recherchez les salles par type, capacité, équipement requis et disponibilité à un horaire donné.",
+    "filter": {
+      "type": "Type de salle",
+      "type_any": "Indifférent",
+      "min_capacity": "Capacité minimale",
+      "min_capacity_any": "Indifférente",
+      "availability": "Disponibilité",
+      "availability_help": "Exclut les salles dont les réservations confirmées chevauchent la plage choisie.",
+      "from": "Début",
+      "to": "Fin",
+      "preset_now": "Maintenant (+2 h)",
+      "equipment": "Équipement requis",
+      "equipment_help": "La salle doit disposer de TOUS les équipements sélectionnés.",
+      "apply": "Appliquer",
+      "reset": "Réinitialiser les filtres",
+      "reset_all": "Tout effacer"
+    }
+  },
+  "room_types": {
+    "studio": "Studio",
+    "sala_prove": "Salle de répétition",
+    "aula_concerti": "Salle de concert",
+    "classe": "Classe",
+    "aula_didattica": "Salle de cours",
+    "altro": "Autre"
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Gérez vos données personnelles, votre mot de passe et consultez les informations de votre compte.",
+    "app_icon": {
+      "title": "Icône de l'application",
+      "description": "Choisissez l'icône utilisée dans toute l'application (sidebar, connexion, écran d'accueil). La modification s'applique à tous les utilisateurs de l'institut.",
+      "empty_folder": "Aucune icône disponible. Ajoutez des fichiers PNG dans le dossier frontend/public/logo-app/ et rechargez la page.",
+      "add_hint": "Pour ajouter de nouvelles icônes : placez des fichiers PNG, SVG ou WebP dans frontend/public/logo-app/ et reconstruisez le frontend.",
+      "reset": "Réinitialiser par défaut",
+      "saved": "Icône de l'application mise à jour",
+      "admin_only_hint": "Section réservée aux administrateurs : le choix est une préférence institutionnelle, non personnelle."
+    },
+    "personal": {
+      "title": "Données personnelles",
+      "first_name": "Prénom",
+      "last_name": "Nom",
+      "matricola": "Numéro d'étudiant",
+      "course": "Cursus",
+      "save": "Enregistrer les modifications",
+      "saved": "Profil mis à jour"
+    },
+    "notifications": {
+      "title": "Notifications par e-mail",
+      "description": "Choisissez quels e-mails automatiques vous souhaitez recevoir pour vos réservations.",
+      "enabled": "Notifications actives",
+      "master_title": "Recevoir des e-mails pour vos réservations",
+      "master_help": "En désactivant cette option, vous ne recevrez aucun e-mail automatique.",
+      "confirmation_title": "Confirmation à la création",
+      "confirmation_help": "E-mail immédiat lors de la création d'une réservation.",
+      "reminder_title": "Rappel 1 heure avant",
+      "reminder_help": "E-mail envoyé environ une heure avant le début de la réservation.",
+      "cancellation_title": "Notification d'annulation",
+      "cancellation_help": "E-mail lorsqu'une de vos réservations est annulée.",
+      "saved_on": "Notification activée",
+      "saved_off": "Notification désactivée"
+    },
+    "password": {
+      "title": "Mot de passe",
+      "current": "Mot de passe actuel",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "submit": "Mettre à jour le mot de passe",
+      "updated": "Mot de passe mis à jour",
+      "oauth_only": "Ce compte est connecté uniquement via OAuth : le mot de passe ne se définit pas ici."
+    },
+    "photo": {
+      "title": "Photo de profil",
+      "upload": "Téléverser une photo",
+      "remove": "Supprimer la photo",
+      "remove_confirm": "Supprimer la photo de profil ?",
+      "uploaded": "Photo mise à jour",
+      "removed": "Photo supprimée",
+      "format_hint": "PNG, JPG ou WEBP — max 2 Mo"
+    },
+    "account": {
+      "title": "Compte",
+      "email": "E-mail",
+      "role": "Rôle",
+      "active": "Statut",
+      "matricola": "Numéro d'étudiant",
+      "last_login": "Dernière connexion",
+      "registered": "Inscrit le",
+      "providers": "Fournisseurs liés"
+    },
+    "copyright": {
+      "title": "Copyright de l'institut",
+      "description": "Chaîne de copyright affichée dans le pied de page de l'application.",
+      "field": "Texte du copyright",
+      "saved": "Copyright mis à jour"
+    },
+    "bot_bindings": {
+      "title": "Bot messagerie",
+      "subtitle": "Liez votre compte à un bot (Telegram, WhatsApp, Signal, E-mail) pour réserver les salles par message.",
+      "generate_code": "Générer un code",
+      "empty": "Aucun bot lié. Générez un code ci-dessus et envoyez-le au bot en écrivant « bind XXXXXX ».",
+      "bound_at": "Lié le {{date}}",
+      "last_seen": "dernier accès {{date}}",
+      "otp_title": "Code généré — valable {{minutes}} minutes",
+      "otp_help": "Ouvrez la conversation du bot (Telegram/WhatsApp/Signal) et envoyez exactement :",
+      "otp_send_hint": "Une fois envoyé, le bot répond avec la confirmation de la liaison.",
+      "guide_text": "Voir docs/BOT-MESSAGING.md pour la liste des bots officiels du Conservatoire.",
+      "toast": {
+        "otp_generated": "Code généré",
+        "copied": "Commande copiée dans le presse-papiers",
+        "copy_failed": "Échec de la copie",
+        "revoked": "Liaison révoquée"
+      }
+    },
+    "twofa": {
+      "title": "Sécurité · Vérification en deux étapes (e-mail)",
+      "subtitle_email": "Ajoutez un second facteur à votre mot de passe : à chaque connexion, nous vous enverrons un code à 6 chiffres à {{email}}.",
+      "toggle_aria": "Activer/désactiver la 2FA par e-mail",
+      "admin_required": "Les administrateurs doivent activer la vérification en deux étapes dans les 7 jours suivant la création du compte.",
+      "activated_at": "Activé le",
+      "badge": {
+        "enabled": "Actif"
+      },
+      "setup": {
+        "sent_title": "Code envoyé à {{email}}",
+        "sent_help": "Saisissez-le ci-dessous dans les {{minutes}} minutes pour activer la vérification en deux étapes.",
+        "code_label": "Code reçu par e-mail",
+        "confirm": "Confirmer et activer",
+        "resend": "Renvoyer le code",
+        "resending": "Envoi en cours…"
+      },
+      "recovery": {
+        "title": "Enregistrez vos 10 codes de récupération",
+        "help": "Ils ne sont affichés qu'UNE seule fois. Ils servent si vous perdez l'accès à votre boîte e-mail. Chaque code est à usage unique.",
+        "remaining": "Codes de récupération restants",
+        "regenerate": "Régénérer les codes de récupération",
+        "regenerate_help": "Nous vous enverrons un code par e-mail pour confirmer l'opération. Tous les codes de récupération précédents seront invalidés.",
+        "copy": "Tout copier",
+        "copied": "Copiés",
+        "copy_failed": "Échec de la copie",
+        "print": "Imprimer",
+        "saved": "J'ai enregistré les codes"
+      },
+      "disable": {
+        "title": "Désactiver la vérification en deux étapes ?",
+        "help": "Nous vous enverrons un code par e-mail pour confirmer. Sans 2FA, votre compte n'est protégé que par le mot de passe.",
+        "confirm": "Désactiver la 2FA"
+      },
+      "toast": {
+        "code_sent": "Code envoyé à {{email}}",
+        "code_resent": "Nouveau code envoyé",
+        "enabled": "2FA activée. Pensez à enregistrer les codes de récupération.",
+        "disabled": "2FA désactivée",
+        "recovery_regenerated": "Nouveaux codes de récupération générés"
+      }
+    }
+  },
+  "admin": {
+    "appearance": {
+      "copyright": {
+        "title": "Copyright de l'application",
+        "label": "Texte du pied de page",
+        "hint": "Visible en bas de toutes les pages (connexion, espace utilisateur, kiosk monitor). Laissez vide pour afficher le texte par défaut.",
+        "saved": "Copyright mis à jour"
+      }
+    },
+    "server_settings": {
+      "title": "Paramètres serveur",
+      "subtitle": "Configuration opérationnelle du serveur : courrier, canaux de messagerie, journal d'activité et sauvegardes.",
+      "tabs": {
+        "mail_description": "Configuration SMTP, expéditeur et modèles d'e-mails transactionnels.",
+        "mail_outbox_description": "Historique des e-mails mis en file par le système, avec statut de remise et nouvelle tentative manuelle pour les échecs.",
+        "qrcodes": "QR Code",
+        "qrcodes_description": "Gestion des QR-codes de check-in pour chaque salle (régénérer/télécharger) et politique de restriction du check-in au réseau de l'institut.",
+        "messaging_description": "Canaux de messagerie (Telegram, WhatsApp, Signal, IMAP) pour notifications et commandes bot.",
+        "display_description": "Configuration de l'Infopoint public pour l'affichage hebdomadaire des salles en rotation.",
+        "audit_log_description": "Traçabilité append-only des actions administratives sur les utilisateurs, la structure et les configurations. Entrées immuables utilisées pour l'audit et la conformité.",
+        "backups_description": "Sauvegardes planifiées de la base de données et restauration depuis un snapshot.",
+        "modules": "Modules",
+        "modules_description": "Affiche ou masque les modules optionnels dans la sidebar. Les fonctionnalités restent toujours actives côté backend : le toggle ne contrôle que la visibilité des liens dans l'interface.",
+        "servizi": "Services",
+        "servizi_description": "Configuration des services backend de l'institut : courrier SMTP, bots de messagerie et sauvegardes planifiées.",
+        "aspetto": "Apparence",
+        "aspetto_description": "Identité visuelle de l'application : icône de la marque affichée dans toute l'interface et texte de copyright dans les pieds de page."
+      },
+      "modules": {
+        "title": "Modules activables",
+        "subtitle": "Affichez ou masquez les modules optionnels dans la sidebar. La logique backend reste toujours active : ces toggles n'agissent que sur la visibilité des liens dans l'interface.",
+        "monte_ore_label": "Quota horaire enseignants",
+        "monte_ore_description": "Entrées de sidebar « Quota horaire » (côté enseignant) et « Gestion quota horaire » (côté admin). En désactivant le toggle, les liens disparaissent mais les routes et les API restent fonctionnelles.",
+        "instrument_loans_label": "Emprunt d'instruments",
+        "instrument_loans_description": "Entrées de sidebar « Instruments » (catalogue) et « Mes emprunts » + section admin « Inventaire des instruments ». En désactivant le toggle, les liens disparaissent mais les routes et les API restent fonctionnelles.",
+        "saved": "Module mis à jour",
+        "save_failed": "Impossible de mettre à jour le module",
+        "backend_note": "Les données existantes ne sont jamais supprimées. En réactivant le module, les liens redeviennent immédiatement visibles."
+      }
+    },
+    "users": {
+      "title": "Utilisateurs",
+      "subtitle": "Gérez les comptes, les rôles et l'accès au système.",
+      "new_user": "Nouvel utilisateur",
+      "search_placeholder": "Rechercher par nom, e-mail, numéro d'étudiant, cursus…",
+      "filter_role": "Rôle",
+      "filter_status": "Approbation",
+      "filter_active": "Statut",
+      "all_roles": "Tous les rôles",
+      "all_statuses": "Toutes les approbations",
+      "all_active": "Tous les statuts",
+      "active_yes": "Actifs",
+      "active_no": "Désactivés",
+      "table": {
+        "user": "Utilisateur",
+        "role": "Rôle",
+        "matricola": "Numéro d'étudiant",
+        "course": "Cursus",
+        "approval": "Approbation",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "you_label": "vous",
+      "empty": {
+        "title": "Aucun utilisateur trouvé",
+        "subtitle": "Modifiez les filtres ou ajoutez un nouvel utilisateur."
+      },
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "approved_toast": "Utilisateur approuvé",
+      "rejected_toast": "Utilisateur refusé",
+      "deleted_toast": "Utilisateur supprimé",
+      "delete_title": "Supprimer {{name}} ?",
+      "delete_description": "L'utilisateur perdra l'accès et toutes ses réservations resteront dans l'historique. L'opération est irréversible.",
+      "bulk": {
+        "selected_count": "{{count}} sélectionnés ({{pending}} en attente)",
+        "clear": "Désélectionner",
+        "approve": "Approuver les sélectionnés",
+        "reject": "Refuser les sélectionnés",
+        "delete": "Supprimer les sélectionnés",
+        "approved_toast": "{{count}} utilisateurs approuvés ({{skipped}} ignorés)",
+        "rejected_toast": "{{count}} utilisateurs refusés ({{skipped}} ignorés)",
+        "deleted_toast": "{{count}} utilisateurs supprimés ({{removedBookings}} réservations supprimées)",
+        "confirm": {
+          "approve_title": "Approuver les utilisateurs sélectionnés ?",
+          "reject_title": "Refuser les utilisateurs sélectionnés ?",
+          "delete_title": "Supprimer {{count}} utilisateurs ?",
+          "approve_reject_description": "{{count}} utilisateurs en attente seront mis à jour. {{skipped}} utilisateurs déjà approuvés ou refusés seront ignorés.",
+          "delete_description": "Vous êtes sur le point de supprimer {{count}} utilisateurs et toutes leurs réservations. L'opération est irréversible."
+        }
+      },
+      "form": {
+        "title_new": "Nouvel utilisateur",
+        "title_edit": "Modifier l'utilisateur",
+        "first_name": "Prénom",
+        "last_name": "Nom",
+        "email": "E-mail",
+        "role": "Rôle",
+        "matricola": "Numéro d'étudiant",
+        "course": "Cursus",
+        "password": "Mot de passe",
+        "new_password": "Nouveau mot de passe",
+        "active": "Compte actif",
+        "submit_create": "Créer l'utilisateur",
+        "submit_update": "Enregistrer les modifications"
+      }
+    },
+    "oauth": {
+      "google_title": "Google OAuth",
+      "microsoft_title": "Microsoft OAuth",
+      "client_id": "Client ID",
+      "client_secret": "Client Secret",
+      "callback_url": "URL de callback",
+      "tenant": "Tenant",
+      "enable": "Activer {{provider}} OAuth",
+      "saved": "Paramètres OAuth enregistrés",
+      "restart_hint": "Redémarrez le backend pour appliquer les nouveaux paramètres OAuth.",
+      "secret_configured": "•••••••• (configuré — laissez vide pour ne pas modifier)",
+      "secret_placeholder": "Saisissez le Client Secret"
+    },
+    "backups": {
+      "title": "Sauvegardes et restauration",
+      "subtitle": "Snapshots automatiques quotidiens de la base de données et des photos. Restauration avec confirmation explicite et snapshot de sécurité pré-restauration.",
+      "create_now": "Sauvegarder maintenant",
+      "upload": "Téléverser une sauvegarde externe",
+      "scheduler": {
+        "title": "Sauvegarde automatique",
+        "status": "Statut",
+        "enabled": "Actif",
+        "disabled": "Désactivé",
+        "scheduled": "Horaire planifié",
+        "daily": "tous les jours",
+        "next_run": "Prochaine exécution",
+        "last_ok": "✓ Dernière sauvegarde : {{file}} ({{size}}) · {{when}}",
+        "last_error": "✗ Dernière exécution échouée ({{when}}) : {{error}}",
+        "config_title": "Configuration active",
+        "edit_button": "Modifier",
+        "edit_title": "Modifier les paramètres",
+        "save_button": "Enregistrer les paramètres",
+        "saved_toast": "Paramètres enregistrés",
+        "source_db": "Les paramètres sont persistés dans la base de données et appliqués immédiatement.",
+        "source_env": "Vous utilisez les valeurs par défaut depuis les variables d'environnement. Modifiez pour persister en BD.",
+        "f_auto_enabled": "Sauvegarde automatique",
+        "f_auto_enabled_help": "Exécute un snapshot à l'horaire planifié.",
+        "f_tick_time": "Horaire tick",
+        "f_hour": "Heure (0–23)",
+        "f_minute": "Minute (0–59)",
+        "f_keep_daily": "Sauvegardes quotidiennes",
+        "f_keep_weekly": "Sauvegardes hebdomadaires",
+        "f_keep_monthly": "Sauvegardes mensuelles",
+        "f_auto_restart": "Redémarrage backend activé",
+        "f_auto_restart_help": "Active le bouton « Redémarrer » dans la carte post-restauration (nécessite un process manager).",
+        "f_dir": "Dossier de sauvegarde"
+      },
+      "list": {
+        "title": "Sauvegardes disponibles",
+        "empty": "Aucune sauvegarde pour l'instant. Cliquez sur « Sauvegarder maintenant » pour en créer une ou attendez l'exécution automatique.",
+        "col_file": "Fichier",
+        "col_when": "Créée le",
+        "col_size": "Taille",
+        "col_actions": "Actions",
+        "download": "Télécharger",
+        "restore": "Restaurer"
+      },
+      "restore_dialog": {
+        "title": "Restaurer {{file}} ?",
+        "description": "Un snapshot pré-restauration de sécurité sera créé, puis la BD et les photos seront remplacées par le contenu de la sauvegarde. L'opération est irréversible sauf à réutiliser le snapshot pré-restauration.",
+        "confirm": "Oui, restaurer maintenant"
+      },
+      "delete_dialog": {
+        "title": "Supprimer la sauvegarde {{file}} ?",
+        "description": "Le fichier sera supprimé définitivement du disque."
+      },
+      "restore_success": {
+        "title": "Restauration terminée : {{file}}",
+        "pre_snapshot": "Snapshot pré-restauration créé : {{file}}. Utilisez-le pour faire un rollback si nécessaire.",
+        "help": "Pour appliquer le schéma actuel et recharger le pool BD, redémarrez le backend."
+      },
+      "restart": {
+        "button": "Redémarrer le backend",
+        "confirm_title": "Redémarrer le backend ?",
+        "confirm_description": "Le processus sera arrêté ; le process manager (systemd / pm2) le redémarrera automatiquement.",
+        "warning": "Si vous n'avez pas de process manager configuré, le serveur restera arrêté. À n'utiliser que si vous savez ce que vous faites.",
+        "reload_hint": "La page se rechargera automatiquement dans quelques secondes."
+      },
+      "toast": {
+        "created": "Sauvegarde créée : {{file}}",
+        "deleted": "Sauvegarde supprimée",
+        "uploaded": "Sauvegarde téléversée : {{file}}",
+        "restored": "Restauration terminée"
+      }
+    },
+    "messaging": {
+      "title": "Bot messagerie",
+      "subtitle": "Configurez les canaux bot (Telegram, WhatsApp Cloud, Signal, E-mail-IMAP) à travers lesquels les utilisateurs peuvent réserver les salles par message.",
+      "secret_configured": "•••••••• (configuré)",
+      "secret_enter": "Saisissez la valeur",
+      "test_button": "Tester la connexion",
+      "toggle_aria": "Activer {{channel}}",
+      "badge": { "enabled": "Actif" },
+      "test": {
+        "ok": "Connexion OK · {{info}}",
+        "error": "Erreur : {{error}}"
+      },
+      "toast": { "saved": "Paramètres enregistrés" },
+      "telegram": {
+        "help": "Bot conversationnel gratuit. Configuration rapide via @BotFather.",
+        "bot_token": "Bot token (BotFather)",
+        "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
+        "setup_guide": "1) Ouvrez @BotFather sur Telegram → /newbot → obtenez le token.\n2) Enregistrez le token ici (le webhook secret est généré automatiquement à l'étape suivante).\n3) Cliquez sur « Configurer automatiquement » : Cadenza enregistre le webhook, la liste des commandes (/help, /book, /list, /cancel, /check) et la description directement sur Telegram. Pas de curl, pas de @BotFather.\n\nFLUX MANUEL (alternatif) :\n1) openssl rand -hex 32 pour le secret\n2) curl -F \"url=https://cadenza.exemple.fr/api/messaging/telegram/webhook\" -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook",
+        "auto": {
+          "button": "Configurer automatiquement",
+          "button_title": "Génère le secret + enregistre le webhook + définit les commandes/description sur Telegram",
+          "toast_ok": "Bot @{{username}} configuré avec succès",
+          "summary": "✅ Bot @{{username}} configuré",
+          "webhook_url": "Webhook actif sur :",
+          "secret_generated": "secret généré",
+          "step_getMe": "Token vérifié (getMe)",
+          "step_setWebhook": "Webhook enregistré sur Telegram",
+          "step_setMyCommands": "Liste des commandes publiée",
+          "step_setMyDescription": "Description longue mise à jour",
+          "step_setMyShortDescription": "Description courte mise à jour",
+          "step_getWebhookInfo": "Confirmation finale : webhook actif"
+        }
+      },
+      "whatsapp": {
+        "help": "WhatsApp Business Cloud API (Meta directe). Nécessite un compte Meta Business vérifié.",
+        "access_token": "Access token (Bearer)",
+        "phone_id": "Phone Number ID",
+        "verify_token": "Verify token (handshake)",
+        "app_secret": "App secret (HMAC SHA256)",
+        "setup_guide": "1) Créez une application Meta Business + WhatsApp Business : https://developers.facebook.com/apps\n2) Copiez : Phone Number ID, System User access token (long-lived), App Secret.\n3) Choisissez un Verify Token aléatoire et enregistrez-le ici.\n4) Définissez l'URL de callback : https://cadenza.exemple.fr/api/messaging/whatsapp_cloud/webhook\n   avec le même Verify Token et abonnez-vous aux événements 'messages'."
+      },
+      "signal": {
+        "help": "Signal via signal-cli (communauté). Nécessite un hôte avec signal-cli + un numéro dédié enregistré.",
+        "phone_number": "Numéro enregistré (E.164)",
+        "daemon_url": "URL signal-cli daemon",
+        "webhook_secret": "Webhook secret (X-Signal-Webhook-Secret)",
+        "setup_guide": "1) Installez signal-cli (https://github.com/AsamK/signal-cli) sur un hôte accessible.\n2) Enregistrez un numéro dédié (même prépayé) et exécutez :\n   signal-cli daemon --http 0.0.0.0:8080\n3) Configurez un forwarder qui transmette les messages entrants au webhook Cadenza avec l'en-tête X-Signal-Webhook-Secret."
+      },
+      "email": {
+        "help": "Fallback always-on via une boîte mail dédiée. Stub : le poller IMAP sera disponible dans un sprint ultérieur.",
+        "host": "Hôte IMAP",
+        "port": "Port",
+        "user": "Nom d'utilisateur",
+        "password": "Mot de passe IMAP",
+        "setup_guide": "1) Créez une boîte mail dédiée (ex. book@conservatoire.fr).\n2) Configurez hôte/port/identifiants ici.\n3) Le poller IMAP n'est pas encore actif : ce canal reste un stub qui ne reçoit pas de messages (voir roadmap)."
+      }
+    },
+    "structure": {
+      "title": "Structure du Conservatoire",
+      "subtitle": "Gérez les instituts, les bâtiments, les salles et le catalogue des équipements.",
+      "tab_sedi": "Sites",
+      "tab_sedi_description": "Annuaire des instituts, bâtiments et salles. Gérez le rez-de-chaussée, le premier étage et la capacité de chaque salle.",
+      "tab_dotazioni": "Équipements",
+      "tab_dotazioni_description": "Catalogue réutilisable des équipements de salle (piano, pupitre, système audio…) — affectables ensuite à chaque salle.",
+      "new_institute": "Nouvel institut",
+      "import_csv": "Importer CSV",
+      "export_csv": "Exporter CSV",
+      "new_building": "Bâtiment",
+      "new_room": "Salle",
+      "edit_building": "Modifier le bâtiment",
+      "delete_building": "Supprimer le bâtiment",
+      "no_institutes_title": "Aucun institut configuré",
+      "no_institutes_subtitle": "Commencez en créant le premier institut du Conservatoire.",
+      "create_institute": "Créer un institut",
+      "buildings_count_one": "{{count}} bâtiment",
+      "buildings_count_other": "{{count}} bâtiments",
+      "rooms_count_one": "{{count}} salle",
+      "rooms_count_other": "{{count}} salles",
+      "no_buildings": "Aucun bâtiment. Ajoutez-en un pour commencer.",
+      "no_rooms_in_building": "Aucune salle dans ce bâtiment.",
+      "select_all_rooms": "Sélectionner toutes les salles de {{building}}",
+      "rooms_selected_one": "{{count}} salle sélectionnée",
+      "rooms_selected_other": "{{count}} salles sélectionnées",
+      "select_building_aria": "Sélectionner le bâtiment {{name}}",
+      "buildings_selected_one": "{{count}} bâtiment sélectionné",
+      "buildings_selected_other": "{{count}} bâtiments sélectionnés",
+      "delete_buildings_selected": "Supprimer les bâtiments",
+      "delete_buildings_title_one": "Supprimer {{count}} bâtiment ?",
+      "delete_buildings_title_other": "Supprimer {{count}} bâtiments ?",
+      "delete_buildings_description": "Vous êtes sur le point de supprimer {{count}} bâtiments, y compris {{rooms}} salles qu'ils contiennent et toutes les réservations associées. L'opération est irréversible.",
+      "buildings_deleted_toast": "{{count}} bâtiments supprimés ({{removedRooms}} salles, {{removedBookings}} réservations)",
+      "deselect": "Désélectionner",
+      "delete_selected": "Supprimer les sélectionnées",
+      "no_code": "Aucun code",
+      "delete_dialog_default_title": "Confirmer la suppression ?",
+      "delete_dialog_description": "Tous les éléments enfants seront également supprimés. L'opération est irréversible.",
+      "delete_institute_title": "Supprimer l'institut « {{name}} » ?",
+      "delete_building_title": "Supprimer le bâtiment « {{name}} » ?",
+      "delete_room_title": "Supprimer la salle « {{name}} » ?",
+      "delete_equipment_title": "Supprimer l'instrument « {{name}} » ?",
+      "delete_rooms_title_one": "Supprimer {{count}} salle ?",
+      "delete_rooms_title_other": "Supprimer {{count}} salles ?",
+      "delete_rooms_description": "Tous les équipements contenus seront également supprimés. L'opération est irréversible.",
+      "delete_label": "Supprimer {{count}}",
+      "delete_completed": "Suppression terminée",
+      "rooms_deleted_one": "{{count}} salle supprimée",
+      "rooms_deleted_other": "{{count}} salles supprimées",
+      "no_equipment": "Aucun équipement",
+      "bookable": "Réservable",
+      "not_bookable": "Non réservable",
+      "unknown_floor": "Étage non spécifié",
+      "seats_one": "{{count}} place",
+      "seats_other": "{{count}} places",
+      "select_room_aria": "Sélectionner {{name}}",
+      "room_photo": "Photo de la salle",
+      "room_photo_help": "PNG, JPG ou WEBP — sera redimensionnée en 16:9 (1200×675).",
+      "room_photo_upload": "Téléverser une photo",
+      "room_photo_replace": "Remplacer",
+      "room_photo_remove": "Supprimer la photo",
+      "room_photo_remove_confirm": "Supprimer la photo de la salle ?",
+      "room_photo_uploaded": "Photo de la salle mise à jour",
+      "room_photo_removed": "Photo de la salle supprimée",
+      "room_photo_save_first": "Enregistrez d'abord la salle pour pouvoir téléverser la photo.",
+      "require_checkin": "Check-in QR requis",
+      "require_checkin_help": "Si actif, les utilisateurs doivent faire un check-in via QR à l'heure de début pour éviter l'auto-annulation (ghost booking).",
+      "requires_approval": "Nécessite une approbation",
+      "requires_approval_help": "Les réservations de cette salle par des non-admins sont créées en attente d'approbation. Typique pour les salles de concert, auditoriums, salles de représentation."
+    },
+    "courses": {
+      "title": "Cursus",
+      "subtitle": "Gérez le catalogue des cursus.",
+      "new_course": "Nouveau cursus",
+      "import_csv": "Importer CSV",
+      "search_placeholder": "Rechercher par code ou nom…",
+      "table": {
+        "code": "Code",
+        "name": "Nom",
+        "department": "Département",
+        "levels": "Niveaux",
+        "active": "Actif",
+        "actions": "Actions"
+      },
+      "no_courses": "Aucun cursus trouvé",
+      "form": {
+        "title_new": "Nouveau cursus",
+        "title_edit": "Modifier le cursus",
+        "code": "Code",
+        "name": "Nom",
+        "department": "Département",
+        "description": "Description",
+        "levels": "Niveaux",
+        "active": "Cursus actif"
+      },
+      "saved": "Cursus enregistré",
+      "deleted": "Cursus supprimé",
+      "delete_title": "Supprimer le cursus « {{name}} » ?",
+      "delete_description": "Les utilisateurs associés seront détachés du cursus (numéro d'étudiant conservé). L'opération est irréversible."
+    },
+    "rules": {
+      "tabs": {
+        "by_role": "Par rôle",
+        "by_role_description": "Limites appliquées à tous les utilisateurs du rôle : volumes, durée, anticipation, plages horaires.",
+        "quotas": "Quotas salles",
+        "quotas_description": "Plafonds dynamiques par type de salle ou équipement : ils s'appliquent en plus des règles par rôle.",
+        "loan_quotas": "Quotas d'emprunt",
+        "loan_quotas_description": "Plafonds sur les instruments simultanés et les jours d'emprunt par an, par famille ou instrument individuel.",
+        "exceptions": "Exceptions dates",
+        "exceptions_description": "Blocages et fenêtres horaires pour des jours ou périodes spécifiques (ex. jours fériés, examens)."
+      },
+      "preview": {
+        "title": "Simuler une réservation",
+        "subtitle": "Vérifiez si une demande-type passerait les règles actuelles, sans créer la réservation.",
+        "role": "Rôle simulé",
+        "course": "Cursus (facultatif)",
+        "no_course": "Aucun",
+        "room": "Salle",
+        "date": "Date",
+        "time_from": "Début",
+        "time_to": "Fin",
+        "simulate": "Simuler",
+        "result_ok": "La réservation passerait les règles",
+        "result_ko": "La réservation serait refusée",
+        "disclaimer": "Les quotas horaires individuels (ex. « vous avez déjà utilisé 8 h cette semaine ») ne sont pas évalués : utilisez un utilisateur réel pour ce test."
+      }
+    },
+    "mail": {
+      "title": "Service courrier",
+      "subtitle": "Configuration SMTP et modèles d'e-mails transactionnels.",
+      "tab_settings": "Paramètres",
+      "tab_templates": "Modèles",
+      "settings": {
+        "host": "Hôte SMTP",
+        "port": "Port",
+        "secure": "TLS",
+        "username": "Nom d'utilisateur",
+        "password": "Mot de passe",
+        "from_address": "Expéditeur",
+        "from_name": "Nom de l'expéditeur",
+        "reply_to": "Reply-To",
+        "test_address": "Adresse de test",
+        "send_test": "Envoyer un e-mail de test",
+        "test_sent": "E-mail de test envoyé",
+        "saved": "Paramètres enregistrés",
+        "enable": "Activer l'envoi d'e-mails"
+      },
+      "templates": {
+        "subject": "Objet",
+        "body": "Corps",
+        "preview": "Aperçu",
+        "reset": "Réinitialiser par défaut",
+        "saved": "Modèle mis à jour",
+        "type": "Modèle",
+        "variables": "Variables disponibles"
+      }
+    },
+    "csv_import": {
+      "title": "Importer depuis un CSV",
+      "description": "Téléversez un fichier CSV avec la structure indiquée.",
+      "drag_drop": "Glissez le fichier ici ou cliquez pour le sélectionner",
+      "submit": "Importer",
+      "imported": "{{count}} éléments importés",
+      "errors_count": "{{count}} lignes avec erreurs",
+      "download_template": "Télécharger le modèle"
+    },
+    "equipment_templates": {
+      "title": "Modèles d'équipement",
+      "subtitle": "Catalogue réutilisable pour les équipements des salles.",
+      "new": "Nouveau modèle",
+      "type": "Type",
+      "delete_title": "Supprimer le modèle « {{name}} » ?"
+    },
+    "course_levels": {
+      "title": "Niveaux d'études",
+      "subtitle": "Catégories de parcours (ex. Licence, Master, Doctorat).",
+      "new": "Nouveau niveau",
+      "code": "Code",
+      "name": "Nom",
+      "sort_order": "Ordre",
+      "saved": "Niveaux enregistrés"
+    },
+    "display": {
+      "title": "Infopoint",
+      "subtitle": "Configurez quels bâtiments sont affichés en rotation sur l'Infopoint public (/display) et combien de temps chacun reste visible avant de passer au suivant.",
+      "table": {
+        "building": "Bâtiment",
+        "rooms_count": "Salles",
+        "enabled": "En rotation",
+        "interval": "Durée (secondes)",
+        "actions": "Actions"
+      },
+      "concerts_on": "Activés",
+      "concerts_off": "Désactivés",
+      "bookings_card": {
+        "title": "Rotation des réservations",
+        "subtitle": "Affiche les réservations de chaque bâtiment comme slides de la rotation de l'Infopoint. Désactivez pour masquer les tableaux de réservations et ne laisser que les concerts et les annonces."
+      },
+      "concerts_card": {
+        "title": "Rotation des concerts",
+        "subtitle": "Affiche les concerts à venir comme slides supplémentaires sur l'Infopoint, intercalés à la rotation des bâtiments.",
+        "days_label": "Jours d'aperçu",
+        "days_help": "Affiche les concerts de la date du jour jusqu'à N jours à l'avance (0–365). Définissez 0 pour désactiver l'aperçu.",
+        "count_label": "Nombre maximum d'événements",
+        "count_help": "Limite de concerts affichés, en partant du plus imminent (0 = sans limite, ne considère que les jours).",
+        "interval_label": "Durée slide (sec)",
+        "interval_help": "Combien de secondes chaque concert reste visible avant de passer à la slide suivante (5–600)."
+      },
+      "announcements_card": {
+        "title": "Rotation des annonces",
+        "subtitle": "Insérez les annonces actives parmi les slides de l'Infopoint public, après les bâtiments et les concerts.",
+        "count_label": "Nombre maximum d'annonces",
+        "count_help": "Limite d'annonces affichées par cycle (0 = sans limite, jusqu'à 30).",
+        "interval_label": "Durée slide (sec)",
+        "interval_help": "Combien de secondes chaque annonce reste visible avant de passer à la suivante (5–600).",
+        "pinned_only_label": "Uniquement annonces en évidence",
+        "pinned_only_help": "Affiche exclusivement les annonces marquées comme « en évidence » (pinned)."
+      },
+      "interval_help": "Durée d'affichage de chaque bâtiment sur l'Infopoint : entre 5 et 600 secondes.",
+      "no_buildings": "Aucun bâtiment configuré. Ajoutez un bâtiment dans Structure pour alimenter l'Infopoint.",
+      "save": "Enregistrer",
+      "saved": "Configuration de l'Infopoint mise à jour",
+      "open_display": "Ouvrir l'Infopoint",
+      "preview_help": "Ouvrez /display dans un nouvel onglet pour vérifier la rotation de l'Infopoint."
+    },
+    "quotas": {
+      "title": "Quotas dynamiques par ressource",
+      "help": "Définissez des limites horaires par type de salle ou par équipement présent, en plus du plafond global par rôle. Exemple : « étudiants, max 2 h/sem sur salle de concert ».",
+      "new": "Nouveau quota",
+      "new_title": "Nouveau quota par ressource",
+      "edit_title": "Modifier le quota",
+      "dialog_help": "Le quota s'applique en plus des règles de base du rôle. Au moins un plafond (hebdomadaire ou quotidien) doit être supérieur à 0.",
+      "empty_title": "Aucun quota configuré",
+      "empty_subtitle": "Ajoutez un quota pour limiter l'usage d'un type de salle ou d'un équipement spécifique.",
+      "active": "Actif",
+      "inactive": "Désactivé",
+      "created": "Quota créé",
+      "updated": "Quota mis à jour",
+      "deleted": "Quota supprimé",
+      "delete_title": "Supprimer le quota ?",
+      "delete_description": "La suppression est soft (récupérable depuis l'admin BD). Les limites cessent de s'appliquer immédiatement.",
+      "scope_global_target": "Toutes les salles",
+      "col_role": "Rôle",
+      "col_scope": "Périmètre",
+      "col_target": "Ressource",
+      "col_max_week": "Max h/sem.",
+      "col_max_day": "Max h/jour",
+      "col_active": "Statut",
+      "col_actions": "Actions",
+      "role": {
+        "admin": "Administrateur",
+        "docente": "Enseignant",
+        "studente": "Étudiant"
+      },
+      "scope": {
+        "global": "Global",
+        "roomType": "Type de salle",
+        "equipmentType": "Équipement",
+        "room": "Salle spécifique",
+        "building": "Bâtiment"
+      },
+      "field": {
+        "role": "Rôle",
+        "scope": "Périmètre",
+        "target": "Ressource",
+        "max_week": "Max heures / semaine",
+        "max_day": "Max heures / jour",
+        "max_month": "Max heures / mois",
+        "max_bookings": "Max réservations / semaine",
+        "max_bookings_help": "Plafond sur le nombre de réservations dans la semaine ISO. 0 = désactivé.",
+        "days_of_week": "Jours actifs",
+        "days_of_week_help": "Si aucun jour n'est sélectionné, le quota s'applique à tous les jours de la semaine.",
+        "time_from": "Début de plage (HH:mm)",
+        "time_to": "Fin de plage (HH:mm)",
+        "time_help": "Si les deux sont vides, le quota est toujours actif. Si renseignés, le quota ne s'applique qu'aux réservations qui croisent la plage.",
+        "zero_disables": "0 = plafond désactivé",
+        "active": "Quota actif",
+        "active_help": "En désactivant le quota, les limites cessent de s'appliquer sans le supprimer."
+      },
+      "errors": {
+        "cap_required": "Au moins un parmi heures/semaine, jour, mois et nombre de réservations doit être > 0",
+        "scope_required": "Sélectionnez la ressource pour ce périmètre",
+        "time_pair": "Vous devez remplir les deux horaires (début et fin) ou les laisser tous les deux vides",
+        "time_order": "L'heure de début doit précéder celle de fin",
+        "time_format": "Format horaire invalide (HH:mm)"
+      },
+      "active_count": "actifs",
+      "filter": {
+        "only_active": "Uniquement actifs",
+        "show_all": "Afficher tous"
+      }
+    },
+    "loan_quotas": {
+      "title": "Quotas d'emprunt d'instruments",
+      "help": "Définissez des limites sur les instruments simultanés et les jours totaux d'emprunt sur 365 j par rôle. Ils s'appliquent en plus des règles d'emprunt existantes.",
+      "new": "Nouveau quota d'emprunt",
+      "new_title": "Nouveau quota d'emprunt",
+      "edit_title": "Modifier le quota d'emprunt",
+      "dialog_help": "Au moins un parmi max simultanés et max jours/an doit être supérieur à 0.",
+      "empty_title": "Aucun quota d'emprunt configuré",
+      "empty_subtitle": "Ajoutez un quota pour limiter l'emprunt d'une famille d'instruments ou d'un instrument individuel.",
+      "created": "Quota créé",
+      "updated": "Quota mis à jour",
+      "deleted": "Quota supprimé",
+      "delete_title": "Supprimer le quota d'emprunt ?",
+      "delete_description": "La suppression est soft (récupérable). Les limites cessent de s'appliquer immédiatement.",
+      "scope_global_target": "Tous les instruments",
+      "col_max_concurrent": "Max simultanés",
+      "col_max_days_year": "Max jours / an",
+      "scope": {
+        "global": "Global",
+        "family": "Famille",
+        "instrument": "Instrument"
+      },
+      "field": {
+        "scope": "Périmètre",
+        "target": "Ressource",
+        "max_concurrent": "Max instruments simultanés",
+        "max_days_year": "Max jours / an (glissant 365 j)"
+      },
+      "errors": {
+        "cap_required": "Au moins un parmi max simultanés et max jours/an doit être supérieur à 0"
+      }
+    },
+    "loan_rules": {
+      "title": "Règles d'emprunt d'instruments",
+      "subtitle": "Pour chaque famille instrumentale, précisez les cursus (codes SAD) autorisés à demander l'emprunt. La règle s'applique aux étudiants et aux enseignants : les admins sont toujours autorisés.",
+      "default_help": "Si aucun cursus n'est défini pour une famille, la règle est permissive (par défaut) : tout le monde peut demander l'emprunt.",
+      "configured_badge": "Configurée",
+      "default_badge": "Par défaut permissive",
+      "courses_count_one": "{{count}} cursus autorisé",
+      "courses_count_other": "{{count}} cursus autorisés",
+      "no_courses_warning": "Aucun cursus autorisé → tous les utilisateurs non admins seront bloqués.",
+      "search_courses": "Rechercher parmi les cursus…",
+      "select_all": "Tout sélectionner",
+      "deselect_all": "Tout désélectionner",
+      "save": "Enregistrer la règle",
+      "reset": "Réinitialiser par défaut",
+      "reset_confirm": "Réinitialiser cette famille à la valeur par défaut permissive (tout le monde peut demander l'emprunt) ?",
+      "saved": "Règle enregistrée",
+      "reset_done": "Règle réinitialisée par défaut",
+      "notes": "Notes (facultatif)",
+      "notes_placeholder": "Ex. Uniquement étudiants du cursus de piano"
+    },
+    "instruments": {
+      "title": "Inventaire des instruments",
+      "subtitle": "Gérez les instruments, les demandes d'emprunt et les retards.",
+      "tabs": {
+        "inventory": "Inventaire",
+        "inventory_description": "Catalogue des instruments du Conservatoire : famille, état, marque, emplacement, disponibilité au prêt.",
+        "all_loans": "Tous les emprunts",
+        "all_loans_description": "Historique complet des demandes d'emprunt : en attente, actifs, restitués, en retard, refusés.",
+        "overdue": "En retard",
+        "overdue_description": "Emprunts dont la date de restitution est dépassée. À relancer ou à transformer en restitution.",
+        "expiring": "À échéance (2 j)",
+        "expiring_description": "Emprunts qui arrivent à échéance dans les 2 prochains jours. Bonne fenêtre pour envoyer un rappel.",
+        "rules": "Règles d'emprunt",
+        "rules_description": "Règles et quotas pour les emprunts : durée maximale, nombre d'emprunts simultanés, exceptions par famille."
+      },
+      "new_instrument": "Nouvel instrument",
+      "search_placeholder": "Rechercher par nom, code, marque, modèle…",
+      "filter_family": "Famille",
+      "filter_condition": "État",
+      "filter_loanable": "Statut d'emprunt",
+      "all_families": "Toutes les familles",
+      "all_conditions": "Tous les états",
+      "loanable_yes": "Uniquement empruntables",
+      "loanable_no": "Non empruntables",
+      "loanable_all": "Tous",
+      "table": {
+        "instrument": "Instrument",
+        "family": "Famille",
+        "condition": "État",
+        "code": "Code",
+        "loanable": "Empruntable",
+        "loan_status": "Emprunt",
+        "actions": "Actions"
+      },
+      "empty": {
+        "title": "Aucun instrument trouvé",
+        "subtitle": "Ajoutez un nouvel instrument ou modifiez les filtres."
+      },
+      "form": {
+        "title_new": "Nouvel instrument",
+        "title_edit": "Modifier l'instrument",
+        "name": "Nom",
+        "code": "Code (unique)",
+        "family": "Famille",
+        "brand": "Marque",
+        "model": "Modèle",
+        "serial_number": "Numéro de série",
+        "condition": "État",
+        "is_loanable": "Disponible à l'emprunt",
+        "is_loanable_help": "Désactivez pour masquer l'instrument du catalogue d'emprunts.",
+        "notes": "Notes",
+        "submit_create": "Créer l'instrument",
+        "submit_update": "Enregistrer les modifications"
+      },
+      "photo": {
+        "label": "Photo de l'instrument",
+        "help": "PNG, JPG ou WEBP — sera redimensionnée en 16:9 (1200×675).",
+        "upload": "Téléverser une photo",
+        "replace": "Remplacer",
+        "remove": "Supprimer la photo",
+        "remove_confirm": "Supprimer la photo de l'instrument ?",
+        "uploaded": "Photo de l'instrument mise à jour",
+        "removed": "Photo de l'instrument supprimée",
+        "save_first": "Enregistrez d'abord l'instrument pour pouvoir téléverser la photo."
+      },
+      "loans_table": {
+        "user": "Utilisateur",
+        "instrument": "Instrument",
+        "period": "Période",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "loan_actions": {
+        "approve": "Approuver",
+        "reject": "Refuser",
+        "force_return": "Restituer",
+        "print_delivery": "Bon de remise",
+        "print_return": "Bon de restitution"
+      },
+      "toast": {
+        "saved": "Instrument enregistré",
+        "deleted": "Instrument supprimé",
+        "approved": "Emprunt approuvé",
+        "rejected": "Emprunt refusé",
+        "returned": "Emprunt marqué comme restitué"
+      },
+      "delete_title": "Supprimer l'instrument « {{name}} » ?",
+      "delete_description": "Tous les emprunts associés seront également supprimés. L'opération est irréversible.",
+      "bulk": {
+        "selected_count": "{{count}} instruments sélectionnés",
+        "clear": "Désélectionner",
+        "enable_loanable": "Rendre empruntables",
+        "disable_loanable": "Rendre non empruntables",
+        "delete": "Supprimer les sélectionnés",
+        "enabled_toast": "{{count}} instruments mis à jour comme empruntables",
+        "disabled_toast": "{{count}} instruments mis à jour comme non empruntables",
+        "deleted_toast": "{{count}} instruments supprimés ({{removedLoans}} emprunts supprimés)",
+        "confirm": {
+          "delete_title": "Supprimer les instruments sélectionnés ?",
+          "enable_title": "Rendre empruntables les instruments sélectionnés ?",
+          "disable_title": "Rendre non empruntables les instruments sélectionnés ?",
+          "description": "L'opération concernera {{count}} instruments."
+        }
+      },
+      "import_csv": "Importer CSV",
+      "export_csv": "Exporter CSV",
+      "import_dialog": {
+        "title": "Importer l'inventaire des instruments",
+        "description": "Téléversez un fichier CSV pour alimenter ou mettre à jour les instruments. L'opération est idempotente : le rapprochement se fait par code ou par (nom + marque + modèle + n° de série).",
+        "select_file": "Sélectionner un fichier…",
+        "change_file": "Changer de fichier",
+        "preview_label": "Aperçu (premières lignes) :",
+        "supported_columns": "Colonnes supportées : code, name, family, brand, model, serialNumber, condition, isLoanable, notes. Seul « name » est obligatoire.",
+        "download_template": "Télécharger le template",
+        "submit": "Importer",
+        "close": "Fermer",
+        "result_title": "Import terminé",
+        "row_total": "Lignes totales",
+        "created": "Créés",
+        "updated": "Mis à jour",
+        "skipped": "Ignorés",
+        "errors_label": "Lignes avec erreurs :"
+      },
+      "export_failed": "Échec de l'exportation",
+      "exported": "Inventaire exporté"
+    },
+    "instrument_rules": {
+      "help": "Pour chaque instrument, sélectionnez les codes SAD des cursus qui peuvent en demander l'emprunt. Laissez vide pour autoriser tous les utilisateurs (avec cursus et profil complet) à le demander. Les admins sont toujours autorisés.",
+      "search_placeholder": "Rechercher par nom, code, marque…",
+      "count_one": "{{count}} instrument",
+      "count_other": "{{count}} instruments",
+      "empty_title": "Aucun instrument en inventaire",
+      "empty_subtitle": "Créez un instrument depuis l'onglet Inventaire pour en configurer les règles.",
+      "col_instrument": "Instrument",
+      "col_family": "Famille",
+      "col_courses": "Cursus autorisés",
+      "col_actions": "Actions",
+      "all_allowed": "Tous les cursus",
+      "courses_count_one": "{{count}} cursus",
+      "courses_count_other": "{{count}} cursus",
+      "edit": "Modifier les cursus",
+      "dialog_title": "Cursus autorisés à l'emprunt",
+      "dialog_help_empty": "Aucun cursus sélectionné → l'emprunt est permissif : toute personne (non admin) avec un cursus valide peut le demander.",
+      "dialog_help_filtered": "{{count}} cursus sélectionnés. Seuls les utilisateurs de ces cursus pourront demander l'emprunt.",
+      "search_courses": "Rechercher parmi les cursus…",
+      "select_all": "Tout sélectionner",
+      "deselect_all": "Tout désélectionner",
+      "loading_courses": "Chargement des cursus…",
+      "no_courses_found": "Aucun cursus ne correspond à la recherche",
+      "saved": "Règles d'emprunt enregistrées"
+    },
+    "activity": {
+      "title": "Journal d'activité",
+      "subtitle": "Visualisez, filtrez et annulez en masse les réservations confirmées à venir. Les notifications d'annulation sont envoyées par e-mail aux utilisateurs concernés."
+    },
+    "audit_log": {
+      "title": "Journal d'audit",
+      "subtitle": "Traçabilité append-only des actions administratives sur les utilisateurs, la structure et les configurations. Les entrées ne sont pas modifiables.",
+      "empty_title": "Aucune activité enregistrée",
+      "empty_subtitle": "Les actions POST/PUT/DELETE sur les routes administratives apparaîtront ici.",
+      "filter": {
+        "action": "Action",
+        "target_type": "Entité",
+        "actor_id": "ID utilisateur",
+        "actor_id_placeholder": "ex. 1",
+        "date_from": "Du",
+        "date_to": "Au",
+        "path_search": "Path",
+        "path_placeholder": "ex. /api/structure/rooms",
+        "apply": "Appliquer",
+        "reset": "Réinitialiser"
+      },
+      "col_when": "Quand",
+      "col_actor": "Utilisateur",
+      "col_action": "Action",
+      "col_target": "Entité",
+      "col_path": "Path",
+      "col_status": "Statut",
+      "pagination_summary": "{{from}}-{{to}} sur {{total}}"
+    },
+    "analytics": {
+      "title": "Statistiques d'utilisation",
+      "subtitle": "Heatmap d'occupation, top des salles et utilisateurs, taux de no-show et tendance hebdomadaire.",
+      "no_data": "Aucune donnée dans la plage sélectionnée",
+      "export_csv": "Exporter CSV",
+      "export_pdf": "Exporter PDF",
+      "filter": {
+        "date_from": "Date de début",
+        "date_to": "Date de fin",
+        "apply": "Mettre à jour"
+      },
+      "kpi": {
+        "confirmed": "Réservations confirmées",
+        "ghosted": "Auto-annulées (no-show)",
+        "no_show_rate": "Taux de no-show",
+        "total_created": "Total créées"
+      },
+      "heatmap": {
+        "title": "Occupation par plage horaire",
+        "help": "Décompte des réservations par jour de la semaine × heure de début. Cellule plus foncée = plus de réservations.",
+        "day": {
+          "mon": "Lun",
+          "tue": "Mar",
+          "wed": "Mer",
+          "thu": "Jeu",
+          "fri": "Ven",
+          "sat": "Sam",
+          "sun": "Dim"
+        }
+      },
+      "trend": {
+        "title": "Tendance des 8 dernières semaines",
+        "help": "Heures réservées par semaine ISO.",
+        "aria_label": "Graphique tendance des heures réservées sur {{count}} semaines",
+        "col_period": "Période",
+        "col_hours": "Heures"
+      },
+      "top_rooms": {
+        "title": "Top 10 des salles par heures",
+        "aria_label": "Graphique top {{count}} salles par heures réservées",
+        "col_room": "Salle",
+        "col_building": "Bâtiment",
+        "col_hours": "Heures",
+        "col_count": "Réservations"
+      },
+      "top_users": {
+        "title": "Top 10 des utilisateurs par heures",
+        "privacy": "Données visibles uniquement par les administrateurs — ne pas partager à l'extérieur.",
+        "bookings_count_one": "{{count}} réservation",
+        "bookings_count_other": "{{count}} réservations"
+      }
+    },
+    "announcements": {
+      "title": "Annonces",
+      "subtitle": "Publiez des communications ciblées par rôles, cursus ou bâtiments. Les e-mails optionnels n'atteignent que le public sélectionné.",
+      "new": "Nouvelle annonce",
+      "new_title": "Nouvelle annonce",
+      "edit_title": "Modifier l'annonce",
+      "empty_title": "Aucune annonce publiée",
+      "empty_subtitle": "Créez la première annonce pour communiquer avec les utilisateurs, cursus ou sites.",
+      "delete_title": "Supprimer l'annonce ?",
+      "delete_description": "L'annonce sera supprimée définitivement. Les e-mails déjà envoyés ne sont pas rappelés.",
+      "deleted": "Annonce supprimée",
+      "created": "Annonce créée",
+      "updated": "Annonce mise à jour",
+      "broadcast_sent": "E-mail envoyé à {{count}} destinataires",
+      "dialog_help": "Remplissez titre et corps, choisissez le public et les dates. L'envoi d'e-mail est facultatif.",
+      "edit_email_disclaimer": "Les e-mails sont envoyés uniquement à la création : en modification, l'option est désactivée.",
+      "email_sent": "E-mail envoyé",
+      "expired": "Expirée",
+      "expires": "expire le",
+      "inactive": "Inactive",
+      "pinned": "En évidence",
+      "resend": "Renvoyer l'e-mail",
+      "errors": {
+        "title_required": "Le titre est obligatoire",
+        "body_required": "Le corps est obligatoire"
+      },
+      "field": {
+        "active": "Active",
+        "active_help": "Désactivez pour masquer sans supprimer",
+        "audience": "Public",
+        "audience_target": "Destinataire",
+        "body": "Corps",
+        "body_help": "Texte libre. Les sauts de ligne sont conservés.",
+        "expires_at": "Expire le",
+        "expires_at_help": "Laissez vide pour ne jamais faire expirer",
+        "pinned": "En évidence",
+        "pinned_help": "Affiche en haut de la liste",
+        "published_at": "Publié le",
+        "published_at_help": "Laissez vide pour publier maintenant",
+        "send_email": "Envoyer un e-mail",
+        "send_email_help": "Notifie par e-mail le public sélectionné",
+        "title": "Titre"
+      },
+      "audience": {
+        "all": "Tous",
+        "role": "Rôle",
+        "course": "Cursus",
+        "building": "Bâtiment"
+      }
+    },
+    "approvals": {
+      "title": "Approbations de réservations",
+      "subtitle": "Demandes de réservation sur des salles nécessitant une approbation (salles de concert, auditoriums…). Approuvez ou refusez depuis les actions à droite.",
+      "empty_title": "Aucune demande en attente",
+      "empty_subtitle": "Lorsqu'un utilisateur réservera une salle soumise à approbation, la demande apparaîtra ici.",
+      "amendments_link": {
+        "title": "Modifications quota horaire",
+        "subtitle": "Demandes de nouveaux jours ou de changements de pattern des enseignants — gestion séparée dans Quota horaire.",
+        "badge": "{{count}} en attente"
+      },
+      "action": {
+        "approve": "Approuver",
+        "reject": "Refuser"
+      },
+      "toast": {
+        "approved": "Réservation approuvée",
+        "rejected": "Demande refusée"
+      },
+      "reject_dialog": {
+        "title": "Refuser la demande",
+        "description": "Précisez un motif (facultatif) : il est inclus dans l'e-mail à l'utilisateur.",
+        "reason_label": "Motif",
+        "reason_placeholder": "Ex. salle déjà occupée pour un autre événement institutionnel"
+      }
+    },
+    "bookings": {
+      "title": "Réservations confirmées",
+      "subtitle": "Annulation en masse des réservations confirmées à venir avec notification par e-mail aux utilisateurs concernés.",
+      "search_placeholder": "Rechercher par utilisateur, salle, motif…",
+      "count": "{{count}} réservations",
+      "select_all": "Tout sélectionner",
+      "selected_count": "{{count}} réservations sélectionnées",
+      "clear_selection": "Désélectionner",
+      "bulk_cancel": "Annuler les sélectionnées",
+      "table": {
+        "user": "Utilisateur",
+        "room": "Salle",
+        "when": "Quand",
+        "type": "Type"
+      },
+      "empty": {
+        "title": "Aucune réservation confirmée",
+        "subtitle": "Il n'y a pas de réservations futures confirmées à gérer."
+      },
+      "confirm": {
+        "title": "Annuler les réservations sélectionnées ?",
+        "description": "Vous êtes sur le point d'annuler {{count}} réservations de {{users}} utilisateurs. Ils recevront un e-mail avec le motif. L'opération est irréversible.",
+        "reason_label": "Motif (inclus dans l'e-mail)",
+        "reason_placeholder": "Ex. fermeture exceptionnelle du site pour un événement institutionnel",
+        "reason_help": "Si vide, un message générique d'annulation administrative sera envoyé."
+      },
+      "toast": {
+        "cancelled": "{{count}} réservations annulées ({{skipped}} ignorées)"
+      }
+    }
+  },
+  "waitlist": {
+    "dashboard_title": "Vous êtes en liste d'attente",
+    "dashboard_subtitle_one": "Vous avez 1 inscription active.",
+    "dashboard_subtitle_other": "Vous avez {{count}} inscriptions actives.",
+    "your_turn": "C'est votre tour",
+    "expires_in_one": "expire dans 1 minute",
+    "expires_in_other": "expire dans {{count}} minutes",
+    "position": "Position {{n}}",
+    "claim": "Confirmer",
+    "claim_success": "Liste d'attente convertie : réservation confirmée",
+    "cancel": "Quitter la file d'attente",
+    "cancel_success": "Inscription à la file d'attente annulée",
+    "joined": "Inscription enregistrée. Vous êtes en position {{position}}.",
+    "offer": "Le créneau est déjà réservé. Voulez-vous vous mettre en liste d'attente ? Vous recevrez un e-mail s'il se libère.",
+    "join_action": "Ajouter à la liste d'attente",
+    "offer_dialog_title": "Salle déjà réservée",
+    "offer_dialog_description": "Le créneau choisi est déjà occupé. Voulez-vous vous mettre en liste d'attente ? Vous recevrez un e-mail si la réservation existante est annulée.",
+    "offer_dialog_decline": "Non, je choisis un autre horaire",
+    "offer_dialog_confirm": "Oui, mettez-moi en file"
+  },
+  "check_in": {
+    "title": "Check-in présence",
+    "subtitle_with_room": "Vous effectuez le check-in dans {{room}}.",
+    "subtitle_no_bookings": "Aucune de vos réservations ne figure dans cette salle pour les prochaines heures.",
+    "no_bookings_help": "Vérifiez d'avoir effectué la réservation et réessayez au moment de votre tour.",
+    "confirm_button": "Confirmer la présence",
+    "confirmed_at": "Confirmé à {{time}}",
+    "already_confirmed": "Vous avez déjà confirmé la présence pour cette réservation.",
+    "open_at": "Le check-in ouvre à {{time}}",
+    "closed_at": "Le check-in s'est fermé à {{time}}",
+    "window_help": "Le check-in ouvre {{early}} minutes avant et se ferme {{grace}} minutes après le début.",
+    "auto_cancel_warning": "Si vous ne confirmez pas dans les {{grace}} minutes suivant le début, la réservation est annulée automatiquement et la salle est remise à disposition.",
+    "now": "Maintenant : {{time}}",
+    "starts_at": "Début : {{time}}",
+    "ends_at": "Fin : {{time}}",
+    "back_to_dashboard": "Retour au tableau de bord",
+    "loading": "Chargement des réservations…",
+    "checkin_success": "Check-in enregistré",
+    "go_to_my_bookings": "Aller à Mes réservations",
+    "dashboard_card_title": "Check-in requis",
+    "dashboard_card_help_one": "Vous avez une réservation imminente en attente de check-in.",
+    "dashboard_card_help_other": "Vous avez {{count}} réservations imminentes en attente de check-in.",
+    "dashboard_card_action": "Confirmer maintenant",
+    "missed_checkin_badge": "Sans check-in",
+    "missed_checkin_help": "Aucun check-in n'a été enregistré pour cette réservation."
+  },
+  "admin_structure_qr": {
+    "print_qr": "Imprimer QR de la salle",
+    "qr_help": "Téléchargez le QR-code à afficher à l'entrée de la salle. L'étudiant le scanne depuis son téléphone pour confirmer sa présence.",
+    "qr_failed": "Impossible de télécharger le QR"
+  },
+  "display": {
+    "title_default": "Système de réservation de salles",
+    "no_bookings": "Aucune réservation aujourd'hui",
+    "now": "maintenant",
+    "next": "prochaine",
+    "live": "Live",
+    "reconnecting": "Reconnexion…",
+    "loading_agenda": "Chargement de l'agenda…",
+    "no_rooms_configured": "Aucune salle configurée",
+    "hour_label": "Heure",
+    "busy_until": "Occupée · {{time}}",
+    "free_now": "Libre maintenant",
+    "now_indicator": "Maintenant ({{time}})",
+    "exit_fullscreen": "Quittez le plein écran avec ESC",
+    "default_copyright": "Copyright © 2026 by Danilo Russo",
+    "footer_auto_update": "Mise à jour automatique toutes les 30 s",
+    "footer_last_update": "dernière donnée {{time}}",
+    "rooms_count_one": "{{count}} salle",
+    "rooms_count_other": "{{count}} salles",
+    "bookings_today_one": "{{count}} réservation aujourd'hui",
+    "bookings_today_other": "{{count}} réservations aujourd'hui",
+    "bookings_week_one": "{{count}} réservation",
+    "bookings_week_other": "{{count}} réservations",
+    "offline_banner": "Connexion perdue · dernière mise à jour {{time}}",
+    "legend": {
+      "cell_30min": "Chaque cellule correspond à 30 minutes"
+    },
+    "kpi": {
+      "in_use": "En cours d'utilisation",
+      "in_use_subtitle": "{{pct}} % d'occupation",
+      "bookings_today": "Réservations aujourd'hui",
+      "bookings_today_subtitle": "{{hours}} h au total",
+      "week": "Semaine",
+      "week_subtitle": "{{hours}} h réservées",
+      "active_rooms": "Salles actives",
+      "active_rooms_subtitle": "Disponibles dans le système"
+    },
+    "concert": {
+      "upcoming_label": "Prochain concert",
+      "performers": "Interprètes",
+      "program": "Programme"
+    },
+    "announcement": {
+      "label": "Communication",
+      "pinned_label": "En évidence"
+    }
+  },
+  "concert": {
+    "action_open": "Fiche concert",
+    "dialog_title": "Fiche concert",
+    "dialog_description": "Saisissez les détails qui seront affichés dans la rotation de l'Infopoint : titre, interprètes, programme et affiche.",
+    "saved": "Fiche concert enregistrée",
+    "save_first": "Enregistrez d'abord la fiche pour pouvoir téléverser l'affiche.",
+    "poster": "Affiche",
+    "poster_help": "PNG, JPG ou WEBP — verticale 3:4 (max 1200×1600). Si vous ne téléversez rien, une affiche par défaut est utilisée.",
+    "poster_upload": "Téléverser l'affiche",
+    "poster_replace": "Remplacer l'affiche",
+    "poster_remove": "Supprimer l'affiche",
+    "poster_remove_confirm": "Supprimer l'affiche téléversée ?",
+    "poster_uploaded": "Affiche mise à jour",
+    "poster_removed": "Affiche supprimée",
+    "field": {
+      "title": "Titre",
+      "title_placeholder": "Ex. Concert de printemps",
+      "performers": "Interprètes et instruments",
+      "performers_placeholder": "Une ligne par interprète (ex. « Maria Rossi · violon »)",
+      "performers_help": "Une ligne par interprète — elles sont affichées sur l'Infopoint sous forme de liste.",
+      "program": "Auteurs et programme",
+      "program_placeholder": "Une ligne par œuvre (ex. « J. S. Bach · Partita n° 2 »)",
+      "program_help": "Une ligne par œuvre/auteur — elles sont affichées sur l'Infopoint sous forme de liste."
+    },
+    "errors": {
+      "title_required": "Saisissez un titre"
+    }
+  },
+  "not_found": {
+    "title": "Page non trouvée",
+    "subtitle": "La page que vous cherchez n'existe pas ou a été déplacée.",
+    "back": "Retour au tableau de bord"
+  },
+  "instrument_families": {
+    "archi": "Cordes frottées",
+    "fiati_legni": "Bois",
+    "fiati_ottoni": "Cuivres",
+    "tastiere": "Claviers",
+    "percussioni": "Percussions",
+    "corde": "Cordes",
+    "voce": "Voix",
+    "elettronica": "Électronique",
+    "altro": "Autre"
+  },
+  "instrument_conditions": {
+    "ottimo": "Excellent",
+    "buono": "Bon",
+    "discreto": "Correct",
+    "da_riparare": "À réparer",
+    "fuori_uso": "Hors d'usage"
+  },
+  "loans": {
+    "status": {
+      "requested": "En attente",
+      "active": "En cours",
+      "returned": "Restitué",
+      "overdue": "En retard",
+      "rejected": "Refusé"
+    }
+  },
+  "instruments": {
+    "title": "Instruments du Conservatoire",
+    "subtitle": "Explorez les instruments disponibles et demandez un emprunt.",
+    "search_placeholder": "Rechercher par nom, code, marque ou modèle…",
+    "filter_family": "Famille",
+    "filter_loanable": "Uniquement empruntables",
+    "all_families": "Toutes les familles",
+    "no_results_title": "Aucun instrument ne correspond aux filtres",
+    "no_results_subtitle": "Modifiez les critères de recherche ou retirez les filtres.",
+    "request_loan": "Demander un emprunt",
+    "available": "Disponible",
+    "borrowed_until": "Emprunté jusqu'au {{date}}",
+    "not_loanable": "Non empruntable",
+    "course_not_allowed": "Votre cursus n'est pas autorisé",
+    "course_not_allowed_help": "Votre cursus n'est pas inclus parmi ceux autorisés à demander l'emprunt de cette famille d'instruments. Contactez le secrétariat pour plus d'informations.",
+    "request_dialog": {
+      "title": "Demander un emprunt · {{name}}",
+      "description": "Indiquez les dates de début et de restitution prévues. La demande sera évaluée par un administrateur.",
+      "from_date": "Date de début",
+      "to_date": "Date de restitution",
+      "notes": "Notes (facultatif)",
+      "notes_placeholder": "Ex. utilisation pour le concert du…",
+      "submit": "Envoyer la demande",
+      "submitted": "Demande envoyée"
+    }
+  },
+  "my_loans": {
+    "title": "Mes emprunts",
+    "subtitle": "Gérez vos demandes d'emprunt actives, en attente et l'historique.",
+    "tabs": {
+      "active": "En cours",
+      "requested": "En attente",
+      "history": "Historique"
+    },
+    "empty": {
+      "active_title": "Aucun emprunt en cours",
+      "active_subtitle": "Allez dans le catalogue d'instruments pour demander un emprunt.",
+      "requested_title": "Aucune demande en attente",
+      "requested_subtitle": "Toutes vos demandes ont été traitées.",
+      "history_title": "Aucun emprunt dans l'historique",
+      "history_subtitle": "Votre historique apparaîtra ici après la première restitution.",
+      "browse": "Aller au catalogue"
+    },
+    "period": "Du {{from}} au {{to}}",
+    "actions": {
+      "return": "Marquer comme restitué",
+      "cancel_request": "Annuler la demande",
+      "print_delivery": "Bon de remise",
+      "print_return": "Bon de restitution"
+    },
+    "toast": {
+      "returned": "Emprunt marqué comme restitué",
+      "cancelled": "Demande annulée",
+      "pdf_failed": "Impossible de générer le PDF"
+    }
+  },
+  "errors": {
+    "generic": "Une erreur inattendue est survenue.",
+    "network": "Erreur de connexion : réessayez.",
+    "session_expired": "Session expirée — veuillez vous reconnecter.",
+    "validation_failed": "Validation échouée",
+    "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+    "forbidden": "Permission refusée.",
+    "not_found": "Ressource non trouvée.",
+    "code": {
+      "INVALID_CREDENTIALS": "Identifiants invalides",
+      "ACCOUNT_DISABLED": "Compte désactivé",
+      "ACCOUNT_PENDING": "Compte en attente d'approbation",
+      "ACCOUNT_REJECTED": "Votre compte a été refusé par l'administrateur",
+      "OAUTH_ONLY": "Ce compte est connecté uniquement via OAuth. Utilisez Google/Microsoft.",
+      "EMAIL_ALREADY_REGISTERED": "E-mail déjà enregistré",
+      "MATRICOLA_ALREADY_USED": "Numéro d'étudiant déjà enregistré",
+      "MATRICOLA_REQUIRED": "Le numéro d'étudiant est obligatoire pour les étudiants",
+      "COURSE_REQUIRED": "Le cursus est obligatoire",
+      "COURSE_INVALID": "Cursus invalide",
+      "INCOMPLETE_PROFILE": "Profil incomplet : complétez les données avant de poursuivre",
+      "WRONG_PASSWORD": "Mot de passe actuel incorrect",
+      "PASSWORD_TOO_SHORT": "Mot de passe trop court",
+      "BOOKING_CONFLICT": "Une réservation existe déjà pour cette salle à l'horaire demandé",
+      "BOOKING_INVALID_TIME": "Horaire invalide",
+      "BOOKING_OUT_OF_WINDOW": "Horaire hors de la fenêtre autorisée",
+      "BOOKING_TOO_SHORT": "Durée inférieure au minimum autorisé",
+      "BOOKING_TOO_LONG": "Durée supérieure au maximum autorisé",
+      "BOOKING_TOO_FAR": "Anticipation supérieure au maximum autorisé",
+      "BOOKING_TOO_SOON": "Anticipation inférieure au minimum autorisé",
+      "BOOKING_LIMIT_REACHED": "Vous avez atteint la limite de réservations",
+      "BOOKING_HOURS_EXCEEDED": "Vous avez atteint la limite d'heures",
+      "BOOKING_CANCEL_DEADLINE": "Délai d'annulation dépassé",
+      "ROOM_NOT_BOOKABLE": "Salle non réservable",
+      "ROOM_FORBIDDEN_FOR_ROLE": "Vous n'êtes pas autorisé à réserver cette salle",
+      "RECURRING_NOT_ALLOWED": "Les réservations récurrentes ne sont pas autorisées pour votre rôle",
+      "FILE_TOO_LARGE": "Fichier trop volumineux",
+      "FILE_FORMAT_UNSUPPORTED": "Format de fichier non supporté",
+      "OAUTH_NOT_CONFIGURED": "Fournisseur OAuth non configuré sur le serveur",
+      "INVALID_TOKEN": "Jeton invalide ou expiré",
+      "USER_NOT_FOUND": "Utilisateur non trouvé",
+      "CANNOT_DELETE_SELF": "Vous ne pouvez pas vous supprimer vous-même",
+      "FK_CONSTRAINT": "Impossible de supprimer : la ressource est encore référencée par d'autres données",
+      "UNIQUE_VIOLATION": "Un enregistrement avec ces valeurs existe déjà",
+      "EXCLUSION_VIOLATION": "Opération en conflit avec un enregistrement existant (chevauchement non autorisé)",
+      "FK_VIOLATION": "Opération bloquée : l'enregistrement est encore référencé par d'autres données",
+      "CHECK_VIOLATION": "Données non valides pour les contraintes appliquées",
+      "LOAN_CONFLICT": "L'instrument est déjà engagé sur la période demandée",
+      "LOAN_INVALID_DATE": "Dates d'emprunt invalides",
+      "LOAN_INVALID_STATE": "Opération invalide dans l'état actuel de l'emprunt",
+      "LOAN_ALREADY_RETURNED": "Emprunt déjà restitué",
+      "INSTRUMENT_NOT_LOANABLE": "Instrument non disponible à l'emprunt",
+      "INSTRUMENT_CODE_DUPLICATE": "Code d'instrument déjà utilisé",
+      "INSTRUMENT_FAMILY_NOT_ALLOWED": "Votre cursus n'est pas autorisé à demander l'emprunt d'instruments de cette famille",
+      "CHECKIN_TOO_EARLY": "Trop tôt pour le check-in",
+      "CHECKIN_TOO_LATE": "Le check-in s'est fermé : la réservation a peut-être été annulée",
+      "CHECKIN_INVALID_STATUS": "La réservation n'est pas confirmée",
+      "ALREADY_CHECKED_IN": "Check-in déjà effectué",
+      "CONCERT_INVALID_TYPE": "La réservation n'est pas de type concert",
+      "CONCERT_NOT_FOUND": "Fiche concert absente",
+      "CONCERT_TITLE_REQUIRED": "Saisissez un titre pour la fiche concert",
+      "BOOKING_INVALID": "Réservation invalide",
+      "QUOTA_EXCEEDED_GLOBAL": "Quota personnel dépassé : vous avez épuisé le quota horaire disponible",
+      "QUOTA_EXCEEDED_ROOM_TYPE": "Quota dépassé pour le type de salle demandé",
+      "QUOTA_EXCEEDED_EQUIPMENT_TYPE": "Quota dépassé pour l'équipement demandé dans cette salle",
+      "WAITLIST_NOT_NEEDED": "Le créneau est disponible, réservez directement",
+      "WAITLIST_PAST": "Le créneau est dans le passé",
+      "WAITLIST_ALREADY_CLAIMED": "La liste d'attente a déjà été convertie",
+      "WAITLIST_CANCELLED": "La liste d'attente a été annulée",
+      "WAITLIST_NOT_YOUR_TURN": "Ce n'est pas encore votre tour en file d'attente",
+      "WAITLIST_EXPIRED": "Délai de réclamation expiré",
+      "RATE_LIMITED": "Trop de requêtes — réessayez dans quelques minutes",
+      "BOOKING_INVALID_STATE": "La réservation n'est pas dans un état valide pour cette action."
+    }
+  },
+  "footer": {
+    "copyright_default": "© {{year}} {{name}}"
+  },
+  "delete_confirm": {
+    "title": "Confirmer la suppression ?",
+    "description": "L'opération est irréversible.",
+    "confirm": "Supprimer",
+    "cancel": "Annuler"
+  },
+  "bookings": {
+    "status": {
+      "pending_approval": "En attente d'approbation"
+    }
+  },
+  "weekly_timetable": {
+    "room_header": "Salle",
+    "hour_header": "Heures",
+    "book_aria": "Réserver {{room}} le {{day}}"
+  },
+  "pwa": {
+    "install": {
+      "title": "Installer Cadenza",
+      "subtitle": "Ajoutez l'application à l'écran d'accueil : lancement immédiat et fonctionne aussi en mode réduit sans connexion.",
+      "subtitle_ios": "Ouvrez le menu Partager de Safari et touchez « Sur l'écran d'accueil ».",
+      "cta": "Installer",
+      "dismiss": "Pas maintenant"
+    },
+    "update": {
+      "title": "Mise à jour disponible",
+      "subtitle": "Rechargez pour appliquer la nouvelle version.",
+      "reload": "Recharger"
+    }
+  },
+  "integrations": {
+    "isidata": {
+      "title": "Import de l'annuaire depuis Isidata",
+      "subtitle": "Téléversez un export XLSX/CSV depuis le secrétariat Isidata : Cadenza compare les données et affiche ce qui changera avant d'appliquer.",
+      "step1_title": "1. Téléverser le fichier",
+      "step2_title": "2. Vérifier les modifications",
+      "dropzone_label": "Glissez ici le fichier XLSX d'Isidata, ou cliquez pour le choisir",
+      "dropzone_hint": "Sont supportés .xlsx, .xls et .csv. Taille maximale 10 Mo, max 5000 enregistrements.",
+      "overrides_title": "Mapping des champs (avancé)",
+      "overrides_hint_short": "Override des en-têtes automatiques",
+      "overrides_help": "Uniquement si les en-têtes de votre export ne sont pas reconnus. Saisissez un objet JSON avec les noms des en-têtes du fichier pour chaque champ cible. Exemple : {\"externalId\": \"NumeroMatricola\", \"email\": \"EmailIstituz\"}.",
+      "overrides_label": "JSON override",
+      "overrides_invalid": "Le JSON n'est pas valide ou n'est pas un objet.",
+      "preview_action": "Aperçu",
+      "preview_hint": "Aucune donnée n'a encore été modifiée. Les modifications ne seront appliquées qu'après confirmation explicite.",
+      "warnings_count_one": "{{count}} avertissement de parsing",
+      "warnings_count_other": "{{count}} avertissements de parsing",
+      "row": "ligne {{row}}",
+      "kpi": {
+        "create": "À créer",
+        "update": "À mettre à jour",
+        "orphan": "À désactiver",
+        "fetched": "Lus dans le fichier"
+      },
+      "create_section": "Nouveaux utilisateurs",
+      "update_section": "Utilisateurs à mettre à jour",
+      "orphan_section": "Utilisateurs absents du fichier",
+      "orphan_will_disable": "Sera désactivé (isActive=false)",
+      "orphan_already_disabled": "Déjà désactivé — aucune action",
+      "nothing_to_apply": "Aucune modification à appliquer : le fichier est déjà aligné avec la base de données.",
+      "confirm_label": "Je confirme avoir vérifié le diff et vouloir appliquer ces modifications.",
+      "hash_label": "Hash du fichier",
+      "apply_action": "Appliquer les modifications",
+      "col": {
+        "matricola": "Numéro d'étudiant",
+        "name": "Nom Prénom",
+        "email": "E-mail",
+        "role": "Rôle",
+        "course": "Cursus",
+        "changes": "Modifications",
+        "action": "Action"
+      },
+      "role": {
+        "docente": "Enseignant",
+        "studente": "Étudiant"
+      },
+      "done_title": "Synchronisation terminée",
+      "done_hint": "Retrouvez l'historique en bas de cette page, sous « Exécutions récentes ». Les e-mails transactionnels ont déjà été envoyés aux nouveaux utilisateurs.",
+      "import_another": "Importer un autre fichier",
+      "history_title": "Exécutions récentes",
+      "history_empty": "Aucune exécution enregistrée.",
+      "run_summary": "Lus {{fetched}} · Créés {{created}} · Mis à jour {{updated}} · Désactivés {{orphaned}} · Erreurs {{errors}}",
+      "toast": {
+        "applied": "Sync terminée : {{created}} créés, {{updated}} mis à jour, {{orphaned}} désactivés."
+      }
+    }
+  }
+}

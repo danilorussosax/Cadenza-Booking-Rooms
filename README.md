@@ -124,7 +124,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 ### 🌍 Internazionalizzazione
 
-UI completamente tradotta in **italiano** (default), **inglese** e **spagnolo**, con `i18next` + `dayjs` locale. Persistenza preferenza in `localStorage`. Errori del backend mappati via `error.code` stabili (es. `BOOKING_CONFLICT`, `EMAIL_ALREADY_REGISTERED`).
+UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, **tedesco** e **francese**, con `i18next` + `dayjs` locale. Persistenza preferenza in `localStorage`. Errori del backend mappati via `error.code` stabili (es. `BOOKING_CONFLICT`, `EMAIL_ALREADY_REGISTERED`).
 
 ### ♿ Accessibilità WCAG 2 AA
 
@@ -469,7 +469,7 @@ Le seguenti aree sono complete e in produzione:
 - Bulk operations admin
 - Analytics dashboard (heatmap, top, no-show, export)
 - Import Isidata Liv A (manuale CSV/XLSX)
-- i18n completa IT/EN/ES per le aree user-facing principali
+- i18n completa IT/EN/ES/DE/FR per le aree user-facing principali
 - **Accessibilità WCAG 2 AA** (skip link, landmark, ARIA su form, reduced-motion, fallback testuali grafici, axe-core in unit + E2E)
 - **Mobile UX** (viewport `dvh`, bottom-nav, Dialog bottom-sheet su `<sm`, tabelle admin card-stack, offline banner globale)
 - **Sistema email robusto** (outbox pattern + retry, throttle per destinatario, hard-bounce detection, pagina admin "Coda email" + health, cleanup automatico)
