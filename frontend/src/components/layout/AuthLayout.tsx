@@ -128,7 +128,10 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
             />
           </>
         )}
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-1 sm:right-6 sm:top-6">
+        {/* Toggle bar (lingua + tema): safe-pt rispetta il notch / status bar
+         * iOS (in PWA standalone e Safari mobile in landscape la status bar
+         * coprirebbe i bottoni a top-4, intercettando i tap). */}
+        <div className="safe-pt absolute right-4 top-4 z-10 flex items-center gap-1 sm:right-6 sm:top-6">
           <LanguageToggle />
           <ThemeToggle />
         </div>
