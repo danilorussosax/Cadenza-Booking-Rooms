@@ -72,6 +72,8 @@ export const bookingsApi = {
   checkinCandidates: (roomId: number) =>
     api<{
       bookings: Booking[];
+      /** true se l'aula ha `requireCheckIn=false`: l'API non restituisce candidati. */
+      roomCheckInDisabled?: boolean;
       config: { earlyMinutes: number; graceMinutes: number };
     }>('/api/bookings/checkin-candidates', { query: { roomId } }),
 

@@ -1636,7 +1636,8 @@
     "dashboard_card_help_other": "Sie haben {{count}} bevorstehende Buchungen, die einen Check-in benötigen.",
     "dashboard_card_action": "Jetzt bestätigen",
     "missed_checkin_badge": "Ohne Check-in",
-    "missed_checkin_help": "Für diese Buchung wurde kein Check-in registriert."
+    "missed_checkin_help": "Für diese Buchung wurde kein Check-in registriert.",
+    "room_check_in_disabled": "Für diesen Raum ist kein Check-in erforderlich: Ihre Buchung bleibt auch ohne QR-Scan gültig."
   },
   "admin_structure_qr": {
     "print_qr": "Raum-QR drucken",

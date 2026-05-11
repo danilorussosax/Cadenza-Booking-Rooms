@@ -70,6 +70,7 @@ export default function CheckInRoom() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const bookings = query.data?.bookings ?? [];
   const config = query.data?.config ?? { earlyMinutes: 5, graceMinutes: 15 };
+  const roomCheckInDisabled = query.data?.roomCheckInDisabled === true;
   const room = bookings[0]?.room;
   const buildingName = room?.building?.name;
   const roomName = room?.name;
@@ -111,11 +112,17 @@ export default function CheckInRoom() {
         )}
       </header>
 
-      <Alert variant="info">
-        <AlertDescription className="text-xs">
-          {t('check_in.window_help', { early: config.earlyMinutes, grace: config.graceMinutes })}
-        </AlertDescription>
-      </Alert>
+      {roomCheckInDisabled ? (
+        <Alert variant="info">
+          <AlertDescription>{t('check_in.room_check_in_disabled')}</AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant="info">
+          <AlertDescription className="text-xs">
+            {t('check_in.window_help', { early: config.earlyMinutes, grace: config.graceMinutes })}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {query.isLoading && (
         <div className="space-y-2">
@@ -125,7 +132,7 @@ export default function CheckInRoom() {
         </div>
       )}
 
-      {!query.isLoading && sortedBookings.length === 0 && (
+      {!query.isLoading && !roomCheckInDisabled && sortedBookings.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Clock className="h-10 w-10 text-muted-foreground" />

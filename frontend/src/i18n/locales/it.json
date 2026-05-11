@@ -1636,7 +1636,8 @@
     "dashboard_card_help_other": "Hai {{count}} prenotazioni imminenti in attesa di check-in.",
     "dashboard_card_action": "Conferma ora",
     "missed_checkin_badge": "Senza check-in",
-    "missed_checkin_help": "Non è stato registrato il check-in per questa prenotazione."
+    "missed_checkin_help": "Non è stato registrato il check-in per questa prenotazione.",
+    "room_check_in_disabled": "Per questa aula il check-in non è richiesto: la prenotazione resta valida anche senza scansione del QR."
   },
   "admin_structure_qr": {
     "print_qr": "Stampa QR aula",

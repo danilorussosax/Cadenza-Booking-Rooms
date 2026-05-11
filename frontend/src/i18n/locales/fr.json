@@ -1636,7 +1636,8 @@
     "dashboard_card_help_other": "Vous avez {{count}} réservations imminentes en attente de check-in.",
     "dashboard_card_action": "Confirmer maintenant",
     "missed_checkin_badge": "Sans check-in",
-    "missed_checkin_help": "Aucun check-in n'a été enregistré pour cette réservation."
+    "missed_checkin_help": "Aucun check-in n'a été enregistré pour cette réservation.",
+    "room_check_in_disabled": "Le check-in n'est pas requis pour cette salle : votre réservation reste valable sans scanner le QR."
   },
   "admin_structure_qr": {
     "print_qr": "Imprimer QR de la salle",

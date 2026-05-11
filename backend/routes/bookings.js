@@ -234,6 +234,20 @@ router.get('/checkin-candidates', authenticate, async (req, res) => {
   if (!roomId) {
     return res.status(400).json({ error: 'roomId mancante', code: 'VALIDATION_FAILED' });
   }
+
+  // Se l'admin ha disattivato il check-in per questa aula non restituiamo
+  // candidati: la pagina /check-in/room/:id mostra il banner "non richiesto"
+  // e l'utente non viene indotto a tentare un check-in che il POST /:id/checkin
+  // rifiuterebbe comunque.
+  const room = await Room.findByPk(roomId, { attributes: ['id', 'requireCheckIn'] });
+  if (room && room.requireCheckIn === false) {
+    return res.json({
+      bookings: [],
+      roomCheckInDisabled: true,
+      config: { earlyMinutes: CHECKIN_EARLY_MINUTES, graceMinutes: GHOST_GRACE_MINUTES },
+    });
+  }
+
   const now = dayjs();
   const windowStart = now.subtract(GHOST_GRACE_MINUTES, 'minute').toDate();
   const windowEnd = now.add(24, 'hour').toDate();
@@ -1344,13 +1358,26 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     });
   }
 
+  // Se l'admin ha disabilitato il check-in per questa aula, rifiutiamo a monte:
+  // il ghost-cancel sweep già skippa queste booking, ma senza questo guard un
+  // client potrebbe comunque chiamare l'endpoint direttamente (es. via QR
+  // scansionato prima della disabilitazione).
+  const roomMeta = await Room.findByPk(booking.roomId, {
+    attributes: ['id', 'qrToken', 'requireCheckIn'],
+  });
+  if (roomMeta && roomMeta.requireCheckIn === false) {
+    return res.status(400).json({
+      error: 'Il check-in non è richiesto per questa aula',
+      code: 'CHECKIN_NOT_REQUIRED',
+    });
+  }
+
   // Validazione token QR (se fornito): se il token non matcha quello corrente
   // dell'aula, il QR è obsoleto (rigenerato dopo la stampa).
   const providedToken =
     req.body && typeof req.body.qrToken === 'string' ? req.body.qrToken.trim() : null;
   if (providedToken) {
-    const room = await Room.findByPk(booking.roomId, { attributes: ['id', 'qrToken'] });
-    if (!room || !room.qrToken || room.qrToken !== providedToken) {
+    if (!roomMeta || !roomMeta.qrToken || roomMeta.qrToken !== providedToken) {
       return res.status(400).json({
         error: "QR-code non valido o scaduto: chiedere all'admin di stampare il QR aggiornato",
         code: 'CHECKIN_INVALID_QR_TOKEN',

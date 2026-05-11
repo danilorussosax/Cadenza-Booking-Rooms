@@ -1636,7 +1636,8 @@
     "dashboard_card_help_other": "Tienes {{count}} reservas próximas pendientes de check-in.",
     "dashboard_card_action": "Confirmar ahora",
     "missed_checkin_badge": "Sin check-in",
-    "missed_checkin_help": "No se ha registrado el check-in para esta reserva."
+    "missed_checkin_help": "No se ha registrado el check-in para esta reserva.",
+    "room_check_in_disabled": "El check-in no es necesario para esta aula: tu reserva sigue siendo válida sin escanear el QR."
   },
   "admin_structure_qr": {
     "print_qr": "Imprimir QR del aula",

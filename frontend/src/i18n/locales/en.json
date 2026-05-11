@@ -1636,7 +1636,8 @@
     "dashboard_card_help_other": "You have {{count}} upcoming bookings awaiting check-in.",
     "dashboard_card_action": "Confirm now",
     "missed_checkin_badge": "Missed check-in",
-    "missed_checkin_help": "No check-in was recorded for this booking."
+    "missed_checkin_help": "No check-in was recorded for this booking.",
+    "room_check_in_disabled": "Check-in is not required for this room: your booking remains valid without scanning the QR."
   },
   "admin_structure_qr": {
     "print_qr": "Print room QR",
