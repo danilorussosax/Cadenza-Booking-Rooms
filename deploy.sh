@@ -4,6 +4,19 @@ set -euo pipefail
 # ============================================================
 # Deploy script Cadenza — Mac → VPS IONOS
 #
+# Prerequisito SSH:
+#   Lo script si appoggia a un alias definito in ~/.ssh/config — di default
+#   "cadenza-vps". Esempio di blocco da aggiungere:
+#
+#     Host cadenza-vps
+#         HostName 82.165.110.193
+#         User cadenza
+#         IdentityFile ~/.ssh/cadenza_deploy
+#         IdentitiesOnly yes
+#
+#   Per cambiare server, utente o chiave si modifica solo quel blocco —
+#   lo script resta invariato.
+#
 # Cosa fa:
 #   0. (opzionale, --update-deps) npm outdated su backend/ e frontend/, chiede
 #      se applicare gli aggiornamenti semver-safe (npm update) prima del deploy
@@ -23,13 +36,24 @@ set -euo pipefail
 #   ./deploy.sh --update-deps  # prima del deploy: npm outdated + scelta y/N per workspace
 # ============================================================
 
-VPS_USER="cadenza"
-VPS_HOST="82.165.110.193"
+# Alias definito in ~/.ssh/config (HostName + User + IdentityFile lì).
+# Cambiando server o utente si aggiorna solo ~/.ssh/config, non lo script.
+VPS_HOST_ALIAS="cadenza-vps"
 VPS_PATH="/home/cadenza/cadenza"
 
 LOCAL_ROOT="$(cd "$(dirname "$0")" && pwd)"
-SSH_TARGET="${VPS_USER}@${VPS_HOST}"
-SSH_OPTS="-o StrictHostKeyChecking=accept-new"
+SSH_TARGET="$VPS_HOST_ALIAS"
+SSH_OPTS=""
+
+# Risolve l'IP/hostname reale dall'alias (per il messaggio finale).
+# Fallisce fast se l'alias non è configurato in ~/.ssh/config.
+VPS_HOST="$(ssh -G "$VPS_HOST_ALIAS" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+if [[ -z "$VPS_HOST" || "$VPS_HOST" == "$VPS_HOST_ALIAS" ]]; then
+  printf '\033[31m[ERR] alias SSH "%s" non trovato in ~/.ssh/config.\033[0m\n' "$VPS_HOST_ALIAS"
+  printf '       Aggiungi un blocco tipo:\n'
+  printf '         Host %s\n           HostName <ip>\n           User <utente>\n           IdentityFile ~/.ssh/cadenza_deploy\n' "$VPS_HOST_ALIAS"
+  exit 1
+fi
 
 AUTO_YES=0
 SKIP_BUILD=0
@@ -39,7 +63,7 @@ for arg in "$@"; do
     --yes|-y)        AUTO_YES=1 ;;
     --no-build)      SKIP_BUILD=1 ;;
     --update-deps)   UPDATE_DEPS=1 ;;
-    --help|-h)       sed -n '2,23p' "$0"; exit 0 ;;
+    --help|-h)       sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $arg"; exit 2 ;;
   esac
 done
