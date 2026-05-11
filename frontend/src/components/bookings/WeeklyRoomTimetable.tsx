@@ -313,185 +313,195 @@ export function WeeklyRoomTimetable({
         })}
 
         {/* ── Body: una riga per aula → [codice aula] + N celle giorno ── */}
-        {rooms.map((room) => (
-          <Fragment key={room.id}>
-            {/* Colonna codice aula: SOLO codice (fallback al nome se assente),
+        {rooms.map((room, roomIdx) => {
+          // Zebra striping per riga: facilita la lettura quando ci sono molte
+          // aule (Display kiosk e Dashboard). La riga "oggi" mantiene la
+          // priorita visiva (bg-primary/5), quindi lo zebra si applica solo
+          // alle celle non-today.
+          const isOddRow = roomIdx % 2 === 1;
+          return (
+            <Fragment key={room.id}>
+              {/* Colonna codice aula: SOLO codice (fallback al nome se assente),
                 niente piano né tipo. Width minimal definito sopra. */}
-            <div
-              className="flex items-center justify-center border-b border-r bg-muted/20 px-1"
-              style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
-              title={room.name}
-            >
-              <p className="truncate text-sm font-semibold tabular-nums leading-none">
-                {room.code?.trim() ?? room.name}
-              </p>
-            </div>
+              <div
+                className={cn(
+                  'flex items-center justify-center border-b border-r px-1',
+                  isOddRow ? 'bg-muted/40' : 'bg-muted/20',
+                )}
+                style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
+                title={room.name}
+              >
+                <p className="truncate text-sm font-semibold tabular-nums leading-none">
+                  {room.code?.trim() ?? room.name}
+                </p>
+              </div>
 
-            {/* Celle giorno: ognuna è 24 strisce verticali con bordi solid
+              {/* Celle giorno: ognuna è 24 strisce verticali con bordi solid
                 (ora) / dashed (mezzora) e i blocchi prenotazione in absolute. */}
-            {days.map((day, dayIdx) => {
-              const cellBlocks = blocksByCell.get(`${room.id}:${dayIdx}`) ?? [];
-              const isToday = day.isSame(today, 'day');
-              const dayStartTs = day.startOf('day').add(startHour, 'hour');
-              return (
-                <div
-                  key={dayIdx}
-                  className={cn(
-                    'relative overflow-hidden border-b',
-                    dayDivider,
-                    isToday && 'bg-primary/5',
-                  )}
-                  style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
-                >
-                  {/* SLOT GRID: 24 strisce verticali. Ora intera = solid;
+              {days.map((day, dayIdx) => {
+                const cellBlocks = blocksByCell.get(`${room.id}:${dayIdx}`) ?? [];
+                const isToday = day.isSame(today, 'day');
+                const dayStartTs = day.startOf('day').add(startHour, 'hour');
+                return (
+                  <div
+                    key={dayIdx}
+                    className={cn(
+                      'relative overflow-hidden border-b',
+                      dayDivider,
+                      isToday ? 'bg-primary/5' : isOddRow && 'bg-muted/10',
+                    )}
+                    style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
+                  >
+                    {/* SLOT GRID: 24 strisce verticali. Ora intera = solid;
                       mezzora = dashed più chiara. */}
-                  <div className="pointer-events-none absolute inset-0 flex" aria-hidden>
-                    {Array.from({ length: slotsPerDay }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={cn('flex-1', i > 0 && (i % 2 === 0 ? borderHour : borderHalf))}
-                      />
-                    ))}
-                  </div>
+                    <div className="pointer-events-none absolute inset-0 flex" aria-hidden>
+                      {Array.from({ length: slotsPerDay }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={cn('flex-1', i > 0 && (i % 2 === 0 ? borderHour : borderHalf))}
+                        />
+                      ))}
+                    </div>
 
-                  {/* Pointer handler per slot vuoti — supporta sia click singolo
+                    {/* Pointer handler per slot vuoti — supporta sia click singolo
                       sia drag-to-select. Pointer events (vs mouse) garantiscono
                       compatibilità con touch screen tablet/kiosk e gesture pen. */}
-                  {onSlotRangeSelect && (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onPointerDown={(e) => {
-                        if (e.button !== 0 && e.pointerType === 'mouse') return;
-                        const slot = slotFromPointer(e);
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                        setDrag({ roomId: room.id, dayIdx, startSlot: slot, endSlot: slot });
-                      }}
-                      onPointerMove={(e) => {
-                        if (drag?.roomId !== room.id || drag.dayIdx !== dayIdx) return;
-                        const slot = slotFromPointer(e);
-                        if (slot !== drag.endSlot) {
-                          setDrag({ ...drag, endSlot: slot });
-                        }
-                      }}
-                      onPointerUp={(e) => {
-                        if (drag?.roomId !== room.id || drag.dayIdx !== dayIdx) return;
-                        const a = Math.min(drag.startSlot, drag.endSlot);
-                        const b = Math.max(drag.startSlot, drag.endSlot);
-                        const start = dayStartTs.add(a * slotMinutes, 'minute').toDate();
-                        const end = dayStartTs.add((b + 1) * slotMinutes, 'minute').toDate();
-                        setDrag(null);
-                        try {
-                          e.currentTarget.releasePointerCapture(e.pointerId);
-                        } catch {
-                          /* noop */
-                        }
-                        onSlotRangeSelect(room, start, end);
-                      }}
-                      onPointerCancel={() => {
-                        setDrag(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          const start = dayStartTs.toDate();
-                          const end = dayStartTs.add(slotMinutes, 'minute').toDate();
+                    {onSlotRangeSelect && (
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onPointerDown={(e) => {
+                          if (e.button !== 0 && e.pointerType === 'mouse') return;
+                          const slot = slotFromPointer(e);
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          setDrag({ roomId: room.id, dayIdx, startSlot: slot, endSlot: slot });
+                        }}
+                        onPointerMove={(e) => {
+                          if (drag?.roomId !== room.id || drag.dayIdx !== dayIdx) return;
+                          const slot = slotFromPointer(e);
+                          if (slot !== drag.endSlot) {
+                            setDrag({ ...drag, endSlot: slot });
+                          }
+                        }}
+                        onPointerUp={(e) => {
+                          if (drag?.roomId !== room.id || drag.dayIdx !== dayIdx) return;
+                          const a = Math.min(drag.startSlot, drag.endSlot);
+                          const b = Math.max(drag.startSlot, drag.endSlot);
+                          const start = dayStartTs.add(a * slotMinutes, 'minute').toDate();
+                          const end = dayStartTs.add((b + 1) * slotMinutes, 'minute').toDate();
+                          setDrag(null);
+                          try {
+                            e.currentTarget.releasePointerCapture(e.pointerId);
+                          } catch {
+                            /* noop */
+                          }
                           onSlotRangeSelect(room, start, end);
-                        }
-                      }}
-                      className="absolute inset-0 z-0 cursor-cell touch-none select-none hover:bg-primary/5"
-                      aria-label={t('weekly_timetable.book_aria', {
-                        room: room.name,
-                        day: day.format('ddd D MMM'),
-                      })}
-                    />
-                  )}
+                        }}
+                        onPointerCancel={() => {
+                          setDrag(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const start = dayStartTs.toDate();
+                            const end = dayStartTs.add(slotMinutes, 'minute').toDate();
+                            onSlotRangeSelect(room, start, end);
+                          }
+                        }}
+                        className="absolute inset-0 z-0 cursor-cell touch-none select-none hover:bg-primary/5"
+                        aria-label={t('weekly_timetable.book_aria', {
+                          room: room.name,
+                          day: day.format('ddd D MMM'),
+                        })}
+                      />
+                    )}
 
-                  {/* Overlay selezione live durante il drag: rettangolo blu
+                    {/* Overlay selezione live durante il drag: rettangolo blu
                       tratteggiato che copre lo span [minSlot, maxSlot+1] e
                       mostra la durata corrente in minuti. */}
-                  {drag?.roomId === room.id &&
-                    drag.dayIdx === dayIdx &&
-                    (() => {
-                      const a = Math.min(drag.startSlot, drag.endSlot);
-                      const b = Math.max(drag.startSlot, drag.endSlot);
-                      const leftPct = (a / slotsPerDay) * 100;
-                      const widthPct = ((b - a + 1) / slotsPerDay) * 100;
-                      const minutes = (b - a + 1) * slotMinutes;
-                      return (
-                        <div
-                          className="pointer-events-none absolute z-5 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/20 text-[0.625rem] font-semibold text-primary shadow-xs"
-                          style={{
-                            left: `calc(${leftPct}% + 0.0625rem)`,
-                            width: `calc(${widthPct}% - 0.125rem)`,
-                            top: '0.125rem',
-                            bottom: '0.125rem',
-                          }}
-                          aria-hidden
-                        >
-                          <span className="truncate px-1">
-                            {minutes >= 60
-                              ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}'` : ''}`
-                              : `${minutes}'`}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                    {drag?.roomId === room.id &&
+                      drag.dayIdx === dayIdx &&
+                      (() => {
+                        const a = Math.min(drag.startSlot, drag.endSlot);
+                        const b = Math.max(drag.startSlot, drag.endSlot);
+                        const leftPct = (a / slotsPerDay) * 100;
+                        const widthPct = ((b - a + 1) / slotsPerDay) * 100;
+                        const minutes = (b - a + 1) * slotMinutes;
+                        return (
+                          <div
+                            className="pointer-events-none absolute z-5 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/20 text-[0.625rem] font-semibold text-primary shadow-xs"
+                            style={{
+                              left: `calc(${leftPct}% + 0.0625rem)`,
+                              width: `calc(${widthPct}% - 0.125rem)`,
+                              top: '0.125rem',
+                              bottom: '0.125rem',
+                            }}
+                            aria-hidden
+                          >
+                            <span className="truncate px-1">
+                              {minutes >= 60
+                                ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}'` : ''}`
+                                : `${minutes}'`}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
-                  {/* Blocchi prenotazione: posizione % all'interno della cella
+                    {/* Blocchi prenotazione: posizione % all'interno della cella
                       sull'asse orizzontale (left/width). Altezza = riga piena. */}
-                  {cellBlocks.map(({ block, left, width }) => {
-                    const styles = BOOKING_TYPE_STYLES[block.type];
-                    return (
-                      <button
-                        key={block.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onBlockClick?.(block);
-                        }}
-                        className={cn(
-                          // Rettangolo pieno (no rounded, no border) — riempie
-                          // completamente il cell sull'asse verticale; un piccolo
-                          // gap orizzontale (0.5px) separa visivamente blocchi
-                          // adiacenti dello stesso slot senza rotture stilistiche.
-                          'absolute z-10 flex flex-col items-center justify-center overflow-hidden px-1 text-center text-[0.625rem] font-semibold leading-tight',
-                          styles.solid,
-                          onBlockClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default',
-                        )}
-                        style={{
-                          left: `${left}%`,
-                          width: `calc(${width}% - 0.0625rem)`,
-                          top: 0,
-                          bottom: 0,
-                          minWidth: '0.5rem',
-                        }}
-                        title={
-                          block.tooltip ??
-                          `${formatTime(block.startTime)}–${formatTime(block.endTime)} · ${t(BOOKING_TYPE_LABEL[block.type])} · ${block.label}`
-                        }
-                      >
-                        <span className="block w-full truncate">{block.label}</span>
-                      </button>
-                    );
-                  })}
+                    {cellBlocks.map(({ block, left, width }) => {
+                      const styles = BOOKING_TYPE_STYLES[block.type];
+                      return (
+                        <button
+                          key={block.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onBlockClick?.(block);
+                          }}
+                          className={cn(
+                            // Rettangolo pieno (no rounded, no border) — riempie
+                            // completamente il cell sull'asse verticale; un piccolo
+                            // gap orizzontale (0.5px) separa visivamente blocchi
+                            // adiacenti dello stesso slot senza rotture stilistiche.
+                            'absolute z-10 flex flex-col items-center justify-center overflow-hidden px-1 text-center text-[0.625rem] font-semibold leading-tight',
+                            styles.solid,
+                            onBlockClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default',
+                          )}
+                          style={{
+                            left: `${left}%`,
+                            width: `calc(${width}% - 0.0625rem)`,
+                            top: 0,
+                            bottom: 0,
+                            minWidth: '0.5rem',
+                          }}
+                          title={
+                            block.tooltip ??
+                            `${formatTime(block.startTime)}–${formatTime(block.endTime)} · ${t(BOOKING_TYPE_LABEL[block.type])} · ${block.label}`
+                          }
+                        >
+                          <span className="block w-full truncate">{block.label}</span>
+                        </button>
+                      );
+                    })}
 
-                  {/* Indicatore "ora" verticale solo nella colonna del giorno
+                    {/* Indicatore "ora" verticale solo nella colonna del giorno
                       corrente: linea verticale rosa alla X corrispondente. */}
-                  {nowPct !== null && dayIdx === todayDayIdx && (
-                    <div
-                      className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-rose-500"
-                      style={{ left: `${nowPct}%` }}
-                      aria-hidden
-                    >
-                      <span className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-rose-500" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </Fragment>
-        ))}
+                    {nowPct !== null && dayIdx === todayDayIdx && (
+                      <div
+                        className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-rose-500"
+                        style={{ left: `${nowPct}%` }}
+                        aria-hidden
+                      >
+                        <span className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-rose-500" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
