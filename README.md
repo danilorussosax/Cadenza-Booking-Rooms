@@ -4,6 +4,8 @@
 
 **Gestione aule · Strumenti musicali · Eventi · Compliance PA italiana**
 
+> 🇬🇧 [Read this page in English](README.en.md)
+
 ---
 
 ## Indice
