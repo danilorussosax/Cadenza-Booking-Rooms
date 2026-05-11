@@ -11,11 +11,19 @@ Cadenza usando i piani **gratuiti** di Microsoft 365 for Education
 > **Prerequisito**: avere un account amministratore del tenant
 > Microsoft 365 / Workspace del proprio istituto, e un admin Cadenza.
 
-> **Le immagini** referenziate (`./images/sso/...`) sono placeholder: vai
-> nei portali Microsoft/Google e carica gli screenshot reali nelle
-> directory `docs/images/sso/microsoft/`, `docs/images/sso/google/` e
-> `docs/images/sso/cadenza/`. La guida è comunque utilizzabile senza
-> immagini grazie alle descrizioni testuali "Cosa devi vedere".
+> **Screenshot e immagini di riferimento**
+>
+> - **Portali Microsoft / Google** — per evitare problemi di copyright e
+>   di disallineamento con le UI (Microsoft e Google ridisegnano le
+>   console regolarmente), questa guida **rinvia alla documentazione
+>   ufficiale**: ogni passo include un link diretto alla pagina di
+>   Microsoft Learn o Google Cloud che contiene lo screenshot
+>   aggiornato.
+> - **Cadenza** — gli screenshot dell'admin sono nel repo
+>   (`docs/screenshots/*.png`) ed embeddati direttamente nelle sezioni
+>   §4 e §5.
+> - **Indice completo dei riferimenti esterni** in
+>   [Appendice C](#appendice-c--link-rapidi-doc-ufficiali).
 
 ## Indice
 
@@ -26,6 +34,9 @@ Cadenza usando i piani **gratuiti** di Microsoft 365 for Education
 5. [Test del login](#5-test-del-login)
 6. [Troubleshooting](#6-troubleshooting)
 7. [FAQ](#7-faq)
+8. [Appendice A — Checklist pre-volo](#appendice-a--checklist-pre-volo)
+9. [Appendice B — Env var vs DB](#appendice-b--variabili-dambiente-vs-configurazione-db)
+10. [Appendice C — Link rapidi doc ufficiali](#appendice-c--link-rapidi-doc-ufficiali)
 
 ---
 
@@ -77,6 +88,15 @@ Sostituisci `cadenza.tuo-dominio.it` con il dominio reale (in dev:
 
 ## 2. Microsoft 365 / Entra ID — passo-passo
 
+> 📖 **Doc Microsoft ufficiale (con screenshot aggiornati)**
+>
+> - Registrazione app: <https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-register-app>
+> - Client secret / credenziali: <https://learn.microsoft.com/it-it/entra/identity-platform/how-to-add-credentials>
+>
+> Apri queste pagine in parallelo a questa guida: trovi gli screenshot
+> aggiornati del portale Entra ID (Microsoft li tiene sempre allineati
+> alla UI corrente).
+
 ### Prerequisiti
 
 - Account **Global Administrator** o **Application Administrator** del
@@ -93,10 +113,10 @@ Sostituisci `cadenza.tuo-dominio.it` con il dominio reale (in dev:
 
 2. Nel menu laterale: **Entra ID** → **App registrations** → **New registration**.
 
-   ![Entra → App registrations](./images/sso/microsoft/01-app-registrations.png)
-
    _Cosa devi vedere_: la lista delle app registrate del tenant; in alto
    il pulsante **+ New registration** (icona "+" e testo blu).
+
+   > 📖 Screenshot ufficiale: [Microsoft Learn — Register an application](https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-register-app#register-an-application)
 
 3. Compila il form:
 
@@ -106,8 +126,6 @@ Sostituisci `cadenza.tuo-dominio.it` con il dominio reale (in dev:
    | **Supported account types** | `Accounts in this organizational directory only (Single tenant)` |
    | **Redirect URI** → tipo     | `Web`                                                            |
    | **Redirect URI** → URL      | `https://cadenza.tuo-dominio.it/api/auth/microsoft/callback`     |
-
-   ![Form New registration](./images/sso/microsoft/02-register-form.png)
 
    _Cosa devi vedere_: tre sezioni — Name, Supported account types
    (radio button con 4 opzioni; scegli la **prima**), Redirect URI con
@@ -120,8 +138,6 @@ Sostituisci `cadenza.tuo-dominio.it` con il dominio reale (in dev:
 
 Nella pagina **Overview** dell'app trovi due GUID che servono ad Cadenza:
 
-![Overview con i GUID evidenziati](./images/sso/microsoft/03-overview.png)
-
 | Campo nel portale           | Lo userai come…        |
 | --------------------------- | ---------------------- |
 | **Application (client) ID** | `Client ID` in Cadenza |
@@ -129,13 +145,17 @@ Nella pagina **Overview** dell'app trovi due GUID che servono ad Cadenza:
 
 > Copia entrambi in un blocco note temporaneo. Il Client ID è
 > lungo ~36 caratteri tipo `1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6`.
+>
+> 📖 Screenshot della pagina Overview con i GUID evidenziati:
+> [Microsoft Learn — Register an application (step 7)](https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-register-app#register-an-application)
 
 ### 2.3 Genera il Client Secret
 
 1. Nel menu laterale dell'app: **Certificates & secrets** → tab
    **Client secrets** → **+ New client secret**.
 
-   ![Client secrets](./images/sso/microsoft/04-secrets-tab.png)
+   > 📖 Screenshot della tab Certificates & secrets:
+   > [Microsoft Learn — Add a client secret](https://learn.microsoft.com/it-it/entra/identity-platform/how-to-add-credentials?tabs=client-secret)
 
 2. Nel popup:
 
@@ -151,7 +171,10 @@ Nella pagina **Overview** dell'app trovi due GUID che servono ad Cadenza:
    `Client Secret` in Cadenza. Se chiudi la pagina senza copiarlo
    dovrai cancellarlo e ricrearlo.
 
-   ![Secret value](./images/sso/microsoft/05-secret-value.png)
+   > Citazione dalla doc ufficiale Microsoft Learn:
+   > _"Record the client secret **Value** for use in your client
+   > application code. This secret value is never displayed again
+   > after you leave this page."_
 
 ### 2.4 Permessi API (verifica default)
 
@@ -163,7 +186,8 @@ Per il solo login basta `User.Read` (delegated), che Microsoft assegna
    **Granted for `<tenant>`** (icona verde) oppure "Not granted" — se
    "Not granted" cliccca **Grant admin consent for `<tenant>`** in alto.
 
-   ![API permissions](./images/sso/microsoft/06-api-permissions.png)
+   > 📖 Per i dettagli sui permessi delegati e admin consent:
+   > [Microsoft Learn — Configure app access to web APIs](https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-configure-app-access-web-apis)
 
 ### 2.5 Quello che hai pronto da Microsoft
 
@@ -180,6 +204,15 @@ Vai a [Configurazione in Cadenza](#4-configurazione-in-cadenza).
 ---
 
 ## 3. Google Workspace — passo-passo
+
+> 📖 **Doc Google ufficiale (con screenshot aggiornati)**
+>
+> - OAuth 2.0 per web server: <https://developers.google.com/identity/protocols/oauth2/web-server>
+> - Gestione client OAuth in Google Cloud: <https://support.google.com/cloud/answer/6158849>
+> - Configurazione consent screen: <https://support.google.com/cloud/answer/10311615>
+>
+> Apri queste pagine in parallelo: trovi gli screenshot aggiornati di
+> Google Cloud Console e la spiegazione di ogni campo.
 
 ### Prerequisiti
 
@@ -202,7 +235,11 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 2. In alto a sinistra, click sul **selettore progetto** (header
    azzurro con il nome del progetto attivo) → **NEW PROJECT**.
 
-   ![Selettore progetto](./images/sso/google/01-project-selector.png)
+   _Cosa devi vedere_: dropdown progetti aperto con elenco progetti
+   esistenti e pulsante **NEW PROJECT** in alto a destra.
+
+   > 📖 Procedura ufficiale con screenshot:
+   > [Google Cloud — Creating and managing projects](https://cloud.google.com/resource-manager/docs/creating-managing-projects)
 
 3. Form **New Project**:
 
@@ -215,13 +252,12 @@ progetto Cloud, che è **gratuito** e non richiede billing.
    Click **Create**, attendi 30 secondi, poi seleziona il progetto
    appena creato dal selettore.
 
-   ![New project](./images/sso/google/02-new-project.png)
-
 ### 3.2 Configura la OAuth Consent Screen
 
 1. Menu laterale: **APIs & Services** → **OAuth consent screen**.
 
-   ![OAuth consent screen](./images/sso/google/03-consent-screen.png)
+   > 📖 Screenshot + spiegazione campi:
+   > [Google Cloud — Setting up your OAuth consent screen](https://support.google.com/cloud/answer/10311615)
 
 2. Seleziona **User Type → Internal** (visibile solo agli utenti del
    tuo Workspace) → **CREATE**.
@@ -250,7 +286,8 @@ progetto Cloud, che è **gratuito** e non richiede billing.
 1. Menu laterale: **APIs & Services** → **Credentials** → **+ CREATE
    CREDENTIALS** → **OAuth client ID**.
 
-   ![Create credentials](./images/sso/google/04-create-credentials.png)
+   > 📖 Screenshot del flusso "Create credentials → OAuth client ID":
+   > [Google Cloud — Manage OAuth Clients](https://support.google.com/cloud/answer/6158849)
 
 2. Form:
 
@@ -261,11 +298,11 @@ progetto Cloud, che è **gratuito** e non richiede billing.
    | **Authorized JavaScript origins** | `https://cadenza.tuo-dominio.it`                          |
    | **Authorized redirect URIs**      | `https://cadenza.tuo-dominio.it/api/auth/google/callback` |
 
-   ![OAuth client form](./images/sso/google/05-oauth-client-form.png)
+   > 📖 Regole sui redirect URI (devono essere `https`, no wildcard, no
+   > fragment, ecc.):
+   > [Google — Redirect URI validation rules](https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation)
 
 3. Click **CREATE**. Si apre un popup con due valori:
-
-   ![Client created modal](./images/sso/google/06-client-created.png)
 
    | Campo nel popup   | Lo userai come…            |
    | ----------------- | -------------------------- |
@@ -296,7 +333,12 @@ Vai a [Configurazione in Cadenza](#4-configurazione-in-cadenza).
 2. Vai su **Admin → Utenti**. Scorri la pagina fino in fondo: vedi tre
    card **Google OAuth · Microsoft OAuth · Isidata** affiancate.
 
-   ![Card OAuth in Admin → Utenti](./images/sso/cadenza/01-oauth-cards.png)
+   ![Pagina Admin → Utenti in Cadenza](./screenshots/users-overview.png)
+
+   _La pagina Utenti dell'admin di Cadenza. Le card OAuth (Google,
+   Microsoft, Isidata) si trovano scrollando fino in fondo._
+
+   ![Card OAuth providers](./screenshots/users-oauth-providers.png)
 
 ### 4.1 Card "Google OAuth"
 
@@ -311,8 +353,6 @@ Compila:
 
 Click **Salva**.
 
-![Form Google OAuth in Cadenza](./images/sso/cadenza/02-google-form.png)
-
 ### 4.2 Card "Microsoft OAuth"
 
 Compila:
@@ -326,8 +366,6 @@ Compila:
 | **Tenant**              | il Directory (tenant) ID di Microsoft (oppure `common` per accettare qualunque tenant — sconsigliato in produzione) |
 
 Click **Salva**.
-
-![Form Microsoft OAuth in Cadenza](./images/sso/cadenza/03-microsoft-form.png)
 
 ### 4.3 Riavvio backend (importante)
 
@@ -368,7 +406,11 @@ dopo il riavvio il banner sparisce alla prossima ricarica.
    | **Continua con Google**    | parte il flusso OAuth Google    |
    | **Continua con Microsoft** | parte il flusso OAuth Microsoft |
 
-   ![Pagina login con SSO](./images/sso/cadenza/04-login-page.png)
+   ![Pagina di login Cadenza con SSO Google e Microsoft](./screenshots/login.png)
+
+   _La pagina di login di Cadenza con i due pulsanti SSO attivi
+   ("Continua con Google" e "Continua con Microsoft") sopra al form
+   email / password._
 
 3. Click su uno dei due → vieni redirezionato al provider →
    autenticazione → consent (solo la prima volta) → ritorni in Aula
@@ -588,7 +630,50 @@ Se entrambi sono valorizzati, **DB ha priorità**.
 
 ---
 
+## Appendice C — Link rapidi doc ufficiali
+
+Tutti i link ufficiali citati nella guida, raccolti per consultazione
+rapida. Si tratta di pagine **mantenute da Microsoft / Google**, con
+screenshot sempre allineati alla UI corrente dei rispettivi portali.
+
+### Microsoft Entra ID
+
+| Argomento                              | URL                                                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Registrare un'app in Entra ID          | <https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-register-app>                  |
+| Aggiungere client secret / certificati | <https://learn.microsoft.com/it-it/entra/identity-platform/how-to-add-credentials>                   |
+| Configurare API permissions            | <https://learn.microsoft.com/it-it/entra/identity-platform/quickstart-configure-app-access-web-apis> |
+| OAuth 2.0 authorization code flow      | <https://learn.microsoft.com/it-it/entra/identity-platform/v2-oauth2-auth-code-flow>                 |
+| Codici errore AADSTS (troubleshooting) | <https://learn.microsoft.com/it-it/entra/identity-platform/reference-error-codes>                    |
+
+### Google Cloud / Workspace
+
+| Argomento                     | URL                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| OAuth 2.0 per web server      | <https://developers.google.com/identity/protocols/oauth2/web-server>                |
+| Gestione client OAuth in GCP  | <https://support.google.com/cloud/answer/6158849>                                   |
+| Configurare il consent screen | <https://support.google.com/cloud/answer/10311615>                                  |
+| Creare e gestire progetti GCP | <https://cloud.google.com/resource-manager/docs/creating-managing-projects>         |
+| Redirect URI validation rules | <https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation> |
+| Verifica dominio Workspace    | <https://support.google.com/a/answer/183895>                                        |
+
+### Cadenza
+
+| Argomento                  | Riferimento                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| Screenshot pagina login    | [`docs/screenshots/login.png`](./screenshots/login.png)                                 |
+| Screenshot pagina Utenti   | [`docs/screenshots/users-overview.png`](./screenshots/users-overview.png)               |
+| Screenshot card OAuth      | [`docs/screenshots/users-oauth-providers.png`](./screenshots/users-oauth-providers.png) |
+| Codice route OAuth backend | [`backend/routes/auth.js`](../backend/routes/auth.js)                                   |
+| Tabella DB settings OAuth  | [`backend/routes/oauthSettings.js`](../backend/routes/oauthSettings.js)                 |
+| Cifratura at-rest secret   | [`backend/lib/crypto.js`](../backend/lib/crypto.js)                                     |
+
+---
+
 **Storia versioni**:
 
 - 2026-04-28 — prima versione: Microsoft Entra ID + Google Workspace
   EDU su piani gratuiti.
+- 2026-05-11 — sostituiti placeholder immagini con link a doc ufficiali
+  Microsoft Learn / Google Cloud + embedded screenshot Cadenza da
+  `docs/screenshots/`. Aggiunta Appendice C con indice link ufficiali.
