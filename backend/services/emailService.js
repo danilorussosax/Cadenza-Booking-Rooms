@@ -9,8 +9,13 @@
 
 const nodemailer = require('nodemailer');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 require('dayjs/locale/it');
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale('it');
+const DEFAULT_TZ = 'Europe/Rome';
 const { decrypt } = require('../lib/crypto');
 const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');
@@ -151,14 +156,19 @@ const TYPE_LABEL = {
 async function buildBookingContext({ user, booking, extra }) {
   const { Institute } = require('../models');
   const inst = await Institute.findOne({
-    attributes: ['name', 'copyright'],
+    attributes: ['name', 'copyright', 'timezone'],
     order: [['id', 'ASC']],
   }).catch(() => null);
 
+  // Timezone dell'istituto (default Europe/Rome): senza questa conversione
+  // i timestamp UTC salvati a DB venivano formattati nella TZ del processo
+  // Node (UTC sul VPS), risultando sfasati di 1-2h rispetto al frontend che
+  // formatta nella TZ del browser dell'utente.
+  const tz = inst?.timezone || DEFAULT_TZ;
   const room = booking.room || {};
   const building = room.building || {};
-  const start = dayjs(booking.startTime);
-  const end = dayjs(booking.endTime);
+  const start = dayjs(booking.startTime).tz(tz);
+  const end = dayjs(booking.endTime).tz(tz);
   const durMin = Math.max(0, end.diff(start, 'minute'));
 
   return {
@@ -190,15 +200,15 @@ async function buildBookingContext({ user, booking, extra }) {
       copyright:
         inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
     },
-    now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
+    now: { dateTime: dayjs().tz(tz).format('DD MMM YYYY · HH:mm') },
     // Campo libero per dati specifici del kind (es. claim_waitlist passa
     // claimUrl + expiresAt). Reso assoluto per i link cliccabili dalle
     // email: prependiamo FRONTEND_URL se i path arrivano relativi.
-    extra: normalizeExtra(extra),
+    extra: normalizeExtra(extra, tz),
   };
 }
 
-function normalizeExtra(extra) {
+function normalizeExtra(extra, tz = DEFAULT_TZ) {
   if (!extra || typeof extra !== 'object') return {};
   const out = { ...extra };
   const base = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/$/, '');
@@ -206,7 +216,7 @@ function normalizeExtra(extra) {
     out.claimUrl = `${base}${out.claimUrl}`;
   }
   if (out.expiresAt instanceof Date) {
-    out.expiresAt = dayjs(out.expiresAt).format('DD MMM YYYY · HH:mm');
+    out.expiresAt = dayjs(out.expiresAt).tz(tz).format('DD MMM YYYY · HH:mm');
   }
   return out;
 }

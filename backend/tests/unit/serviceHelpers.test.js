@@ -219,3 +219,71 @@ describe('lib/network helpers', () => {
     expect(typeof net).toBe('object');
   });
 });
+
+describe('emailService.buildBookingContext — timezone', () => {
+  // Stub minimale dei modelli per isolare buildBookingContext senza DB.
+  // L'unica chiamata DB di buildBookingContext è Institute.findOne, che noi
+  // mockiamo per ritornare la TZ desiderata.
+  const path = require('path');
+  const Module = require('module');
+  const origResolve = Module._resolveFilename;
+  const origCache = { ...require.cache };
+
+  function withMockedInstitute(timezone, fn) {
+    const modelsKey = require.resolve('../../models');
+    require.cache[modelsKey] = {
+      id: modelsKey,
+      filename: modelsKey,
+      loaded: true,
+      exports: {
+        Institute: {
+          findOne: async () => ({ name: 'Test', copyright: '', timezone }),
+        },
+      },
+    };
+    delete require.cache[require.resolve('../../services/emailService')];
+    return fn(require('../../services/emailService'));
+  }
+
+  afterEach(() => {
+    // Ripristina cache moduli per non sporcare altri test.
+    for (const key of Object.keys(require.cache)) {
+      if (!(key in origCache)) delete require.cache[key];
+    }
+  });
+
+  it("formatta startTime/endTime nella TZ dell'istituto (Europe/Rome)", async () => {
+    // 12:00 UTC d'estate (CEST UTC+2) → 14:00 Europe/Rome
+    const booking = {
+      type: 'studio_individuale',
+      purpose: '',
+      startTime: new Date('2026-05-12T12:00:00Z'),
+      endTime: new Date('2026-05-12T13:00:00Z'),
+      room: { name: 'A1', floor: '0', capacity: 8, building: { name: 'Sede' } },
+    };
+    const user = { firstName: 'M', lastName: 'R', email: 'm@x.it' };
+    await withMockedInstitute('Europe/Rome', async (emailService) => {
+      const ctx = await emailService.buildBookingContext({ user, booking });
+      expect(ctx.booking.startTime).toBe('14:00');
+      expect(ctx.booking.endTime).toBe('15:00');
+      expect(ctx.booking.timeRange).toBe('14:00 – 15:00');
+      expect(ctx.booking.duration).toBe('1h 0m');
+    });
+  });
+
+  it('formatta con TZ diversa se Institute.timezone è diverso', async () => {
+    const booking = {
+      type: 'studio_individuale',
+      purpose: '',
+      startTime: new Date('2026-05-12T12:00:00Z'),
+      endTime: new Date('2026-05-12T13:00:00Z'),
+      room: { name: 'A1', floor: '0', capacity: 8, building: { name: 'Sede' } },
+    };
+    const user = { firstName: 'M', lastName: 'R', email: 'm@x.it' };
+    // Honolulu è UTC-10 → 02:00
+    await withMockedInstitute('Pacific/Honolulu', async (emailService) => {
+      const ctx = await emailService.buildBookingContext({ user, booking });
+      expect(ctx.booking.startTime).toBe('02:00');
+    });
+  });
+});
