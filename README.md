@@ -411,15 +411,16 @@ La cartella `docs/` contiene la documentazione tecnica e operativa completa:
 | [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                                 |
 | [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                           |
 
-### Materiale strategico (interno)
+### Materiale strategico (riservato)
 
-| Documento                                                                | Contenuto                                                                  |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [`develop.md`](develop.md)                                               | Roadmap di sviluppo: stato attuale, sprint correnti, gap residui vs ASIMUT |
-| [`develop-enterprise.md`](develop-enterprise.md)                         | Roadmap enterprise: LDAP/AD, SAML/IDEM-GARR, sync Esse3, RFID badge        |
-| [`analisi.md`](analisi.md)                                               | Analisi competitiva (ASIMUT, EasyStaff, CINECA UP, NettunoPA), TAM/SAM/SOM |
-| [`Cadenza_Presentazione_Prodotto.md`](Cadenza_Presentazione_Prodotto.md) | Deck di presentazione del prodotto (pricing, mercato, roadmap, rischi)     |
-| [`Proposta.md`](Proposta.md)                                             | Proposta tecnico-commerciale per il sistema AFAM italiano                  |
+I documenti commerciali e di posizionamento sono mantenuti **fuori dal repo pubblico** (gestione pricing, target, dati di mercato sensibili). Disponibili su richiesta a Direttori / Responsabili IT.
+
+| Documento                             | Contenuto                                                                                                                              | Stato                                    |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [`develop.md`](develop.md)            | Roadmap di sviluppo: piano gestione eventi (5 fasi · ~11 gg vs ASIMUT), sprint correnti, gap residui                                   | ✅ Versionato                            |
+| `Proposta.md`                         | Proposta tecnico-commerciale + benchmark competitivo (ASIMUT, EasyStaff/EasyRoom Zucchetti) + TCO 10 anni + piano migrazione · v2.2 IT | 📄 Fuori repo                            |
+| `Cadenza_Presentazione_Direzione.pdf` | Deck di 18 slide rivolto a Direttori / Presidenti / DSGA — feature parity, costi, compliance PA                                        | 📄 Fuori repo                            |
+| `develop-enterprise.md`               | Roadmap enterprise (LDAP/AD, SAML 2.0 IDEM-GARR, sync Esse3, RFID badge)                                                               | 🚧 In lavorazione, non ancora rilasciato |
 
 ---
 
@@ -494,9 +495,9 @@ Le seguenti aree sono complete e in produzione:
 - **LDAP / Active Directory** authentication
 - **SAML 2.0** federation (IDEM-GARR)
 - Integrazione **RFID badge** (per i conservatori che dispongono di lettori sulle porte)
-- Task management eventi (gap residuo vs ASIMUT documentato)
+- Task management eventi (gap vs ASIMUT): piano architetturale completo in [`develop.md`](develop.md) (5 fasi · ~11 gg dev · MVP demo-ready dopo Fase 1)
 
-Dettaglio completo in [`develop.md`](develop.md) e [`develop-enterprise.md`](develop-enterprise.md).
+Dettaglio completo in [`develop.md`](develop.md) (versionato) e `develop-enterprise.md` (in lavorazione, fuori repo).
 
 ---
 
@@ -507,7 +508,7 @@ Cadenza è distribuita con un modello duale:
 - **SaaS hosted** — piani Starter / Professional / Enterprise PA, licenza commerciale
 - **Self-host** — sorgente + aggiornamenti + documentazione, licenza on-premise
 
-Vedi [`Proposta.md`](Proposta.md) e [`Cadenza_Presentazione_Prodotto.md`](Cadenza_Presentazione_Prodotto.md) per il dettaglio dei piani e del pricing.
+Per il dettaglio dei piani, pricing e benchmark competitivo, vedi `Proposta.md` v2.2 (tecnico-commerciale, mantenuto fuori dal repo pubblico) e `Cadenza_Presentazione_Direzione.pdf` (deck commerciale, 18 slide). Disponibili su richiesta.
 
 ---
 
