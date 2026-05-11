@@ -398,18 +398,18 @@ AUTO_RESTART_ENABLED=false         # se true, abilita restart endpoint
 
 La cartella `docs/` contiene la documentazione tecnica e operativa completa:
 
-| Documento                                                 | Contenuto                                                                         |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                 | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti |
-| [`SECURITY.md`](docs/SECURITY.md)                         | 2FA email OTP — flusso, enforcement admin, recovery, riferimenti normativi        |
-| [`SSO.md`](docs/SSO.md)                                   | Setup SSO Microsoft 365 / Entra ID e Google Workspace passo-passo                 |
-| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)               | Bot Telegram / WhatsApp / Signal / Email — setup, comandi, costi, sicurezza       |
-| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md) | Import manuale anagrafiche da Isidata (CSV/XLSX) con preview + diff transazionale |
-| [`BACKUP.md`](docs/BACKUP.md)                             | Backup automatico, restore via UI admin, upload remoto (S3, Hetzner, rclone, GPG) |
-| [`db-constraints.md`](docs/db-constraints.md)             | EXCLUDE constraint anti-overlap su PostgreSQL — debug e procedura emergenza       |
-| [`DEPLOY.md`](docs/DEPLOY.md)                             | Procedure di deploy in produzione                                                 |
-| [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                              |
-| [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                        |
+| Documento                                                 | Contenuto                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                 | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti    |
+| [`SECURITY.md`](docs/SECURITY.md)                         | 2FA email OTP — flusso, enforcement admin, recovery, riferimenti normativi           |
+| [`SSO.md`](docs/SSO.md)                                   | Setup SSO Microsoft 365 / Entra ID e Google Workspace passo-passo                    |
+| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)               | Bot Telegram / WhatsApp / Signal / Email — setup, comandi, costi, sicurezza          |
+| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md) | Import manuale anagrafiche da Isidata (CSV/XLSX) con preview + diff transazionale    |
+| [`BACKUP.md`](docs/BACKUP.md)                             | Backup automatico, restore via UI admin, upload remoto (S3, Hetzner, rclone, GPG)    |
+| [`db-constraints.md`](docs/db-constraints.md)             | EXCLUDE constraint anti-overlap su PostgreSQL — debug e procedura emergenza          |
+| [`DEPLOY.md`](docs/DEPLOY.md)                             | Flusso `./deploy.sh` (8 step), setup SSH alias, verifiche PWA, troubleshooting nginx |
+| [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                                 |
+| [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                           |
 
 ### Materiale strategico (interno)
 
