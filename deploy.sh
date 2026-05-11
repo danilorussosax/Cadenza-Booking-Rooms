@@ -25,8 +25,9 @@ set -euo pipefail
 #   3. Verifica che il server NON abbia moduli più moderni del locale
 #      (in tal caso annulla il deploy per non regredire il VPS)
 #   4. rsync incrementale del codice + dist
-#   5. Normalizza i permessi di frontend/dist sul VPS (rsync preserva i mode
-#      del Mac → file con 700 farebbero crashare nginx con 500 EACCES)
+#   5. Normalizza i permessi dei path serviti da nginx (dist, public, uploads):
+#      rsync preserva i mode del Mac → dir con 700 farebbero crashare nginx
+#      (500 EACCES sui file statici, 404 sugli alias)
 #   6. npm ci --omit=dev sul backend del VPS solo se package-lock.json è cambiato
 #   7. pm2 restart cadenza-backend
 #   8. Healthcheck post-deploy
@@ -318,20 +319,42 @@ else
 fi
 
 # ------------------------------------------------------------
-# 6b. Normalizzazione permessi frontend/dist (idempotente).
-#    rsync preserva i mode dal Mac (umask locale del filesystem). Se un
-#    file finisce a 700 — o una dir a 700 — l'utente www-data di nginx
-#    non riesce ad attraversare/leggere → 500 Internal Server Error.
-#    Forziamo dist + path padre a 755 (dir) / 644 (file). Sempre,
-#    anche se rsync non ha toccato nulla, per recuperare da stati pregressi.
+# 6b. Normalizzazione permessi (idempotente) di tutti i path serviti da nginx.
+#    rsync preserva i mode dal Mac (umask locale del filesystem). Se una
+#    dir finisce a 700, l'utente www-data di nginx non può attraversarla
+#    → 500 Internal Server Error sui file statici, 404 sugli alias.
+#    Path coperti:
+#      - frontend/dist   (SPA + /assets/*, /sw.js, /manifest.webmanifest)
+#      - frontend/public (alias /logo-app/* — logo custom dell'istituto)
+#      - backend/uploads (alias /storage/* — upload utente, poster concerti)
+#    Forziamo 755 sulle dir e 644 sui file. Sempre, anche se rsync non
+#    ha toccato nulla, per recuperare da stati pregressi.
 # ------------------------------------------------------------
-blue "[5/8] Normalizzo permessi frontend/dist sul VPS (idempotente)…"
+blue "[5/8] Normalizzo permessi statici sul VPS (dist + public + uploads)…"
 ssh ${SSH_OPTS} "$SSH_TARGET" "
-  chmod 755 '${VPS_PATH}' '${VPS_PATH}/frontend' '${VPS_PATH}/frontend/dist' 2>/dev/null || true
-  find '${VPS_PATH}/frontend/dist' -type d -exec chmod 755 {} +
-  find '${VPS_PATH}/frontend/dist' -type f -exec chmod 644 {} +
+  # Path padre — nginx deve poterli attraversare
+  chmod 755 '${VPS_PATH}' '${VPS_PATH}/frontend' '${VPS_PATH}/backend' 2>/dev/null || true
+  # frontend/dist
+  if [ -d '${VPS_PATH}/frontend/dist' ]; then
+    chmod 755 '${VPS_PATH}/frontend/dist'
+    find '${VPS_PATH}/frontend/dist' -type d -exec chmod 755 {} +
+    find '${VPS_PATH}/frontend/dist' -type f -exec chmod 644 {} +
+  fi
+  # frontend/public (esposto da nginx come /logo-app/, /assets-public/, ecc.)
+  if [ -d '${VPS_PATH}/frontend/public' ]; then
+    chmod 755 '${VPS_PATH}/frontend/public'
+    find '${VPS_PATH}/frontend/public' -type d -exec chmod 755 {} +
+    find '${VPS_PATH}/frontend/public' -type f -exec chmod 644 {} +
+  fi
+  # backend/uploads (esposto come /storage/ — escluso dal rsync ma il parent backend/
+  # può comunque essere chiuso a 700 dopo un deploy passato)
+  if [ -d '${VPS_PATH}/backend/uploads' ]; then
+    chmod 755 '${VPS_PATH}/backend/uploads'
+    find '${VPS_PATH}/backend/uploads' -type d -exec chmod 755 {} +
+    find '${VPS_PATH}/backend/uploads' -type f -exec chmod 644 {} +
+  fi
 " >/dev/null
-green "    ✓ permessi dist normalizzati (755 dir · 644 file)"
+green "    ✓ permessi normalizzati (755 dir · 644 file)"
 
 # ------------------------------------------------------------
 # 7. npm ci --omit=dev se package-lock.json del backend è cambiato.
