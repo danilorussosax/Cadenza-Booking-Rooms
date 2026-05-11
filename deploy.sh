@@ -25,9 +25,11 @@ set -euo pipefail
 #   3. Verifica che il server NON abbia moduli più moderni del locale
 #      (in tal caso annulla il deploy per non regredire il VPS)
 #   4. rsync incrementale del codice + dist
-#   5. npm ci --omit=dev sul backend del VPS solo se package-lock.json è cambiato
-#   6. pm2 restart cadenza-backend
-#   7. Healthcheck post-deploy
+#   5. Normalizza i permessi di frontend/dist sul VPS (rsync preserva i mode
+#      del Mac → file con 700 farebbero crashare nginx con 500 EACCES)
+#   6. npm ci --omit=dev sul backend del VPS solo se package-lock.json è cambiato
+#   7. pm2 restart cadenza-backend
+#   8. Healthcheck post-deploy
 #
 # Uso:
 #   ./deploy.sh                # deploy interattivo con conferma
@@ -116,11 +118,11 @@ fi
 # 1. Build frontend
 # ------------------------------------------------------------
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  blue "[1/7] Build frontend in locale…"
+  blue "[1/8] Build frontend in locale…"
   ( cd frontend && npm run build )
   green "    ✓ build ok ($(du -sh frontend/dist | cut -f1))"
 else
-  yellow "[1/7] Build frontend SALTATA (--no-build)"
+  yellow "[1/8] Build frontend SALTATA (--no-build)"
   [[ -d frontend/dist ]] || { red "[ERR] frontend/dist non esiste, non posso saltare la build"; exit 1; }
 fi
 
@@ -149,7 +151,7 @@ RSYNC_EXCLUDES=(
 # ------------------------------------------------------------
 # 3. Dry-run: cosa cambierebbe?
 # ------------------------------------------------------------
-blue "[2/7] Calcolo modifiche da inviare al VPS (dry-run)…"
+blue "[2/8] Calcolo modifiche da inviare al VPS (dry-run)…"
 DRY_OUTPUT="$(mktemp)"
 rsync -avzn --itemize-changes "${RSYNC_EXCLUDES[@]}" \
   -e "ssh ${SSH_OPTS}" \
@@ -174,7 +176,7 @@ rm -f "$DRY_OUTPUT"
 #    risolta sul server con quella MAX risolta in locale; se anche una sola è
 #    più alta sul server → STOP, nessun file viene toccato sul VPS.
 # ------------------------------------------------------------
-blue "[3/7] Verifica versioni moduli (lock-based, locale vs server)…"
+blue "[3/8] Verifica versioni moduli (lock-based, locale vs server)…"
 
 NEWER_REPORT="$(mktemp)"
 for sub in backend frontend; do
@@ -293,7 +295,7 @@ fi
 
 # ------------------------------------------------------------
 # 5. Snapshot hash del lockfile remoto PRIMA del rsync.
-#    Serve per determinare a [5/7] se le dep sono cambiate. Se lo facessimo
+#    Serve per determinare a [6/8] se le dep sono cambiate. Se lo facessimo
 #    DOPO il rsync, il lockfile remoto sarebbe già stato sovrascritto da
 #    quello locale e gli hash matcherebbero sempre → npm ci mai eseguito.
 # ------------------------------------------------------------
@@ -304,7 +306,7 @@ PRE_RSYNC_REMOTE_HASH="$(ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH
 # 6. rsync vero
 # ------------------------------------------------------------
 if [[ "$CHANGE_COUNT" -gt 0 ]]; then
-  blue "[4/7] rsync verso VPS…"
+  blue "[4/8] rsync verso VPS…"
   # --info=progress2 / --progress non supportati da openrsync (Apple). Senza
   # progress il deploy funziona lo stesso, lo stdout resta più pulito.
   rsync -avz "${RSYNC_EXCLUDES[@]}" \
@@ -312,14 +314,30 @@ if [[ "$CHANGE_COUNT" -gt 0 ]]; then
     "$LOCAL_ROOT/" "${SSH_TARGET}:${VPS_PATH}/"
   green "    ✓ codice trasferito"
 else
-  blue "[4/7] rsync saltato (nessuna modifica)"
+  blue "[4/8] rsync saltato (nessuna modifica)"
 fi
+
+# ------------------------------------------------------------
+# 6b. Normalizzazione permessi frontend/dist (idempotente).
+#    rsync preserva i mode dal Mac (umask locale del filesystem). Se un
+#    file finisce a 700 — o una dir a 700 — l'utente www-data di nginx
+#    non riesce ad attraversare/leggere → 500 Internal Server Error.
+#    Forziamo dist + path padre a 755 (dir) / 644 (file). Sempre,
+#    anche se rsync non ha toccato nulla, per recuperare da stati pregressi.
+# ------------------------------------------------------------
+blue "[5/8] Normalizzo permessi frontend/dist sul VPS (idempotente)…"
+ssh ${SSH_OPTS} "$SSH_TARGET" "
+  chmod 755 '${VPS_PATH}' '${VPS_PATH}/frontend' '${VPS_PATH}/frontend/dist' 2>/dev/null || true
+  find '${VPS_PATH}/frontend/dist' -type d -exec chmod 755 {} +
+  find '${VPS_PATH}/frontend/dist' -type f -exec chmod 644 {} +
+" >/dev/null
+green "    ✓ permessi dist normalizzati (755 dir · 644 file)"
 
 # ------------------------------------------------------------
 # 7. npm ci --omit=dev se package-lock.json del backend è cambiato.
 #    Confronto basato sull'hash remoto SNAPSHOTTED prima del rsync (vedi 5).
 # ------------------------------------------------------------
-blue "[5/7] Verifico se le dipendenze backend sono cambiate…"
+blue "[6/8] Verifico se le dipendenze backend sono cambiate…"
 if [[ "$LOCAL_HASH" == "$PRE_RSYNC_REMOTE_HASH" ]]; then
   green "    ✓ package-lock invariato, niente npm ci"
 else
@@ -331,13 +349,13 @@ fi
 # ------------------------------------------------------------
 # 7. Restart PM2
 # ------------------------------------------------------------
-blue "[6/7] Restart backend (pm2)…"
+blue "[7/8] Restart backend (pm2)…"
 ssh ${SSH_OPTS} "$SSH_TARGET" "pm2 restart cadenza-backend --update-env >/dev/null && pm2 status cadenza-backend --no-color | tail -3"
 
 # ------------------------------------------------------------
 # 8. Healthcheck
 # ------------------------------------------------------------
-blue "[7/7] Healthcheck post-deploy…"
+blue "[8/8] Healthcheck post-deploy…"
 sleep 2
 HEALTH_HTTP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/")
 if [[ "$HEALTH_HTTP" =~ ^(200|301|302|404)$ ]]; then
