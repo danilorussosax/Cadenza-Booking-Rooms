@@ -23,7 +23,7 @@
 const { Op } = require('sequelize');
 const { MailOutbox, User, sequelize } = require('../models');
 const emailService = require('./emailService');
-const logger = require('../lib/logger');
+const logger = require('../lib/logger').child({ scope: 'mailOutboxScheduler' });
 
 const TICK_MS = 15 * 1000; // 15 secondi
 const BATCH_SIZE = 20;
@@ -243,7 +243,7 @@ function start() {
   // primo tick a 5s dal boot (lascia tempo al sync DB)
   setTimeout(tick, 5_000);
   timer = setInterval(tick, TICK_MS);
-  console.log(`[mail-outbox] worker avviato (tick ogni ${TICK_MS / 1000}s, batch ${BATCH_SIZE})`);
+  logger.info(`[mail-outbox] worker avviato (tick ogni ${TICK_MS / 1000}s, batch ${BATCH_SIZE})`);
 }
 
 function stop() {

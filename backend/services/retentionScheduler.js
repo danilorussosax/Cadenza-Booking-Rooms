@@ -23,7 +23,7 @@ const crypto = require('crypto');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
-const logger = require('../lib/logger');
+const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });
 
 const DEFAULT_AUDIT_RETENTION_DAYS = 730; // 24 mesi
 const DEFAULT_PRE_RESTORE_RETENTION_DAYS = 7;
@@ -208,7 +208,7 @@ async function pruneAuditLog() {
         },
         'audit log retention sweep',
       );
-      console.log(
+      logger.info(
         `[retention] AuditLog: archiviati ${archive?.archivedCount ?? 0} record, rimossi ${removed} ` +
           `più vecchi di ${days}gg`,
       );
@@ -282,7 +282,7 @@ async function prunePreRestoreSnapshots() {
       { removed: totalDeleted, freedBytes: totalBytes, retentionDays: days },
       'pre-restore retention sweep',
     );
-    console.log(
+    logger.info(
       `[retention] pre-restore: rimossi ${totalDeleted} snapshot più vecchi di ${days}gg ` +
         `(${(totalBytes / 1024 / 1024).toFixed(1)} MB liberati)`,
     );
@@ -333,7 +333,7 @@ async function pruneMailOutbox() {
         { removed, retentionDays: days, cutoff: cutoff.toISOString() },
         'mail outbox retention sweep',
       );
-      console.log(
+      logger.info(
         `[retention] mail_outbox: rimosse ${removed} righe sent più vecchie di ${days}gg`,
       );
     }
@@ -369,7 +369,7 @@ function scheduleNext() {
 function start() {
   if (timer) return;
   scheduleNext();
-  console.log(
+  logger.info(
     `[retention] scheduler avviato (sweep alle ${String(TICK_HOUR).padStart(2, '0')}:00, audit log = ${getAuditRetentionDays()}gg)`,
   );
 }

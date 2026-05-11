@@ -347,12 +347,19 @@ async function consumeBindingOtp(otp) {
   return { ok: false };
 }
 
-/** Lookup utente per numero di telefono (msisdn). Per i canali phone-based.
- *  Cerca in `User.matricola` come placeholder se non c'è un campo dedicato.
- *  In una versione futura: aggiungere `User.phone` UNIQUE. */
+/**
+ * Lookup utente per numero di telefono (msisdn) per i canali phone-based
+ * (WhatsApp / Signal). Attualmente è uno **stub deliberato**: ritorna sempre
+ * `null` così l'utente sconosciuto riceve il messaggio di rifiuto generico
+ * gestito in `handleIncoming` (riga ~205) — è il comportamento corretto finché
+ * il bot opera in modalità "bind via OTP" e non per numero.
+ *
+ * Per abilitare il lookup per numero in futuro: aggiungere `User.phone`
+ * UNIQUE NULL al modello, popolarlo via profilo utente o import Isidata, e
+ * implementare qui `User.findOne({ where: { phone } })`. Niente fallback su
+ * `matricola` — i due campi hanno semantica diversa.
+ */
 async function findUserByPhone(/* phone */) {
-  // TODO: quando User avrà un campo phone, fare la lookup qui.
-  // Per ora ritorna null così il messaggio di rifiuto è generico.
   return null;
 }
 

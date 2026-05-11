@@ -24,7 +24,7 @@ const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('.
 // di sostituire i metodi via vi.spyOn.
 const emailService = require('./emailService');
 const instrumentLoanEmail = require('./instrumentLoanEmail');
-const logger = require('../lib/logger');
+const logger = require('../lib/logger').child({ scope: 'reminderScheduler' });
 
 const TICK_MS = 5 * 60 * 1000; // 5 minuti
 const WINDOW_BEFORE_MS = 65 * 60 * 1000; // fino a 65 min nel futuro
@@ -240,7 +240,7 @@ function start() {
   // primo tick subito (utile in dev) poi ogni TICK_MS
   setTimeout(tickAll, 10_000);
   timer = setInterval(tickAll, TICK_MS);
-  console.log(
+  logger.info(
     `[reminder] scheduler avviato (ogni ${TICK_MS / 1000 / 60} min · bookings + loans + waitlist)`,
   );
 }

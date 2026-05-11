@@ -10,6 +10,7 @@
  */
 
 const { sequelize } = require('../models');
+const logger = require('./logger').child({ scope: 'preSyncMigrations' });
 
 async function ensureUserStatusColumn() {
   const qi = sequelize.getQueryInterface();
@@ -256,91 +257,91 @@ async function ensurePostgresEnumValue(enumTypeName, value) {
 async function runPreSyncMigrations() {
   const added = await ensureUserStatusColumn();
   if (added) {
-    console.log("  ✓ Colonna users.status aggiunta (utenti esistenti = 'approved')");
+    logger.info("  ✓ Colonna users.status aggiunta (utenti esistenti = 'approved')");
   }
 
   // Preferenze email granulari (Conferma / Promemoria / Cancellazione)
   for (const col of ['notifyOnConfirmation', 'notifyOnReminder', 'notifyOnCancellation']) {
     if (await ensureUserBooleanColumn(col)) {
-      console.log(`  ✓ Colonna users.${col} aggiunta (default = true)`);
+      logger.info(`  ✓ Colonna users.${col} aggiunta (default = true)`);
     }
   }
 
   // Versionamento dei JWT validi (per logout/cambio password effettivo).
   if (await ensureNotNullIntColumn('users', 'tokenVersion', 0)) {
-    console.log('  ✓ Colonna users.tokenVersion aggiunta (default = 0)');
+    logger.info('  ✓ Colonna users.tokenVersion aggiunta (default = 0)');
   }
 
   // 2FA via codice email — opt-in. Sempre disabilitato di default per
   // utenti esistenti. La colonna `twoFaSecretEncrypted` resta per backward
   // compat con DB già migrati alla precedente versione TOTP (non più usata).
   if (await ensureBooleanColumn('users', 'twoFaEnabled', false)) {
-    console.log('  ✓ Colonna users.twoFaEnabled aggiunta (default = false)');
+    logger.info('  ✓ Colonna users.twoFaEnabled aggiunta (default = false)');
   }
   if (await ensureNullableStringColumn('users', 'twoFaSecretEncrypted', 500)) {
-    console.log('  ✓ Colonna users.twoFaSecretEncrypted aggiunta (deprecated)');
+    logger.info('  ✓ Colonna users.twoFaSecretEncrypted aggiunta (deprecated)');
   }
   if (await ensureNullableJsonColumn('users', 'twoFaChallenge')) {
-    console.log('  ✓ Colonna users.twoFaChallenge aggiunta (sfida email in corso)');
+    logger.info('  ✓ Colonna users.twoFaChallenge aggiunta (sfida email in corso)');
   }
   if (await ensureNullableJsonColumn('users', 'twoFaRecoveryCodes')) {
-    console.log('  ✓ Colonna users.twoFaRecoveryCodes aggiunta');
+    logger.info('  ✓ Colonna users.twoFaRecoveryCodes aggiunta');
   }
   if (await ensureNullableDateColumn('users', 'twoFaActivatedAt')) {
-    console.log('  ✓ Colonna users.twoFaActivatedAt aggiunta');
+    logger.info('  ✓ Colonna users.twoFaActivatedAt aggiunta');
   }
 
   // Bot messaging — challenge OTP per binding canale↔utente.
   if (await ensureNullableJsonColumn('users', 'botBindingChallenge')) {
-    console.log('  ✓ Colonna users.botBindingChallenge aggiunta (binding bot)');
+    logger.info('  ✓ Colonna users.botBindingChallenge aggiunta (binding bot)');
   }
 
   // Foto aula
   if (await ensureNullableStringColumn('rooms', 'photoUrl', 500)) {
-    console.log('  ✓ Colonna rooms.photoUrl aggiunta');
+    logger.info('  ✓ Colonna rooms.photoUrl aggiunta');
   }
 
   // Configurazione kiosk /display per edificio (rotazione)
   if (await ensureBooleanColumn('buildings', 'displayEnabled', true)) {
-    console.log('  ✓ Colonna buildings.displayEnabled aggiunta (default = true)');
+    logger.info('  ✓ Colonna buildings.displayEnabled aggiunta (default = true)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayIntervalSec', 30)) {
-    console.log('  ✓ Colonna buildings.displayIntervalSec aggiunta (default = 30)');
+    logger.info('  ✓ Colonna buildings.displayIntervalSec aggiunta (default = 30)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayConcertsDays', 30)) {
-    console.log('  ✓ Colonna buildings.displayConcertsDays aggiunta (default = 30)');
+    logger.info('  ✓ Colonna buildings.displayConcertsDays aggiunta (default = 30)');
   }
   if (await ensureBooleanColumn('buildings', 'displayConcertsEnabled', true)) {
-    console.log('  ✓ Colonna buildings.displayConcertsEnabled aggiunta (default = true)');
+    logger.info('  ✓ Colonna buildings.displayConcertsEnabled aggiunta (default = true)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayConcertsCount', 0)) {
-    console.log('  ✓ Colonna buildings.displayConcertsCount aggiunta (default = 0)');
+    logger.info('  ✓ Colonna buildings.displayConcertsCount aggiunta (default = 0)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayConcertsIntervalSec', 15)) {
-    console.log('  ✓ Colonna buildings.displayConcertsIntervalSec aggiunta (default = 15)');
+    logger.info('  ✓ Colonna buildings.displayConcertsIntervalSec aggiunta (default = 15)');
   }
   // Workflow approvazione su prenotazioni high-impact (sale concerti, ecc).
   if (await ensureBooleanColumn('rooms', 'requiresApproval', false)) {
-    console.log('  ✓ Colonna rooms.requiresApproval aggiunta (default = false)');
+    logger.info('  ✓ Colonna rooms.requiresApproval aggiunta (default = false)');
   }
   if (await ensurePostgresEnumValue('enum_bookings_status', 'pending_approval')) {
-    console.log("  ✓ ENUM bookings.status esteso con 'pending_approval'");
+    logger.info("  ✓ ENUM bookings.status esteso con 'pending_approval'");
   }
 
   if (await ensureBooleanColumn('buildings', 'displayBookingsEnabled', true)) {
-    console.log('  ✓ Colonna buildings.displayBookingsEnabled aggiunta (default = true)');
+    logger.info('  ✓ Colonna buildings.displayBookingsEnabled aggiunta (default = true)');
   }
   if (await ensureBooleanColumn('buildings', 'displayAnnouncementsEnabled', true)) {
-    console.log('  ✓ Colonna buildings.displayAnnouncementsEnabled aggiunta (default = true)');
+    logger.info('  ✓ Colonna buildings.displayAnnouncementsEnabled aggiunta (default = true)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayAnnouncementsCount', 5)) {
-    console.log('  ✓ Colonna buildings.displayAnnouncementsCount aggiunta (default = 5)');
+    logger.info('  ✓ Colonna buildings.displayAnnouncementsCount aggiunta (default = 5)');
   }
   if (await ensureNotNullIntColumn('buildings', 'displayAnnouncementsIntervalSec', 12)) {
-    console.log('  ✓ Colonna buildings.displayAnnouncementsIntervalSec aggiunta (default = 12)');
+    logger.info('  ✓ Colonna buildings.displayAnnouncementsIntervalSec aggiunta (default = 12)');
   }
   if (await ensureBooleanColumn('buildings', 'displayAnnouncementsPinnedOnly', false)) {
-    console.log('  ✓ Colonna buildings.displayAnnouncementsPinnedOnly aggiunta (default = false)');
+    logger.info('  ✓ Colonna buildings.displayAnnouncementsPinnedOnly aggiunta (default = false)');
   }
 
   // Sistema check-in / anti ghost-booking
@@ -349,25 +350,25 @@ async function runPreSyncMigrations() {
   // più nel model), ma RIMOSSO il backfill — i nuovi booking non ne hanno
   // bisogno e quelli vecchi che hanno NULL restano NULL senza problemi.
   if (await ensureNullableStringColumn('bookings', 'checkInToken', 64)) {
-    console.log('  ✓ Colonna bookings.checkInToken aggiunta (deprecated, non usata)');
+    logger.info('  ✓ Colonna bookings.checkInToken aggiunta (deprecated, non usata)');
   }
   if (await ensureNullableDateColumn('bookings', 'checkedInAt')) {
-    console.log('  ✓ Colonna bookings.checkedInAt aggiunta');
+    logger.info('  ✓ Colonna bookings.checkedInAt aggiunta');
   }
   if (await ensureNullableDateColumn('bookings', 'autoCancelledAt')) {
-    console.log('  ✓ Colonna bookings.autoCancelledAt aggiunta');
+    logger.info('  ✓ Colonna bookings.autoCancelledAt aggiunta');
   }
 
   // Toggle check-in QR per aula
   if (await ensureBooleanColumn('rooms', 'requireCheckIn', true)) {
-    console.log('  ✓ Colonna rooms.requireCheckIn aggiunta (default = true)');
+    logger.info('  ✓ Colonna rooms.requireCheckIn aggiunta (default = true)');
   }
 
   // QR-code token per aula. Generato lazy al primo download/regenerate via
   // route /api/structure/rooms/:id/qr/* — non popolato qui per evitare
   // overhead in startup.
   if (await ensureNullableStringColumn('rooms', 'qrToken', 64)) {
-    console.log('  ✓ Colonna rooms.qrToken aggiunta');
+    logger.info('  ✓ Colonna rooms.qrToken aggiunta');
     // Indice UNIQUE WHERE qrToken IS NOT NULL — Postgres supporta partial unique;
     // SQLite (test) non lo richiede perché test seed non popola il campo.
     if (sequelize.getDialect() === 'postgres') {
@@ -376,7 +377,7 @@ async function runPreSyncMigrations() {
           'CREATE UNIQUE INDEX IF NOT EXISTS rooms_qr_token_unique ON rooms ("qrToken") WHERE "qrToken" IS NOT NULL',
         );
       } catch (err) {
-        console.warn(`  ⚠ Indice rooms_qr_token_unique non creato: ${err.message}`);
+        logger.warn(`  ⚠ Indice rooms_qr_token_unique non creato: ${err.message}`);
       }
     }
   }
@@ -387,7 +388,7 @@ async function runPreSyncMigrations() {
   // appartenenti a quella famiglia. Idempotente: non sovrascrive valori
   // già impostati direttamente sullo strumento.
   if (await ensureJsonArrayColumn('instruments', 'allowedCourseIds')) {
-    console.log('  ✓ Colonna instruments.allowedCourseIds aggiunta (default [])');
+    logger.info('  ✓ Colonna instruments.allowedCourseIds aggiunta (default [])');
   }
   // Backfill idempotente delle allowedCourseIds dagli InstrumentLoanRule
   // legacy. Riguarda SOLO gli strumenti con allowedCourseIds vuoto (default
@@ -416,12 +417,12 @@ async function runPreSyncMigrations() {
       }
     }
     if (migrated > 0) {
-      console.log(`  ✓ Migrate regole prestito legacy → ${migrated} strumenti aggiornati`);
+      logger.info(`  ✓ Migrate regole prestito legacy → ${migrated} strumenti aggiornati`);
     }
   } catch (err) {
     // Non blocca lo startup: la migration legacy è best-effort.
     if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
-      console.warn(`  ⚠ Migrazione regole prestito legacy fallita: ${err.message}`);
+      logger.warn(`  ⚠ Migrazione regole prestito legacy fallita: ${err.message}`);
     }
   }
 
@@ -439,11 +440,11 @@ async function runPreSyncMigrations() {
     'jurisdictionCity',
   ]) {
     if (await ensureNullableStringColumn('institutes', col, 255)) {
-      console.log(`  ✓ Colonna institutes.${col} aggiunta`);
+      logger.info(`  ✓ Colonna institutes.${col} aggiunta`);
     }
   }
   if (await ensureNullableJsonColumn('institutes', 'subProcessors')) {
-    console.log('  ✓ Colonna institutes.subProcessors aggiunta');
+    logger.info('  ✓ Colonna institutes.subProcessors aggiunta');
   }
 
   // Sicurezza check-in: toggle e CIDR allowlist della rete d'istituto.
@@ -451,20 +452,20 @@ async function runPreSyncMigrations() {
   // invariato finché l'admin non li abilita esplicitamente da
   // /admin/server-settings tab "QR Code".
   if (await ensureBooleanColumn('institutes', 'checkInRequireInstituteNetwork', false)) {
-    console.log('  ✓ Colonna institutes.checkInRequireInstituteNetwork aggiunta');
+    logger.info('  ✓ Colonna institutes.checkInRequireInstituteNetwork aggiunta');
   }
   if (await ensureNullableJsonColumn('institutes', 'instituteNetworkCidrs')) {
-    console.log('  ✓ Colonna institutes.instituteNetworkCidrs aggiunta');
+    logger.info('  ✓ Colonna institutes.instituteNetworkCidrs aggiunta');
   }
 
   // Module flags (Monte Ore, Prestito strumenti) — toggle puramente di
   // presentazione che governano la visibilità dei link in sidebar. Default
   // true su istituti esistenti per non modificare il comportamento corrente.
   if (await ensureBooleanColumn('institutes', 'moduleMonteOreEnabled', true)) {
-    console.log('  ✓ Colonna institutes.moduleMonteOreEnabled aggiunta');
+    logger.info('  ✓ Colonna institutes.moduleMonteOreEnabled aggiunta');
   }
   if (await ensureBooleanColumn('institutes', 'moduleInstrumentLoansEnabled', true)) {
-    console.log('  ✓ Colonna institutes.moduleInstrumentLoansEnabled aggiunta');
+    logger.info('  ✓ Colonna institutes.moduleInstrumentLoansEnabled aggiunta');
   }
 
   // App icon scelta dall'admin: TEXT nullable. Idempotente. Default NULL =
@@ -486,7 +487,7 @@ async function runPreSyncMigrations() {
       } else {
         await sequelize.query('ALTER TABLE institutes ADD COLUMN appIconUrl TEXT');
       }
-      console.log('  ✓ Colonna institutes.appIconUrl aggiunta');
+      logger.info('  ✓ Colonna institutes.appIconUrl aggiunta');
     }
   }
 
@@ -507,32 +508,32 @@ async function runPreSyncMigrations() {
   ];
   for (const table of PARANOID_TABLES) {
     if (await ensureNullableDateColumn(table, 'deletedAt')) {
-      console.log(`  ✓ Colonna ${table}.deletedAt aggiunta (soft delete)`);
+      logger.info(`  ✓ Colonna ${table}.deletedAt aggiunta (soft delete)`);
     }
   }
 
   // BookingRule — intervallo minimo tra prenotazioni dello stesso utente
   // (cooldown). Default 0 = comportamento precedente, no rotture.
   if (await ensureNotNullIntColumn('booking_rules', 'minIntervalBetweenBookingsMinutes', 0)) {
-    console.log('  ✓ Colonna booking_rules.minIntervalBetweenBookingsMinutes aggiunta (default 0)');
+    logger.info('  ✓ Colonna booking_rules.minIntervalBetweenBookingsMinutes aggiunta (default 0)');
   }
 
   // Estensioni granulari BookingQuota (step 3 della roadmap quote).
   // Tutti i nuovi campi sono opzionali con default → backward compatible.
   if (await ensureNotNullIntColumn('booking_quotas', 'maxHoursPerMonth', 0)) {
-    console.log('  ✓ Colonna booking_quotas.maxHoursPerMonth aggiunta (default 0)');
+    logger.info('  ✓ Colonna booking_quotas.maxHoursPerMonth aggiunta (default 0)');
   }
   if (await ensureNotNullIntColumn('booking_quotas', 'maxBookings', 0)) {
-    console.log('  ✓ Colonna booking_quotas.maxBookings aggiunta (default 0)');
+    logger.info('  ✓ Colonna booking_quotas.maxBookings aggiunta (default 0)');
   }
   if (await ensureJsonArrayColumn('booking_quotas', 'daysOfWeek')) {
-    console.log('  ✓ Colonna booking_quotas.daysOfWeek aggiunta (default [])');
+    logger.info('  ✓ Colonna booking_quotas.daysOfWeek aggiunta (default [])');
   }
   if (await ensureNullableStringColumn('booking_quotas', 'timeFrom', 5)) {
-    console.log('  ✓ Colonna booking_quotas.timeFrom aggiunta');
+    logger.info('  ✓ Colonna booking_quotas.timeFrom aggiunta');
   }
   if (await ensureNullableStringColumn('booking_quotas', 'timeTo', 5)) {
-    console.log('  ✓ Colonna booking_quotas.timeTo aggiunta');
+    logger.info('  ✓ Colonna booking_quotas.timeTo aggiunta');
   }
 
   // Step 4: scope ampliati per BookingQuota.scopeKind (Postgres only).
@@ -549,7 +550,7 @@ async function runPreSyncMigrations() {
     } catch (err) {
       // Se l'enum type non esiste ancora (DB nuovo), verrà creato da sync()
       // con i 5 valori dal model. Non fatale.
-      console.warn(`  ⚠ ALTER TYPE scopeKind: ${err.message}`);
+      logger.warn(`  ⚠ ALTER TYPE scopeKind: ${err.message}`);
     }
   }
 
@@ -563,22 +564,22 @@ async function runPreSyncMigrations() {
   // Tutte additive con default sicuri: zero data loss, comportamento
   // invariato per gli utenti esistenti finché l'admin non valorizza l'override.
   if (await ensureNullableStringColumn('users', 'contractType', 40)) {
-    console.log('  ✓ Colonna users.contractType aggiunta (Monte Ore)');
+    logger.info('  ✓ Colonna users.contractType aggiunta (Monte Ore)');
   }
   if (await ensureNullableFloatColumn('users', 'monteOreAnnualHoursOverride')) {
-    console.log('  ✓ Colonna users.monteOreAnnualHoursOverride aggiunta');
+    logger.info('  ✓ Colonna users.monteOreAnnualHoursOverride aggiunta');
   }
   if (await ensureBooleanColumn('users', 'monteOreBypassDayConstraint', false)) {
-    console.log('  ✓ Colonna users.monteOreBypassDayConstraint aggiunta');
+    logger.info('  ✓ Colonna users.monteOreBypassDayConstraint aggiunta');
   }
   if (await ensureNullableStringColumn('users', 'monteOreOverrideReason', 500)) {
-    console.log('  ✓ Colonna users.monteOreOverrideReason aggiunta');
+    logger.info('  ✓ Colonna users.monteOreOverrideReason aggiunta');
   }
   if (await ensureNullableDateColumn('users', 'monteOreOverrideSetAt')) {
-    console.log('  ✓ Colonna users.monteOreOverrideSetAt aggiunta');
+    logger.info('  ✓ Colonna users.monteOreOverrideSetAt aggiunta');
   }
   if (await ensureNullableIntColumn('users', 'monteOreOverrideSetBy')) {
-    console.log('  ✓ Colonna users.monteOreOverrideSetBy aggiunta');
+    logger.info('  ✓ Colonna users.monteOreOverrideSetBy aggiunta');
   }
 
   // Integrazioni esterne: campi su users + tabelle integration_*.
@@ -586,16 +587,16 @@ async function runPreSyncMigrations() {
   // qui ci occupiamo SOLO delle nuove colonne su `users` (tabella già
   // esistente sui DB pre-feature).
   if (await ensureNullableStringColumn('users', 'externalSource', 32)) {
-    console.log('  ✓ Colonna users.externalSource aggiunta (integrazioni)');
+    logger.info('  ✓ Colonna users.externalSource aggiunta (integrazioni)');
   }
   if (await ensureNullableStringColumn('users', 'externalId', 64)) {
-    console.log('  ✓ Colonna users.externalId aggiunta (integrazioni)');
+    logger.info('  ✓ Colonna users.externalId aggiunta (integrazioni)');
   }
   if (await ensureNullableStringColumn('users', 'externalStatusNote', 1024)) {
-    console.log('  ✓ Colonna users.externalStatusNote aggiunta (integrazioni)');
+    logger.info('  ✓ Colonna users.externalStatusNote aggiunta (integrazioni)');
   }
   if (await ensureNullableDateColumn('users', 'lastExternalSyncAt')) {
-    console.log('  ✓ Colonna users.lastExternalSyncAt aggiunta (integrazioni)');
+    logger.info('  ✓ Colonna users.lastExternalSyncAt aggiunta (integrazioni)');
   }
 
   // Monte Ore — pulizia delle proposte orfane: utenti soft-deleted (paranoid)
@@ -622,11 +623,11 @@ async function runPreSyncMigrations() {
     if (orphans.length > 0) {
       const ids = orphans.map((o) => o.id);
       await MonteOreProposal.destroy({ where: { id: ids } });
-      console.log(`  ✓ Rimosse ${ids.length} proposte Monte Ore orfane (utenti cancellati)`);
+      logger.info(`  ✓ Rimosse ${ids.length} proposte Monte Ore orfane (utenti cancellati)`);
     }
   } catch (err) {
     if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
-      console.warn(`  ⚠ Cleanup proposte Monte Ore orfane fallito: ${err.message}`);
+      logger.warn(`  ⚠ Cleanup proposte Monte Ore orfane fallito: ${err.message}`);
     }
   }
 
@@ -635,7 +636,7 @@ async function runPreSyncMigrations() {
   await ensureNullableIntColumn('monte_ore_proposals', 'workingDaysCount');
   await ensureNullableFloatColumn('monte_ore_proposals', 'minRequiredHoursSnapshot');
   if (await ensureNotNullIntColumn('monte_ore_proposals', 'amendmentCount', 0)) {
-    console.log('  ✓ Colonna monte_ore_proposals.amendmentCount aggiunta');
+    logger.info('  ✓ Colonna monte_ore_proposals.amendmentCount aggiunta');
   }
   // totalHoursPlanned è float; se non c'è già lo aggiungiamo come nullable
   // (il default verrà settato dall'app a 0 in fase di create/update).
@@ -650,16 +651,16 @@ async function runPreSyncMigrations() {
   // informazioni necessarie per materializzare il Booking corrispondente.
   await ensureNullableIntColumn('monte_ore_slots', 'roomId');
   if (await ensureNullableStringColumn('monte_ore_slots', 'bookingType', 40)) {
-    console.log('  ✓ Colonna monte_ore_slots.bookingType aggiunta (slot fuori pattern)');
+    logger.info('  ✓ Colonna monte_ore_slots.bookingType aggiunta (slot fuori pattern)');
   }
   if (await ensureNullableStringColumn('monte_ore_slots', 'purpose', 255)) {
-    console.log('  ✓ Colonna monte_ore_slots.purpose aggiunta (slot fuori pattern)');
+    logger.info('  ✓ Colonna monte_ore_slots.purpose aggiunta (slot fuori pattern)');
   }
 
   // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
   // preesistenti in chiaro (zero-rottura per i client già subscribed).
   if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {
-    console.log('  ✓ Colonna users.icalTokenHash aggiunta');
+    logger.info('  ✓ Colonna users.icalTokenHash aggiunta');
   }
   try {
     const cryptoMod = require('crypto');
@@ -677,11 +678,11 @@ async function runPreSyncMigrations() {
       await User.update({ icalTokenHash: hash }, { where: { id: u.id }, paranoid: false });
     }
     if (rows.length > 0) {
-      console.log(`  ✓ Backfill icalTokenHash per ${rows.length} utenti esistenti`);
+      logger.info(`  ✓ Backfill icalTokenHash per ${rows.length} utenti esistenti`);
     }
   } catch (err) {
     if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
-      console.warn(`  ⚠ Backfill icalTokenHash fallito: ${err.message}`);
+      logger.warn(`  ⚠ Backfill icalTokenHash fallito: ${err.message}`);
     }
   }
 
@@ -691,24 +692,24 @@ async function runPreSyncMigrations() {
 
   // Fase 3 — Throttle outbox per destinatario (mail_settings.throttlePerRecipientPerHour)
   if (await ensureNotNullIntColumn('mail_settings', 'throttlePerRecipientPerHour', 0)) {
-    console.log(
+    logger.info(
       '  ✓ Colonna mail_settings.throttlePerRecipientPerHour aggiunta (default 0 = disabilitato)',
     );
   }
 
   // Fase 3 — Hard-bounce tracking su User (skip future enqueueMail).
   if (await ensureNullableDateColumn('users', 'emailBouncedAt')) {
-    console.log('  ✓ Colonna users.emailBouncedAt aggiunta');
+    logger.info('  ✓ Colonna users.emailBouncedAt aggiunta');
   }
   if (await ensureNullableStringColumn('users', 'emailBouncedReason', 500)) {
-    console.log('  ✓ Colonna users.emailBouncedReason aggiunta');
+    logger.info('  ✓ Colonna users.emailBouncedReason aggiunta');
   }
 
   // Eccezioni regole prenotazione: scope per aula (null = tutte le aule, comportamento storico).
   // La FK e gli indici li gestisce sequelize.sync() dopo questo blocco; qui basta aggiungere
   // la colonna così che addIndex sul model non fallisca con "no such column".
   if (await ensureNullableIntColumn('booking_rule_exceptions', 'roomId')) {
-    console.log('  ✓ Colonna booking_rule_exceptions.roomId aggiunta (scope per aula)');
+    logger.info('  ✓ Colonna booking_rule_exceptions.roomId aggiunta (scope per aula)');
   }
 }
 
@@ -787,7 +788,7 @@ async function ensureBookingsNoOverlapConstraint() {
     // Senza permessi di SUPERUSER su shared databases (alcuni provider
     // managed) la CREATE EXTENSION fallisce. In quel caso la constraint
     // a sua volta fallirà: il blocco `try` sotto se ne occupa.
-    console.warn(`  ⚠ btree_gist non installabile (${err.message}); provo comunque...`);
+    logger.warn(`  ⚠ btree_gist non installabile (${err.message}); provo comunque...`);
   }
 
   try {
@@ -801,18 +802,18 @@ async function ensureBookingsNoOverlapConstraint() {
           tstzrange("startTime", "endTime", '[)') WITH &&
         ) WHERE (status = 'confirmed' AND "deletedAt" IS NULL)
     `);
-    console.log(`  ✓ Constraint ${CONSTRAINT_NAME} aggiunta su bookings (rete sicurezza DB-level)`);
+    logger.info(`  ✓ Constraint ${CONSTRAINT_NAME} aggiunta su bookings (rete sicurezza DB-level)`);
   } catch (err) {
     // Possibili cause:
     //  - dati esistenti che si sovrappongono → ERRCODE 23P01 / 23505
     //  - btree_gist non installato e non installabile
     //  - permessi insufficienti
     // Non bloccante: il validator applicativo resta la prima linea.
-    console.warn(`  ⚠ Impossibile aggiungere ${CONSTRAINT_NAME}: ${err.message}`);
-    console.warn(
+    logger.warn(`  ⚠ Impossibile aggiungere ${CONSTRAINT_NAME}: ${err.message}`);
+    logger.warn(
       '  ⚠ Lo startup prosegue. La validazione overlap resta gestita solo dal validator applicativo.',
     );
-    console.warn(
+    logger.warn(
       '  ⚠ Per riprovare in seguito: ripulisci i duplicati overlapping e rilancia lo startup.',
     );
   }

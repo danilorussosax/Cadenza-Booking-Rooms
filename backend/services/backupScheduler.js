@@ -27,7 +27,7 @@
  */
 
 const dayjs = require('dayjs');
-const logger = require('../lib/logger');
+const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,
   listBackups,
@@ -203,7 +203,7 @@ async function start() {
   await loadEffectiveConfig();
   const cfg = getCachedConfig();
   if (!cfg.autoEnabled) {
-    console.log(`[backup] scheduler DISABILITATO (source=${cfg.source})`);
+    logger.info(`[backup] scheduler DISABILITATO (source=${cfg.source})`);
     return;
   }
   scheduleNext();
@@ -211,7 +211,7 @@ async function start() {
   const mm = String(cfg.scheduledMinute).padStart(2, '0');
   // Numero di backup attualmente presenti (informativo, non blocca lo start)
   const existing = listBackups();
-  console.log(
+  logger.info(
     `[backup] scheduler avviato (tick alle ${hh}:${mm} locali · source=${cfg.source} · ${existing.length} backup presenti in ${BACKUP_DIR})`,
   );
 }

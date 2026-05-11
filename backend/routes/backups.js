@@ -9,6 +9,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { performBackup, listBackups, deleteBackup, BACKUP_DIR } = require('../scripts/backup');
 const { performRestore, isRestoreInProgress } = require('../services/backupRestore');
 const backupScheduler = require('../services/backupScheduler');
+const logger = require('../lib/logger').child({ scope: 'backups.route' });
 
 const router = express.Router();
 
@@ -123,7 +124,7 @@ router.post('/now', authenticate, requireRole('admin'), async (req, res) => {
     const result = await performBackup();
     res.status(201).json(result);
   } catch (err) {
-    console.error('[backup endpoint] errore:', err.message);
+    logger.error({ err }, '[backup endpoint] errore');
     res.status(500).json({ error: err.message || 'Errore esecuzione backup' });
   }
 });
@@ -177,7 +178,7 @@ router.post(
       } catch {
         /* noop */
       }
-      console.error('[backup upload] errore:', err.message);
+      logger.error({ err }, '[backup upload] errore');
       res.status(500).json({ error: err.message });
     }
   },
@@ -252,7 +253,7 @@ router.post('/:filename/restore', authenticate, requireRole('admin'), async (req
     try {
       const snap = await performBackup();
       preRestoreSnapshot = snap.file;
-      console.log(`[restore] snapshot pre-restore: ${snap.file}`);
+      logger.info(`[restore] snapshot pre-restore: ${snap.file}`);
     } catch (err) {
       return res.status(500).json({
         error: `Snapshot pre-restore fallito: ${err.message}. Restore annullato per sicurezza.`,
@@ -274,7 +275,7 @@ router.post('/:filename/restore', authenticate, requireRole('admin'), async (req
         'Ripristino completato. Riavvia il backend (POST /api/admin/backups/restart) per ricaricare il pool DB e applicare lo schema.',
     });
   } catch (err) {
-    console.error('[restore endpoint] errore:', err.message);
+    logger.error({ err }, '[restore endpoint] errore');
     res.status(500).json({ error: err.message, code: err.code });
   }
 });
@@ -306,14 +307,14 @@ router.post('/restart', authenticate, requireRole('admin'), (_req, res) => {
     // Su Windows `process.kill('SIGTERM')` è equivalente all'exit forzato; la
     // feature di auto-restart richiede un process manager (systemd/pm2)
     // che gira solo su Linux/macOS, quindi non degradiamo niente.
-    console.log('[restart] graceful shutdown richiesto via API admin (SIGTERM)');
+    logger.info('[restart] graceful shutdown richiesto via API admin (SIGTERM)');
     try {
       process.kill(process.pid, 'SIGTERM');
     } catch (err) {
       // Ultimissimo fallback: se per qualche ragione SIGTERM non arriva
       // (es. handler removed via test), usciamo comunque per non lasciare
       // l'utente in attesa indefinita.
-      console.error('[restart] SIGTERM fallito, exit forzato:', err.message);
+      logger.error({ err }, '[restart] SIGTERM fallito, exit forzato');
       process.exit(1);
     }
   }, 1000);
