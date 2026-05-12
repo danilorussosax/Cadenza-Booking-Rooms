@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# apply-nginx-security-headers.sh  (v2.1 — snippet + include + backup off-tree)
+# apply-nginx-security-headers.sh  (v2.2 — multi-line add_header skip)
 #
 # Inietta in modo robusto i security header (HSTS/CSP/X-Frame/COOP/etc) nei
 # server block Cadenza, AGGIRANDO il bug di nginx add_header inheritance:
@@ -153,6 +153,8 @@ in_block {
   #  - skip righe che fanno parte di un blocco "=== CADENZA SECURITY HEADERS … === END"
   #  - prima di ogni "add_header Cache-Control", inserisci INCLUDE (se non già lì)
   skip = 0
+  skip_multiline = 0
+  skip_quotes = 0
   for (i = 1; i <= n; i++) {
     line = lines[i]
 
@@ -169,17 +171,34 @@ in_block {
       }
       # Salta commenti ═════ orfani (header decorativo del vecchio blocco)
       if (line ~ /^[[:space:]]*#[[:space:]]*═+[[:space:]]*$/) continue
+
+      # Skip multi-linea già in corso (statement add_header con stringa che
+      # continua sulle righe successive): conto i `"` per capire quando chiude.
+      if (skip_multiline) {
+        tmp = line
+        nq = gsub(/"/, "\"", tmp)
+        skip_quotes += nq
+        # statement chiuso quando le doppie virgolette tornano pari E la riga
+        # contiene il `;` terminale.
+        if ((skip_quotes % 2) == 0 && line ~ /;[[:space:]]*$/) {
+          skip_multiline = 0
+          skip_quotes = 0
+        }
+        continue
+      }
+
       # Salta linee orfane di header lasciate dal vecchio fix (add_header senza
-      # marker, riconoscibili perché replicano i nostri header)
-      if (line ~ /add_header[[:space:]]+Strict-Transport-Security/) continue
-      if (line ~ /add_header[[:space:]]+Content-Security-Policy/) continue
-      if (line ~ /add_header[[:space:]]+Reporting-Endpoints/) continue
-      if (line ~ /add_header[[:space:]]+X-Frame-Options/) continue
-      if (line ~ /add_header[[:space:]]+X-Content-Type-Options/) continue
-      if (line ~ /add_header[[:space:]]+Referrer-Policy/) continue
-      if (line ~ /add_header[[:space:]]+Cross-Origin-Opener-Policy/) continue
-      if (line ~ /add_header[[:space:]]+Cross-Origin-Resource-Policy/) continue
-      if (line ~ /add_header[[:space:]]+Permissions-Policy/) continue
+      # marker, riconoscibili perché replicano i nostri header). Se la riga è
+      # uno statement multi-linea (n. dispari di `"`), attivo skip_multiline.
+      if (line ~ /add_header[[:space:]]+(Strict-Transport-Security|Content-Security-Policy|Reporting-Endpoints|X-Frame-Options|X-Content-Type-Options|Referrer-Policy|Cross-Origin-Opener-Policy|Cross-Origin-Resource-Policy|Permissions-Policy)/) {
+        tmp = line
+        nq = gsub(/"/, "\"", tmp)
+        if ((nq % 2) == 1 || line !~ /;[[:space:]]*$/) {
+          skip_multiline = 1
+          skip_quotes = nq
+        }
+        continue
+      }
       # Commenti relativi al blocco vecchio
       if (line ~ /Allineati a Express helmet/) continue
       if (line ~ /always.*garantisce.*4xx\/5xx/) continue
