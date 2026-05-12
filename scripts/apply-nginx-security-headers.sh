@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# apply-nginx-security-headers.sh  (v2 — snippet + include strategy)
+# apply-nginx-security-headers.sh  (v2.1 — snippet + include + backup off-tree)
 #
 # Inietta in modo robusto i security header (HSTS/CSP/X-Frame/COOP/etc) nei
 # server block Cadenza, AGGIRANDO il bug di nginx add_header inheritance:
@@ -48,7 +48,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 TS=$(date +%Y%m%d-%H%M%S)
-BACKUP="${VHOST}.bak-${TS}"
+# IMPORTANTE: nginx (Debian/Ubuntu) include `sites-enabled/*` senza filtro di
+# estensione, quindi un backup `.bak-…` lasciato accanto al vhost viene caricato
+# come secondo server block → "directive is duplicate" → nginx -t fallisce.
+# Salviamo i backup fuori da nginx, nella dir standard /var/backups/nginx/.
+BACKUP_DIR="/var/backups/nginx"
+BACKUP="${BACKUP_DIR}/$(basename "$VHOST").bak-${TS}"
 
 if [[ -t 1 ]]; then
   C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'; C_BOLD=$'\033[1m'; C_END=$'\033[0m'
@@ -237,6 +242,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 # ===== Backup + sostituzione =================================================
+mkdir -p "$BACKUP_DIR"
 cp "$VHOST" "$BACKUP"
 ok "Backup vhost: $BACKUP"
 
