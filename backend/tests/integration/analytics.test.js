@@ -18,7 +18,7 @@
 
 const request = require('supertest');
 const { buildApp } = require('../../app');
-const { createAuthedUser, createAdmin } = require('../factories');
+const { createAuthedUser, createAdmin, createBooking, createRoom } = require('../factories');
 
 const app = buildApp({ serveFrontend: false });
 
@@ -69,5 +69,99 @@ describe('GET /api/admin/analytics — access control', () => {
       .get('/api/admin/analytics/export.pdf?dateFrom=2030-12-31&dateTo=2030-01-01')
       .set('Authorization', authHeader);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/admin/analytics/export.csv', () => {
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+  });
+
+  it('401 senza JWT', async () => {
+    const res = await request(app).get('/api/admin/analytics/export.csv');
+    expect(res.status).toBe(401);
+  });
+
+  it('403 per utente non-admin', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
+    const res = await request(app)
+      .get('/api/admin/analytics/export.csv')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('400 per range date invalido', async () => {
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/analytics/export.csv?dateFrom=2030-12-31&dateTo=2030-01-01')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(400);
+  });
+
+  it('200 con CSV vuoto se non ci sono booking nel range', async () => {
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/analytics/export.csv')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/csv/);
+    expect(res.headers['content-disposition']).toMatch(/attachment; filename="analytics-/);
+    // Solo BOM + header riga (no record).
+    expect(res.text).toMatch(/^﻿id,start,end,/);
+  });
+
+  it('200 con CSV popolato include i campi di una booking', async () => {
+    const { authHeader, user: admin } = await createAdmin();
+    const room = await createRoom();
+    // Booking nel range default (ultimi 30gg → oggi). Usiamo "ieri".
+    const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    await createBooking({
+      user: admin,
+      room,
+      startTime: start,
+      endTime: end,
+      status: 'confirmed',
+      type: 'studio_individuale',
+    });
+
+    const res = await request(app)
+      .get('/api/admin/analytics/export.csv')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    // Almeno una riga oltre l'header (split CR/LF tollerante).
+    const lines = res.text.split(/\r?\n/).filter(Boolean);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    // L'header CSV contiene tutte le colonne attese
+    expect(lines[0]).toContain('id');
+    expect(lines[0]).toContain('durationHours');
+    expect(lines[0]).toContain('ghosted');
+    expect(lines[0]).toContain('email');
+    // La riga record contiene email/role dell'admin
+    expect(res.text).toContain(admin.email);
+    expect(res.text).toContain('confirmed');
+  });
+
+  it('valorizza ghosted=yes per booking con autoCancelledAt', async () => {
+    const { authHeader, user: admin } = await createAdmin();
+    const room = await createRoom();
+    const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    await createBooking({
+      user: admin,
+      room,
+      startTime: start,
+      endTime: end,
+      status: 'cancelled',
+      autoCancelledAt: new Date(),
+    });
+
+    const res = await request(app)
+      .get('/api/admin/analytics/export.csv')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    // Cerca esattamente "yes" nel campo ghosted (8a colonna circa).
+    const dataLine = res.text.split(/\r?\n/).filter(Boolean)[1];
+    expect(dataLine).toContain(',cancelled,yes,');
   });
 });

@@ -41,18 +41,19 @@ export default defineConfig({
       ],
       thresholds: {
         // Soglie di non-regressione: floor allineato al coverage corrente con
-        // buffer di ~1 punto. Storia: dopo l'aggiunta dei moduli messaging/bot
-        // e Isidata import (poco coperti, scope intrinseco I/O-bound) il
-        // coverage e sceso da ~71% a ~61% lines / ~59% statements / ~46%
-        // branches. Le soglie pre-2026-05 (70/70/50/55) lasciavano la CI
-        // rossa da settimane, mascherando potenziali regressioni reali.
-        // TODO(test-debt): risalire gradualmente a 70/70/50/60 aggiungendo
-        // test su services/twoFa.js (24%), routes/analytics.js (19%),
-        // routes/contractTypes.js (12%), services/equipmentImporter.js (14%).
-        statements: 58,
-        lines: 60,
-        functions: 55,
-        branches: 45,
+        // buffer di ~1-1.5 punti. Cresciute il 2026-05-12 dopo l'aggiunta di
+        // 64 nuovi test che hanno portato services/twoFa.js da 24% a 100%
+        // e routes/contractTypes.js da 12% a 93%.
+        // TODO(test-debt): risalire ulteriormente aggiungendo test su
+        //   - routes/analytics.js (20%): blocco nel SQL Postgres-only
+        //     (EXTRACT/date_trunc), serve Postgres in CI o mock per le
+        //     aggregazioni.
+        //   - services/equipmentImporter.js (14%): I/O CSV.
+        //   - services/twoFa.js è ora 100%: completato.
+        statements: 59,
+        lines: 61,
+        functions: 60,
+        branches: 47,
       },
     },
   },
