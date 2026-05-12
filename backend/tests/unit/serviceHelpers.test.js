@@ -89,6 +89,63 @@ describe('icalService.buildIcs', () => {
     expect(out).toMatch(/DTSTART:20260512T120000Z/);
     expect(out).toMatch(/DTEND:20260512T130000Z/);
   });
+
+  it('groupRecurrences: rileva serie settimanale (RRULE WEEKLY)', () => {
+    const bookings = [
+      fakeBooking(10, '2026-05-04T10:00:00Z', '2026-05-04T11:00:00Z'),
+      fakeBooking(11, '2026-05-11T10:00:00Z', '2026-05-11T11:00:00Z'),
+      fakeBooking(12, '2026-05-18T10:00:00Z', '2026-05-18T11:00:00Z'),
+    ];
+    const out = buildIcs(bookings);
+    expect(out).toMatch(/RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1/);
+  });
+
+  it('groupRecurrences: 2 booking con delta non-settimanale → no RRULE', () => {
+    const bookings = [
+      fakeBooking(20, '2026-05-04T10:00:00Z', '2026-05-04T11:00:00Z'),
+      fakeBooking(21, '2026-05-09T10:00:00Z', '2026-05-09T11:00:00Z'),
+    ];
+    const out = buildIcs(bookings);
+    expect(out).not.toMatch(/RRULE:/);
+  });
+
+  it('groupRecurrences: bucket diverso per type diverso', () => {
+    const bookings = [
+      { ...fakeBooking(30, '2026-05-04T10:00:00Z', '2026-05-04T11:00:00Z'), type: 'lezione' },
+      {
+        ...fakeBooking(31, '2026-05-11T10:00:00Z', '2026-05-11T11:00:00Z'),
+        type: 'studio_individuale',
+      },
+    ];
+    const out = buildIcs(bookings);
+    expect(out).not.toMatch(/RRULE:/);
+  });
+
+  it('bookingSummary include room name + label tipo', () => {
+    const out = buildIcs([fakeBooking(1, '2026-05-12T10:00:00Z', '2026-05-12T11:00:00Z')]);
+    expect(out).toMatch(/Aula 1/);
+    expect(out).toMatch(/Studio/);
+  });
+
+  it('bookingLocation con building + floor + room', () => {
+    const bk = fakeBooking(1, '2026-05-12T10:00:00Z', '2026-05-12T11:00:00Z');
+    bk.room = { id: 1, name: 'Sala A', floor: 'Piano 1', building: { id: 1, name: 'Edificio X' } };
+    const out = buildIcs([bk]);
+    expect(out).toMatch(/Edificio X/);
+  });
+
+  it('bookingDescription unisce purpose + notes', () => {
+    const bk = fakeBooking(1, '2026-05-12T10:00:00Z', '2026-05-12T11:00:00Z');
+    bk.purpose = 'Lezione di violino';
+    bk.notes = 'Portare spartito';
+    const out = buildIcs([bk]);
+    expect(out).toMatch(/Lezione di violino/);
+  });
+
+  it('buildIcs con opts.calName custom', () => {
+    const out = buildIcs([], { calName: 'Mio Calendario' });
+    expect(out).toMatch(/Mio Calendario/);
+  });
 });
 
 describe('structureImporter', () => {
@@ -221,6 +278,275 @@ describe('lib/dbErrors', () => {
     const e = new Error('random');
     const out = mapSequelizeError(e);
     expect(out).toBeNull();
+  });
+});
+
+describe('lib/withTransaction', () => {
+  const { withTransaction } = require('../../lib/withTransaction');
+  const { sequelize } = require('../../models');
+
+  it('success path: ritorna il valore della callback', async () => {
+    const out = await withTransaction(async () => 42);
+    expect(out).toBe(42);
+  });
+
+  it('propaga gli errori non-deadlock immediatamente (no retry)', async () => {
+    const boom = new Error('boom');
+    await expect(
+      withTransaction(async () => {
+        throw boom;
+      }),
+    ).rejects.toBe(boom);
+  });
+
+  it('rispetta opts.retries=0 → non ritenta su 40001', async () => {
+    // Simuliamo manualmente l'errore 40001 mockando sequelize.transaction
+    const spy = vi.spyOn(sequelize, 'transaction').mockImplementation(async () => {
+      const e = new Error('serialization');
+      e.parent = { code: '40001' };
+      throw e;
+    });
+    try {
+      await expect(withTransaction(async () => null, { retries: 0 })).rejects.toMatchObject({
+        parent: { code: '40001' },
+      });
+      // Una sola chiamata: no retry
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('retry su 40001 fino a esaurimento', async () => {
+    const spy = vi.spyOn(sequelize, 'transaction').mockImplementation(async () => {
+      const e = new Error('serialization');
+      e.original = { code: '40001' };
+      throw e;
+    });
+    try {
+      await expect(
+        withTransaction(async () => null, { retries: 2, baseDelayMs: 1 }),
+      ).rejects.toMatchObject({ original: { code: '40001' } });
+      // 1 tentativo iniziale + 2 retry = 3
+      expect(spy).toHaveBeenCalledTimes(3);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('retry su 40001: 2° tentativo successo → ritorna risultato', async () => {
+    let calls = 0;
+    const spy = vi.spyOn(sequelize, 'transaction').mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) {
+        const e = new Error('serialization');
+        e.parent = { code: '40001' };
+        throw e;
+      }
+      return 'ok-after-retry';
+    });
+    try {
+      const out = await withTransaction(async () => 'noop', {
+        retries: 2,
+        baseDelayMs: 1,
+      });
+      expect(out).toBe('ok-after-retry');
+      expect(calls).toBe(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('opts.isolation custom viene passato a sequelize.transaction', async () => {
+    const spy = vi.spyOn(sequelize, 'transaction').mockResolvedValue('done');
+    try {
+      const { Transaction } = require('sequelize');
+      await withTransaction(async () => 'x', {
+        isolation: Transaction.ISOLATION_LEVELS.READ_COMMITTED,
+      });
+      const callArgs = spy.mock.calls[0];
+      expect(callArgs[0]).toMatchObject({
+        isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED,
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('services/monteOreService.iterateOccurrences', () => {
+  const { iterateOccurrences } = require('../../services/monteOreService');
+
+  function collect(iter) {
+    return Array.from(iter);
+  }
+
+  it('iterazione settimanale tra due date inclusive', () => {
+    // 2026-01-05 è un lunedì (dayOfWeek=1)
+    const out = collect(iterateOccurrences('2026-01-05', '2026-01-26', 1, []));
+    expect(out).toEqual(['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26']);
+  });
+
+  it('rispetta dayOfWeek diverso da quello di "from"', () => {
+    // from=lunedì, dayOfWeek=3 (mercoledì)
+    const out = collect(iterateOccurrences('2026-01-05', '2026-01-26', 3, []));
+    expect(out).toEqual(['2026-01-07', '2026-01-14', '2026-01-21']);
+  });
+
+  it('exclude esclude le date matching', () => {
+    const out = collect(
+      iterateOccurrences('2026-01-05', '2026-01-26', 1, ['2026-01-12', '2026-01-26']),
+    );
+    expect(out).toEqual(['2026-01-05', '2026-01-19']);
+  });
+
+  it('exclude tollera input non-stringa (toString slice)', () => {
+    const date = new Date('2026-01-12T00:00:00Z');
+    const out = collect(iterateOccurrences('2026-01-05', '2026-01-26', 1, [date.toISOString()]));
+    expect(out).toContain('2026-01-05');
+    expect(out).not.toContain('2026-01-12');
+  });
+
+  it('range vuoto (from > to) → nessuna occorrenza', () => {
+    const out = collect(iterateOccurrences('2026-02-01', '2026-01-01', 1, []));
+    expect(out).toEqual([]);
+  });
+
+  it('to identico al primo dayOfWeek match → include single', () => {
+    const out = collect(iterateOccurrences('2026-01-05', '2026-01-05', 1, []));
+    expect(out).toEqual(['2026-01-05']);
+  });
+
+  it('excludeDates null/undefined funziona (default [])', () => {
+    const out1 = collect(iterateOccurrences('2026-01-05', '2026-01-12', 1, undefined));
+    const out2 = collect(iterateOccurrences('2026-01-05', '2026-01-12', 1, null));
+    expect(out1).toEqual(['2026-01-05', '2026-01-12']);
+    expect(out2).toEqual(['2026-01-05', '2026-01-12']);
+  });
+});
+
+describe('services/audienceMatcher', () => {
+  const {
+    normalizeAudience,
+    audienceMatchesUser,
+    audienceMatchesUserWhere,
+    VALID_KINDS,
+  } = require('../../services/audienceMatcher');
+
+  describe('normalizeAudience', () => {
+    it('input null/undefined → {kind:all}', () => {
+      expect(normalizeAudience(null)).toEqual({ kind: 'all' });
+      expect(normalizeAudience(undefined)).toEqual({ kind: 'all' });
+    });
+
+    it('input non-object → {kind:all}', () => {
+      expect(normalizeAudience('all')).toEqual({ kind: 'all' });
+      expect(normalizeAudience(42)).toEqual({ kind: 'all' });
+    });
+
+    it('kind sconosciuto → fallback all', () => {
+      expect(normalizeAudience({ kind: 'inventato', value: 1 })).toEqual({ kind: 'all' });
+    });
+
+    it('kind=role con ruolo valido', () => {
+      expect(normalizeAudience({ kind: 'role', value: 'docente' })).toEqual({
+        kind: 'role',
+        value: 'docente',
+      });
+    });
+
+    it('kind=role con ruolo invalido → fallback all', () => {
+      expect(normalizeAudience({ kind: 'role', value: 'manager' })).toEqual({ kind: 'all' });
+    });
+
+    it('kind=course con id valido', () => {
+      expect(normalizeAudience({ kind: 'course', value: 42 })).toEqual({
+        kind: 'course',
+        value: 42,
+      });
+    });
+
+    it('kind=course con id stringa-numerica', () => {
+      expect(normalizeAudience({ kind: 'course', value: '7' })).toEqual({
+        kind: 'course',
+        value: 7,
+      });
+    });
+
+    it('kind=course con id invalido → fallback all', () => {
+      expect(normalizeAudience({ kind: 'course', value: -1 })).toEqual({ kind: 'all' });
+      expect(normalizeAudience({ kind: 'course', value: 'abc' })).toEqual({ kind: 'all' });
+      expect(normalizeAudience({ kind: 'course', value: 0 })).toEqual({ kind: 'all' });
+    });
+
+    it('kind=building con id valido', () => {
+      expect(normalizeAudience({ kind: 'building', value: 3 })).toEqual({
+        kind: 'building',
+        value: 3,
+      });
+    });
+
+    it('VALID_KINDS contiene almeno i 4 kind base', () => {
+      expect(VALID_KINDS).toEqual(expect.arrayContaining(['all', 'role', 'course', 'building']));
+    });
+  });
+
+  describe('audienceMatchesUser', () => {
+    it('user null → false', () => {
+      expect(audienceMatchesUser({ kind: 'all' }, null)).toBe(false);
+    });
+
+    it('audience=all → true per chiunque', () => {
+      expect(audienceMatchesUser({ kind: 'all' }, { role: 'studente', courseId: 1 })).toBe(true);
+      expect(audienceMatchesUser({ kind: 'all' }, { role: 'admin' })).toBe(true);
+    });
+
+    it('audience=role match', () => {
+      expect(audienceMatchesUser({ kind: 'role', value: 'docente' }, { role: 'docente' })).toBe(
+        true,
+      );
+      expect(audienceMatchesUser({ kind: 'role', value: 'docente' }, { role: 'studente' })).toBe(
+        false,
+      );
+    });
+
+    it('audience=course match courseId', () => {
+      expect(
+        audienceMatchesUser({ kind: 'course', value: 5 }, { role: 'studente', courseId: 5 }),
+      ).toBe(true);
+      expect(
+        audienceMatchesUser({ kind: 'course', value: 5 }, { role: 'studente', courseId: 7 }),
+      ).toBe(false);
+    });
+
+    it('audience=building → sempre false nel feed user', () => {
+      expect(audienceMatchesUser({ kind: 'building', value: 1 }, { role: 'admin' })).toBe(false);
+    });
+  });
+
+  describe('audienceMatchesUserWhere', () => {
+    it('audience=all → {} (tutti)', () => {
+      expect(audienceMatchesUserWhere({ kind: 'all' })).toEqual({});
+    });
+
+    it('audience=role → {role: x}', () => {
+      expect(audienceMatchesUserWhere({ kind: 'role', value: 'docente' })).toEqual({
+        role: 'docente',
+      });
+    });
+
+    it('audience=course → {courseId: x}', () => {
+      expect(audienceMatchesUserWhere({ kind: 'course', value: 5 })).toEqual({ courseId: 5 });
+    });
+
+    it('audience=building → null (no destinatari email)', () => {
+      expect(audienceMatchesUserWhere({ kind: 'building', value: 1 })).toBeNull();
+    });
+
+    it('audience invalida normalizza ad all → {}', () => {
+      expect(audienceMatchesUserWhere(null)).toEqual({});
+      expect(audienceMatchesUserWhere({ kind: 'wrong' })).toEqual({});
+    });
   });
 });
 

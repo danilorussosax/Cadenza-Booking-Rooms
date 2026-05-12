@@ -52,10 +52,10 @@ export default defineConfig({
         //   - routes/courseLevels.js da 9% a alto branches (+19 integration)
         //   - routes/instrumentLoanRules.js da 2% a alto (+20 integration)
         //   - routes/botBindings.js da 8% a alto (+12 integration)
-        statements: 62,
-        lines: 64,
-        functions: 66,
-        branches: 51,
+        statements: 69,
+        lines: 70,
+        functions: 74,
+        branches: 58,
       },
     },
   },

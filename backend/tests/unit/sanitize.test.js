@@ -109,6 +109,69 @@ describe('pickAllowed — modalità spec con coerce', () => {
   });
 });
 
+describe('pickAllowed — coverage rami residui', () => {
+  it('integer: rispetta min/max → OUT_OF_RANGE', () => {
+    expect(() => pickAllowed({ n: 0 }, { n: { type: 'integer', min: 1 } })).toThrow(/minimo/i);
+    expect(() => pickAllowed({ n: 9999 }, { n: { type: 'integer', max: 100 } })).toThrow(
+      /massimo/i,
+    );
+    expect(pickAllowed({ n: '42' }, { n: { type: 'integer', min: 1, max: 100 } })).toEqual({
+      n: 42,
+    });
+  });
+
+  it('integer: non parsabile → INVALID_TYPE', () => {
+    expect(() => pickAllowed({ n: 'abc' }, { n: 'integer' })).toThrow(/intero/i);
+    expect(() => pickAllowed({ n: 1.5 }, { n: 'integer' })).toThrow(/intero/i);
+  });
+
+  it('float: parse + min/max', () => {
+    expect(pickAllowed({ x: 3.14 }, { x: 'float' })).toEqual({ x: 3.14 });
+    expect(pickAllowed({ x: '2.5' }, { x: 'float' })).toEqual({ x: 2.5 });
+    expect(() => pickAllowed({ x: 'no' }, { x: 'float' })).toThrow(/numero/i);
+    expect(() => pickAllowed({ x: -1 }, { x: { type: 'float', min: 0 } })).toThrow(/minimo/i);
+    expect(() => pickAllowed({ x: 1e9 }, { x: { type: 'float', max: 100 } })).toThrow(/massimo/i);
+  });
+
+  it('boolean: accetta "true"/"false" string e booleani veri', () => {
+    expect(pickAllowed({ b: true }, { b: 'boolean' })).toEqual({ b: true });
+    expect(pickAllowed({ b: 'true' }, { b: 'boolean' })).toEqual({ b: true });
+    expect(pickAllowed({ b: 'false' }, { b: 'boolean' })).toEqual({ b: false });
+    expect(() => pickAllowed({ b: 'maybe' }, { b: 'boolean' })).toThrow(/boolean/i);
+    expect(() => pickAllowed({ b: 1 }, { b: 'boolean' })).toThrow(/boolean/i);
+  });
+
+  it('date: accetta ISO string, Date, timestamp', () => {
+    const out1 = pickAllowed({ d: '2026-01-01T00:00:00Z' }, { d: 'date' });
+    expect(out1.d).toBeInstanceOf(Date);
+    const out2 = pickAllowed({ d: new Date('2026-01-01') }, { d: 'date' });
+    expect(out2.d).toBeInstanceOf(Date);
+    expect(() => pickAllowed({ d: 'not-a-date' }, { d: 'date' })).toThrow(/data/i);
+  });
+
+  it('enum: valore valido vs invalido', () => {
+    expect(
+      pickAllowed({ r: 'admin' }, { r: { type: 'enum', values: ['admin', 'docente'] } }),
+    ).toEqual({ r: 'admin' });
+    expect(() =>
+      pickAllowed({ r: 'manager' }, { r: { type: 'enum', values: ['admin', 'docente'] } }),
+    ).toThrow(/non valido/i);
+  });
+
+  it('json: accetta valore parsabile (incluso array/object)', () => {
+    expect(pickAllowed({ j: { a: 1 } }, { j: 'json' })).toEqual({ j: { a: 1 } });
+    expect(pickAllowed({ j: [1, 2] }, { j: 'json' })).toEqual({ j: [1, 2] });
+    expect(pickAllowed({ j: 'string' }, { j: 'json' })).toEqual({ j: 'string' });
+  });
+
+  it('nullable: accetta null su nullable, skip su non-nullable', () => {
+    expect(pickAllowed({ x: null }, { x: { type: 'integer', nullable: true } })).toEqual({
+      x: null,
+    });
+    expect(pickAllowed({ x: null }, { x: { type: 'integer' } })).toEqual({});
+  });
+});
+
 describe('pickAllowed — anti mass-assignment', () => {
   it('blocca tentativi di iniezione su campi sensibili tipici', () => {
     // Scenario reale: attaccante tenta di modificare role/passwordHash

@@ -11,7 +11,7 @@
 | Dimensione            | Score        | Verdetto                                                                                              |
 | --------------------- | ------------ | ----------------------------------------------------------------------------------------------------- |
 | Qualità del codice    | **96 / 100** | TS strict, 0 lint error, 18 doc tecniche, naming consistente IT, commenti motivazionali (no rumore)   |
-| Stabilità             | **98 / 100** | 845 test backend + 177 frontend + 5 spec E2E, schedulers coperti, anti-overlap a livello DB           |
+| Stabilità             | **98 / 100** | 1.260 test backend + 177 frontend + 5 spec E2E, schedulers coperti, anti-overlap a livello DB         |
 | Sicurezza             | **96 / 100** | 0 vuln npm audit, helm/CSP/HSTS/COOP, 2FA admin mandatory, audit log append-only, AES-256-GCM secrets |
 | Maturità sviluppo     | **97 / 100** | CI 4 job (backend / postgres / frontend / E2E), deploy script idempotente, runbook ops dedicato       |
 | **TOTALE PRODUZIONE** | **97 / 100** | Pronto per Conservatorio singolo immediato, pronto per multi-cliente con onboarding documentato       |
@@ -22,8 +22,8 @@
 
 | Categoria                                | Comando                                   | Esito                                                                                  |
 | ---------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| Test backend (Vitest integration + unit) | `npm --prefix backend test`               | **845 pass · 12 skipped · 55s**                                                        |
-| Coverage backend (target / misurato)     | `npm --prefix backend run test:coverage`  | Stmts 62/**63.75** · Lines 64/**65.76** · Funcs 66/**68.02** · Branches 51/**52.78** ⚠ |
+| Test backend (Vitest integration + unit) | `npm --prefix backend test`               | **1.260 pass · 12 skipped · 67s**                                                      |
+| Coverage backend (target / misurato)     | `npm --prefix backend run test:coverage`  | Stmts 69/**70.60** · Lines 70/**72.06** · Funcs 74/**75.99** · Branches 58/**60.09** ✓ |
 | Test frontend (Vitest + RTL + axe)       | `npm --prefix frontend test`              | **177 pass · 2 skipped · 2s**                                                          |
 | Coverage frontend (target / misurato)    | `npm --prefix frontend run test:coverage` | Stmts 60/**78.79** · Lines 60/**80.98** · Funcs 50/**68.04** · Branches 50/**61.17**   |
 | E2E Playwright                           | `npm --prefix e2e test`                   | 5 spec (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve)           |
@@ -36,7 +36,7 @@
 | Smell — `console.log` frontend           | `grep src/`                               | **0**                                                                                  |
 | `.skip` / `.only` nei test               | `grep -rnE '\.(skip\|only)\b'`            | Tutti motivati (postgres-only, tar opzionale, coperti da E2E)                          |
 
-> ⚠ **Backend branches a 52.78 %**: 3/4 assi backend sopra 60 % (stmts 63.75, lines 65.76, funcs 68.02), branches al di sotto. La branch coverage cresce più lentamente perché richiede di esercitare tutti i rami `if/else` e gli error path: la maggior parte del gap è concentrata nei 3 file più grandi (`routes/structure.js`, `routes/monteOre.js`, `routes/bookings.js`) coperti dai test integration sui path principali ma non sui rami di errore minori. Ramping verso 60 % è P2: ~10 file da targetare con ~100 test aggiuntivi.
+> ✅ **Tutti gli 8 assi (4 backend + 4 frontend) sopra 60 % di copertura**. Backend cresciuto da 845 → 1.260 test (+415 in questo turn) per chiudere il gap branches da 52.78 → 60.09 %.
 
 ---
 
@@ -115,8 +115,8 @@ Verifica artefatto per artefatto contro implementazione reale (path file dove ri
 
 | Livello                    | Framework                               | Numeri                                                                                | Path              |
 | -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------- | ----------------- |
-| Unit / Integration backend | Vitest 4 + Supertest                    | 763 pass · 12 skipped · 55 file                                                       | `backend/tests/`  |
-| Component frontend         | Vitest 4 + Testing Library + vitest-axe | 110 pass · 2 skipped · 17 file                                                        | `frontend/tests/` |
+| Unit / Integration backend | Vitest 4 + Supertest                    | 1.260 pass · 12 skipped · 68 file                                                     | `backend/tests/`  |
+| Component frontend         | Vitest 4 + Testing Library + vitest-axe | 177 pass · 2 skipped · 19 file                                                        | `frontend/tests/` |
 | E2E                        | Playwright                              | 5 spec (8+ test): login-booking, waitlist-claim, a11y, instrument-loan, admin-approve | `e2e/tests/`      |
 
 **Skip motivati** (12 backend):
@@ -128,15 +128,15 @@ Verifica artefatto per artefatto contro implementazione reale (path file dove ri
 ### 3.2 Coverage backend
 
 ```
-Statements   : 63.75 % (5606/8793)   ≥ 62 enforced ✓
-Branches     : 52.78 % (3160/5987)   ≥ 51 enforced ⚠ (target 60 — vedi §3.7)
-Functions    : 68.02 % (649/954)     ≥ 66 enforced ✓
-Lines        : 65.76 % (5251/7985)   ≥ 64 enforced ✓
+Statements   : 70.60 % (6208/8793)   ≥ 69 enforced ✓
+Branches     : 60.09 % (3598/5987)   ≥ 58 enforced ✓
+Functions    : 75.99 % (725/954)     ≥ 74 enforced ✓
+Lines        : 72.06 % (5754/7985)   ≥ 70 enforced ✓
 ```
 
 Le soglie crescono automaticamente con il coverage: il floor è settato a misurato −1.5 punti. Nuovi test alzano la barra, regressioni vengono bloccate dal CI con exit code non-zero (`npm run test:coverage`).
 
-> **Push 2026-05-12**: +82 test backend (845 totali) per chiudere il gap branch coverage. Aggiunti test mirati su `lib/network.js` (16→100% branches), `lib/pgBin.js`, `routes/appIcons.js`, `routes/courseLevels.js` (9→alto), `routes/instrumentLoanRules.js` (3→alto), `routes/botBindings.js` (8→alto). Soglie alzate a 62/64/66/51.
+> **Push 2026-05-12 (tutti gli assi ≥60)**: +497 test backend in due wave (763 → 1.260). Wave 1 (parser CSV + lib helpers): `structureImporter.js` 36→100%, `twoFa.js` 24→100%, `instrumentImporter.js` 14→88%, `contractTypes.js` 12→93%, `analytics CSV`, `lib/network.js` 16→100% branches, `lib/pgBin.js`, `routes/appIcons.js`, `routes/courseLevels.js` 9→alto, `routes/instrumentLoanRules.js` 3→alto, `routes/botBindings.js` 8→alto. Wave 2 (chiusura gap branches sui 3 file CRUD grandi): `routes/structure.js` 13→42% branches, `routes/monteOre.js` 46→54%, `routes/bookings.js` 44→53%, + tests mirati su `auth.js`, `auditLog.js`, `messagingSettings.js`, `users.js`, `instruments.js`, `quotas.js`, `loanQuotas.js`, `gdpr.js`, `backups.js`, `mailTemplates.js`, `mailSettings.js`, `integrations.js`, `public.js` (agenda/concerts/stats/display-config), `waitlist.js`, `courses.js`. Unit aggiunti per `services/audienceMatcher.js`, `services/monteOreService.iterateOccurrences`, `lib/withTransaction.js`, `lib/sanitize.js` (rami residui), `services/icalService.js` (groupRecurrences + RRULE). Soglie alzate a 69/70/74/58.
 
 #### Aree ad alta coverage (≥ 85%)
 
@@ -398,14 +398,14 @@ npm audit              (frontend) → 0 vulnerabilities
 
 ### 6.4 Margini di crescita
 
-| Item                                                                 | Priorità | Effort                                                                                                                   |
-| -------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Backend branches 52.78 → 60 % (gap residuo: file CRUD legacy grandi) | P2       | ~½ giornata di test mirati su `routes/public.js`, `routes/courses.js`, `routes/waitlist.js`, `services/mailTemplates.js` |
-| Frontend coverage → enforced anche in CI                             | P1       | ½ giornata (sostituire `test:ci` con `test:coverage` nello step CI)                                                      |
-| Split file monolitici (`bookings.js`, `monteOre.js`, `structure.js`) | P2       | ~3 giorni con cura per evitare merge conflict                                                                            |
-| `retentionScheduler` file coverage 39 → 60 %                         | P3       | ½ giornata (test del timer reale)                                                                                        |
-| Penetration test esterno                                             | —        | dipende dal cliente                                                                                                      |
-| PEC + SPID/CIE                                                       | —        | on-demand, ~6-8 settimane                                                                                                |
+| Item                                                                 | Priorità  | Effort                                                              |
+| -------------------------------------------------------------------- | --------- | ------------------------------------------------------------------- |
+| ~~Backend branches → 60 %~~                                          | ✅ chiuso | +497 test in due wave (763 → 1.260). Vedi §3.2                      |
+| Frontend coverage → enforced anche in CI                             | P1        | ½ giornata (sostituire `test:ci` con `test:coverage` nello step CI) |
+| Split file monolitici (`bookings.js`, `monteOre.js`, `structure.js`) | P2        | ~3 giorni con cura per evitare merge conflict                       |
+| `retentionScheduler` file coverage 39 → 60 %                         | P3        | ½ giornata (test del timer reale)                                   |
+| Penetration test esterno                                             | —         | dipende dal cliente                                                 |
+| PEC + SPID/CIE                                                       | —         | on-demand, ~6-8 settimane                                           |
 
 ---
 
@@ -567,8 +567,8 @@ ls docs/*.md   # 18 file
 244 endpoint REST con RBAC granulare
 41 modelli Sequelize, 15 con soft-delete
 34 routes · 38 services · 5 lingue UI
-845 backend + 177 frontend + 5 spec E2E (1.027 test totali)
-63.75 % stmts / 52.78 % branches / 68.02 % funcs / 65.76 % lines backend (soglie bloccanti)
+1.260 backend + 177 frontend + 5 spec E2E (1.442 test totali)
+70.60 % stmts / 60.09 % branches / 75.99 % funcs / 72.06 % lines backend (soglie bloccanti)
 78.79 % stmts / 61.17 % branches / 68.04 % funcs / 80.98 % lines frontend (soglie bloccanti)
 0 vulnerabilità npm audit, 0 errori lint/typecheck, TS strict
 2FA admin mandatory, audit log append-only firmato HMAC SHA-256, AES-256-GCM secrets a riposo
