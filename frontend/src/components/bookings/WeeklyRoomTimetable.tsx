@@ -317,7 +317,9 @@ export function WeeklyRoomTimetable({
           // Zebra striping per riga: facilita la lettura quando ci sono molte
           // aule (Display kiosk e Dashboard). La riga "oggi" mantiene la
           // priorita visiva (bg-primary/5), quindi lo zebra si applica solo
-          // alle celle non-today.
+          // alle celle non-today. NB: serve un'opacita alta (>30%) perche le
+          // CSS var --muted e --background del tema chiaro hanno luminanze
+          // molto vicine (97% vs 94.5%) — opacita basse risultano invisibili.
           const isOddRow = roomIdx % 2 === 1;
           return (
             <Fragment key={room.id}>
@@ -326,7 +328,7 @@ export function WeeklyRoomTimetable({
               <div
                 className={cn(
                   'flex items-center justify-center border-b border-r px-1',
-                  isOddRow ? 'bg-muted/40' : 'bg-muted/20',
+                  isOddRow ? 'bg-muted' : 'bg-muted/40',
                 )}
                 style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
                 title={room.name}
@@ -348,7 +350,7 @@ export function WeeklyRoomTimetable({
                     className={cn(
                       'relative overflow-hidden border-b',
                       dayDivider,
-                      isToday ? 'bg-primary/5' : isOddRow && 'bg-muted/10',
+                      isToday ? 'bg-primary/5' : isOddRow && 'bg-muted/60',
                     )}
                     style={autoFitRows ? undefined : { height: `${rowHeightRem}rem` }}
                   >
