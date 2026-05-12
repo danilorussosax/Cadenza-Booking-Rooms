@@ -196,7 +196,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 | Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                             |
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente                    |
 | Monitoring    | Sentry v10 (opt-in)                                                   |
-| Testing       | Vitest 1.260 test backend + 177 component/lib + Playwright 5 spec E2E |
+| Testing       | Vitest 1.386 test backend + 177 component/lib + Playwright 5 spec E2E |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                        |
 
 ---
@@ -450,7 +450,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale**: **1.260** test backend (68 file integration + unit) + **177** component test frontend (19 file, 10 dei quali a11y `vitest-axe`) + **5 spec** E2E Playwright (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve). Soglie bloccanti: backend stmts ≥69 / lines ≥70 / funcs ≥74 / branches ≥58, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
+**Copertura attuale**: **1.386** test backend (70 file integration + unit) + **177** component test frontend (19 file, 10 dei quali a11y `vitest-axe`) + **5 spec** E2E Playwright (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve) — **1.568 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
 
 ---
 

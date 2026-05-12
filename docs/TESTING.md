@@ -173,10 +173,10 @@ Soglie **bloccanti** (esito CI fallisce sotto target). Tutti gli 8 assi (4 backe
 
 | Asse       | Soglia | Misurato 2026-05-12 |
 | ---------- | ------ | ------------------- |
-| Statements | ≥ 69 % | **70.60 %**         |
-| Lines      | ≥ 70 % | **72.06 %**         |
-| Functions  | ≥ 74 % | **75.99 %**         |
-| Branches   | ≥ 58 % | **60.09 %**         |
+| Statements | ≥ 72 % | **73.59 %**         |
+| Lines      | ≥ 73 % | **74.91 %**         |
+| Functions  | ≥ 78 % | **79.43 %**         |
+| Branches   | ≥ 60 % | **62.27 %**         |
 
 **Frontend** (`frontend/vitest.config.ts`):
 
@@ -189,6 +189,6 @@ Soglie **bloccanti** (esito CI fallisce sotto target). Tutti gli 8 assi (4 backe
 
 Le soglie crescono con il coverage: floor = misurato − ~1.5 punti, così nuovi test alzano la barra mentre regressioni vengono bloccate dal CI. Quando aggiungi test che migliorano la copertura, alza anche le soglie.
 
-Stato 2026-05-12: **1.260 test backend** (12 skipped postgres-only, 68 file) + **177 frontend** (2 skipped, 19 file) + **5 spec E2E** = 1.442 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`) e `twoFa` al 100 % / 88 % / 100 %; il TODO test-debt è chiuso. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E).
+Stato 2026-05-12: **1.386 test backend** (12 skipped postgres-only, 70 file) + **177 frontend** (2 skipped, 19 file) + **5 spec E2E** = 1.568 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`, `fieldMapping`) e `twoFa` al 100 % / 88 % / 100 % / 100 %. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E). Esclusioni motivate backend: adapter messaging I/O esterno (telegram, signal_cli, email_imap, whatsapp_cloud), `routes/analytics.js` (coperto da job CI Postgres-only dedicato), `services/announcementEmail.js` (SMTP transporter).
 
 Per area frontend i test componenti coprono i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.

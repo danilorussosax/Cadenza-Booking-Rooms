@@ -199,7 +199,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 | Reverse proxy | nginx + Let's Encrypt (cert via certbot)                                |
 | Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                       |
 | Monitoring    | Sentry v10 (opt-in)                                                     |
-| Testing       | Vitest 1,260 backend tests + 177 component/lib + 5 Playwright E2E specs |
+| Testing       | Vitest 1,386 backend tests + 177 component/lib + 5 Playwright E2E specs |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                          |
 
 ---
@@ -453,7 +453,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Current coverage**: **1,260** backend tests (68 integration + unit files) + **177** frontend component tests (19 files, 10 of which a11y via `vitest-axe`) + **5 specs** Playwright E2E (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve). Enforced thresholds: backend stmts ≥69 / lines ≥70 / funcs ≥74 / branches ≥58, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage. GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
+**Current coverage**: **1,386** backend tests (70 integration + unit files) + **177** frontend component tests (19 files, 10 of which a11y via `vitest-axe`) + **5 specs** Playwright E2E (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve) — **1,568 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
 
 ---
 
