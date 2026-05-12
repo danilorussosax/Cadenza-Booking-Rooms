@@ -236,6 +236,42 @@ describe('emailService.sendBookingEmail (rispetto preferenze utente)', () => {
     });
     expect(await MailOutbox.count()).toBe(0);
   });
+
+  it('NON accoda ghost_cancellation se la room ha requireCheckIn=false', async () => {
+    // Hard guard: la template ghost_cancellation parla di "scansiona il QR".
+    // Anche se uno scheduler/router invocasse sendBookingEmail per errore,
+    // l'email non deve mai arrivare a un utente la cui aula non richiede
+    // check-in (era il sintomo riportato).
+    const u = await createUser();
+    await emailService.sendBookingEmail({
+      user: u,
+      booking: {
+        id: 1,
+        type: 'studio_individuale',
+        startTime: new Date(),
+        endTime: new Date(),
+        room: { id: 1, name: 'Aula libera', requireCheckIn: false },
+      },
+      kind: 'ghost_cancellation',
+    });
+    expect(await MailOutbox.count()).toBe(0);
+  });
+
+  it('accoda ghost_cancellation se requireCheckIn=true', async () => {
+    const u = await createUser();
+    await emailService.sendBookingEmail({
+      user: u,
+      booking: {
+        id: 2,
+        type: 'studio_individuale',
+        startTime: new Date(),
+        endTime: new Date(),
+        room: { id: 1, name: 'Aula QR', requireCheckIn: true },
+      },
+      kind: 'ghost_cancellation',
+    });
+    expect(await MailOutbox.count()).toBe(1);
+  });
 });
 
 describe('retentionScheduler.pruneMailOutbox', () => {

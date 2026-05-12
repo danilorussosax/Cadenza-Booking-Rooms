@@ -349,6 +349,10 @@ async function sendBookingEmail({ user, booking, kind, extra }) {
   // Preferenza granulare per tipologia (default true se mai impostata)
   const prefField = KIND_PREF_FIELD[kind];
   if (prefField && user[prefField] === false) return;
+  // Hard guard: ghost_cancellation parla esplicitamente di check-in mancato
+  // ("ricordati di scansionare il QR..."). Non deve mai partire per aule
+  // che hanno requireCheckIn=false, anche se un caller la invocasse per errore.
+  if (kind === 'ghost_cancellation' && booking?.room?.requireCheckIn === false) return;
   const tpl = await getTemplate(kind);
   if (!tpl) return;
   const ctx = await buildBookingContext({ user, booking, extra });

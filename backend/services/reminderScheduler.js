@@ -165,6 +165,11 @@ const GHOST_GRACE_MINUTES = Math.max(1, Number(process.env.GHOST_GRACE_MINUTES) 
 async function tickGhostCancel() {
   try {
     const cutoff = dayjs().subtract(GHOST_GRACE_MINUTES, 'minute').toDate();
+    // Filtro Room.requireCheckIn a livello DB tramite include con `required:true`
+    // + `where: requireCheckIn !== false`: l'INNER JOIN scarta sia le booking
+    // di aule esonerate dal check-in sia le orfane (room hard-cancellata).
+    // Difesa in profondità: post-filter JS sotto come safety net se in futuro
+    // l'include diventa LEFT JOIN o un altro caller cambia la query.
     const candidates = await Booking.findAll({
       where: {
         status: 'confirmed',
@@ -174,11 +179,15 @@ async function tickGhostCancel() {
       },
       include: [
         { model: User, as: 'user' },
-        { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+        {
+          model: Room,
+          as: 'room',
+          required: true,
+          where: { requireCheckIn: { [Op.ne]: false } },
+          include: [{ model: Building, as: 'building' }],
+        },
       ],
     });
-    // Salta le booking di aule con check-in disattivato (Room.requireCheckIn=false):
-    // l'admin ha esplicitamente scelto di non far valere il ghost-cancel su quell'aula.
     const due = candidates.filter((bk) => bk.room?.requireCheckIn !== false);
     if (due.length === 0) return;
 

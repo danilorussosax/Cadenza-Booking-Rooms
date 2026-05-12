@@ -48,16 +48,28 @@ describe('reminderScheduler.tickGhostCancel', () => {
     expect(reloaded.cancelReason).toMatch(/ghost/i);
   });
 
-  it('NON cancella prenotazioni in aule con requireCheckIn=false', async () => {
-    const room = await createRoom({ requireCheckIn: false });
-    const start = new Date(Date.now() - 30 * 60 * 1000);
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
-    const bk = await createBooking({ room, startTime: start, endTime: end });
+  it('NON cancella né invia email ghost_cancellation su aule con requireCheckIn=false', async () => {
+    // Spia entrambi i percorsi: bk.update sarebbe silenzioso, ma soprattutto
+    // l'email ghost_cancellation NON deve partire (era il sintomo riportato
+    // dagli utenti su aule esonerate dal check-in).
+    const enabledSpy = vi.spyOn(emailService, 'emailEnabled').mockResolvedValue(true);
+    const sendSpy = vi.spyOn(emailService, 'sendBookingEmail').mockResolvedValue({ ok: true });
 
-    await reminder.tickGhostCancel();
-    const reloaded = await Booking.findByPk(bk.id);
-    expect(reloaded.status).toBe('confirmed');
-    expect(reloaded.autoCancelledAt).toBeNull();
+    try {
+      const room = await createRoom({ requireCheckIn: false });
+      const start = new Date(Date.now() - 30 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const bk = await createBooking({ room, startTime: start, endTime: end });
+
+      await reminder.tickGhostCancel();
+      const reloaded = await Booking.findByPk(bk.id);
+      expect(reloaded.status).toBe('confirmed');
+      expect(reloaded.autoCancelledAt).toBeNull();
+      expect(sendSpy).not.toHaveBeenCalled();
+    } finally {
+      enabledSpy.mockRestore();
+      sendSpy.mockRestore();
+    }
   });
 
   it('NON cancella prenotazioni con check-in già fatto', async () => {
