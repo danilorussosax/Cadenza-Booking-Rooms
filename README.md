@@ -190,14 +190,14 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 
 ### Infrastruttura
 
-| Componente    | Tecnologia                                                     |
-| ------------- | -------------------------------------------------------------- |
-| Database      | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)          |
-| Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                      |
-| Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente             |
-| Monitoring    | Sentry v10 (opt-in)                                            |
-| Testing       | Vitest 632 test backend + 106 component/lib + Playwright 8 E2E |
-| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                 |
+| Componente    | Tecnologia                                                            |
+| ------------- | --------------------------------------------------------------------- |
+| Database      | PostgreSQL 16 (con `EXCLUDE` constraint anti-overlap)                 |
+| Reverse proxy | nginx + Let's Encrypt (cert. via certbot)                             |
+| Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente                    |
+| Monitoring    | Sentry v10 (opt-in)                                                   |
+| Testing       | Vitest 1.260 test backend + 177 component/lib + Playwright 5 spec E2E |
+| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                        |
 
 ---
 
@@ -450,7 +450,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale**: ~632 test backend (46 file integration + 6 unit) + 106 component test frontend (17 file, di cui 10 a11y `vitest-axe`) + 8 E2E Playwright (4 a11y + 4 business). CI GitHub Actions con gate su label per gli E2E.
+**Copertura attuale**: **1.260** test backend (68 file integration + unit) + **177** component test frontend (19 file, 10 dei quali a11y `vitest-axe`) + **5 spec** E2E Playwright (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve). Soglie bloccanti: backend stmts ≥69 / lines ≥70 / funcs ≥74 / branches ≥58, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
 
 ---
 

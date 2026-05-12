@@ -416,7 +416,7 @@ npm audit              (frontend) → 0 vulnerabilities
 **Tutte le condizioni di go-live sono soddisfatte**:
 
 - 0 vulnerabilità npm audit, 0 errori lint/typecheck, 0 errori build
-- Test backend 763 pass + frontend 110 pass + 5 spec E2E
+- Test backend 1.260 pass + frontend 177 pass + 5 spec E2E
 - Coverage backend sopra soglie bloccanti
 - DB-level anti-overlap (Postgres EXCLUDE), audit log append-only, GDPR endpoints completi
 - Schedulers backup (02:30) + retention (03:00) + reminder/ghost-cancel/loans/waitlist (ogni 5 min) testati
@@ -518,12 +518,12 @@ caller → sendBookingEmail() → enqueueMail() → MailOutbox row (pending)
 ## 9. Appendice — Comandi per riprodurre l'audit
 
 ```bash
-# Backend test + coverage (763 pass · 12 skipped)
+# Backend test + coverage (1.260 pass · 12 skipped)
 cd backend && npm run test:coverage
-# Soglie bloccanti: stmts ≥61, lines ≥63, funcs ≥65, branches ≥50
-# Misurato attuale: 62.40 / 64.48 / 66.14 / 51.24
+# Soglie bloccanti: stmts ≥69, lines ≥70, funcs ≥74, branches ≥58
+# Misurato attuale: 70.60 / 72.06 / 75.99 / 60.09
 
-# Frontend test + coverage (110 pass · 2 skipped)
+# Frontend test + coverage (177 pass · 2 skipped)
 cd frontend && npm run test:coverage   # genera report HTML in coverage/
 cd frontend && npm test                # quick check senza coverage
 

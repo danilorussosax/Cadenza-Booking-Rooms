@@ -193,14 +193,14 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 
 ### Infrastructure
 
-| Component     | Technology                                                      |
-| ------------- | --------------------------------------------------------------- |
-| Database      | PostgreSQL 16 (with `EXCLUDE` anti-overlap constraint)          |
-| Reverse proxy | nginx + Let's Encrypt (cert via certbot)                        |
-| Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script               |
-| Monitoring    | Sentry v10 (opt-in)                                             |
-| Testing       | Vitest 648 backend tests + 106 component/lib + 8 Playwright E2E |
-| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                  |
+| Component     | Technology                                                              |
+| ------------- | ----------------------------------------------------------------------- |
+| Database      | PostgreSQL 16 (with `EXCLUDE` anti-overlap constraint)                  |
+| Reverse proxy | nginx + Let's Encrypt (cert via certbot)                                |
+| Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                       |
+| Monitoring    | Sentry v10 (opt-in)                                                     |
+| Testing       | Vitest 1,260 backend tests + 177 component/lib + 5 Playwright E2E specs |
+| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                          |
 
 ---
 
@@ -453,7 +453,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Current coverage**: ~648 backend tests (46 integration files + 6 unit) + 106 frontend component tests (17 files, 10 of which a11y via `vitest-axe`) + 8 Playwright E2E (4 a11y + 4 business). GitHub Actions CI with a label-gated E2E job.
+**Current coverage**: **1,260** backend tests (68 integration + unit files) + **177** frontend component tests (19 files, 10 of which a11y via `vitest-axe`) + **5 specs** Playwright E2E (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve). Enforced thresholds: backend stmts ≥69 / lines ≥70 / funcs ≥74 / branches ≥58, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage. GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
 
 ---
 

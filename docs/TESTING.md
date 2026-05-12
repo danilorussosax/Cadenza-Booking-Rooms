@@ -167,17 +167,28 @@ i18n nei test è inizializzato con `parseMissingKeyHandler: (key) => key`: ogni 
 
 ## Coverage
 
-Soglie **bloccanti** (`backend/vitest.config.js`, esito CI fallisce sotto target):
+Soglie **bloccanti** (esito CI fallisce sotto target). Tutti gli 8 assi (4 backend + 4 frontend) sopra 60 %.
+
+**Backend** (`backend/vitest.config.js`):
 
 | Asse       | Soglia | Misurato 2026-05-12 |
 | ---------- | ------ | ------------------- |
-| Statements | ≥ 61 % | 62.39 %             |
-| Lines      | ≥ 63 % | 64.47 %             |
-| Functions  | ≥ 65 % | 66.14 %             |
-| Branches   | ≥ 50 % | 51.16 %             |
+| Statements | ≥ 69 % | **70.60 %**         |
+| Lines      | ≥ 70 % | **72.06 %**         |
+| Functions  | ≥ 74 % | **75.99 %**         |
+| Branches   | ≥ 58 % | **60.09 %**         |
+
+**Frontend** (`frontend/vitest.config.ts`):
+
+| Asse       | Soglia | Misurato 2026-05-12 |
+| ---------- | ------ | ------------------- |
+| Statements | ≥ 60 % | **78.79 %**         |
+| Lines      | ≥ 60 % | **80.98 %**         |
+| Functions  | ≥ 50 % | **68.04 %**         |
+| Branches   | ≥ 50 % | **61.17 %**         |
 
 Le soglie crescono con il coverage: floor = misurato − ~1.5 punti, così nuovi test alzano la barra mentre regressioni vengono bloccate dal CI. Quando aggiungi test che migliorano la copertura, alza anche le soglie.
 
-Stato 2026-05-12: **763 test backend** (12 skipped postgres-only). I servizi parser CSV (`structureImporter`, `instrumentImporter`) e `twoFa` sono ora al 100 % / 88 % / 100 %; il TODO test-debt in `vitest.config.js` è chiuso. Per il frontend la soglia è ≥ 60 % su tutti gli assi (`vitest.config.ts`), misurato 66.97 %.
+Stato 2026-05-12: **1.260 test backend** (12 skipped postgres-only, 68 file) + **177 frontend** (2 skipped, 19 file) + **5 spec E2E** = 1.442 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`) e `twoFa` al 100 % / 88 % / 100 %; il TODO test-debt è chiuso. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E).
 
 Per area frontend i test componenti coprono i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.
