@@ -132,6 +132,24 @@ module.exports = (sequelize) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      // Account lockout per brute force distribuito. Il rate-limit per IP
+      // (loginLimiter) ferma il singolo IP, ma un attaccante con botnet può
+      // distribuire i tentativi su molti IP contro lo stesso account. Questo
+      // contatore + lockedUntil bloccano l'account, non l'IP.
+      //
+      // Strategia: incrementa su INVALID_CREDENTIALS, reset su login OK.
+      // Soglia LOCKOUT_MAX_FAILED (default 10) → lockedUntil = now +
+      // LOCKOUT_DURATION_MIN (default 30 min). Dopo la scadenza il contatore
+      // resta ma il login ritorna permesso (auto-unlock).
+      failedLoginAttempts: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      lockedUntil: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       // Versione dei JWT validi per questo utente. Ogni JWT include il
       // `tokenVersion` corrente nel payload; se l'utente fa logout, cambia
       // password o viene compromesso, incrementiamo questo contatore →

@@ -8,13 +8,13 @@
 
 ## Punteggi sintetici
 
-| Dimensione            | Score        | Verdetto                                                                                              |
-| --------------------- | ------------ | ----------------------------------------------------------------------------------------------------- |
-| Qualità del codice    | **96 / 100** | TS strict, 0 lint error, 18 doc tecniche, naming consistente IT, commenti motivazionali (no rumore)   |
-| Stabilità             | **99 / 100** | 1.386 test backend + 177 frontend + 5 spec E2E, 1.568 totali · schedulers coperti · anti-overlap DB   |
-| Sicurezza             | **96 / 100** | 0 vuln npm audit, helm/CSP/HSTS/COOP, 2FA admin mandatory, audit log append-only, AES-256-GCM secrets |
-| Maturità sviluppo     | **97 / 100** | CI 4 job (backend / postgres / frontend / E2E), deploy script idempotente, runbook ops dedicato       |
-| **TOTALE PRODUZIONE** | **97 / 100** | Pronto per Conservatorio singolo immediato, pronto per multi-cliente con onboarding documentato       |
+| Dimensione            | Score        | Verdetto                                                                                                                                                    |
+| --------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qualità del codice    | **96 / 100** | TS strict, 0 lint error, 18 doc tecniche, naming consistente IT, commenti motivazionali (no rumore)                                                         |
+| Stabilità             | **99 / 100** | 1.403 test backend + 177 frontend + 5 spec E2E, 1.585 totali · schedulers coperti · anti-overlap DB                                                         |
+| Sicurezza             | **98 / 100** | 0 vuln npm audit, helm/CSP/HSTS/COOP, 2FA admin + account lockout, CSP violation reporting, gitleaks scan in CI, audit log append-only, AES-256-GCM secrets |
+| Maturità sviluppo     | **97 / 100** | CI 4 job (backend / postgres / frontend / E2E), deploy script idempotente, runbook ops dedicato                                                             |
+| **TOTALE PRODUZIONE** | **98 / 100** | Pronto per Conservatorio singolo immediato, pronto per multi-cliente con onboarding documentato                                                             |
 
 ---
 
@@ -22,7 +22,7 @@
 
 | Categoria                                | Comando                                   | Esito                                                                                  |
 | ---------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| Test backend (Vitest integration + unit) | `npm --prefix backend test`               | **1.386 pass · 12 skipped · 70s**                                                      |
+| Test backend (Vitest integration + unit) | `npm --prefix backend test`               | **1.403 pass · 12 skipped · 70s**                                                      |
 | Coverage backend (target / misurato)     | `npm --prefix backend run test:coverage`  | Stmts 72/**73.59** · Lines 73/**74.91** · Funcs 78/**79.43** · Branches 60/**62.27** ✓ |
 | Test frontend (Vitest + RTL + axe)       | `npm --prefix frontend test`              | **177 pass · 2 skipped · 2s**                                                          |
 | Coverage frontend (target / misurato)    | `npm --prefix frontend run test:coverage` | Stmts 60/**78.79** · Lines 60/**80.98** · Funcs 50/**68.04** · Branches 50/**61.17** ✓ |
@@ -115,7 +115,7 @@ Verifica artefatto per artefatto contro implementazione reale (path file dove ri
 
 | Livello                    | Framework                               | Numeri                                                                          | Path              |
 | -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| Unit / Integration backend | Vitest 4 + Supertest                    | **1.386 pass** · 12 skipped · 70 file                                           | `backend/tests/`  |
+| Unit / Integration backend | Vitest 4 + Supertest                    | **1.403 pass** · 12 skipped · 72 file                                           | `backend/tests/`  |
 | Component frontend         | Vitest 4 + Testing Library + vitest-axe | **177 pass** · 2 skipped · 19 file                                              | `frontend/tests/` |
 | E2E                        | Playwright                              | **5 spec**: login-booking, waitlist-claim, a11y, instrument-loan, admin-approve | `e2e/tests/`      |
 
@@ -257,7 +257,7 @@ Tick periodico **ogni 5 minuti** che orchestra 4 sotto-tick in `reminderSchedule
 
 ---
 
-## 4. Sicurezza — 96 / 100
+## 4. Sicurezza — 98 / 100
 
 ### 4.1 Difese implementate
 
@@ -302,10 +302,24 @@ Tick periodico **ogni 5 minuti** che orchestra 4 sotto-tick in `reminderSchedule
 
 #### Anti-abuse / Anti-replay
 
-- **Rate limit** su login/register/forgot/gdpr/iCal con `express-rate-limit`
+- **Rate limit** su login/register/forgot/gdpr/iCal con `express-rate-limit` (per IP)
+- **Account lockout**: dopo `LOCKOUT_MAX_FAILED` login falliti consecutivi (default 10), lock dell'account per `LOCKOUT_DURATION_MIN` (default 30 min). Pre-check `lockedUntil` PRIMA di bcrypt per evitare amplification DoS. Reset auto al primo login OK. Non incrementa contatori su account OAuth-only o email inesistenti (anti-spam DB)
 - **Anti-replay 2FA**: TOTP marker `lastUsedAt` con tolleranza ±1 window (30 s)
 - **iCal token rotabile** con SHA-256 hash UNIQUE in DB; il token raw non è loggato
 - **QR check-in token rotabile** per aula (`Room.qrToken`) con guard 400 se obsoleto
+
+#### CSP violation reporting
+
+- **`report-uri` + `report-to`** sulla Content-Security-Policy → endpoint `/api/csp-report` (no auth) riceve i report del browser quando uno script/style viene bloccato
+- Parser dual-format: legacy `application/csp-report` (Chrome <94, Firefox, Safari) + Reporting API moderna (`application/reports+json`)
+- Forward su Sentry come `warning` event + tag `csp_directive`, `csp_disposition` per dashboard separata dagli errori applicativi
+- Header `Reporting-Endpoints` standard W3C su tutte le response
+
+#### Secrets scanning
+
+- **Gitleaks** in CI: job `Security · gitleaks` su ogni push/PR (azione `gitleaks/gitleaks-action@v2`) → fail se rileva chiavi API / token / private key
+- **Pre-commit hook locale** (`.husky/pre-commit`): scan dei soli file staged via `gitleaks protect`. Skip silenzioso se gitleaks non installato (il check in CI resta enforced)
+- Config `.gitleaks.toml` con allowlist mirate (fixture test, doc placeholder)
 
 #### Network
 

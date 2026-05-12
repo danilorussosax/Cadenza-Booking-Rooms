@@ -72,6 +72,12 @@ function buildApp({ serveFrontend = true } = {}) {
     // module workers durante l'init (alcuni browser).
     workerSrc: ["'self'", 'blob:'],
     manifestSrc: ["'self'"],
+    // CSP violation reports → endpoint backend che logga + forwarda a Sentry.
+    // - `report-uri` è la sintassi legacy (Chrome <94, Firefox, Safari).
+    // - `report-to` è la sintassi moderna ma richiede l'header `Reporting-Endpoints`.
+    //   Includiamo entrambi per copertura cross-browser.
+    reportUri: ['/api/csp-report'],
+    reportTo: ['cadenza-csp'],
   };
   if (process.env.NODE_ENV === 'production') {
     cspDirectives.upgradeInsecureRequests = [];
@@ -89,6 +95,13 @@ function buildApp({ serveFrontend = true } = {}) {
           : false,
     }),
   );
+
+  // Reporting-Endpoints: dichiara il gruppo `cadenza-csp` referenziato dal
+  // `report-to` della CSP. Header standardizzato (W3C Reporting API).
+  app.use((req, res, next) => {
+    res.setHeader('Reporting-Endpoints', 'cadenza-csp="/api/csp-report"');
+    next();
+  });
 
   // Permissions-Policy: nessuna API potente abilitata di default.
   // Il kiosk /display in fullscreen NON richiede l'API fullscreen permission
@@ -242,6 +255,10 @@ function buildApp({ serveFrontend = true } = {}) {
   }
 
   // ============== API routes ==============
+  // CSP violation reports: registrato PRIMA degli altri routes per garantire
+  // che il body parser dedicato (`application/csp-report`) sia montato
+  // anteriormente al middleware express.json globale.
+  app.use('/api/csp-report', require('./routes/cspReport'));
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users/me/gdpr', require('./routes/gdpr'));
   app.use('/api/users', require('./routes/users'));

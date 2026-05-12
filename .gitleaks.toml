@@ -1,0 +1,59 @@
+# gitleaks config — Cadenza
+#
+# Rilevazione di chiavi API / token / password committate per sbaglio.
+# Allowlist mirate per ridurre i falsi positivi.
+
+title = "Cadenza gitleaks rules"
+
+# Inheritage delle regole built-in (~150 pattern: AWS, Azure, GCP, Slack,
+# Stripe, OpenAI, GitHub tokens, JWT, private keys, ecc.)
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Cadenza-specific allowlist"
+
+paths = [
+  # File fixture: mock data per test che contiene "secret"-like strings
+  '''backend/tests/fixtures/''',
+  # Test integration: password / token deliberatamente in chiaro nei test
+  '''backend/tests/integration/''',
+  '''backend/tests/unit/''',
+  '''frontend/tests/''',
+  '''e2e/tests/''',
+  '''e2e/fixtures/''',
+  # Documentazione: contiene example token con prefisso "your-",
+  # placeholder come "<SECRET>" o token finti tipo "tok_dummy".
+  '''docs/''',
+  # README/Doc: spiegano configurazione SMTP/OAuth con esempi.
+  '''README.*\.md''',
+  # File compilati / artefatti
+  '''node_modules/''',
+  '''dist/''',
+  '''coverage/''',
+  '''backend/coverage/''',
+  '''frontend/coverage/''',
+  '''\.lcov$''',
+]
+
+regexes = [
+  # Test secrets noti — usati DELIBERATAMENTE nei test, non sono leak reali.
+  '''Password123!''',
+  '''secret-test''',
+  '''mio-secret-test''',
+  '''salt-xyz''',
+  # Placeholder convenzionali documentazione
+  '''your-secret-here''',
+  '''<SECRET>''',
+  '''<API_KEY>''',
+  # User ID hashati (16-char hex) generati dai test sentry — non sono token.
+  '''[0-9a-f]{16}'''
+]
+
+stopwords = [
+  "example",
+  "placeholder",
+  "fake",
+  "dummy",
+  "test-",
+]

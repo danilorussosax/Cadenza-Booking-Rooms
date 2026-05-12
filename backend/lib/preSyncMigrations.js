@@ -296,6 +296,14 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna users.botBindingChallenge aggiunta (binding bot)');
   }
 
+  // Account lockout — brute force distribuito (oltre al rate-limit per IP).
+  if (await ensureIntColumn('users', 'failedLoginAttempts', 0)) {
+    logger.info('  ✓ Colonna users.failedLoginAttempts aggiunta (account lockout, default = 0)');
+  }
+  if (await ensureNullableDateColumn('users', 'lockedUntil')) {
+    logger.info('  ✓ Colonna users.lockedUntil aggiunta (account lockout TTL)');
+  }
+
   // Foto aula
   if (await ensureNullableStringColumn('rooms', 'photoUrl', 500)) {
     logger.info('  ✓ Colonna rooms.photoUrl aggiunta');
@@ -727,6 +735,31 @@ async function ensureNullableIntColumn(table, name) {
   } catch {
     return false;
   }
+}
+
+async function ensureIntColumn(table, name, defaultValue = 0) {
+  const qi = sequelize.getQueryInterface();
+  let desc;
+  try {
+    desc = await qi.describeTable(table);
+  } catch {
+    return false;
+  }
+  if (desc[name]) return false;
+
+  const dialect = sequelize.getDialect();
+  if (dialect === 'sqlite') {
+    await sequelize.query(
+      `ALTER TABLE ${table} ADD COLUMN ${name} INTEGER NOT NULL DEFAULT ${Number(defaultValue)}`,
+    );
+  } else {
+    await qi.addColumn(table, name, {
+      type: sequelize.Sequelize.DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue,
+    });
+  }
+  return true;
 }
 
 async function ensureNullableFloatColumn(table, name) {

@@ -226,51 +226,109 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-router.post('/login', loginLimiter, (req, res, next) => {
-  passport.authenticate('local', { session: false }, async (err, user, info) => {
-    if (err) return res.status(500).json({ error: 'Errore interno' });
-    if (!user) {
-      // Risposta uniforme per tutti i casi di failure (password sbagliata,
-      // email non registrata, account disabilitato, account OAuth-only):
-      // codici/messaggi distinti permettevano di enumerare email registrate
-      // e account SSO (target per phishing). Lato server l'esito reale viene
-      // comunque loggato dal passport-local strategy.
-      return res.status(401).json({
-        error: 'Email o password non validi',
-        code: 'INVALID_CREDENTIALS',
-      });
-    }
+// Account lockout — difesa contro brute force distribuito (botnet su molti IP
+// vs lo stesso account, che il rate-limit per IP non ferma).
+// Configurabile via env:
+//   LOCKOUT_MAX_FAILED   = 10  (tentativi consecutivi prima del lockout)
+//   LOCKOUT_DURATION_MIN = 30  (durata lockout in minuti)
+const LOCKOUT_MAX_FAILED = Math.max(1, Number(process.env.LOCKOUT_MAX_FAILED) || 10);
+const LOCKOUT_DURATION_MIN = Math.max(1, Number(process.env.LOCKOUT_DURATION_MIN) || 30);
 
-    // 2FA — se l'utente ha attivato la verifica in due passaggi via email,
-    // generiamo subito una challenge e mandiamo il codice via email.
-    // Restituiamo tempToken (5min) + maschera email + scadenza.
-    if (user.twoFaEnabled) {
-      const send = await issueAndSendTwoFaCode(user, 'login');
-      if (!send.ok) {
-        // SMTP down: NON emettiamo tempToken. Senza di esso l'attaccante
-        // non ha materiale di sessione su cui iterare /verify o /resend.
-        // L'utente legittimo riproverà il login appena la mail risale.
-        return res.status(503).json({
-          error: 'Impossibile inviare il codice 2FA. Riprova tra qualche istante.',
-          code: 'TWO_FA_SEND_FAILED',
-          sentTo: twoFa.maskEmail(user.email),
+router.post('/login', loginLimiter, (req, res, next) => {
+  // Pre-check lockout PRIMA di passport.authenticate per non sprecare bcrypt
+  // su account lockati (DoS amplification). Lookup per email (case-insensitive).
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : null;
+
+  (async () => {
+    if (email) {
+      const candidate = await User.findOne({
+        where: { email },
+        attributes: ['id', 'lockedUntil', 'failedLoginAttempts'],
+      });
+      if (candidate?.lockedUntil && candidate.lockedUntil > new Date()) {
+        return res.status(423).json({
+          error: 'Account temporaneamente bloccato per troppi tentativi falliti',
+          code: 'ACCOUNT_LOCKED',
+          retryAfterMinutes: Math.ceil((candidate.lockedUntil - new Date()) / 60000),
         });
       }
-      const tempToken = twoFa.signPre2faToken(user.id);
-      return res.json({
-        needsTwoFa: true,
-        tempToken,
-        sentTo: send.sentTo,
-        expiresInMinutes: send.expiresInMinutes,
-      });
     }
 
-    user.lastLogin = new Date();
-    await user.save();
+    passport.authenticate('local', { session: false }, async (err, user, _info) => {
+      if (err) return res.status(500).json({ error: 'Errore interno' });
+      if (!user) {
+        // Risposta uniforme per tutti i casi di failure (password sbagliata,
+        // email non registrata, account disabilitato, account OAuth-only):
+        // codici/messaggi distinti permettevano di enumerare email registrate
+        // e account SSO (target per phishing). Lato server l'esito reale viene
+        // comunque loggato dal passport-local strategy.
+        //
+        // Account lockout: incrementa il contatore SOLO se l'email matcha un
+        // utente esistente (con password locale). Altrimenti chiunque potrebbe
+        // lockare arbitrariamente: sapendo l'email + ripetendo password sbagliata.
+        if (email) {
+          const target = await User.findOne({
+            where: { email },
+            attributes: ['id', 'passwordHash', 'failedLoginAttempts'],
+          });
+          if (target?.passwordHash) {
+            const next = (target.failedLoginAttempts ?? 0) + 1;
+            const update = { failedLoginAttempts: next };
+            if (next >= LOCKOUT_MAX_FAILED) {
+              update.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MIN * 60_000);
+              logger.warn(
+                { userId: target.id, attempts: next, lockedUntil: update.lockedUntil },
+                'account locked: max failed login attempts reached',
+              );
+            }
+            await User.update(update, { where: { id: target.id } });
+          }
+        }
+        return res.status(401).json({
+          error: 'Email o password non validi',
+          code: 'INVALID_CREDENTIALS',
+        });
+      }
 
-    const token = signToken(user);
-    res.json({ token, user: user.toSafeJSON() });
-  })(req, res, next);
+      // Login OK — reset contatori lockout
+      if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+        await User.update(
+          { failedLoginAttempts: 0, lockedUntil: null },
+          { where: { id: user.id } },
+        );
+      }
+
+      // 2FA — se l'utente ha attivato la verifica in due passaggi via email,
+      // generiamo subito una challenge e mandiamo il codice via email.
+      // Restituiamo tempToken (5min) + maschera email + scadenza.
+      if (user.twoFaEnabled) {
+        const send = await issueAndSendTwoFaCode(user, 'login');
+        if (!send.ok) {
+          // SMTP down: NON emettiamo tempToken. Senza di esso l'attaccante
+          // non ha materiale di sessione su cui iterare /verify o /resend.
+          // L'utente legittimo riproverà il login appena la mail risale.
+          return res.status(503).json({
+            error: 'Impossibile inviare il codice 2FA. Riprova tra qualche istante.',
+            code: 'TWO_FA_SEND_FAILED',
+            sentTo: twoFa.maskEmail(user.email),
+          });
+        }
+        const tempToken = twoFa.signPre2faToken(user.id);
+        return res.json({
+          needsTwoFa: true,
+          tempToken,
+          sentTo: send.sentTo,
+          expiresInMinutes: send.expiresInMinutes,
+        });
+      }
+
+      user.lastLogin = new Date();
+      await user.save();
+
+      const token = signToken(user);
+      res.json({ token, user: user.toSafeJSON() });
+    })(req, res, next);
+  })().catch(next);
 });
 
 // =====================================================

@@ -11,6 +11,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gitleaks:
+    name: Security · gitleaks (secrets scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # fetch-depth: 0 → scan dell'intera history sul push (su PR
+          # gitleaks-action di default scansiona solo i commit della PR).
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Config file con allowlist Cadenza (test fixture, docs, etc.).
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # Non bloccare se non c'è una GitLeaks Pro license (gratis per OSS).
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+
   backend:
     name: Backend · lint + test + coverage
     runs-on: ubuntu-latest
