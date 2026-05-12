@@ -19,8 +19,14 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 require('dayjs/locale/it');
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale('it');
+
+const DEFAULT_TZ = 'Europe/Rome';
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
@@ -150,6 +156,12 @@ function drawSignatureBoxes(doc, kind) {
 }
 
 function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
+  // Timezone dell'istituto: usata per tutti i timestamp DATE (returnedAt,
+  // "documento generato il"). I DATEONLY (fromDate/toDate) non hanno
+  // componente oraria e sono safe senza .tz(). Senza questa conversione
+  // su VPS UTC il "Documento generato il 23:00" della sera (ora locale)
+  // veniva stampato come "21:00" del fuso UTC.
+  const tz = institute?.timezone || DEFAULT_TZ;
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 56, left: 56, right: 56, bottom: 56 },
@@ -199,7 +211,9 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
     .fillColor('#6b7a90')
     .fontSize(9)
     .font('Helvetica')
-    .text(`Documento generato il ${dayjs().format('DD/MM/YYYY · HH:mm')} · Prestito #${loan.id}`);
+    .text(
+      `Documento generato il ${dayjs().tz(tz).format('DD/MM/YYYY · HH:mm')} · Prestito #${loan.id}`,
+    );
   doc.moveDown(0.6);
 
   // ============ STRUMENTO ============
@@ -227,7 +241,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
   drawKeyValue(doc, 'Durata prevista', `${durationDays(loan.fromDate, loan.toDate)} giorni`);
   drawKeyValue(doc, 'Stato', STATUS_LABEL[loan.status] || loan.status || '—');
   if (loan.returnedAt)
-    drawKeyValue(doc, 'Restituito il', dayjs(loan.returnedAt).format('DD/MM/YYYY · HH:mm'));
+    drawKeyValue(doc, 'Restituito il', dayjs(loan.returnedAt).tz(tz).format('DD/MM/YYYY · HH:mm'));
   if (loan.approver) {
     const approverName = `${loan.approver.firstName || ''} ${loan.approver.lastName || ''}`.trim();
     if (approverName) drawKeyValue(doc, 'Approvato da', approverName);
@@ -274,7 +288,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
     .fontSize(8)
     .font('Helvetica')
     .text(
-      institute?.copyright || `© ${dayjs().year()} ${institute?.name || 'Cadenza'}`,
+      institute?.copyright || `© ${dayjs().tz(tz).year()} ${institute?.name || 'Cadenza'}`,
       doc.page.margins.left,
       footerY,
       {

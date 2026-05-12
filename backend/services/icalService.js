@@ -13,6 +13,16 @@ const TYPE_LABEL = {
 
 const APP_DOMAIN = 'cadenza.local';
 
+// IMPORTANTE su timezone:
+// La libreria `ics` con default `startInputType: 'local'` interpreta l'array
+// [Y,M,D,h,m] come "wall-clock nella TZ del PROCESSO Node" e lo converte
+// in UTC (suffix Z) per il serializzato finale. Quindi `dayjs(d).hour()`
+// (che ritorna l'ora nella TZ del processo) produce SEMPRE il risultato
+// giusto, indipendentemente dalla TZ del server: su VPS UTC dayjs(12UTC)
+// .hour()=12 → ics emette `T120000Z`; su Europe/Rome dayjs(12UTC).hour()=14
+// → ics interpreta come 14:00 Roma e ri-converte a `T120000Z`. NON applicare
+// `.tz(istituto)` qui: forzare una TZ diversa da quella del processo rompe
+// la doppia conversione di ics e introduce uno shift di N ore.
 function toIcsArray(d) {
   const m = dayjs(d);
   return [m.year(), m.month() + 1, m.date(), m.hour(), m.minute()];

@@ -78,6 +78,17 @@ describe('icalService.buildIcs', () => {
     expect(out).toMatch(/BEGIN:VCALENDAR/);
     expect(out).toMatch(/END:VCALENDAR/);
   });
+
+  it('emette DTSTART in UTC (suffix Z) corrispondente al timestamp originale', () => {
+    // La libreria ics interpreta l'array [Y,M,D,h,m] come local-time del
+    // processo Node e ri-converte in UTC. dayjs(d).hour() ritorna l'ora
+    // nella stessa TZ del processo, quindi il round-trip e identita: per
+    // 12:00 UTC l'output e sempre `T120000Z` indipendentemente da TZ.
+    const bookings = [fakeBooking(1, '2026-05-12T12:00:00Z', '2026-05-12T13:00:00Z')];
+    const out = buildIcs(bookings);
+    expect(out).toMatch(/DTSTART:20260512T120000Z/);
+    expect(out).toMatch(/DTEND:20260512T130000Z/);
+  });
 });
 
 describe('structureImporter', () => {

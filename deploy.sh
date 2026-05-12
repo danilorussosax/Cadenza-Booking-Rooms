@@ -125,6 +125,20 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
 else
   yellow "[1/8] Build frontend SALTATA (--no-build)"
   [[ -d frontend/dist ]] || { red "[ERR] frontend/dist non esiste, non posso saltare la build"; exit 1; }
+  # Stale-check: se almeno un sorgente in frontend/src e' piu' recente del
+  # bundle in dist, --no-build pubblicherebbe codice obsoleto. Tailwind in
+  # particolare purga al build le classi non viste nel sorgente — un dist
+  # vecchio significa CSS senza le classi nuove. (Maggio 2026: bug zebra
+  # striping del WeeklyRoomTimetable invisibile in prod proprio per questo.)
+  newest_src=$(find frontend/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' -o -name '*.json' \) -print0 2>/dev/null | xargs -0 stat -f '%m' 2>/dev/null | sort -rn | head -1)
+  newest_dist=$(find frontend/dist -type f \( -name '*.js' -o -name '*.css' -o -name 'index.html' \) -print0 2>/dev/null | xargs -0 stat -f '%m' 2>/dev/null | sort -rn | head -1)
+  if [[ -n "$newest_src" && -n "$newest_dist" && "$newest_src" -gt "$newest_dist" ]]; then
+    red "[ERR] --no-build rifiutato: frontend/src ha file modificati DOPO l'ultima build."
+    red "      Il dist pubblicato sarebbe obsoleto (es. classi Tailwind purgate fuori)."
+    yellow "      Lancia ./deploy.sh senza --no-build, oppure 'npm --prefix frontend run build' a mano."
+    exit 1
+  fi
+  green "    ✓ dist attuale (build presunta valida — niente file src piu' recenti)"
 fi
 
 # ------------------------------------------------------------
