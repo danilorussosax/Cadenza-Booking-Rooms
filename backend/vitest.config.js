@@ -46,16 +46,11 @@ export default defineConfig({
         //   - contractTypes.js da 12% a 93% (+26 integration)
         //   - analytics CSV export coperta (+5 integration)
         //   - instrumentImporter.js da 14% a 88% (+19 integration)
-        // TODO(test-debt): risalire ulteriormente aggiungendo test su
-        //   - routes/analytics.js (20%): blocco nel SQL Postgres-only
-        //     (EXTRACT/date_trunc), serve job CI dedicato con servizio
-        //     Postgres GitHub Actions per testare le aggregazioni reali.
-        //   - services/structureImporter.js (36%): meno prioritario,
-        //     parser CSV puro, testabile in unit.
-        statements: 60,
-        lines: 62,
-        functions: 64,
-        branches: 48,
+        //   - structureImporter.js da 36% a 100% (+35 unit+integration)
+        statements: 61,
+        lines: 63,
+        functions: 65,
+        branches: 50,
       },
     },
   },
