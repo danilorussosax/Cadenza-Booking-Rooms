@@ -112,7 +112,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 
 - **2FA via email code** (6-digit OTP, 10-min expiry, bcrypt cost 8, 10 recovery codes)
 - **JWT** 2h + `tokenVersion` (real logout) + bcrypt cost 12
-- **Strict CSP** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy
+- **Strict CSP** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — public scanners: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
 - **Sentry** v10 with recursive PII scrubbing + SHA-256 anonymised user
 - **Italian PA GDPR package** (Garante 06/2021): cookie banner, append-only `UserConsent`, art. 20 export, art. 17 delete, re-consent on policy version change
 - **PostgreSQL EXCLUDE constraint** (`bookings_no_overlap`) as a DB-level anti-overlap safety net

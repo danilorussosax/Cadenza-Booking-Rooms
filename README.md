@@ -111,7 +111,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 - **2FA via codice email** (OTP 6 cifre, scadenza 10 min, bcrypt cost 8, 10 recovery code)
 - **JWT** 2h + `tokenVersion` (logout effettivo) + bcrypt cost 12
-- **CSP rigorosa** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy
+- **CSP rigorosa** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — scanner pubblici: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
 - **Sentry** v10 con scrubbing PII ricorsivo + utente anonimizzato SHA-256
 - **Pacchetto GDPR-PA italiana** (Garante 06/2021): cookie banner, `UserConsent` append-only, export art. 20, delete art. 17, re-consent al cambio versione
 - **EXCLUDE constraint** PostgreSQL (`bookings_no_overlap`) come rete di sicurezza anti-overlap a livello DB
