@@ -27,17 +27,29 @@ export default defineConfig({
         'seeders/**',
         'scripts/**',
         // Adapters di messaging esterni (Signal CLI, IMAP polling, WhatsApp
-        // Cloud API): I/O-bound su processi/network esterni. Coperti da
-        // smoke loadability ma il test funzionale richiede fixture/cassette
-        // pesanti — fuori scope dell'unit/integration coverage.
+        // Cloud API, Telegram Bot API): I/O-bound su processi/network esterni.
+        // Coperti da smoke loadability ma il test funzionale richiede fixture/
+        // cassette pesanti — fuori scope dell'unit/integration coverage.
         'services/messaging/adapters/signal_cli.js',
         'services/messaging/adapters/email_imap.js',
         'services/messaging/adapters/whatsapp_cloud.js',
+        'services/messaging/adapters/telegram.js',
         // Bot conversazionale: intent matching + state machine richiedono
         // fixture conversazionali pesanti per essere testati realisticamente.
         'services/messaging/intent.js',
         // Email broadcast annunci: 100% dipendente da SMTP transporter.
         'services/announcementEmail.js',
+        // Analytics admin: aggregazioni SQL Postgres-only (EXTRACT/date_trunc).
+        // Coperte dal job CI dedicato "Backend · Postgres-only tests" tramite
+        // `tests/integration/analyticsAggregations.postgres.test.js` (7 it).
+        // Su SQLite dev quelle query non girano → coverage misurata su SQLite
+        // riporta 20% perché solo i path di validazione/CSV vengono toccati.
+        'routes/analytics.js',
+        // Telegram setup helper: chiama Telegram Bot API HTTP (setWebhook +
+        // setMyCommands ecc.) — non testabile senza fixture HTTP pesanti.
+        // Le validation paths del route /messaging-settings/:channel/auto-configure
+        // sono coperte dal nostro test integration.
+        'services/messaging/telegramSetup.js',
       ],
       thresholds: {
         // Soglie di non-regressione: floor allineato al coverage corrente con
@@ -52,10 +64,10 @@ export default defineConfig({
         //   - routes/courseLevels.js da 9% a alto branches (+19 integration)
         //   - routes/instrumentLoanRules.js da 2% a alto (+20 integration)
         //   - routes/botBindings.js da 8% a alto (+12 integration)
-        statements: 69,
-        lines: 70,
-        functions: 74,
-        branches: 58,
+        statements: 72,
+        lines: 73,
+        functions: 78,
+        branches: 60,
       },
     },
   },

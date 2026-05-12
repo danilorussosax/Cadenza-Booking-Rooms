@@ -261,6 +261,201 @@ describe('lib/sentry helpers', () => {
   it('isInitialized rispecchia stato (false per default in test)', () => {
     expect(typeof sentry.isInitialized()).toBe('boolean');
   });
+
+  describe('scrubObject — edge cases ricorsivi', () => {
+    it('null/undefined/string/number → invariati', () => {
+      expect(sentry.scrubObject(null)).toBeNull();
+      expect(sentry.scrubObject(undefined)).toBeUndefined();
+      expect(sentry.scrubObject('plain')).toBe('plain');
+      expect(sentry.scrubObject(42)).toBe(42);
+    });
+
+    it('array di oggetti scrub ricorsivo', () => {
+      const out = sentry.scrubObject([
+        { email: 'a@b.it', name: 'visible' },
+        { password: 'p', token: 't' },
+      ]);
+      expect(out[0].email).toBe('[PII]');
+      expect(out[0].name).toBe('visible');
+      expect(out[1].password).toBe('[REDACTED]');
+      expect(out[1].token).toBe('[REDACTED]');
+    });
+
+    it('mantiene oggetti annidati profondi', () => {
+      const out = sentry.scrubObject({
+        level1: { level2: { level3: { email: 'x@y.it', ok: 1 } } },
+      });
+      expect(out.level1.level2.level3.email).toBe('[PII]');
+      expect(out.level1.level2.level3.ok).toBe(1);
+    });
+  });
+
+  describe('scrubBreadcrumb', () => {
+    it('breadcrumb null/undefined → passthrough', () => {
+      expect(sentry.scrubBreadcrumb(null)).toBeNull();
+      expect(sentry.scrubBreadcrumb(undefined)).toBeUndefined();
+    });
+
+    it('breadcrumb senza data → invariato', () => {
+      const bc = { category: 'http', message: 'click' };
+      expect(sentry.scrubBreadcrumb(bc)).toEqual(bc);
+    });
+
+    it('breadcrumb con data scrub', () => {
+      const out = sentry.scrubBreadcrumb({
+        category: 'http',
+        data: { password: 'x', email: 'a@b.it' },
+      });
+      expect(out.data.password).toBe('[REDACTED]');
+      expect(out.data.email).toBe('[PII]');
+    });
+  });
+
+  describe('scrubEvent — rami estesi', () => {
+    it('event null/undefined → passthrough', () => {
+      expect(sentry.scrubEvent(null)).toBeNull();
+      expect(sentry.scrubEvent(undefined)).toBeUndefined();
+    });
+
+    it('event vuoto → invariato', () => {
+      expect(sentry.scrubEvent({})).toEqual({});
+    });
+
+    it('event.extra scrub', () => {
+      const out = sentry.scrubEvent({
+        extra: { apiKey: 'secret', counter: 1 },
+      });
+      expect(out.extra.apiKey).toBe('[REDACTED]');
+      expect(out.extra.counter).toBe(1);
+    });
+
+    it('event.contexts.body scrub', () => {
+      const out = sentry.scrubEvent({
+        contexts: { body: { email: 'a@x.it', ok: 'yes' } },
+      });
+      expect(out.contexts.body.email).toBe('[PII]');
+    });
+
+    it('request senza data/headers/cookies (solo URL) → no error', () => {
+      const out = sentry.scrubEvent({
+        request: { url: 'https://x.it' },
+      });
+      expect(out.request.url).toBe('https://x.it');
+    });
+  });
+
+  describe('init / setRequestScope (con DSN mockato)', () => {
+    beforeEach(() => {
+      vi.resetModules();
+    });
+
+    it('init senza SENTRY_DSN → ritorna false (no-op)', () => {
+      const orig = process.env.SENTRY_DSN;
+      delete process.env.SENTRY_DSN;
+      delete require.cache[require.resolve('../../lib/sentry')];
+      const s = require('../../lib/sentry');
+      expect(s.init()).toBe(false);
+      expect(s.isInitialized()).toBe(false);
+      if (orig !== undefined) process.env.SENTRY_DSN = orig;
+    });
+
+    it('setRequestScope no-op se Sentry non inizializzato', () => {
+      const orig = process.env.SENTRY_DSN;
+      delete process.env.SENTRY_DSN;
+      delete require.cache[require.resolve('../../lib/sentry')];
+      const s = require('../../lib/sentry');
+      expect(() => s.setRequestScope({ id: 'r1', user: { id: 1, role: 'admin' } })).not.toThrow();
+      if (orig !== undefined) process.env.SENTRY_DSN = orig;
+    });
+  });
+});
+
+describe('services/emailService — pure helpers', () => {
+  const { render, renderText, getTemplate } = require('../../services/emailService');
+
+  describe('render', () => {
+    it('sostituisce semplice {{var}}', () => {
+      expect(render('Ciao {{name}}!', { name: 'Mario' })).toBe('Ciao Mario!');
+    });
+
+    it('escape HTML di default', () => {
+      expect(render('{{x}}', { x: '<script>' })).toContain('&lt;script&gt;');
+    });
+
+    it("{{!var}} bypassa l'escape (raw)", () => {
+      expect(render('{{!html}}', { html: '<b>x</b>' })).toBe('<b>x</b>');
+    });
+
+    it('{{path.nested.deep}} segue il path', () => {
+      expect(render('{{user.profile.name}}', { user: { profile: { name: 'X' } } })).toBe('X');
+    });
+
+    it('var mancante → stringa vuota', () => {
+      expect(render('{{missing}}', {})).toBe('');
+    });
+
+    it('{{#if x}}...{{/if}} mostra solo se truthy', () => {
+      expect(render('{{#if ok}}YES{{/if}}', { ok: true })).toBe('YES');
+      expect(render('{{#if ok}}YES{{/if}}', { ok: false })).toBe('');
+      expect(render('{{#if ok}}YES{{/if}}', { ok: '' })).toBe('');
+      expect(render('{{#if ok}}YES{{/if}}', { ok: 'string' })).toBe('YES');
+    });
+
+    it('template vuoto/null → stringa vuota', () => {
+      expect(render('', {})).toBe('');
+      expect(render(null, {})).toBe('');
+    });
+  });
+
+  describe('renderText', () => {
+    it('renderText non escape per i subject', () => {
+      // Per i subject vogliamo testo plain, l'escape diventa rumore
+      const out = renderText("L'evento {{name}}", { name: 'Concerto' });
+      expect(out).toContain('Concerto');
+    });
+  });
+
+  describe('getTemplate', () => {
+    beforeEach(async () => {
+      await globalThis.resetDatabase();
+    });
+
+    it('kind sconosciuto → null', async () => {
+      expect(await getTemplate('inventato')).toBeNull();
+    });
+
+    it('kind valido senza row DB → ritorna defaults', async () => {
+      const tpl = await getTemplate('confirmation');
+      expect(tpl).toBeDefined();
+      expect(tpl.subject).toBeTruthy();
+      expect(tpl.bodyHtml).toBeTruthy();
+    });
+
+    it('kind valido con row DB enabled → ritorna row', async () => {
+      const { MailTemplate } = require('../../models');
+      await MailTemplate.create({
+        kind: 'reminder',
+        subject: 'Custom Subject',
+        bodyHtml: '<p>custom</p>',
+        isEnabled: true,
+      });
+      const tpl = await getTemplate('reminder');
+      expect(tpl.subject).toBe('Custom Subject');
+      expect(tpl.bodyHtml).toBe('<p>custom</p>');
+    });
+
+    it('row disabled → fallback ai defaults', async () => {
+      const { MailTemplate } = require('../../models');
+      await MailTemplate.create({
+        kind: 'cancellation',
+        subject: 'Custom',
+        bodyHtml: '<p>x</p>',
+        isEnabled: false,
+      });
+      const tpl = await getTemplate('cancellation');
+      expect(tpl.subject).not.toBe('Custom');
+    });
+  });
 });
 
 describe('lib/dbErrors', () => {
