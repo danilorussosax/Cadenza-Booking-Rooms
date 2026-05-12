@@ -42,6 +42,56 @@ jobs:
           path: backend/coverage
           retention-days: 14
 
+  backend-postgres:
+    # Job dedicato per i test che richiedono un Postgres reale (suffisso
+    # *.postgres.test.js). Tipicamente: EXCLUDE constraint e analytics
+    # aggregations (EXTRACT/date_trunc/::int Postgres-only). Il job backend
+    # principale gira su SQLite in-memory: questi test sono "skipped" lì e
+    # vengono eseguiti separatamente qui.
+    name: Backend · Postgres-only tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cadenza
+          POSTGRES_PASSWORD: cadenza
+          POSTGRES_DB: cadenza_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cadenza"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_DIALECT: postgres
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: cadenza_test
+      DB_USER: cadenza
+      DB_PASSWORD: cadenza
+      DB_SSL: "false"
+      DB_LOGGING: "false"
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Postgres-only tests
+        run: npx vitest run "tests/**/*.postgres.test.js" tests/integration/excludeConstraint.test.js
+
   frontend:
     name: Frontend · typecheck + test + build
     runs-on: ubuntu-latest
