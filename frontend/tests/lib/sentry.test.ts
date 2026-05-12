@@ -160,9 +160,15 @@ describe('lib/sentry · init + scrubbing PII (con DSN mockato)', () => {
     const { initSentry, setSentryUser } = await import('@/lib/sentry');
     initSentry();
     setSentryUser({ id: 42, role: 'admin' });
-    // hashUserId è async: aspettiamo un tick per consumare la promise
-    await new Promise((r) => setTimeout(r, 0));
-    expect(sentryMock.setUser).toHaveBeenCalled();
+    // hashUserId è async (crypto.subtle.digest): la durata reale dipende
+    // dall'env (jsdom in CI può essere più lento). vi.waitFor ritenta
+    // l'assertion fino a 1s anziché affidarsi a un singolo setTimeout(0).
+    await vi.waitFor(
+      () => {
+        expect(sentryMock.setUser).toHaveBeenCalled();
+      },
+      { timeout: 1000 },
+    );
     const arg = sentryMock.setUser.mock.calls[0]![0];
     expect(arg.role).toBe('admin');
     expect(arg.id).toMatch(/^[0-9a-f]{16}$/);
