@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { gdprApi } from '@/api/gdpr';
 import { httpErrorMessage } from '@/lib/api';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
+import { useConsentGate } from '@/components/legal/useConsentGate';
 
 // Banner-modale globale che obbliga l'utente autenticato ad accettare la
 // versione corrente di Privacy Policy e Termini se quella registrata è
@@ -26,32 +27,18 @@ import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersi
 // Si attiva solo dopo il login (richiede `useAuth().user`). Non si attiva
 // per gli admin: per loro un cambio policy dovrebbe arrivare per altre
 // vie (notifica interna), non come blocco UI.
+//
+// La logica `needsConsent` vive in `useConsentGate()` ed e' condivisa
+// col `CookieBanner` (che si nasconde finche' il gate e' attivo, per
+// evitare il backdrop modale che intercetta i click sul banner).
 export function ConsentGate() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const qc = useQueryClient();
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const consentsQuery = useQuery({
-    queryKey: ['gdpr', 'consents'],
-    queryFn: () => gdprApi.getConsents(),
-    enabled: !!user,
-    staleTime: 60 * 1000,
-  });
-
-  const needsConsent = useMemo(() => {
-    if (!user) return false;
-    // Admin esclusi da questo gate (vedi commento sopra).
-    if (user.role === 'admin') return false;
-    if (consentsQuery.isLoading) return false;
-    const c = consentsQuery.data?.consents ?? {};
-    const privacyOk =
-      c.privacy_policy?.granted === true &&
-      c.privacy_policy.policyVersion === PRIVACY_POLICY_VERSION;
-    const termsOk = c.terms?.granted === true && c.terms.policyVersion === TERMS_VERSION;
-    return !privacyOk || !termsOk;
-  }, [user, consentsQuery.data, consentsQuery.isLoading]);
+  const { needsConsent } = useConsentGate();
 
   const acceptMutation = useMutation({
     mutationFn: () =>

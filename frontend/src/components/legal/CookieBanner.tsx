@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { loadConsent, saveConsent } from './cookieConsent';
+import { useConsentGate } from './useConsentGate';
 
 // Rotte pubbliche kiosk-style su cui il banner cookie NON deve apparire:
 // /display gira su monitor pubblici senza utente loggato e senza profilazione,
@@ -18,6 +19,7 @@ export function CookieBanner() {
   const [showDetails, setShowDetails] = useState(false);
   const [functional, setFunctional] = useState(false);
   const [analytics, setAnalytics] = useState(false);
+  const { needsConsent: legalGateOpen } = useConsentGate();
 
   useEffect(() => {
     if (loadConsent() == null) setVisible(true);
@@ -25,6 +27,12 @@ export function CookieBanner() {
 
   if (!visible) return null;
   if (KIOSK_ROUTES.some((r) => location.pathname.startsWith(r))) return null;
+  // Se il ConsentGate (Aggiornamento documenti legali) e' aperto, il banner
+  // resta nascosto: il backdrop modale del Dialog (z-50) intercettava i
+  // click sui bottoni del banner che vive in z-50 ma e' renderizzato prima
+  // nel DOM. Sequenza UX corretta: prima il consent legale (bloccante),
+  // poi appare il banner cookie quando il dialog si chiude.
+  if (legalGateOpen) return null;
 
   const acceptAll = () => {
     saveConsent({ functional: true, analytics: true });
