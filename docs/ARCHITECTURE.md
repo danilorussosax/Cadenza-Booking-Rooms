@@ -197,10 +197,17 @@ Per ridurre le prenotazioni "fantasma" (aule prenotate e mai utilizzate) Cadenza
 
 - **Scheduler** (`reminderScheduler.js → tickGhostCancel`) integrato nel tick da 5 min: se `now > startTime + GHOST_GRACE_MINUTES` e `checkedInAt=null` e `autoCancelledAt=null`, transiziona la booking a `status='cancelled'` con `cancelReason='auto: ghost booking'` e invia email kind `ghost_cancellation`.
 
+- **Toggle per aula `Room.requireCheckIn` (default true)**. Quando `false` la feature è esonerata su quella specifica aula con difesa in profondità a 4 livelli:
+  1. `tickGhostCancel`: include con `required:true` + `where: requireCheckIn != false` (INNER JOIN che scarta le booking al DB) + post-filter JS di sicurezza
+  2. `sendBookingEmail`: guard hard sul kind `ghost_cancellation` che blocca l'enqueue se `booking.room.requireCheckIn === false`
+  3. `GET /api/bookings/checkin-candidates`: ritorna `{ bookings: [], roomCheckInDisabled: true }` senza esporre booking
+  4. `POST /api/bookings/:id/checkin`: rifiuta a monte con `400 CHECKIN_NOT_REQUIRED`
+
 - **UI**:
-  - Dashboard mostra una card "Check-in richiesto" sopra le KPI per booking imminenti senza checkedInAt
-  - MyBookings mostra un badge ambra "Senza check-in" sui booking passati senza conferma
-  - Admin Structure → dialog Aula → pulsante "Stampa QR aula" che scarica il PNG
+  - Dashboard mostra una card "Check-in richiesto" sopra le KPI per booking imminenti senza checkedInAt (saltata se `requireCheckIn=false`)
+  - MyBookings mostra un badge ambra "Senza check-in" sui booking passati senza conferma (saltato se `requireCheckIn=false`)
+  - Pagina `/check-in/room/:id` mostra un banner info "Check-in non richiesto" quando `roomCheckInDisabled=true`
+  - Admin Structure → dialog Aula → pulsante "Stampa QR aula" che scarica il PNG (nascosto se `requireCheckIn=false`)
 
 - **Variabili d'ambiente**:
   - `CHECKIN_EARLY_MINUTES` (default 5) — quanto prima dell'inizio si può fare check-in

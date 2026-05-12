@@ -50,7 +50,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Regole e quote configurabili per ruolo (durata min/max, anticipo, finestra oraria, quota settimanale)
 - **Eccezioni con scope per ruolo + aula** (`block` o `time_window`): override temporanei per ristrutturazioni, sessioni esami, masterclass, con anteprima sovrapposizioni storiche e batch-cancel transazionale
 - **Approval workflow** per aule speciali (sala concerti, auditorium)
-- **Anti-ghost booking**: check-in tramite QR code stampato in aula, auto-cancellazione con grace period
+- **Anti-ghost booking**: check-in tramite QR code stampato in aula, auto-cancellazione con grace period (esonerabile per singola aula con `Room.requireCheckIn=false`)
 - **Waitlist** con claim window e auto-promote
 - **Dashboard** con toggle "1 giorno · 3 giorni" sul calendario (preferenza persistita per browser, frecce di navigazione coerenti con la modalità)
 - Vista settimanale aule × giorni con export PDF A4 landscape per edificio

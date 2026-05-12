@@ -167,8 +167,17 @@ i18n nei test è inizializzato con `parseMissingKeyHandler: (key) => key`: ogni 
 
 ## Coverage
 
-Soglia obiettivo: **70% su `routes/` e `services/` backend**, valutata a livello di repo (non per file).
+Soglie **bloccanti** (`backend/vitest.config.js`, esito CI fallisce sotto target):
 
-Stato attuale (da `npm run test:coverage`): la prima passata di test integration tocca le rotte critiche ma è sotto la soglia globale. Le soglie hard sono **commentate** in `vitest.config.js` per non rompere CI durante l'incremento iniziale; vanno **riattivate** appena si supera il 70% per evitare regressioni.
+| Asse       | Soglia | Misurato 2026-05-12 |
+| ---------- | ------ | ------------------- |
+| Statements | ≥ 61 % | 62.39 %             |
+| Lines      | ≥ 63 % | 64.47 %             |
+| Functions  | ≥ 65 % | 66.14 %             |
+| Branches   | ≥ 50 % | 51.16 %             |
 
-Per il frontend non c'è soglia: i test componenti coprono solo i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.
+Le soglie crescono con il coverage: floor = misurato − ~1.5 punti, così nuovi test alzano la barra mentre regressioni vengono bloccate dal CI. Quando aggiungi test che migliorano la copertura, alza anche le soglie.
+
+Stato 2026-05-12: **763 test backend** (12 skipped postgres-only). I servizi parser CSV (`structureImporter`, `instrumentImporter`) e `twoFa` sono ora al 100 % / 88 % / 100 %; il TODO test-debt in `vitest.config.js` è chiuso. Per il frontend la soglia è ≥ 60 % su tutti gli assi (`vitest.config.ts`), misurato 66.97 %.
+
+Per area frontend i test componenti coprono i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.
