@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, screen } from '../test-utils';
 import { AppFooter } from '@/components/AppFooter';
@@ -8,6 +9,8 @@ import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Aphorism } from '@/components/Aphorism';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 
 describe('<AppFooter />', () => {
   it('renderizza footer con copyright/info', () => {
@@ -94,5 +97,48 @@ describe('<AppErrorBoundary />', () => {
         ricarica.hasAttribute('type'),
     ).toBe(true);
     spy.mockRestore();
+  });
+});
+
+describe('<OfflineBanner />', () => {
+  it('non rende nulla quando online (default jsdom: navigator.onLine=true)', () => {
+    const { container } = renderWithProviders(<OfflineBanner />);
+    // AnimatePresence non monta i figli quando il guard è false
+    expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('mostra il banner quando navigator va offline', () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    try {
+      const { container } = renderWithProviders(<OfflineBanner />);
+      // Forziamo il fire dell'evento 'offline' che useOnline ascolta
+      act(() => {
+        window.dispatchEvent(new Event('offline'));
+      });
+      const status = container.querySelector('[role="status"]');
+      expect(status).not.toBeNull();
+      expect(status?.textContent).toBeTruthy();
+    } finally {
+      if (original) Object.defineProperty(navigator, 'onLine', original);
+    }
+  });
+});
+
+describe('<MobileBottomNav />', () => {
+  it('renderizza 4 NavLink (dashboard, booking, my-bookings, profile)', () => {
+    const { container } = renderWithProviders(<MobileBottomNav />);
+    const links = container.querySelectorAll('a');
+    expect(links.length).toBe(4);
+    const hrefs = Array.from(links).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(
+      expect.arrayContaining(['/dashboard', '/booking', '/my-bookings', '/profile']),
+    );
+  });
+
+  it('ha aria-label sul nav per screen reader', () => {
+    const { container } = renderWithProviders(<MobileBottomNav />);
+    const nav = container.querySelector('nav');
+    expect(nav?.getAttribute('aria-label')).toBeTruthy();
   });
 });

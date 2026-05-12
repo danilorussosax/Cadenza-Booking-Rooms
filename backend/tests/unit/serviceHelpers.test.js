@@ -226,8 +226,132 @@ describe('lib/dbErrors', () => {
 
 describe('lib/network helpers', () => {
   const net = require('../../lib/network');
+
   it('è un oggetto con funzioni utility', () => {
     expect(typeof net).toBe('object');
+    expect(typeof net.validateCidr).toBe('function');
+    expect(typeof net.extractClientIp).toBe('function');
+    expect(typeof net.isIpInCidrList).toBe('function');
+    expect(typeof net.normalizeIp).toBe('function');
+  });
+
+  describe('validateCidr', () => {
+    it('CIDR IPv4 valido → ok + normalized', () => {
+      const r = net.validateCidr('192.168.1.0/24');
+      expect(r.ok).toBe(true);
+      expect(r.normalized).toMatch(/192\.168\.1\.0\/24/);
+    });
+
+    it('CIDR IPv6 valido → ok', () => {
+      const r = net.validateCidr('2001:db8::/32');
+      expect(r.ok).toBe(true);
+      expect(r.normalized).toContain('/32');
+    });
+
+    it('senza "/" → error', () => {
+      const r = net.validateCidr('192.168.1.1');
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/CIDR/i);
+    });
+
+    it('input non stringa → error', () => {
+      expect(net.validateCidr(null).ok).toBe(false);
+      expect(net.validateCidr(42).ok).toBe(false);
+      expect(net.validateCidr({}).ok).toBe(false);
+    });
+
+    it('CIDR malformato → error', () => {
+      const r = net.validateCidr('999.999.999.999/24');
+      expect(r.ok).toBe(false);
+      expect(r.error).toBeTruthy();
+    });
+
+    it('CIDR con whitespace ai bordi → trim e accetta', () => {
+      const r = net.validateCidr('  10.0.0.0/8  ');
+      expect(r.ok).toBe(true);
+    });
+  });
+
+  describe('extractClientIp', () => {
+    it('preferisce req.ip', () => {
+      expect(net.extractClientIp({ ip: '1.2.3.4' })).toBe('1.2.3.4');
+    });
+
+    it('fallback connection.remoteAddress', () => {
+      expect(net.extractClientIp({ connection: { remoteAddress: '5.6.7.8' } })).toBe('5.6.7.8');
+    });
+
+    it('fallback socket.remoteAddress', () => {
+      expect(net.extractClientIp({ socket: { remoteAddress: '9.9.9.9' } })).toBe('9.9.9.9');
+    });
+
+    it('niente disponibile → null', () => {
+      expect(net.extractClientIp({})).toBeNull();
+    });
+  });
+
+  describe('normalizeIp', () => {
+    it('IPv4 mappato in IPv6 → IPv4 plain', () => {
+      expect(net.normalizeIp('::ffff:192.168.1.234')).toBe('192.168.1.234');
+    });
+
+    it('IPv4 → invariato', () => {
+      expect(net.normalizeIp('127.0.0.1')).toBe('127.0.0.1');
+    });
+
+    it('IPv6 puro → forma compatta', () => {
+      expect(net.normalizeIp('::1')).toBe('::1');
+    });
+
+    it('null / vuoto → null', () => {
+      expect(net.normalizeIp(null)).toBeNull();
+      expect(net.normalizeIp('')).toBeNull();
+    });
+
+    it('input non parsabile → ritorna stringa originale', () => {
+      expect(net.normalizeIp('not-an-ip')).toBe('not-an-ip');
+    });
+  });
+
+  describe('isIpInCidrList', () => {
+    it('IPv4 dentro range → true', () => {
+      expect(net.isIpInCidrList('192.168.1.50', ['192.168.1.0/24'])).toBe(true);
+    });
+
+    it('IPv4 fuori range → false', () => {
+      expect(net.isIpInCidrList('10.0.0.1', ['192.168.1.0/24'])).toBe(false);
+    });
+
+    it('IPv4 mappato in IPv6 viene normalizzato e matchato', () => {
+      expect(net.isIpInCidrList('::ffff:192.168.1.50', ['192.168.1.0/24'])).toBe(true);
+    });
+
+    it('lista vuota → false', () => {
+      expect(net.isIpInCidrList('192.168.1.1', [])).toBe(false);
+    });
+
+    it('IP null/undefined → false', () => {
+      expect(net.isIpInCidrList(null, ['10.0.0.0/8'])).toBe(false);
+      expect(net.isIpInCidrList(undefined, ['10.0.0.0/8'])).toBe(false);
+    });
+
+    it('lista non-array → false', () => {
+      expect(net.isIpInCidrList('1.2.3.4', null)).toBe(false);
+      expect(net.isIpInCidrList('1.2.3.4', 'x')).toBe(false);
+    });
+
+    it('IP non parsabile → false', () => {
+      expect(net.isIpInCidrList('not-an-ip', ['10.0.0.0/8'])).toBe(false);
+    });
+
+    it('CIDR malformati in lista vengono saltati silenziosamente', () => {
+      expect(net.isIpInCidrList('10.0.0.5', ['malformed', '10.0.0.0/8'])).toBe(true);
+    });
+
+    it('family mismatch IPv4 ↔ IPv6 → continua (no match)', () => {
+      expect(net.isIpInCidrList('10.0.0.5', ['2001:db8::/32'])).toBe(false);
+      expect(net.isIpInCidrList('2001:db8::1', ['10.0.0.0/8'])).toBe(false);
+    });
   });
 });
 

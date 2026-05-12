@@ -126,4 +126,85 @@ describe('publicBookingToBlock + publicBookingsToBlocks', () => {
   it('publicBookingsToBlocks su array vuoto', () => {
     expect(publicBookingsToBlocks([])).toEqual([]);
   });
+
+  it('publicBookingToBlock: studio_individuale → label "S"', () => {
+    const b = publicBookingToBlock(
+      { ...fakePublic(), type: 'studio_individuale' } as Parameters<typeof publicBookingToBlock>[0],
+      77,
+    );
+    expect(b.label).toBe('S');
+    expect(b.roomId).toBe(77);
+  });
+
+  it('publicBookingToBlock: prova → label "P"', () => {
+    const b = publicBookingToBlock(
+      { ...fakePublic(), type: 'prova' } as Parameters<typeof publicBookingToBlock>[0],
+      1,
+    );
+    expect(b.label).toBe('P');
+  });
+
+  it('publicBookingToBlock: concerto → label "C"', () => {
+    const b = publicBookingToBlock(
+      { ...fakePublic(), type: 'concerto' } as Parameters<typeof publicBookingToBlock>[0],
+      1,
+    );
+    expect(b.label).toBe('C');
+  });
+
+  it('publicBookingToBlock: lezione docente → "Prof. <Cognome>"', () => {
+    const b = publicBookingToBlock(
+      {
+        ...fakePublic(),
+        type: 'lezione',
+        bookedBy: {
+          role: 'docente',
+          firstName: 'Mario',
+          lastName: 'Rossi',
+          displayName: 'Prof. Mario Rossi',
+        },
+      } as unknown as Parameters<typeof publicBookingToBlock>[0],
+      1,
+    );
+    expect(b.label).toMatch(/Prof/);
+  });
+
+  it('publicBookingsToBlocks: disambigua docenti omonimi', () => {
+    const out = publicBookingsToBlocks([
+      {
+        booking: {
+          id: 1,
+          startTime: '2025-11-03T10:00:00Z',
+          endTime: '2025-11-03T11:00:00Z',
+          type: 'lezione',
+          status: 'confirmed',
+          bookedBy: {
+            role: 'docente',
+            firstName: 'Mario',
+            lastName: 'Rossi',
+            displayName: 'Mario Rossi',
+          },
+        } as never,
+        roomId: 1,
+      },
+      {
+        booking: {
+          id: 2,
+          startTime: '2025-11-03T11:00:00Z',
+          endTime: '2025-11-03T12:00:00Z',
+          type: 'lezione',
+          status: 'confirmed',
+          bookedBy: {
+            role: 'docente',
+            firstName: 'Luigi',
+            lastName: 'Rossi',
+            displayName: 'Luigi Rossi',
+          },
+        } as never,
+        roomId: 1,
+      },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out[0]!.label).not.toBe(out[1]!.label);
+  });
 });

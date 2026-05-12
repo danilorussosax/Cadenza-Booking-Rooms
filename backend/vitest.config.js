@@ -47,10 +47,15 @@ export default defineConfig({
         //   - analytics CSV export coperta (+5 integration)
         //   - instrumentImporter.js da 14% a 88% (+19 integration)
         //   - structureImporter.js da 36% a 100% (+35 unit+integration)
-        statements: 61,
-        lines: 63,
-        functions: 65,
-        branches: 50,
+        //   - lib/network.js da 16% a 100% branches (+13 unit)
+        //   - lib/pgBin.js + routes/appIcons.js (+7 unit)
+        //   - routes/courseLevels.js da 9% a alto branches (+19 integration)
+        //   - routes/instrumentLoanRules.js da 2% a alto (+20 integration)
+        //   - routes/botBindings.js da 8% a alto (+12 integration)
+        statements: 62,
+        lines: 64,
+        functions: 66,
+        branches: 51,
       },
     },
   },

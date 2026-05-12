@@ -26,11 +26,15 @@ export default mergeConfig(
           'src/components/admin/**FormDialog.tsx',
           'src/components/admin/**ImportDialog.tsx',
           'src/components/admin/**Section.tsx',
+          'src/components/admin/**Panel.tsx',
           'src/components/admin/InstrumentLoanRulesTab.tsx',
           'src/components/admin/RulesPreview.tsx',
           'src/components/admin/MailTemplateEditor.tsx',
           'src/components/admin/QuotasManager.tsx',
           'src/components/admin/LoanQuotasManager.tsx',
+          // Profile sections: CRUD utente (notifiche, password, 2FA), coperte
+          // dai test E2E con login. Stesso razionale dei Section admin.
+          'src/components/profile/**Section.tsx',
           // Wrapper page-level (richiedono full app stack + auth context):
           // coperti da E2E. I sub-componenti restano nello scope.
           'src/components/layout/AppLayout.tsx',
