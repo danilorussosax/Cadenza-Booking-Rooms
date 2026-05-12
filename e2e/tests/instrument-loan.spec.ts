@@ -32,20 +32,36 @@ async function login(page, creds) {
 
 /**
  * Chiude i dialog che bloccano l'app dopo il login:
+ *  - Dialog "Aggiornamento documenti legali" (ConsentGate, checkbox +
+ *    "Accetta e continua")
  *  - Banner cookie tecnici (bottone "Accetta")
- *  - Dialog "Aggiornamento documenti legali" (checkbox + Accetta e continua)
+ *
+ * Ordine importante: il ConsentGate dialog ha un backdrop `bg-black/50`
+ * in z-50 che copre tutto schermo. Il CookieBanner ha lo stesso z-50 ma
+ * e' renderizzato prima nel DOM, quindi l'overlay del dialog gli sta
+ * sopra. Se non chiudiamo il dialog PRIMA, il click su "Accetta" del
+ * cookie viene intercettato dal backdrop.
+ *
+ * Inoltre: consentsQuery e' async (GET /api/gdpr/consents post-mount),
+ * quindi il dialog non e' immediatamente visibile dopo redirect a
+ * /dashboard. Senza waitFor, isVisible() ritorna false prematuramente
+ * e si finisce nel race condition descritto sopra.
  */
 async function dismissModals(page) {
-  // Legal docs dialog: checkbox di privacy + termini, poi accetta.
+  // Legal docs dialog: aspetta fino a 5s che eventualmente appaia
+  // (gli admin sono esclusi da ConsentGate, per loro non comparira').
   const legalDialog = page.getByRole('dialog', { name: /aggiornamento dei documenti legali/i });
+  await legalDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   if (await legalDialog.isVisible().catch(() => false)) {
     await legalDialog.getByRole('checkbox').first().check();
     await legalDialog.getByRole('checkbox').nth(1).check();
     await legalDialog.getByRole('button', { name: /accetta e continua/i }).click();
     await expect(legalDialog).not.toBeVisible();
   }
-  // Cookie banner.
+  // Cookie banner: anch'esso renderizzato via useEffect (visible parte
+  // false, poi true al mount). Aspetta che diventi cliccabile.
   const cookieAccept = page.getByRole('button', { name: /^accetta$/i });
+  await cookieAccept.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
   if (await cookieAccept.isVisible().catch(() => false)) {
     await cookieAccept.click();
   }
