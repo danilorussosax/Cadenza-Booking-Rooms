@@ -116,11 +116,22 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm run test:ci
+      - name: Unit tests + coverage (soglie bloccanti)
+        # `test:coverage` (vitest run --coverage) applica le soglie definite in
+        # vitest.config.ts (stmts ≥60, lines ≥60, funcs ≥50, branches ≥50).
+        # Una regressione sotto soglia fa fallire il job → blocca il merge.
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          retention-days: 7
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7

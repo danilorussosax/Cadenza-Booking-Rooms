@@ -394,15 +394,15 @@ npm audit              (frontend) → 0 vulnerabilities
 
 ### 6.1 Industrializzazione
 
-| Aspetto              | Stato                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Conventional commits | Header `feat/fix/chore/docs/test/ci/refactor(scope):` rispettato; commitlint configurato                              |
-| Branch model         | Trunk-based su `main`; feature work direttamente su `main` con pre-commit hook stretto + CI verde mandatory           |
-| Pre-commit           | Husky + lint-staged: prettier + eslint sui soli file modificati; commit fail su violazione                            |
-| CI                   | 4 job GitHub Actions paralleli + artifact upload (coverage, dist, playwright-report) v7                               |
-| Auto-commit policy   | Se type-check + lint-staged passano, commit immediato + push su `main` (no PR overhead per single-author)             |
-| Coverage threshold   | Bloccante a livello backend (CI fallisce se sotto floor); frontend non enforced ma soglie dichiarate in vitest config |
-| Code review          | Self-review pre-commit + `/ultrareview` multi-agent disponibile on-demand                                             |
+| Aspetto              | Stato                                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Conventional commits | Header `feat/fix/chore/docs/test/ci/refactor(scope):` rispettato; commitlint configurato                                                                           |
+| Branch model         | Trunk-based su `main`; feature work direttamente su `main` con pre-commit hook stretto + CI verde mandatory                                                        |
+| Pre-commit           | Husky + lint-staged: prettier + eslint sui soli file modificati; commit fail su violazione                                                                         |
+| CI                   | 4 job GitHub Actions paralleli + artifact upload (coverage, dist, playwright-report) v7                                                                            |
+| Auto-commit policy   | Se type-check + lint-staged passano, commit immediato + push su `main` (no PR overhead per single-author)                                                          |
+| Coverage threshold   | Bloccante su entrambi: backend (CI fallisce sotto floor) + frontend (lo step "Unit tests + coverage" usa `npm run test:coverage` con soglie da `vitest.config.ts`) |
+| Code review          | Self-review pre-commit + `/ultrareview` multi-agent disponibile on-demand                                                                                          |
 
 ### 6.2 Build / deploy
 
@@ -425,13 +425,13 @@ npm audit              (frontend) → 0 vulnerabilities
 
 ### 6.4 Margini di crescita
 
-| Item                                                                 | Priorità | Effort                                                                                               |
-| -------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Frontend coverage → enforced anche in CI                             | P1       | ½ giornata (sostituire `test:ci` con `test:coverage` nello step CI)                                  |
-| Split file monolitici (`bookings.js`, `monteOre.js`, `structure.js`) | P2       | ~3 giorni con cura per evitare merge conflict                                                        |
-| Routes file con branches < 60 % a livello singolo                    | P2-P3    | Test mirati su FK errors + OAuth flow + validator nested. ROI marginale dopo i guadagni già ottenuti |
-| Penetration test esterno                                             | —        | Dipende dal cliente                                                                                  |
-| PEC + SPID/CIE                                                       | —        | On-demand, ~6-8 settimane                                                                            |
+| Item                                                                 | Priorità  | Effort                                                                                               |
+| -------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| ~~Frontend coverage → enforced in CI~~                               | ✅ chiuso | Step `Unit tests + coverage` ora usa `npm run test:coverage`, soglie 60/60/50/50 bloccanti           |
+| Split file monolitici (`bookings.js`, `monteOre.js`, `structure.js`) | P2        | ~3 giorni con cura per evitare merge conflict                                                        |
+| Routes file con branches < 60 % a livello singolo                    | P2-P3     | Test mirati su FK errors + OAuth flow + validator nested. ROI marginale dopo i guadagni già ottenuti |
+| Penetration test esterno                                             | —         | Dipende dal cliente                                                                                  |
+| PEC + SPID/CIE                                                       | —         | On-demand, ~6-8 settimane                                                                            |
 
 ---
 
