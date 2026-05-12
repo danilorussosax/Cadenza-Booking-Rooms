@@ -44,7 +44,12 @@ interface AuthContextValue extends AuthState {
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+// Esportato per consentire un consumo "soft" (es. CookieBanner via
+// useConsentGate): hook che vogliono operare sia dentro l'app autentica
+// sia in test/contesti senza AuthProvider possono fare useContext(AuthContext)
+// e gestire `undefined` invece di chiamare useAuth() che throwa.
+// eslint-disable-next-line react-refresh/only-export-components -- context colocato col provider
+export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function profileComplete(user: User | null) {
   if (!user) return false;

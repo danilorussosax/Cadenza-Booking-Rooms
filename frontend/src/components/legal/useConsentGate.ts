@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
+import { AuthContext } from '@/contexts/AuthContext';
 import { gdprApi } from '@/api/gdpr';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
 
@@ -19,7 +19,11 @@ import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersi
  * DOM order via Portal).
  */
 export function useConsentGate(): { needsConsent: boolean; isLoading: boolean } {
-  const { user } = useAuth();
+  // Consumo "soft" di AuthContext: ritorna undefined se manca AuthProvider
+  // (es. test isolati che montano CookieBanner standalone). In quel caso
+  // l'hook degrada a `needsConsent: false` invece di throware.
+  const auth = useContext(AuthContext);
+  const user = auth?.user ?? null;
 
   const consentsQuery = useQuery({
     queryKey: ['gdpr', 'consents'],

@@ -41,19 +41,21 @@ export default defineConfig({
       ],
       thresholds: {
         // Soglie di non-regressione: floor allineato al coverage corrente con
-        // buffer di ~1-1.5 punti. Cresciute il 2026-05-12 dopo l'aggiunta di
-        // 64 nuovi test che hanno portato services/twoFa.js da 24% a 100%
-        // e routes/contractTypes.js da 12% a 93%.
+        // buffer di ~1-1.5 punti. Cresciute il 2026-05-12 dopo:
+        //   - twoFa.js da 24% a 100% (+26 unit)
+        //   - contractTypes.js da 12% a 93% (+26 integration)
+        //   - analytics CSV export coperta (+5 integration)
+        //   - instrumentImporter.js da 14% a 88% (+19 integration)
         // TODO(test-debt): risalire ulteriormente aggiungendo test su
         //   - routes/analytics.js (20%): blocco nel SQL Postgres-only
-        //     (EXTRACT/date_trunc), serve Postgres in CI o mock per le
-        //     aggregazioni.
-        //   - services/equipmentImporter.js (14%): I/O CSV.
-        //   - services/twoFa.js è ora 100%: completato.
-        statements: 59,
-        lines: 61,
-        functions: 60,
-        branches: 47,
+        //     (EXTRACT/date_trunc), serve job CI dedicato con servizio
+        //     Postgres GitHub Actions per testare le aggregazioni reali.
+        //   - services/structureImporter.js (36%): meno prioritario,
+        //     parser CSV puro, testabile in unit.
+        statements: 60,
+        lines: 62,
+        functions: 64,
+        branches: 48,
       },
     },
   },
