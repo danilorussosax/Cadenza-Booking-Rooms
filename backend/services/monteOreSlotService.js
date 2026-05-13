@@ -172,10 +172,18 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
 
   // Origine info booking: lo schedule (slot dentro pattern) oppure i campi
   // sullo slot stesso (slot fuori pattern, nato da amendment add_new_day).
+  //
+  // Sullo schedule prendiamo un row-lock (SELECT FOR UPDATE in Postgres) per
+  // serializzare le append concorrenti su `generatedBookingIds`: senza lock
+  // due toggle simultanei leggerebbero lo stesso array, ognuno aggiungerebbe
+  // il proprio id e l'ultimo write vincerebbe perdendo l'altro id.
   let roomId, bookingType, purpose, notes;
   let schedule = null;
   if (slot.scheduleId) {
-    schedule = await MonteOreSchedule.findByPk(slot.scheduleId, { ...tx });
+    schedule = await MonteOreSchedule.findByPk(slot.scheduleId, {
+      ...tx,
+      ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+    });
     if (!schedule) return { action: 'noop', reason: 'schedule_not_found' };
     roomId = schedule.roomId;
     bookingType = schedule.bookingType;

@@ -96,6 +96,32 @@ export default function MonteOre() {
     threshold?.source === 'user_override' || threshold?.bypassDayConstraint === true;
   const isLocked = proposal && !['draft', 'rejected'].includes(proposal.status);
 
+  // Replica client-side delle validazioni backend (routes/monteOre.js:265-335)
+  // per disabilitare il submit e mostrare cosa manca. Il backend resta
+  // l'autorità: se l'admin non ha configurato MonteOreSettings per l'AA
+  // (threshold undefined) i blockers ore/giorni non si applicano.
+  const submitBlockers: string[] = (() => {
+    if (!proposal) return [];
+    const out: string[] = [];
+    if (proposal.schedules.length === 0) {
+      out.push('Aggiungi almeno una fascia oraria settimanale.');
+    }
+    if (threshold && !threshold.bypassDayConstraint && proposal.schedules.length > 0) {
+      const distinctDays = new Set(proposal.schedules.map((s) => s.dayOfWeek)).size;
+      if (distinctDays < 2 || distinctDays > 4) {
+        out.push(`Devi coprire tra 2 e 4 giorni della settimana (attualmente: ${distinctDays}).`);
+      }
+    }
+    if (threshold && proposal.totalHoursRequested < threshold.minHours) {
+      const missing = (threshold.minHours - proposal.totalHoursRequested).toFixed(1);
+      out.push(
+        `Ti mancano ${missing} h per raggiungere la soglia di ${threshold.minHours} h/anno.`,
+      );
+    }
+    return out;
+  })();
+  const canSubmit = submitBlockers.length === 0;
+
   const updateMutation = useMutation({
     mutationFn: (payload: {
       notes?: string | null;
@@ -163,13 +189,21 @@ export default function MonteOre() {
         <div className="flex items-center gap-3">
           {statusBadge(proposal.status)}
           {proposal.status === 'draft' && proposal.schedules.length > 0 && (
-            <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
+            <Button
+              onClick={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending || !canSubmit}
+              title={canSubmit ? undefined : submitBlockers[0]}
+            >
               <Send className="h-4 w-4" />
               Invia al coordinatore
             </Button>
           )}
           {proposal.status === 'rejected' && proposal.schedules.length > 0 && (
-            <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
+            <Button
+              onClick={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending || !canSubmit}
+              title={canSubmit ? undefined : submitBlockers[0]}
+            >
               <Send className="h-4 w-4" />
               Reinvia
             </Button>
@@ -194,6 +228,20 @@ export default function MonteOre() {
               {threshold.bypassDayConstraint ? 'NON applicato' : 'applicato'}.
               {' Per modifiche contattare la Direzione.'}
             </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {['draft', 'rejected'].includes(proposal.status) && submitBlockers.length > 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-medium">Per inviare la proposta al coordinatore:</p>
+            <ul className="mt-1 list-disc pl-5 text-sm">
+              {submitBlockers.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
           </AlertDescription>
         </Alert>
       )}

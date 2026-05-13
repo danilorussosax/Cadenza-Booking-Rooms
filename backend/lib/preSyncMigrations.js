@@ -665,6 +665,13 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna monte_ore_slots.purpose aggiunta (slot fuori pattern)');
   }
 
+  // Monte Ore — garantisce CASCADE su monte_ore_slots.scheduleId e
+  // monte_ore_slots.proposalId (Postgres). Le associazioni Sequelize hanno
+  // onDelete:CASCADE ma sync() applica la FK solo alla prima creazione: su
+  // DB esistenti la constraint resta NO ACTION e cancellando una schedule
+  // si lasciano slot orfani.
+  await ensureMonteOreSlotsCascadeFk();
+
   // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
   // preesistenti in chiaro (zero-rottura per i client già subscribed).
   if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {
@@ -852,10 +859,89 @@ async function ensureBookingsNoOverlapConstraint() {
   }
 }
 
+/**
+ * Postgres-only: ripristina ON DELETE CASCADE sulle FK di monte_ore_slots
+ * verso monte_ore_schedules e monte_ore_proposals.
+ *
+ * Quando sequelize.sync() crea le tabelle la prima volta usa la cascade
+ * dichiarata in models/index.js. Ma se il DB esisteva PRIMA che venisse
+ * dichiarata la cascade (o se sync è stato eseguito in modalità safe senza
+ * alter), le FK in produzione restano NO ACTION → cancellando una riga
+ * MonteOreSchedule la DELETE fallisce con FK violation, oppure (in assenza
+ * di FK reale) gli slot restano orfani.
+ *
+ * Idempotente: ad ogni avvio rileva il nome della constraint esistente,
+ * la droppa solo se NON ha già ON DELETE CASCADE, e la ricrea.
+ * No-op sui dialetti non-Postgres (SQLite non supporta ALTER per FK; MySQL
+ * userà sintassi diversa, non coperto qui — il deploy di produzione è PG).
+ */
+async function ensureMonteOreSlotsCascadeFk() {
+  if (sequelize.getDialect() !== 'postgres') return;
+
+  // Verifica che la tabella esista (primo avvio: sync la creerà dopo).
+  try {
+    await sequelize.getQueryInterface().describeTable('monte_ore_slots');
+  } catch {
+    return;
+  }
+
+  const targets = [
+    { column: 'scheduleId', refTable: 'monte_ore_schedules' },
+    { column: 'proposalId', refTable: 'monte_ore_proposals' },
+  ];
+
+  for (const { column, refTable } of targets) {
+    // Trova il nome reale della FK su (monte_ore_slots, column) e la sua
+    // delete_rule attuale. Se manca, la creiamo; se c'è ma non CASCADE, la
+    // droppiamo e la ricreiamo.
+    const [rows] = await sequelize.query(
+      `SELECT tc.constraint_name, rc.delete_rule
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+         JOIN information_schema.referential_constraints rc
+           ON rc.constraint_name = tc.constraint_name
+          AND rc.constraint_schema = tc.table_schema
+        WHERE tc.table_name = 'monte_ore_slots'
+          AND tc.constraint_type = 'FOREIGN KEY'
+          AND kcu.column_name = $col`,
+      { bind: { col: column } },
+    );
+
+    const current = rows[0];
+    if (current && current.delete_rule === 'CASCADE') continue; // già OK
+
+    try {
+      if (current) {
+        await sequelize.query(
+          `ALTER TABLE monte_ore_slots DROP CONSTRAINT "${current.constraint_name}"`,
+        );
+      }
+      const newName = `monte_ore_slots_${column}_fkey`;
+      await sequelize.query(
+        `ALTER TABLE monte_ore_slots
+           ADD CONSTRAINT "${newName}"
+           FOREIGN KEY ("${column}") REFERENCES "${refTable}" (id)
+           ON DELETE CASCADE`,
+      );
+      logger.info(`  ✓ FK monte_ore_slots.${column} → ${refTable} ricreata con ON DELETE CASCADE`);
+    } catch (err) {
+      // Non bloccante: se la ricreazione fallisce (es. dati orfani che
+      // violerebbero la FK), il sistema continua a girare con la vecchia
+      // constraint. L'admin vedrà il warn e potrà ripulire a mano.
+      logger.warn(
+        `  ⚠ Impossibile ripristinare CASCADE su monte_ore_slots.${column}: ${err.message}`,
+      );
+    }
+  }
+}
+
 module.exports = {
   runPreSyncMigrations,
   ensureUserStatusColumn,
   ensureUserBooleanColumn,
   ensureNullableStringColumn,
   ensureBookingsNoOverlapConstraint,
+  ensureMonteOreSlotsCascadeFk,
 };
