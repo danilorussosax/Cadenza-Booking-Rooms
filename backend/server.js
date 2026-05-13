@@ -121,6 +121,7 @@ async function start() {
         .catch((e) => {
           console.error('[backup] start failed:', e.message);
         });
+      require('./services/excelExportScheduler').start();
     });
 
     // Errori di listen (EADDRINUSE, EACCES, …) → messaggio chiaro invece di
@@ -159,6 +160,7 @@ async function safeShutdown(code = 0) {
       require('./services/retentionScheduler').stop();
       require('./services/mailOutboxScheduler').stop();
       require('./services/backupScheduler').stop();
+      require('./services/excelExportScheduler').stop();
       console.log('  ✓ Scheduler fermati');
     } catch (e) {
       console.warn('  ⚠ Errore stop scheduler:', e.message);

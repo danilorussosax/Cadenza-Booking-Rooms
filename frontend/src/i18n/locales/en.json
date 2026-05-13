@@ -683,6 +683,8 @@
         "display_description": "Configure the public Infopoint for the weekly rotating room timetable.",
         "audit_log_description": "Append-only tracking of administrative actions on users, structure and configuration. Immutable entries used for audit and compliance.",
         "backups_description": "Scheduled database backups and restore from snapshot.",
+        "excel_export": "Excel Export",
+        "excel_export_description": "Periodic export of bookings to .xlsx for business continuity. Sync the folder to a personal cloud (OneDrive/Dropbox) with rclone.",
         "modules": "Modules",
         "modules_description": "Show or hide optional modules in the sidebar. The functionality stays always active in the backend: the toggle only controls whether the link is visible in the UI.",
         "servizi": "Services",

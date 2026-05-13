@@ -683,6 +683,8 @@
         "display_description": "Configuration de l'Infopoint public pour l'affichage hebdomadaire des salles en rotation.",
         "audit_log_description": "Traçabilité append-only des actions administratives sur les utilisateurs, la structure et les configurations. Entrées immuables utilisées pour l'audit et la conformité.",
         "backups_description": "Sauvegardes planifiées de la base de données et restauration depuis un snapshot.",
+        "excel_export": "Export Excel",
+        "excel_export_description": "Export périodique des réservations vers un fichier .xlsx pour la continuité d'activité. Synchronise le dossier vers un cloud personnel (OneDrive/Dropbox) avec rclone.",
         "modules": "Modules",
         "modules_description": "Affiche ou masque les modules optionnels dans la sidebar. Les fonctionnalités restent toujours actives côté backend : le toggle ne contrôle que la visibilité des liens dans l'interface.",
         "servizi": "Services",

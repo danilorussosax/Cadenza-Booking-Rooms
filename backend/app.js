@@ -297,6 +297,7 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/admin/mail-templates', require('./routes/mailTemplates'));
   app.use('/api/admin/mail-outbox', require('./routes/mailOutbox'));
   app.use('/api/admin/backups', require('./routes/backups'));
+  app.use('/api/admin/excel-export', require('./routes/excelExport'));
   app.use('/api/admin/oauth-settings', require('./routes/oauthSettings'));
   app.use('/api/admin/messaging-settings', require('./routes/messagingSettings'));
   app.use('/api/admin/integrations', require('./routes/integrations'));

@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Cog,
   Database,
+  FileSpreadsheet,
   Inbox,
   Mail,
   Monitor,
@@ -24,6 +25,7 @@ import AdminDisplayKiosk from '@/pages/admin/DisplayKiosk';
 import AdminQrCodes from '@/pages/admin/QrCodes';
 import AdminAuditLog from '@/pages/admin/AuditLog';
 import AdminBackups from '@/pages/admin/Backups';
+import AdminExcelExport from '@/pages/admin/ExcelExport';
 import AdminModules from '@/pages/admin/Modules';
 import AdminAppearanceSettings from '@/pages/admin/AppearanceSettings';
 
@@ -36,7 +38,7 @@ import AdminAppearanceSettings from '@/pages/admin/AppearanceSettings';
 // Type definitions
 // ─────────────────────────────────────────────────────────────────────────
 
-type SubTabValue = 'mail' | 'mail-outbox' | 'messaging' | 'backups';
+type SubTabValue = 'mail' | 'mail-outbox' | 'messaging' | 'backups' | 'excel-export';
 type MacroValue = 'servizi' | 'aspetto' | 'qrcodes' | 'display' | 'audit-log' | 'modules';
 
 interface SubTabDef {
@@ -102,6 +104,15 @@ const SERVIZI_SUBTABS: SubTabDef[] = [
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBg: 'bg-amber-100 dark:bg-amber-500/15',
     Component: AdminBackups,
+  },
+  {
+    value: 'excel-export',
+    labelKey: 'admin.server_settings.tabs.excel_export',
+    descriptionKey: 'admin.server_settings.tabs.excel_export_description',
+    icon: FileSpreadsheet,
+    iconColor: 'text-green-600 dark:text-green-400',
+    iconBg: 'bg-green-100 dark:bg-green-500/15',
+    Component: AdminExcelExport,
   },
 ];
 
