@@ -62,6 +62,30 @@
 - ⚠ Crittografia archivi pre-upload (GPG) se off-site è cloud pubblico
 - ⚠ Test di restore reale con cadenza definita (questo documento)
 
+### 2.1 Continuità operativa durante un downtime (Excel mirror)
+
+Indipendente dal restore — copre la finestra "Cadenza è giù MA serve sapere chi ha l'aula 12 alle 14".
+
+```
+┌──────────────┐  ogni 10 min  ┌─────────────────────┐  cron rclone   ┌──────────┐
+│ Cadenza      │ ─────────────▶│ /var/cadenza/sync/  │ ──────────────▶│ OneDrive │
+│ scheduler    │  scrive .xlsx │ cadenza-prenotaz.   │  ogni 10 min   │ Dropbox  │
+│              │               │     xlsx            │                │ pCloud…  │
+└──────────────┘               └─────────────────────┘                └────┬─────┘
+                                                                          │
+                                                                          ▼
+                                                              📱 app cloud sul telefono
+                                                                 della portineria
+```
+
+- Componente backend: `services/excelExporter.js` + `excelExportScheduler.js`. Una tab per ogni edificio con celle colorate per tipo (replica del Display kiosk) + tab "Prenotazioni" lista flat + tab "Info sync" con timestamp ultimo export
+- Sync verso cloud personale via `rclone` + cron OS — separato dal backend: se Cadenza crasha durante un sync, l'ultima copia integra resta nel cloud
+- **Direzione unidirezionale** (Cadenza → file, mai il contrario): le modifiche manuali al foglio durante un crash NON vengono importate al ripristino — niente conflict resolution complessa, niente bug oscuri. Procedura manuale: foglio separato "Prenotazioni manuali (offline)" da trascrivere a mano nella UI quando Cadenza torna online
+- Setup completo passo-passo: [docs/EXCEL_SYNC.md](EXCEL_SYNC.md)
+- Test: l'amministratore apre `/admin/server-settings → Servizi → Export Excel` e clicca "Scarica ora" per verifica visiva del file
+
+**RTO durante downtime**: 0 (la portineria continua a operare dal foglio cloud). **RPO operativo**: max `EXCEL_EXPORT_TICK_MIN` minuti di staleness (default 10).
+
 ---
 
 ## 3. Scenari di disastro coperti

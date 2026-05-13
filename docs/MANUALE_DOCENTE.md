@@ -105,6 +105,21 @@ Se non hai mai ricevuto la password:
 1. Chiedi alla Segreteria di invitarti (ti arriverà via email un link).
 2. In alternativa, in fondo alla pagina di login c'è "Registrati": compila i tuoi dati e attendi che la Segreteria approvi il tuo account.
 
+### 2.2-bis Password dimenticata
+
+Se hai la password ma non te la ricordi più, non serve la Segreteria — risolvi da solo in 1 minuto:
+
+1. Apri la pagina di login.
+2. Sotto il bottone "Accedi", clicca su **"Password dimenticata?"**.
+3. Inserisci la tua email e clicca **"Invia link di reset"**.
+4. Riceverai entro pochi secondi un'email con un bottone "**Reimposta password**". Cliccalo (link valido **1 ora**, utilizzabile **una sola volta**).
+5. Scegli la nuova password (minimo 10 caratteri, almeno una maiuscola e un numero) e confermala.
+6. Vieni reindirizzato al login: accedi con la nuova password.
+
+> **Sicurezza:** dopo il cambio password, **tutte le sessioni attive vengono disconnesse** (anche su altri dispositivi). Dovrai rifare il login ovunque. Se l'email non arriva entro qualche minuto, controlla lo spam o riprova dopo un po' (per evitare flood l'invio è limitato).
+>
+> **Privacy:** se l'email che inserisci non corrisponde ad alcun account, il sistema ti mostra comunque "abbiamo inviato il link" — è una scelta voluta per impedire a malintenzionati di scoprire quali email sono registrate.
+
 ### 2.3 Completamento del profilo (solo al primo accesso)
 
 Al primo login Cadenza ti chiede di completare l'anagrafica: nome, cognome, eventuale matricola, corso (se applicabile). Per i docenti il campo "corso" è facoltativo.

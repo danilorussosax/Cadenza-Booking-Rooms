@@ -54,7 +54,8 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - **Waitlist** con claim window e auto-promote
 - **Dashboard** con toggle "1 giorno · 3 giorni" sul calendario (preferenza persistita per browser, frecce di navigazione coerenti con la modalità)
 - Vista settimanale aule × giorni con export PDF A4 landscape per edificio
-- iCal export per ogni utente con token
+- iCal export per ogni utente con token (emette RRULE preciso per le serie ricorrenti — Outlook/Google riconoscono la cadenza nativa)
+- **Prenotazioni ricorrenti (MRBS-style)**: regole `daily`/`weekly` con `interval`, `byWeekday`, `endDate` ed `excludeDates` (festività). Una sola call crea fino a 52 occorrenze validate individualmente, con opzione `skipConflicts` per ignorare le date in conflitto e creare solo quelle valide. Cancellazione singola occorrenza o serie intera (preserva le occorrenze passate per audit)
 
 ### 🎻 Inventario strumenti musicali _(esclusivo)_
 
@@ -121,8 +122,15 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 - Email + password locale
 - **OAuth Google** e **OAuth Microsoft 365 / Entra ID** (config UI con secret cifrati)
+- **Password reset self-service via email**: link signed (SHA-256 hex), valido 1h, monouso. Anti-enumeration (200 generico anche su email inesistente), rate-limit doppio (3/30min per IP + 3/h per utente). Il reset invalida tutte le sessioni JWT esistenti (`tokenVersion++`) e sblocca eventuale account lockout
 - Profilo completo con `matricola` e `courseId` per studenti
 - Roadmap: SPID/CIE (Sprint 6), LDAP/AD (Sprint enterprise)
+
+### 💾 Business continuity
+
+- **Mirror Excel periodico** delle prenotazioni su disco (default `/var/cadenza/sync/`), una tab per ogni edificio con celle colorate per tipo (`studio_individuale` verde, `lezione` azzurro, `prova` ambra, `concerto` rosa, `altro` viola) e merge orizzontale dei blocchi multi-slot — replica fedele del Display kiosk
+- Sync della cartella su cloud personale (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + cron OS — indipendente dal backend: se Cadenza è giù, l'ultima copia del foglio resta nel cloud, la portineria la apre dal telefono. Direzione volutamente unidirezionale (Cadenza → file): le modifiche al foglio NON tornano nel DB, niente conflict resolution oscura al ripristino. Setup completo in [docs/EXCEL_SYNC.md](docs/EXCEL_SYNC.md)
+- Backup automatico DB + uploads (snapshot tar.gz con retention giornaliera/settimanale/mensile)
 
 ### 🌍 Internazionalizzazione
 

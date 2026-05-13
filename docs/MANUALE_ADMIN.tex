@@ -391,6 +391,8 @@ Cadenza richiede password di \textbf{almeno 10 caratteri}, con almeno una \textb
 
 I tentativi di login, registrazione, invio del codice di sicurezza e generazione di prenotazioni ricorrenti sono \textbf{rate-limited}: dopo un numero di tentativi falliti l'IP riceve un blocco temporaneo, per proteggere il sistema da brute-force e spam. L'utente vede un messaggio chiaro tipo "Troppi tentativi, riprova tra X secondi".
 
+\textbf{Password reset self-service}: gli utenti che dimenticano la password non hanno più bisogno di un admin. Dalla pagina di login cliccano "Password dimenticata?", inseriscono l'email, ricevono un link valido 1 ora utilizzabile una volta sola, e impostano una nuova password. Il flusso è anti-enumeration (la stessa risposta indipendentemente dall'esistenza dell'email) e ha doppio rate-limit (per IP + per utente). Il cambio password \textbf{invalida tutte le sessioni JWT esistenti} e sblocca eventuale account lockout. Dettagli operativi nel manuale docente §2.2-bis.
+
 \subsection{3.9 Anti-blocco amministratore}
 
 
@@ -2230,7 +2232,7 @@ La pagina è un \textbf{hub} organizzato in macro-tab in alto + sub-tab quando l
 
 \begin{lstlisting}
 Impostazioni Server
-├─ Servizi   ├─ Mail · Mail Outbox · Messaging · Backups
+├─ Servizi   ├─ Mail · Mail Outbox · Messaging · Backups · Export Excel
 ├─ Aspetto
 ├─ QR Codes
 ├─ Display
@@ -2245,7 +2247,7 @@ Impostazioni Server
 \hline
 \rowcolor{tableheader} Macro & Sub-tab & Sezione manuale \\
 \hline
-Servizi & Mail · Mail Outbox · Messaging · Backups & §12.1 · §12.2 · §12.3 · §12.4 \\
+Servizi & Mail · Mail Outbox · Messaging · Backups · Export Excel & §12.1 · §12.2 · §12.3 · §12.4 · §12.4bis \\
 \hline
 Aspetto & (nessuna sub) & §12.5 \\
 \hline
@@ -2422,6 +2424,74 @@ In header: bottoni \textbf{+ Backup adesso} e \textbf{$\uparrow$ Upload} (per ca
 \begin{quote}
 Per la procedura completa di backup, restore e off-site upload (S3, Hetzner Storage Box, rclone, GPG) vedi \texttt{docs/BACKUP.md}.
 \end{quote}
+
+\subsection{12.4bis Servizi $\rightarrow$ Export Excel (business continuity)}
+
+
+Sotto-tab dentro \textbf{Servizi} che permette di \textbf{continuare a operare anche se Cadenza è giù}: il backend scrive periodicamente un file \texttt{.xlsx} su disco, e una sync separata via \texttt{rclone} lo carica su un cloud personale (OneDrive, Dropbox, pCloud, iCloud, Google Drive). Se il server crasha, la portineria apre l'ultima copia del foglio dall'app cloud del telefono e sa subito chi ha l'aula 12 alle 14:30.
+
+\subsubsection{Cosa contiene il file}
+
+
+\begin{itemize}
+  \item \textbf{Tab "Prenotazioni"} --- lista flat di tutte le prenotazioni confermate dei prossimi N giorni (default 30): ID, Aula, Edificio, Utente, Ruolo, Inizio, Fine, Tipo, Stato.
+  \item \textbf{Tab "Griglia · \texttt{\textless{}nome sede\textgreater{}}"} --- \textbf{una tab per ogni edificio}, replica fedele del Display kiosk: matrice aule × slot 30 minuti dalle 08:00 alle 21:00 del giorno corrente. Aule ordinate per piano e poi per nome (numeric-aware: "Aula 9" prima di "Aula 10"). Celle \textbf{colorate per tipo} (\texttt{studio\_individuale} verde · \texttt{lezione} azzurro · \texttt{prova} ambra · \texttt{concerto} rosa · \texttt{altro} viola) e i blocchi che coprono più slot consecutivi appaiono come \textbf{una sola cella fusa} (proprio come i rettangoli del Display).
+  \item \textbf{Tab "Info sync"} --- quando è stato fatto l'ultimo export, durata, conteggio righe, finestra coperta.
+\end{itemize}
+
+\subsubsection{Pannello admin}
+
+
+Apri \textbf{Impostazioni server $\rightarrow$ Servizi $\rightarrow$ Export Excel}. Vedi:
+
+\begin{itemize}
+  \item Badge stato (Disattivato · In attesa primo export · Attivo · Errore)
+  \item Tre metriche: ultimo export (con durata), record sincronizzati, dimensione file
+  \item Path del file su disco (esempio: \texttt{/var/cadenza/sync/cadenza-prenotazioni.xlsx})
+  \item Bottone \textbf{"Rigenera ora"} --- forza un export immediato fuori dal tick automatico
+  \item Bottone \textbf{"Scarica ora"} --- scarica il file \texttt{.xlsx} direttamente nel browser, senza passare dal cloud (utile per verifica)
+\end{itemize}
+
+\subsubsection{Attivazione (server-side, una volta sola)}
+
+
+Il modulo è \textbf{disattivato di default}. Per attivarlo serve toccare il file \texttt{backend/.env} sul VPS (le impostazioni qui sono ops-level, non DB):
+
+\begin{lstlisting}
+EXCEL_EXPORT_ENABLED=true
+EXCEL_EXPORT_PATH=/var/cadenza/sync/cadenza-prenotazioni.xlsx
+EXCEL_EXPORT_TICK_MIN=10            # ogni quanti minuti generare il file (1–60)
+EXCEL_EXPORT_LOOKAHEAD_DAYS=30      # finestra di prenotazioni da esportare
+\end{lstlisting}
+
+Dopo il restart del backend il modulo è attivo e il primo export parte entro \texttt{EXCEL\_EXPORT\_TICK\_MIN} minuti.
+
+\subsubsection{Sync verso il cloud (rclone)}
+
+
+Il backend scrive solo su disco locale. Per averlo sul telefono della portineria serve un sync separato gestito dal sistema operativo:
+
+\begin{enumerate}
+  \item Installa \texttt{rclone} sul VPS (\texttt{curl https://rclone.org/install.sh | sudo bash}).
+  \item Configura un remote come utente \texttt{cadenza}: \texttt{sudo -u cadenza rclone config} --- scegli OneDrive/Dropbox/pCloud (account personali bastano, non serve abbonamento aziendale).
+  \item Esegui \texttt{sudo bash scripts/setup-rclone-sync.sh cadenza-cloud CadenzaBackup} --- lo script crea la cartella \texttt{/var/cadenza/sync/} con i permessi giusti, verifica che il remote sia raggiungibile e installa un cron che sincronizza ogni 10 minuti.
+  \item La portineria apre l'app OneDrive/Dropbox sul telefono e vede il file aggiornato.
+\end{enumerate}
+
+\begin{quote}
+Procedura completa passo-passo (con headless authorization per server senza browser, troubleshooting, frequenza vs freschezza): \href{EXCEL_SYNC.md}{docs/EXCEL\_SYNC.md}.
+\end{quote}
+
+\subsubsection{Direzione \textbf{volutamente} unidirezionale}
+
+
+Le modifiche fatte al foglio dal telefono \textbf{NON tornano in Cadenza} al ripristino. Questa è una scelta deliberata per evitare conflict resolution complessa (chi vince? il foglio o il DB?). Procedura raccomandata durante un downtime esteso:
+
+\begin{enumerate}
+  \item Crea un foglio separato chiamato "\textbf{Prenotazioni manuali (offline)}" e annota lì le nuove prenotazioni urgenti.
+  \item Quando Cadenza torna online, trascrivi a mano le righe annotate dentro l'app.
+  \item Niente automatismi, niente sorprese.
+\end{enumerate}
 
 \subsection{12.5 Aspetto}
 

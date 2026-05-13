@@ -230,6 +230,8 @@ Cadenza richiede password di **almeno 10 caratteri**, con almeno una **lettera m
 
 I tentativi di login, registrazione, invio del codice di sicurezza e generazione di prenotazioni ricorrenti sono **rate-limited**: dopo un numero di tentativi falliti l'IP riceve un blocco temporaneo, per proteggere il sistema da brute-force e spam. L'utente vede un messaggio chiaro tipo "Troppi tentativi, riprova tra X secondi".
 
+**Password reset self-service**: gli utenti che dimenticano la password non hanno più bisogno di un admin. Dalla pagina di login cliccano "Password dimenticata?", inseriscono l'email, ricevono un link valido 1 ora utilizzabile una volta sola, e impostano una nuova password. Il flusso è anti-enumeration (la stessa risposta indipendentemente dall'esistenza dell'email) e ha doppio rate-limit (per IP + per utente). Il cambio password **invalida tutte le sessioni JWT esistenti** e sblocca eventuale account lockout. Dettagli operativi nel manuale docente §2.2-bis.
+
 ### 3.9 Anti-blocco amministratore
 
 Cadenza non ti permette di fare azioni che lascerebbero il sistema senza nessun amministratore attivo:
@@ -1399,7 +1401,7 @@ La pagina è un **hub** organizzato in macro-tab in alto + sub-tab quando la mac
 
 ```
 Impostazioni Server
-├─ Servizi   ├─ Mail · Mail Outbox · Messaging · Backups
+├─ Servizi   ├─ Mail · Mail Outbox · Messaging · Backups · Export Excel
 ├─ Aspetto
 ├─ QR Codes
 ├─ Display
@@ -1407,14 +1409,14 @@ Impostazioni Server
 └─ Moduli
 ```
 
-| Macro     | Sub-tab                                  | Sezione manuale               |
-| --------- | ---------------------------------------- | ----------------------------- |
-| Servizi   | Mail · Mail Outbox · Messaging · Backups | §12.1 · §12.2 · §12.3 · §12.4 |
-| Aspetto   | (nessuna sub)                            | §12.5                         |
-| QR Codes  | (nessuna sub)                            | §12.6                         |
-| Display   | (nessuna sub)                            | §12.7                         |
-| Audit Log | (nessuna sub)                            | §12.8                         |
-| Moduli    | (nessuna sub)                            | §12.9                         |
+| Macro     | Sub-tab                                                 | Sezione manuale                          |
+| --------- | ------------------------------------------------------- | ---------------------------------------- |
+| Servizi   | Mail · Mail Outbox · Messaging · Backups · Export Excel | §12.1 · §12.2 · §12.3 · §12.4 · §12.4bis |
+| Aspetto   | (nessuna sub)                                           | §12.5                                    |
+| QR Codes  | (nessuna sub)                                           | §12.6                                    |
+| Display   | (nessuna sub)                                           | §12.7                                    |
+| Audit Log | (nessuna sub)                                           | §12.8                                    |
+| Moduli    | (nessuna sub)                                           | §12.9                                    |
 
 ### 12.1 Servizi → Mail (SMTP)
 
@@ -1521,6 +1523,58 @@ Tabella con file, data, size, e azioni:
 In header: bottoni **+ Backup adesso** e **⤒ Upload** (per caricare un backup esterno).
 
 > Per la procedura completa di backup, restore e off-site upload (S3, Hetzner Storage Box, rclone, GPG) vedi `docs/BACKUP.md`.
+
+### 12.4bis Servizi → Export Excel (business continuity)
+
+Sotto-tab dentro **Servizi** che permette di **continuare a operare anche se Cadenza è giù**: il backend scrive periodicamente un file `.xlsx` su disco, e una sync separata via `rclone` lo carica su un cloud personale (OneDrive, Dropbox, pCloud, iCloud, Google Drive). Se il server crasha, la portineria apre l'ultima copia del foglio dall'app cloud del telefono e sa subito chi ha l'aula 12 alle 14:30.
+
+#### Cosa contiene il file
+
+- **Tab "Prenotazioni"** — lista flat di tutte le prenotazioni confermate dei prossimi N giorni (default 30): ID, Aula, Edificio, Utente, Ruolo, Inizio, Fine, Tipo, Stato.
+- **Tab "Griglia · `<nome sede>`"** — **una tab per ogni edificio**, replica fedele del Display kiosk: matrice aule × slot 30 minuti dalle 08:00 alle 21:00 del giorno corrente. Aule ordinate per piano e poi per nome (numeric-aware: "Aula 9" prima di "Aula 10"). Celle **colorate per tipo** (`studio_individuale` verde · `lezione` azzurro · `prova` ambra · `concerto` rosa · `altro` viola) e i blocchi che coprono più slot consecutivi appaiono come **una sola cella fusa** (proprio come i rettangoli del Display).
+- **Tab "Info sync"** — quando è stato fatto l'ultimo export, durata, conteggio righe, finestra coperta.
+
+#### Pannello admin
+
+Apri **Impostazioni server → Servizi → Export Excel**. Vedi:
+
+- Badge stato (Disattivato · In attesa primo export · Attivo · Errore)
+- Tre metriche: ultimo export (con durata), record sincronizzati, dimensione file
+- Path del file su disco (esempio: `/var/cadenza/sync/cadenza-prenotazioni.xlsx`)
+- Bottone **"Rigenera ora"** — forza un export immediato fuori dal tick automatico
+- Bottone **"Scarica ora"** — scarica il file `.xlsx` direttamente nel browser, senza passare dal cloud (utile per verifica)
+
+#### Attivazione (server-side, una volta sola)
+
+Il modulo è **disattivato di default**. Per attivarlo serve toccare il file `backend/.env` sul VPS (le impostazioni qui sono ops-level, non DB):
+
+```bash
+EXCEL_EXPORT_ENABLED=true
+EXCEL_EXPORT_PATH=/var/cadenza/sync/cadenza-prenotazioni.xlsx
+EXCEL_EXPORT_TICK_MIN=10            # ogni quanti minuti generare il file (1–60)
+EXCEL_EXPORT_LOOKAHEAD_DAYS=30      # finestra di prenotazioni da esportare
+```
+
+Dopo il restart del backend il modulo è attivo e il primo export parte entro `EXCEL_EXPORT_TICK_MIN` minuti.
+
+#### Sync verso il cloud (rclone)
+
+Il backend scrive solo su disco locale. Per averlo sul telefono della portineria serve un sync separato gestito dal sistema operativo:
+
+1. Installa `rclone` sul VPS (`curl https://rclone.org/install.sh | sudo bash`).
+2. Configura un remote come utente `cadenza`: `sudo -u cadenza rclone config` — scegli OneDrive/Dropbox/pCloud (account personali bastano, non serve abbonamento aziendale).
+3. Esegui `sudo bash scripts/setup-rclone-sync.sh cadenza-cloud CadenzaBackup` — lo script crea la cartella `/var/cadenza/sync/` con i permessi giusti, verifica che il remote sia raggiungibile e installa un cron che sincronizza ogni 10 minuti.
+4. La portineria apre l'app OneDrive/Dropbox sul telefono e vede il file aggiornato.
+
+> Procedura completa passo-passo (con headless authorization per server senza browser, troubleshooting, frequenza vs freschezza): [docs/EXCEL_SYNC.md](EXCEL_SYNC.md).
+
+#### Direzione **volutamente** unidirezionale
+
+Le modifiche fatte al foglio dal telefono **NON tornano in Cadenza** al ripristino. Questa è una scelta deliberata per evitare conflict resolution complessa (chi vince? il foglio o il DB?). Procedura raccomandata durante un downtime esteso:
+
+1. Crea un foglio separato chiamato "**Prenotazioni manuali (offline)**" e annota lì le nuove prenotazioni urgenti.
+2. Quando Cadenza torna online, trascrivi a mano le righe annotate dentro l'app.
+3. Niente automatismi, niente sorprese.
 
 ### 12.5 Aspetto
 
