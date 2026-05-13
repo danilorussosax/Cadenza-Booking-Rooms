@@ -154,6 +154,28 @@ const recurringBookingLimiter = rateLimit({
   handler: buildHandler({ logHint: 'recurring_booking' }),
 });
 
+// Password reset (richiesta link via email): senza limit un attaccante
+// può flooddare di email reset un utente bersaglio (denial-of-service
+// emotivo o saturazione della reputation IP del nostro SMTP).
+// 3 / 30min / IP. Per email-bersaglio specifico c'è un secondo gate
+// nel handler della route (max 3 token attivi per utente / ora).
+const passwordResetRequestLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 30 * 60 * 1000,
+  limit: 3,
+  handler: buildHandler({ logHint: 'auth_password_reset_request' }),
+});
+
+// Password reset (conferma con token): limit più alto perché la UX dell'utente
+// può comportare retry rapidi (cambio idea password) e il token è già
+// validato server-side, quindi non c'è rischio brute-force significativo.
+const passwordResetConfirmLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  handler: buildHandler({ logHint: 'auth_password_reset_confirm' }),
+});
+
 module.exports = {
   loginLimiter: wrap(loginLimiter),
   registerLimiter: wrap(registerLimiter),
@@ -163,4 +185,6 @@ module.exports = {
   tfaResendLimiter: wrap(tfaResendLimiter),
   icalLimiter: wrap(icalLimiter),
   recurringBookingLimiter: wrap(recurringBookingLimiter),
+  passwordResetRequestLimiter: wrap(passwordResetRequestLimiter),
+  passwordResetConfirmLimiter: wrap(passwordResetConfirmLimiter),
 };

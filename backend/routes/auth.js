@@ -15,9 +15,15 @@ const {
   registerLimiter,
   tfaVerifyLimiter,
   tfaResendLimiter,
+  passwordResetRequestLimiter,
+  passwordResetConfirmLimiter,
 } = require('../middleware/rateLimit');
 const twoFa = require('../services/twoFa');
-const { sendSecurityEmail } = require('../services/emailService');
+const emailService = require('../services/emailService');
+const { sendSecurityEmail } = emailService;
+const { PasswordResetToken, Institute } = require('../models');
+const dayjs = require('dayjs');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -907,6 +913,217 @@ router.get(
     // vengono inviati al server, NON appaiono negli access log, NON sono
     // inclusi nel header Referer di richieste successive.
     res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
+  },
+);
+
+// =====================================================
+// Password reset — flusso self-service via email
+// =====================================================
+
+const PASSWORD_RESET_TTL_MIN = 60; // token valido per 1 ora
+const PASSWORD_RESET_MAX_PER_HOUR = 3; // max 3 token attivi per utente/ora
+
+function hashResetToken(plain) {
+  return crypto.createHash('sha256').update(plain).digest('hex');
+}
+
+/**
+ * Render del template `password_reset` + send sincrono via sendSecurityEmail.
+ * Variabili nel context:
+ *   user.firstName, user.email
+ *   reset.url, reset.expiresAtLong
+ *   institute.name, institute.copyright, now.dateTime
+ */
+async function sendPasswordResetEmail(user, tokenPlain, expiresAt) {
+  const tpl = await emailService.getTemplate('password_reset');
+  if (!tpl) {
+    logger.warn({ scope: 'auth.password_reset' }, 'password_reset template missing');
+    return { ok: false, error: 'template missing' };
+  }
+  const institute = await Institute.findOne().catch(() => null);
+  const resetUrl = `${FRONTEND_URL}/reset-password/${tokenPlain}`;
+  const ctx = {
+    user: {
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email,
+    },
+    reset: {
+      url: resetUrl,
+      expiresAtLong: dayjs(expiresAt).format('DD/MM/YYYY HH:mm'),
+    },
+    institute: {
+      name: institute?.name || 'Cadenza',
+      copyright: `© ${new Date().getFullYear()} ${institute?.name || 'Cadenza'}`,
+    },
+    now: { dateTime: dayjs().format('DD/MM/YYYY HH:mm') },
+  };
+  return sendSecurityEmail({
+    to: user.email,
+    subject: emailService.renderText(tpl.subject, ctx),
+    html: emailService.render(tpl.bodyHtml, ctx),
+  });
+}
+
+/**
+ * POST /auth/forgot-password
+ *
+ * Genera un token di reset e lo invia via email. Risposta SEMPRE 200 con
+ * messaggio generico per evitare enumeration: un attaccante che testa
+ * "esiste questa email?" riceve la stessa risposta indipendentemente.
+ *
+ * Anti-abuse a 2 livelli:
+ *   - rate-limit per IP (passwordResetRequestLimiter: 3 / 30min)
+ *   - gate per utente (max 3 token attivi nell'ultima ora) per evitare
+ *     che un attaccante con IP rotanti possa flooddare un singolo bersaglio
+ */
+router.post(
+  '/forgot-password',
+  passwordResetRequestLimiter,
+  body('email').isEmail().withMessage('Email non valida').normalizeEmail(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Anche su validation error ritorna 200 generico: l'attaccante che invia
+      // "email: invalid" non deve poter distinguere da "email: not-found".
+      return res.json({ ok: true });
+    }
+    const { email } = req.body;
+    try {
+      const user = await User.findOne({ where: { email } });
+      // Anche se l'utente non esiste, non lo diciamo (anti-enumeration).
+      // Aggiungiamo un piccolo delay artificiale per parificare il timing
+      // del path "esiste" (che fa email send + DB write) con "non esiste".
+      if (!user) {
+        await new Promise((r) => setTimeout(r, 50 + Math.random() * 100));
+        return res.json({ ok: true });
+      }
+
+      // Gate per-utente: non più di N token attivi nell'ultima ora.
+      const recentCount = await PasswordResetToken.count({
+        where: {
+          userId: user.id,
+          createdAt: { [Op.gte]: dayjs().subtract(1, 'hour').toDate() },
+        },
+      });
+      if (recentCount >= PASSWORD_RESET_MAX_PER_HOUR) {
+        logger.warn(
+          { userId: user.id, scope: 'auth.password_reset' },
+          'rate-limit per-user superato — drop silenzioso',
+        );
+        return res.json({ ok: true });
+      }
+
+      // Genera token random sicuro (64 hex char = 32 bytes entropia)
+      const tokenPlain = crypto.randomBytes(32).toString('hex');
+      const tokenHash = hashResetToken(tokenPlain);
+      const expiresAt = dayjs().add(PASSWORD_RESET_TTL_MIN, 'minute').toDate();
+
+      await PasswordResetToken.create({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        requestIp: req.ip,
+        requestUserAgent: req.get('user-agent')?.slice(0, 512) ?? null,
+      });
+
+      // Invio email (best-effort, errori loggati ma non esposti al client).
+      const r = await sendPasswordResetEmail(user, tokenPlain, expiresAt);
+      if (!r.ok) {
+        logger.error(
+          { userId: user.id, err: r.error, scope: 'auth.password_reset' },
+          'invio email reset fallito',
+        );
+      } else {
+        logger.info(
+          { userId: user.id, scope: 'auth.password_reset' },
+          'token reset generato e email inviata',
+        );
+      }
+      return res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err: err.message, scope: 'auth.password_reset' }, 'errore forgot-password');
+      // Errore tecnico: 200 generico per non leakare info sull'utente.
+      return res.json({ ok: true });
+    }
+  },
+);
+
+/**
+ * GET /auth/reset-password/:token/validate
+ *
+ * Endpoint leggero per la pagina frontend: prima di mostrare il form di
+ * nuova password, verifica che il token sia ancora valido (esiste, non
+ * scaduto, non usato). Solo metadati pubblici, nessun dato personale.
+ */
+router.get('/reset-password/:token/validate', passwordResetConfirmLimiter, async (req, res) => {
+  const tokenPlain = String(req.params.token || '');
+  if (!/^[a-f0-9]{64}$/.test(tokenPlain)) {
+    return res.status(400).json({ valid: false, reason: 'format' });
+  }
+  const tokenHash = hashResetToken(tokenPlain);
+  const row = await PasswordResetToken.findOne({ where: { tokenHash } });
+  if (!row) return res.status(404).json({ valid: false, reason: 'not_found' });
+  if (row.usedAt) return res.status(400).json({ valid: false, reason: 'used' });
+  if (row.expiresAt < new Date()) return res.status(400).json({ valid: false, reason: 'expired' });
+  return res.json({ valid: true, expiresAt: row.expiresAt });
+});
+
+/**
+ * POST /auth/reset-password
+ *
+ * Conferma del reset: valida token + cambia password. Dopo il cambio:
+ *   - marca il token come `usedAt` (monouso)
+ *   - incrementa `tokenVersion` del user → tutti i JWT esistenti decadono
+ *     (utile se l'attaccante aveva sessioni attive su altri dispositivi)
+ *   - sblocca eventuale account lockout (l'utente ha dimostrato possesso
+ *     della casella email)
+ */
+router.post(
+  '/reset-password',
+  passwordResetConfirmLimiter,
+  body('token')
+    .matches(/^[a-f0-9]{64}$/)
+    .withMessage('Token non valido'),
+  body('newPassword')
+    .isLength({ min: PASSWORD_MIN_LEN })
+    .withMessage(`Password deve essere lunga almeno ${PASSWORD_MIN_LEN} caratteri`)
+    .matches(PASSWORD_REGEX)
+    .withMessage('Password deve contenere almeno una maiuscola e un numero'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    const { token: tokenPlain, newPassword } = req.body;
+    const tokenHash = hashResetToken(tokenPlain);
+
+    const row = await PasswordResetToken.findOne({ where: { tokenHash } });
+    if (!row) return res.status(400).json({ error: 'Token non valido o scaduto' });
+    if (row.usedAt) return res.status(400).json({ error: 'Token già utilizzato' });
+    if (row.expiresAt < new Date()) {
+      return res.status(400).json({ error: 'Token scaduto, richiedi un nuovo link' });
+    }
+
+    const user = await User.findByPk(row.userId);
+    if (!user) return res.status(400).json({ error: 'Utente non trovato' });
+
+    // Cambia password (beforeUpdate hook ha-sha il valore) + invalida sessioni
+    // esistenti + sblocca lockout. Tutto in una save() per atomicità DB.
+    user.passwordHash = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    await user.save();
+
+    row.usedAt = new Date();
+    await row.save();
+
+    logger.info(
+      { userId: user.id, scope: 'auth.password_reset' },
+      'password reimpostata via token email',
+    );
+    return res.json({ ok: true });
   },
 );
 

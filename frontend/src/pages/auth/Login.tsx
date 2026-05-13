@@ -401,6 +401,15 @@ function EmailView({
         )}
       </Button>
 
+      <p className="pt-1 text-center text-sm">
+        <Link
+          to="/forgot-password"
+          className="font-medium text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+        >
+          {t('auth.login.forgot_password')}
+        </Link>
+      </p>
+
       <p className="pt-1 text-center text-sm text-muted-foreground">
         {t('auth.login.no_account')}{' '}
         <Link

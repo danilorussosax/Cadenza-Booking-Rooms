@@ -82,6 +82,7 @@ const MonteOreSuspension = require('./MonteOreSuspension')(sequelize);
 const MonteOreSlot = require('./MonteOreSlot')(sequelize);
 const MonteOreAmendment = require('./MonteOreAmendment')(sequelize);
 const ContractType = require('./ContractType')(sequelize);
+const PasswordResetToken = require('./PasswordResetToken')(sequelize);
 
 // ===========================================
 // Associazioni / Relazioni
@@ -380,6 +381,16 @@ User.hasMany(MonteOreAmendment, {
 });
 MonteOreAmendment.belongsTo(User, { foreignKey: 'requesterId', as: 'requester' });
 
+// User -> PasswordResetToken — eliminando l'utente, i suoi token spariscono.
+// I token sono monouso a vita corta (1h), il loro valore probatorio è limitato:
+// CASCADE è sicuro perché non serve preservarli oltre la vita del user.
+User.hasMany(PasswordResetToken, {
+  foreignKey: 'userId',
+  as: 'passwordResetTokens',
+  onDelete: 'CASCADE',
+});
+PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 module.exports = {
   sequelize,
   User,
@@ -422,4 +433,5 @@ module.exports = {
   MonteOreAmendment,
   ContractType,
   BookingTypeCatalog,
+  PasswordResetToken,
 };

@@ -12,6 +12,8 @@ import NotFound from '@/pages/NotFound';
 
 const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
+const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const OAuthCallback = lazy(() => import('@/pages/auth/OAuthCallback'));
 const CompleteProfile = lazy(() => import('@/pages/auth/CompleteProfile'));
 const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
@@ -70,6 +72,8 @@ export default function App() {
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
         </Route>
 
         {/* OAuth callback */}

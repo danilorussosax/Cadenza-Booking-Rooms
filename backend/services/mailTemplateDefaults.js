@@ -203,6 +203,23 @@ const DEFAULTS = {
       {{#if booking.cancelReason}}<div class="row"><div class="label">Motivo</div><div class="val">{{booking.cancelReason}}</div></div>{{/if}}`,
     ),
   },
+  password_reset: {
+    subject: 'Reimposta la tua password · {{institute.name}}',
+    bodyHtml: wrap(
+      '<span class="pill pill-info">SICUREZZA</span>',
+      'Reimposta la tua password',
+      'Ciao {{user.firstName}}, abbiamo ricevuto una richiesta di reimpostazione della tua password. Clicca il pulsante qui sotto per scegliere una nuova password. Il link è valido per 1 ora ed è utilizzabile una sola volta.',
+      `<div class="row" style="border:0; padding:16px 0">
+        <a href="{{reset.url}}" style="display:inline-block; background:#3762aa; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:600; font-size:14px;">Reimposta password</a>
+      </div>
+      <div class="row"><div class="label">Scadenza</div><div class="val">{{reset.expiresAtLong}}</div></div>
+      <div class="row"><div class="label">Account</div><div class="val">{{user.email}}</div></div>
+      <p class="meta" style="margin-top: 16px; font-size: 12px; color: #6b7a90;">
+        Se non sei stato tu a richiedere il reset, ignora questa email: la tua password non verrà modificata.
+        Per motivi di sicurezza, dopo la reimpostazione tutte le sessioni attive verranno disconnesse.
+      </p>`,
+    ),
+  },
 };
 
 const KINDS = Object.keys(DEFAULTS);
@@ -222,6 +239,7 @@ const KIND_LABELS = {
   booking_pending_admin: 'Approvazione · richiesta in attesa',
   booking_approved: 'Approvazione · prenotazione approvata',
   booking_rejected: 'Approvazione · prenotazione non approvata',
+  password_reset: 'Sicurezza · reimposta password',
 };
 
 module.exports = { DEFAULTS, KINDS, KIND_LABELS };
