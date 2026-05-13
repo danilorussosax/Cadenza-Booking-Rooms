@@ -40,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RecurrenceForm } from './RecurrenceForm';
+import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
 import type { Booking, BookingType } from '@/types';
 
 // Floor specifico per le prenotazioni di tipo "studio individuale" (vedi
@@ -219,14 +221,32 @@ export function BookingFormDialog({
       setServerError(null);
       // In edit mode pre-seleziono l'owner corrente; in create mode default = self.
       setOnBehalfOfUserId(booking ? booking.userId : null);
+      // Resetta anche lo state della ricorrenza ad ogni apertura per evitare
+      // che una scelta di una sessione precedente persista in una nuova
+      // (es. utente apre il dialog, attiva weekly, chiude senza submit,
+      // riapre per un'altra prenotazione: si aspetta state pulito).
+      setRecurrence(emptyRecurrence());
     }
   }, [open, initialValues, reset, booking]);
 
   const roomId = watch('roomId');
   const type = watch('type');
 
-  const [recurringWeeks, setRecurringWeeks] = useState<number>(0); // 0 = disattivato
+  const [recurrence, setRecurrence] = useState<RecurrenceState>(() => emptyRecurrence());
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
+
+  // Data YYYY-MM-DD della prima occorrenza, derivata dal campo startTime del
+  // form. Serve a `RecurrenceForm` per il preview live (espande in locale
+  // la regola partendo da questa data) e a vincolare il `min` di endDate.
+  const startTimeWatch = watch('startTime');
+  const recurrenceStartDate = useMemo(() => {
+    if (!startTimeWatch) return '';
+    try {
+      return fromLocalInput(startTimeWatch).toISOString().slice(0, 10);
+    } catch {
+      return '';
+    }
+  }, [startTimeWatch]);
 
   type CreateResult =
     | { kind: 'single' }
@@ -259,14 +279,25 @@ export function BookingFormDialog({
         isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser.id
           ? { onBehalfOfUserId }
           : {};
-      if (recurringWeeks >= 2) {
+      if (recurrence.enabled) {
+        // startDate del payload = data della prima occorrenza (presa da
+        // startTime locale). endDate è scelto dall'utente nel form.
+        const startDate = fromLocalInput(values.startTime).toISOString().slice(0, 10);
         const res = await bookingsApi.createRecurring({
           ...payload,
           ...onBehalf,
-          recurrence: { weeks: recurringWeeks },
-          // Default UX: salta le occorrenze in conflitto invece di abortire
-          // tutta la serie. L'utente vede skipped nel toast.
-          skipConflicts: true,
+          recurrence: {
+            frequency: recurrence.frequency,
+            interval: recurrence.interval,
+            byWeekday:
+              recurrence.frequency === 'weekly' && recurrence.byWeekday.length > 0
+                ? recurrence.byWeekday
+                : null,
+            startDate,
+            endDate: recurrence.endDate,
+            excludeDates: recurrence.excludeDates,
+          },
+          skipConflicts: recurrence.skipConflicts,
         });
         return { kind: 'recurring', created: res.createdCount, skipped: res.skipped };
       }
@@ -294,12 +325,42 @@ export function BookingFormDialog({
       onOpenChange(false);
     },
     onError: (err, values) => {
+      // RECURRENCE_CONFLICTS (409): la serie aveva date in conflitto e
+      // l'utente NON aveva attivato skipConflicts. Mostriamo un toast con
+      // CTA che ri-sottomette automaticamente con skipConflicts=true.
+      // (Se skipConflicts era già on, il backend ritorna 201 con conflicts[]
+      // dentro la response normale, non un errore.)
+      const code = err instanceof HttpError ? err.payload.code : undefined;
+      if (code === 'RECURRENCE_CONFLICTS' && recurrence.enabled) {
+        const payload = err instanceof HttpError ? err.payload : null;
+        const conflicts = (payload as { conflicts?: unknown[] } | null)?.conflicts ?? [];
+        const validCount = (payload as { validCount?: number } | null)?.validCount ?? 0;
+        toast.error(
+          t('booking.form.recurring_conflicts_title', {
+            count: conflicts.length,
+          }),
+          {
+            description: t('booking.form.recurring_conflicts_description', {
+              valid: validCount,
+            }),
+            action: {
+              label: t('booking.form.recurring_conflicts_action'),
+              onClick: () => {
+                setRecurrence((prev) => ({ ...prev, skipConflicts: true }));
+                // Re-submit con il flag attivato
+                createMutation.mutate(values);
+              },
+            },
+            duration: 10000,
+          },
+        );
+        return;
+      }
       // Estraggo BOOKING_CONFLICT (anche EXCLUSION_VIOLATION lato DB-level)
       // per offrire l'opzione waitlist. Considero solo le creazioni single
       // (la ricorrente ha skipped[] separato).
-      const code = err instanceof HttpError ? err.payload.code : undefined;
       const isConflict = code === 'BOOKING_CONFLICT' || code === 'EXCLUSION_VIOLATION';
-      if (isConflict && recurringWeeks < 2 && values.roomId) {
+      if (isConflict && !recurrence.enabled && values.roomId) {
         const roomId = Number(values.roomId);
         const room = roomsQuery.data?.rooms.find((x) => x.id === roomId);
         const roomLabel = room
@@ -544,42 +605,14 @@ export function BookingFormDialog({
 
             {/* Recurring — nascosto in edit mode: la booking esiste già e non
               ha senso "rendere ricorrente" un singolo record (sarebbe una
-              nuova creazione). */}
+              nuova creazione). Form completo con frequency, byWeekday,
+              endDate, excludeDates, skipConflicts e preview live. */}
             {!isEdit && (
-              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
-                    checked={recurringWeeks > 0}
-                    onChange={(e) => {
-                      setRecurringWeeks(e.target.checked ? 4 : 0);
-                    }}
-                  />
-                  <span className="font-medium">{t('booking.form.recurring')}</span>
-                </label>
-                {recurringWeeks > 0 && (
-                  <div className="flex items-center gap-2 pl-6 text-sm">
-                    <span className="text-muted-foreground">{t('booking.form.weeks_per')}</span>
-                    <Input
-                      type="number"
-                      min={2}
-                      max={52}
-                      value={recurringWeeks}
-                      onChange={(e) => {
-                        setRecurringWeeks(Math.max(2, Math.min(52, Number(e.target.value) || 2)));
-                      }}
-                      className="w-20"
-                    />
-                    <span className="text-muted-foreground">{t('booking.form.weeks')}</span>
-                  </div>
-                )}
-                {recurringWeeks > 0 && (
-                  <p className="pl-6 text-[11px] text-muted-foreground">
-                    {t('booking.form.skip_conflicts')}
-                  </p>
-                )}
-              </div>
+              <RecurrenceForm
+                value={recurrence}
+                onChange={setRecurrence}
+                startDate={recurrenceStartDate}
+              />
             )}
 
             <DialogFooter className="flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
