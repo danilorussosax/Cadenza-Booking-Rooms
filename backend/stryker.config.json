@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing su un sottoinsieme MIRATO di moduli core. NON tutta la suite (sarebbe 1380 mutazioni × ~30s = 12 ore). Lo scope è quello che rinominiamo con il commit (es. quando tocchi bookingValidator, riesegui Stryker su quel solo file e verifica che il mutation score non scenda).",
+  "packageManager": "npm",
+  "reporters": ["html", "clear-text", "progress-append-only"],
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "npx vitest run tests/property/bookingValidator tests/unit/coreImports tests/unit/sanitize"
+  },
+  "mutate": ["services/bookingValidator.js"],
+  "ignorePatterns": ["node_modules/**", "coverage/**", "scripts/**", ".stryker-tmp/**"],
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 40
+  },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": "{services,middleware,lib}/**/*.js"
+}
