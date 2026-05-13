@@ -633,6 +633,266 @@ router.post('/me/amendments/add-new-day', authenticate, requireApproved, async (
 });
 
 /**
+ * Helper comune per i 3 endpoint di "spostamento" (change-time, change-room,
+ * move-to). Ritorna { proposal, slot } o lancia un Error con .status/.code.
+ *
+ * - Verifica che lo slot appartenga al docente corrente.
+ * - Verifica che la proposta sia in stato approved/generated (in draft il
+ *   docente modifica direttamente schedule/slot senza amendment).
+ * - Verifica che lo slot non sia locked (festività/sospensione).
+ */
+async function loadOwnApprovedSlot(slotId, userId) {
+  const slot = await MonteOreSlot.findByPk(slotId);
+  if (!slot) {
+    const e = new Error('Slot non trovato');
+    e.status = 404;
+    throw e;
+  }
+  const proposal = await MonteOreProposal.findByPk(slot.proposalId);
+  if (!proposal || proposal.userId !== userId) {
+    const e = new Error('Non autorizzato');
+    e.status = 403;
+    throw e;
+  }
+  if (!['approved', 'generated'].includes(proposal.status)) {
+    const e = new Error('Spostamenti consentiti solo dopo approvazione');
+    e.status = 400;
+    e.code = 'INVALID_STATE';
+    throw e;
+  }
+  if (slot.isLocked) {
+    const e = new Error('Cella bloccata (festività/sospensione)');
+    e.status = 400;
+    e.code = 'SLOT_LOCKED';
+    throw e;
+  }
+  return { proposal, slot };
+}
+
+/**
+ * Helper: crea un amendment con increment atomico cross-dialect del budget
+ * annuale, applica subito la modifica se decisione=auto_approved.
+ * Le mutazioni concrete (update slot, sync booking, …) sono lasciate al
+ * callback `applyFn`. Tutto in transazione.
+ */
+async function createAndApplyAmendment({
+  req,
+  proposal,
+  slot,
+  kind,
+  payload,
+  decision,
+  consumesBudget,
+  applyFn,
+}) {
+  const txOpts =
+    sequelize.getDialect() === 'postgres'
+      ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+      : {};
+  return sequelize.transaction(txOpts, async (t) => {
+    let maxAmend = 3;
+    if (consumesBudget) {
+      const settings = await MonteOreSettings.findOne({
+        where: { academicYear: proposal.academicYear },
+        transaction: t,
+      });
+      maxAmend = settings?.maxAmendmentsPerYear ?? 3;
+    }
+    const amendment = await MonteOreAmendment.create(
+      {
+        proposalId: proposal.id,
+        requesterId: req.user.id,
+        slotId: slot.id,
+        kind,
+        payload,
+        status: decision,
+        requestNotes: req.body?.notes ? String(req.body.notes).slice(0, 2000) : null,
+        decidedAt: decision === 'auto_approved' ? new Date() : null,
+      },
+      { transaction: t },
+    );
+    if (decision === 'auto_approved' && consumesBudget) {
+      const qcol = sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
+      const [affected] = await MonteOreProposal.update(
+        { amendmentCount: sequelize.literal(`${qcol} + 1`) },
+        {
+          where: { id: proposal.id, amendmentCount: { [Op.lt]: maxAmend } },
+          transaction: t,
+        },
+      );
+      if (affected === 0) {
+        const e = new Error(
+          `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
+        );
+        e.status = 400;
+        e.code = 'AMENDMENT_LIMIT_REACHED';
+        throw e;
+      }
+    }
+    if (decision === 'auto_approved') {
+      await applyFn(t);
+    }
+    return amendment;
+  });
+}
+
+/**
+ * POST /api/monte-ore/me/slots/:id/change-time
+ * Cambia l'orario di UN'occorrenza ricorrente (lascia il pattern intatto).
+ * Body: { startTime?: "HH:MM", endTime?: "HH:MM", notes?: string }
+ * Auto-approve se lo slot era originalmente attivo (originalActive=true);
+ * altrimenti pending al coordinatore.
+ */
+router.post('/me/slots/:id/change-time', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const { proposal, slot } = await loadOwnApprovedSlot(req.params.id, req.user.id);
+    const sT = req.body?.startTime ? String(req.body.startTime).slice(0, 5) : null;
+    const eT = req.body?.endTime ? String(req.body.endTime).slice(0, 5) : null;
+    if (!sT && !eT) {
+      return res.status(400).json({ error: 'Indicare almeno startTime o endTime' });
+    }
+    const finalStart = sT ?? slot.startTime;
+    const finalEnd = eT ?? slot.endTime;
+    if (!/^\d{2}:\d{2}$/.test(finalStart) || !/^\d{2}:\d{2}$/.test(finalEnd)) {
+      return res.status(400).json({ error: 'Formato orario non valido (HH:MM)' });
+    }
+    if (finalStart >= finalEnd) {
+      return res.status(400).json({ error: 'startTime deve essere prima di endTime' });
+    }
+    const decision = slotService.classifyAmendment(slot, 'change_time');
+    const amendment = await createAndApplyAmendment({
+      req,
+      proposal,
+      slot,
+      kind: 'change_time',
+      payload: { startTime: finalStart, endTime: finalEnd },
+      decision,
+      consumesBudget: true,
+      applyFn: async (t) => {
+        await slot.update({ startTime: finalStart, endTime: finalEnd }, { transaction: t });
+        if (proposal.status === 'generated') {
+          await slotService.syncBookingForSlot(slot.id, {
+            actorUser: { id: req.user.id, role: 'admin' },
+            transaction: t,
+          });
+        }
+      },
+    });
+    res.status(201).json({ amendment: amendment.toJSON() });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    next(err);
+  }
+});
+
+/**
+ * POST /api/monte-ore/me/slots/:id/change-room
+ * Cambia l'aula di UN'occorrenza (override puntuale). Pattern e altre
+ * settimane restano invariati. Sempre pending: l'aula è risorsa condivisa.
+ * Body: { roomId: number, notes?: string }
+ */
+router.post('/me/slots/:id/change-room', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const { proposal, slot } = await loadOwnApprovedSlot(req.params.id, req.user.id);
+    const newRoomId = Number(req.body?.roomId);
+    if (!Number.isInteger(newRoomId) || newRoomId <= 0) {
+      return res.status(400).json({ error: 'roomId obbligatorio (intero positivo)' });
+    }
+    const room = await Room.findByPk(newRoomId);
+    if (!room) {
+      return res.status(400).json({ error: 'Aula non trovata', code: 'ROOM_NOT_FOUND' });
+    }
+    // Always pending: l'admin verifica disponibilità aula.
+    const amendment = await createAndApplyAmendment({
+      req,
+      proposal,
+      slot,
+      kind: 'change_room',
+      payload: { roomId: newRoomId },
+      decision: 'pending',
+      consumesBudget: false, // budget verrà incrementato all'approve
+      applyFn: async () => {}, // pending: nessuna applicazione immediata
+    });
+    res.status(201).json({ amendment: amendment.toJSON() });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    next(err);
+  }
+});
+
+/**
+ * POST /api/monte-ore/me/slots/:id/move-to
+ * Sposta UNA lezione attiva su una cella diversa (toggle off+on atomico).
+ * Conta come 1 sola variazione di budget.
+ * Body: { targetSlotId: number, notes?: string }
+ *
+ * Auto-approve se sia source sia target sono in pattern (scheduleId valorizzati);
+ * pending altrimenti (es. target è uno slot fuori pattern di add_new_day).
+ */
+router.post('/me/slots/:id/move-to', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const { proposal, slot: source } = await loadOwnApprovedSlot(req.params.id, req.user.id);
+    if (!source.isActive) {
+      return res
+        .status(400)
+        .json({ error: 'Lo slot sorgente non è attivo', code: 'SOURCE_NOT_ACTIVE' });
+    }
+    const targetSlotId = Number(req.body?.targetSlotId);
+    if (!Number.isInteger(targetSlotId) || targetSlotId <= 0) {
+      return res.status(400).json({ error: 'targetSlotId obbligatorio' });
+    }
+    if (targetSlotId === source.id) {
+      return res.status(400).json({ error: 'Source e target coincidono' });
+    }
+    const target = await MonteOreSlot.findByPk(targetSlotId);
+    if (!target || target.proposalId !== proposal.id) {
+      return res.status(400).json({ error: 'Target non valido', code: 'TARGET_NOT_FOUND' });
+    }
+    if (target.isLocked) {
+      return res
+        .status(400)
+        .json({ error: 'Cella target bloccata (festività)', code: 'TARGET_LOCKED' });
+    }
+    if (target.isActive) {
+      return res
+        .status(400)
+        .json({ error: 'Cella target già attiva', code: 'TARGET_ALREADY_ACTIVE' });
+    }
+    const decision = slotService.classifyAmendment(source, 'move_to', { targetSlot: target });
+    const amendment = await createAndApplyAmendment({
+      req,
+      proposal,
+      slot: source,
+      kind: 'move_to',
+      payload: { targetSlotId: target.id, sourceDate: source.date, targetDate: target.date },
+      decision,
+      consumesBudget: true,
+      applyFn: async (t) => {
+        await source.update({ isActive: false }, { transaction: t });
+        await target.update({ isActive: true }, { transaction: t });
+        await slotService.recomputeTotals(proposal.id, { transaction: t });
+        if (proposal.status === 'generated') {
+          // Source: lo slot ora isActive=false → syncBookingForSlot cancella il booking.
+          await slotService.syncBookingForSlot(source.id, {
+            actorUser: { id: req.user.id, role: 'admin' },
+            transaction: t,
+          });
+          // Target: lo slot ora isActive=true → syncBookingForSlot crea il booking.
+          await slotService.syncBookingForSlot(target.id, {
+            actorUser: { id: req.user.id, role: 'admin' },
+            transaction: t,
+          });
+        }
+      },
+    });
+    res.status(201).json({ amendment: amendment.toJSON() });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    next(err);
+  }
+});
+
+/**
  * Elenco amendments della propria proposta (per visibilità docente).
  */
 router.get('/me/amendments', authenticate, requireApproved, async (req, res, next) => {
@@ -1321,6 +1581,34 @@ adminRouter.post(
               if (a.payload.startTime) upd.startTime = String(a.payload.startTime).slice(0, 5);
               if (a.payload.endTime) upd.endTime = String(a.payload.endTime).slice(0, 5);
               await slot.update(upd, { transaction: t });
+            } else if (a.kind === 'change_room' && a.payload?.roomId) {
+              // Override aula sul singolo slot: pattern e altre settimane
+              // restano invariate (lo slot ha priorità su schedule.roomId).
+              await slot.update({ roomId: Number(a.payload.roomId) }, { transaction: t });
+            } else if (a.kind === 'move_to' && a.payload?.targetSlotId) {
+              const target = await MonteOreSlot.findByPk(Number(a.payload.targetSlotId), {
+                transaction: t,
+              });
+              if (!target || target.proposalId !== proposal.id) {
+                const e = new Error('Slot target non valido');
+                e.status = 400;
+                e.code = 'TARGET_NOT_FOUND';
+                throw e;
+              }
+              if (target.isLocked || target.isActive) {
+                const e = new Error('Slot target non disponibile');
+                e.status = 400;
+                e.code = 'TARGET_NOT_AVAILABLE';
+                throw e;
+              }
+              await slot.update({ isActive: false }, { transaction: t });
+              await target.update({ isActive: true }, { transaction: t });
+              if (proposal.status === 'generated') {
+                await slotService.syncBookingForSlot(target.id, {
+                  actorUser: { id: req.user.id, role: 'admin' },
+                  transaction: t,
+                });
+              }
             }
             // Sync booking↔slot in stato 'generated': cancella o ricrea il
             // Booking corrispondente in coerenza con la decisione admin.

@@ -48,7 +48,18 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       kind: {
-        type: DataTypes.ENUM('toggle_off', 'toggle_on', 'change_time', 'add_new_day'),
+        // change_room: cambia l'aula di UN'occorrenza (slot) lasciando il
+        //   pattern intatto. Sempre pending: l'aula è risorsa condivisa.
+        // move_to: sposta una lezione da una cella attiva a una cella diversa
+        //   (toggle off+on atomico, conta come 1 sola variazione di budget).
+        type: DataTypes.ENUM(
+          'toggle_off',
+          'toggle_on',
+          'change_time',
+          'add_new_day',
+          'change_room',
+          'move_to',
+        ),
         allowNull: false,
       },
       payload: {
@@ -89,6 +100,14 @@ module.exports = (sequelize) => {
           } else if (this.kind === 'change_time') {
             if (!p.startTime && !p.endTime) {
               throw new Error("Payload 'change_time' richiede startTime o endTime");
+            }
+          } else if (this.kind === 'change_room') {
+            if (!Number.isInteger(p.roomId) || p.roomId <= 0) {
+              throw new Error("Payload 'change_room' richiede {roomId} intero positivo");
+            }
+          } else if (this.kind === 'move_to') {
+            if (!Number.isInteger(p.targetSlotId) || p.targetSlotId <= 0) {
+              throw new Error("Payload 'move_to' richiede {targetSlotId} intero positivo");
             }
           }
           // toggle_on/toggle_off: payload libero (debug only)

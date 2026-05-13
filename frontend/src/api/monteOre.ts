@@ -140,7 +140,13 @@ export interface CalendarWeek {
   }[];
 }
 
-export type AmendmentKind = 'toggle_off' | 'toggle_on' | 'change_time' | 'add_new_day';
+export type AmendmentKind =
+  | 'toggle_off'
+  | 'toggle_on'
+  | 'change_time'
+  | 'add_new_day'
+  | 'change_room'
+  | 'move_to';
 export type AmendmentStatus = 'pending' | 'auto_approved' | 'approved' | 'rejected';
 
 export interface MonteOreAmendment {
@@ -281,6 +287,33 @@ export const monteOreApi = {
     api<{ amendment: MonteOreAmendment }>('/api/monte-ore/me/amendments/add-new-day', {
       method: 'POST',
       body: payload,
+    }),
+
+  /** Cambia l'orario di una singola occorrenza ricorrente (auto se slot
+   *  originalActive, pending altrimenti). */
+  changeSlotTime: (
+    slotId: number,
+    body: { startTime?: string; endTime?: string; notes?: string },
+  ) =>
+    api<{ amendment: MonteOreAmendment }>(`/api/monte-ore/me/slots/${slotId}/change-time`, {
+      method: 'POST',
+      body,
+    }),
+
+  /** Cambia l'aula di una singola occorrenza (override puntuale, lascia pattern
+   *  intatto). Sempre pending: richiede approvazione del coordinatore. */
+  changeSlotRoom: (slotId: number, body: { roomId: number; notes?: string }) =>
+    api<{ amendment: MonteOreAmendment }>(`/api/monte-ore/me/slots/${slotId}/change-room`, {
+      method: 'POST',
+      body,
+    }),
+
+  /** Sposta una lezione attiva su una cella diversa (toggle off+on atomico,
+   *  1 sola variazione di budget). Auto se entrambi sono in pattern. */
+  moveSlotTo: (sourceSlotId: number, body: { targetSlotId: number; notes?: string }) =>
+    api<{ amendment: MonteOreAmendment }>(`/api/monte-ore/me/slots/${sourceSlotId}/move-to`, {
+      method: 'POST',
+      body,
     }),
 };
 
@@ -429,10 +462,24 @@ export type { Booking };
  * il payload della richiesta.
  */
 export function amendmentSummary(a: MonteOreAmendment): string {
-  if (a.slot) return `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}`;
+  const base = a.slot ? `${a.slot.date} ${a.slot.startTime}–${a.slot.endTime}` : '';
+  if (a.kind === 'change_time') {
+    const p = a.payload as { startTime?: string; endTime?: string };
+    if (p.startTime || p.endTime) {
+      return `${base} → ${p.startTime ?? a.slot?.startTime}–${p.endTime ?? a.slot?.endTime}`;
+    }
+  }
+  if (a.kind === 'change_room') {
+    const p = a.payload as { roomId?: number };
+    return `${base} → aula #${p.roomId ?? '?'}`;
+  }
+  if (a.kind === 'move_to') {
+    const p = a.payload as { sourceDate?: string; targetDate?: string };
+    if (p.sourceDate && p.targetDate) return `${p.sourceDate} → ${p.targetDate}`;
+  }
   if (a.kind === 'add_new_day') {
     const p = a.payload as { date?: string; startTime?: string; endTime?: string };
     if (p.date && p.startTime && p.endTime) return `${p.date} ${p.startTime}–${p.endTime}`;
   }
-  return '—';
+  return base || '—';
 }

@@ -686,6 +686,16 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna monte_ore_proposals.revalidationReason aggiunta');
   }
 
+  // Monte Ore — nuovi kind amendment per spostamenti (change_room, move_to).
+  // SQLite non enforce ENUM: i nuovi valori passano comunque. Su Postgres
+  // serve ALTER TYPE per aggiungere i valori al tipo enum esistente.
+  if (await ensurePostgresEnumValue('enum_monte_ore_amendments_kind', 'change_room')) {
+    logger.info('  ✓ ENUM monte_ore_amendments_kind: valore change_room aggiunto');
+  }
+  if (await ensurePostgresEnumValue('enum_monte_ore_amendments_kind', 'move_to')) {
+    logger.info('  ✓ ENUM monte_ore_amendments_kind: valore move_to aggiunto');
+  }
+
   // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
   // preesistenti in chiaro (zero-rottura per i client già subscribed).
   if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {

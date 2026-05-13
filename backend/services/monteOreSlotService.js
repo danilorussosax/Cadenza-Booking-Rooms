@@ -177,6 +177,11 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
   // serializzare le append concorrenti su `generatedBookingIds`: senza lock
   // due toggle simultanei leggerebbero lo stesso array, ognuno aggiungerebbe
   // il proprio id e l'ultimo write vincerebbe perdendo l'altro id.
+  //
+  // Override individuale (change_room): se slot.roomId/bookingType sono
+  // valorizzati ANCHE per uno slot in-pattern, vincono sullo schedule.
+  // Questo permette di sostituire l'aula di una singola occorrenza senza
+  // toccare il pattern (= senza propagare a tutte le altre settimane).
   let roomId, bookingType, purpose, notes;
   let schedule = null;
   if (slot.scheduleId) {
@@ -185,9 +190,9 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
       ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
     });
     if (!schedule) return { action: 'noop', reason: 'schedule_not_found' };
-    roomId = schedule.roomId;
-    bookingType = schedule.bookingType;
-    purpose = schedule.purpose || null;
+    roomId = slot.roomId ?? schedule.roomId;
+    bookingType = slot.bookingType ?? schedule.bookingType;
+    purpose = slot.purpose ?? schedule.purpose ?? null;
     notes = schedule.notes || null;
   } else {
     if (!slot.roomId || !slot.bookingType) {
@@ -306,13 +311,26 @@ async function snapshotOriginalActive(proposalId, { transaction = null } = {}) {
  * approvato (stesso dayOfWeek+orario, scheduleId valorizzato), o se è una
  * deselezione (libero ore = sempre lecito). Tutto il resto richiede il
  * coordinatore.
+ *
+ * - toggle_off: sempre auto (libera ore)
+ * - toggle_on: auto se slot dentro pattern, pending altrimenti
+ * - change_time: auto se slot.originalActive (era in piano), pending altrimenti
+ * - change_room: sempre pending (l'aula è risorsa condivisa)
+ * - move_to: auto se sia source sia target sono in pattern; pending altrimenti.
+ *   Il target è passato come secondo argomento opzionale dal route handler.
+ * - add_new_day: sempre pending
  */
-function classifyAmendment(slot, kind) {
+function classifyAmendment(slot, kind, opts = {}) {
   if (kind === 'toggle_off') return 'auto_approved';
   if (kind === 'toggle_on') {
     return slot.scheduleId ? 'auto_approved' : 'pending';
   }
   if (kind === 'change_time' && slot.originalActive) return 'auto_approved';
+  if (kind === 'change_room') return 'pending';
+  if (kind === 'move_to') {
+    const target = opts.targetSlot;
+    return slot.scheduleId && target && target.scheduleId ? 'auto_approved' : 'pending';
+  }
   return 'pending';
 }
 

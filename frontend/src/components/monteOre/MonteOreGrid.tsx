@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarRange, RefreshCcw, AlertCircle, History, CalendarPlus } from 'lucide-react';
+import {
+  CalendarRange,
+  RefreshCcw,
+  AlertCircle,
+  History,
+  CalendarPlus,
+  MoreVertical,
+  Clock,
+  MapPin,
+  Move,
+} from 'lucide-react';
 import {
   monteOreApi,
   amendmentSummary,
@@ -74,6 +84,11 @@ export default function MonteOreGrid({
 }: Props) {
   const qc = useQueryClient();
   const [newDayOpen, setNewDayOpen] = useState(false);
+  // Slot selezionato per uno spostamento (change_time / change_room / move_to).
+  const [movingSlot, setMovingSlot] = useState<MonteOreSlot | null>(null);
+  // Spostamenti consentiti solo dopo approvazione (in draft il docente
+  // edita direttamente il pattern, senza amendment workflow).
+  const allowMove = ['approved', 'generated'].includes(proposalStatus);
 
   const calendarQuery = useQuery({
     queryKey: ['monte-ore', 'me', 'calendar'],
@@ -311,6 +326,7 @@ export default function MonteOreGrid({
                     week={w}
                     slotsByDate={slotsByDate}
                     onToggle={(slotId) => editable && toggleMutation.mutate(slotId)}
+                    onRequestMove={allowMove ? (s) => setMovingSlot(s) : undefined}
                     disabled={toggleMutation.isPending || !editable}
                   />
                 ))}
@@ -331,6 +347,9 @@ export default function MonteOreGrid({
           maxDate={settings.lessonsEndDate}
         />
       )}
+      {movingSlot && (
+        <SlotMoveDialog slot={movingSlot} allSlots={slots} onClose={() => setMovingSlot(null)} />
+      )}
     </Card>
   );
 }
@@ -339,11 +358,13 @@ function WeekRow({
   week,
   slotsByDate,
   onToggle,
+  onRequestMove,
   disabled,
 }: {
   week: CalendarWeek;
   slotsByDate: Map<string, MonteOreSlot[]>;
   onToggle: (slotId: number) => void;
+  onRequestMove?: (slot: MonteOreSlot) => void;
   disabled: boolean;
 }) {
   let weekTotal = 0;
@@ -365,6 +386,7 @@ function WeekRow({
             day={d}
             slots={slotsByDate.get(d.date) ?? []}
             onToggle={onToggle}
+            onRequestMove={onRequestMove}
             disabled={disabled}
           />
         </td>
@@ -380,11 +402,13 @@ function DayCell({
   day,
   slots,
   onToggle,
+  onRequestMove,
   disabled,
 }: {
   day: { date: string; isLocked: boolean; lockReason: string | null };
   slots: MonteOreSlot[];
   onToggle: (slotId: number) => void;
+  onRequestMove?: (slot: MonteOreSlot) => void;
   disabled: boolean;
 }) {
   if (day.isLocked) {
@@ -405,23 +429,39 @@ function DayCell({
       {slots.map((s) => {
         const active = s.isActive && !s.isLocked;
         const locked = s.isLocked;
+        const canMove = active && onRequestMove && !disabled;
         return (
-          <button
-            key={s.id}
-            type="button"
-            disabled={disabled || locked}
-            onClick={() => onToggle(s.id)}
-            className={`min-h-[36px] rounded-md px-1.5 py-1.5 text-[11px] font-medium tabular-nums transition active:scale-95 sm:min-h-0 sm:py-1 ${
-              locked
-                ? 'cursor-not-allowed bg-destructive/10 text-destructive'
-                : active
-                  ? 'bg-primary text-primary-foreground shadow-xs ring-1 ring-primary hover:bg-primary/90'
-                  : 'border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-            }`}
-            title={`${s.startTime}–${s.endTime}${locked && s.lockReason ? ` (${s.lockReason})` : ''}`}
-          >
-            {s.startTime}–{s.endTime}
-          </button>
+          <div key={s.id} className="relative group">
+            <button
+              type="button"
+              disabled={disabled || locked}
+              onClick={() => onToggle(s.id)}
+              className={`block w-full min-h-[36px] rounded-md px-1.5 py-1.5 text-[11px] font-medium tabular-nums transition active:scale-95 sm:min-h-0 sm:py-1 ${
+                locked
+                  ? 'cursor-not-allowed bg-destructive/10 text-destructive'
+                  : active
+                    ? 'bg-primary text-primary-foreground shadow-xs ring-1 ring-primary hover:bg-primary/90 pr-6'
+                    : 'border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+              }`}
+              title={`${s.startTime}–${s.endTime}${locked && s.lockReason ? ` (${s.lockReason})` : ''}`}
+            >
+              {s.startTime}–{s.endTime}
+            </button>
+            {canMove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRequestMove(s);
+                }}
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-primary-foreground/70 hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                title="Opzioni spostamento"
+                aria-label="Apri opzioni di spostamento"
+              >
+                <MoreVertical className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         );
       })}
     </div>
@@ -460,6 +500,8 @@ function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
                 {a.kind === 'toggle_on' && 'Riattivazione'}
                 {a.kind === 'change_time' && 'Cambio orario'}
                 {a.kind === 'add_new_day' && 'Nuovo giorno'}
+                {a.kind === 'change_room' && 'Cambio aula'}
+                {a.kind === 'move_to' && 'Spostamento'}
                 {' — '}
                 {amendmentSummary(a)}
               </span>
@@ -656,6 +698,273 @@ function NewDayDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// SlotMoveDialog — Tre modi per "spostare" una lezione dopo l'approvazione:
+//   1. Cambia orario (stessa data, nuovi startTime/endTime). Auto se in pattern.
+//   2. Cambia aula  (override sull'occorrenza, pattern intatto). Sempre pending.
+//   3. Sposta a…   (toggle off+on atomico su un'altra cella, 1 sola variazione
+//                    di budget). Auto se entrambe le celle sono in pattern.
+// ============================================================
+
+type MoveTab = 'time' | 'room' | 'move';
+
+function SlotMoveDialog({
+  slot,
+  allSlots,
+  onClose,
+}: {
+  slot: MonteOreSlot;
+  allSlots: MonteOreSlot[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<MoveTab>('time');
+
+  // Form state per ognuna delle 3 azioni
+  const [newStart, setNewStart] = useState(slot.startTime);
+  const [newEnd, setNewEnd] = useState(slot.endTime);
+  const [newRoomId, setNewRoomId] = useState<number | null>(null);
+  const [targetSlotId, setTargetSlotId] = useState<number | null>(null);
+  const [notes, setNotes] = useState('');
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms', 'bookable'],
+    queryFn: () => roomsApi.list({ bookable: true }),
+    staleTime: 60_000,
+    enabled: tab === 'room',
+  });
+  const sortedRooms = sortRoomsCrossBuilding(roomsQuery.data?.rooms ?? []);
+
+  // Slot candidati per il "Sposta a…": inattivi, non locked, stessa proposta.
+  const moveTargets = useMemo(
+    () =>
+      allSlots
+        .filter((s) => s.id !== slot.id && !s.isLocked && !s.isActive)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
+    [allSlots, slot.id],
+  );
+
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+  };
+
+  const changeTime = useMutation({
+    mutationFn: () =>
+      monteOreApi.changeSlotTime(slot.id, {
+        startTime: newStart,
+        endTime: newEnd,
+        notes: notes || undefined,
+      }),
+    onSuccess: (data) => {
+      toast.success(
+        data.amendment.status === 'auto_approved'
+          ? 'Orario aggiornato'
+          : 'Richiesta orario inviata al coordinatore',
+      );
+      refresh();
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const changeRoom = useMutation({
+    mutationFn: () =>
+      monteOreApi.changeSlotRoom(slot.id, { roomId: newRoomId!, notes: notes || undefined }),
+    onSuccess: () => {
+      toast.success('Richiesta cambio aula inviata al coordinatore');
+      refresh();
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const moveTo = useMutation({
+    mutationFn: () =>
+      monteOreApi.moveSlotTo(slot.id, {
+        targetSlotId: targetSlotId!,
+        notes: notes || undefined,
+      }),
+    onSuccess: (data) => {
+      toast.success(
+        data.amendment.status === 'auto_approved'
+          ? 'Lezione spostata'
+          : 'Richiesta di spostamento inviata al coordinatore',
+      );
+      refresh();
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const timeValid =
+    /^\d{2}:\d{2}$/.test(newStart) && /^\d{2}:\d{2}$/.test(newEnd) && newStart < newEnd;
+  const timeDirty = newStart !== slot.startTime || newEnd !== slot.endTime;
+  const isPending = changeTime.isPending || changeRoom.isPending || moveTo.isPending;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Spostamento lezione</DialogTitle>
+          <DialogDescription>
+            {slot.date} · {slot.startTime}–{slot.endTime}
+            {slot.scheduleId ? null : ' · fuori pattern'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Tabs */}
+        <div className="grid grid-cols-3 gap-1 rounded-md border bg-muted/30 p-1 text-sm">
+          {(
+            [
+              { v: 'time', l: 'Cambia orario', i: Clock },
+              { v: 'room', l: 'Cambia aula', i: MapPin },
+              { v: 'move', l: 'Sposta a…', i: Move },
+            ] as const
+          ).map(({ v, l, i: Icon }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setTab(v)}
+              className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 transition ${
+                tab === v
+                  ? 'bg-background shadow-xs font-medium'
+                  : 'text-muted-foreground hover:bg-background/60'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'time' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Modifica l'orario di questa singola occorrenza. Approvazione automatica se la cella
+              era nel piano originale.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Nuovo inizio</Label>
+                <Input type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Nuova fine</Label>
+                <Input type="time" value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
+              </div>
+            </div>
+            {!timeValid && timeDirty && (
+              <p className="text-xs text-destructive">
+                L'orario di inizio deve essere prima della fine.
+              </p>
+            )}
+          </div>
+        )}
+
+        {tab === 'room' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Cambia l'aula solo per questa occorrenza (le altre settimane restano invariate). La
+              richiesta va sempre approvata dal coordinatore.
+            </p>
+            <div className="space-y-2">
+              <Label>Aula richiesta</Label>
+              <Select
+                value={newRoomId ? String(newRoomId) : ''}
+                onValueChange={(v) => setNewRoomId(v ? Number(v) : null)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="— scegli aula —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedRooms.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                      {r.building?.name ? ` · ${r.building.name}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {tab === 'move' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Sposta la lezione su una cella attualmente disattiva. Conta come una sola variazione.
+              Approvazione automatica se la cella destinazione è già nel pattern.
+            </p>
+            <div className="space-y-2">
+              <Label>Cella destinazione</Label>
+              <Select
+                value={targetSlotId ? String(targetSlotId) : ''}
+                onValueChange={(v) => setTargetSlotId(v ? Number(v) : null)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      moveTargets.length === 0
+                        ? '— nessuna cella libera —'
+                        : '— scegli destinazione —'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {moveTargets.slice(0, 100).map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.date} · {s.startTime}–{s.endTime}
+                      {s.scheduleId ? '' : ' · fuori pattern'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {moveTargets.length} celle disponibili nella griglia.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label className="text-xs">Note al coordinatore (opzionale)</Label>
+          <Textarea
+            rows={2}
+            maxLength={500}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Motivazione (es. impegno familiare, sostituzione esami)"
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Annulla
+          </Button>
+          {tab === 'time' && (
+            <Button
+              onClick={() => changeTime.mutate()}
+              disabled={!timeValid || !timeDirty || isPending}
+            >
+              Salva nuovo orario
+            </Button>
+          )}
+          {tab === 'room' && (
+            <Button onClick={() => changeRoom.mutate()} disabled={!newRoomId || isPending}>
+              Richiedi cambio aula
+            </Button>
+          )}
+          {tab === 'move' && (
+            <Button onClick={() => moveTo.mutate()} disabled={!targetSlotId || isPending}>
+              Sposta
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

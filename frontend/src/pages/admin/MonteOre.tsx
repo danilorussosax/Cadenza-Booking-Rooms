@@ -389,6 +389,8 @@ const AMENDMENT_KIND_LABEL_LOCAL: Record<MonteOreAmendment['kind'], string> = {
   toggle_on: 'Riattivazione',
   change_time: 'Cambio orario',
   add_new_day: 'Nuovo giorno',
+  change_room: 'Cambio aula',
+  move_to: 'Spostamento',
 };
 
 /**
@@ -1455,6 +1457,8 @@ const AMENDMENT_KIND_LABEL: Record<MonteOreAmendment['kind'], string> = {
   toggle_on: 'Riattivazione',
   change_time: 'Cambio orario',
   add_new_day: 'Nuovo giorno',
+  change_room: 'Cambio aula',
+  move_to: 'Spostamento',
 };
 
 function AmendmentsSection({
