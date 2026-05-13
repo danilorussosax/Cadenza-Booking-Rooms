@@ -46,12 +46,32 @@ if ! command -v rclone >/dev/null 2>&1; then
   exit 1
 fi
 
-# Verifica che il remote esista in rclone config
-if ! rclone listremotes | grep -q "^${REMOTE_NAME}:$"; then
-  echo "✗ Remote '${REMOTE_NAME}' non trovato in rclone config."
-  echo "  Configura prima con: rclone config"
-  echo "  Remote disponibili:"
-  rclone listremotes | sed 's/^/    /'
+# Verifica esistenza dell'utente OWNER (servirà per cron + rclone config)
+if ! id -u "$OWNER" >/dev/null 2>&1; then
+  echo "✗ Utente '$OWNER' non esiste."
+  echo "  Cambia variabile OWNER o crea l'utente: sudo useradd -r -m $OWNER"
+  exit 1
+fi
+
+# IMPORTANT: rclone va configurato SOTTO l'utente che girerà il cron (OWNER),
+# non sotto root, perché il config sta in ~/.config/rclone/rclone.conf
+# dell'utente. Per questo i controlli `rclone listremotes` e `rclone lsd`
+# vengono eseguiti via `sudo -u $OWNER`.
+RCLONE_AS_OWNER="sudo -u $OWNER rclone"
+
+# Verifica che il remote esista nel config dell'utente OWNER
+if ! $RCLONE_AS_OWNER listremotes 2>/dev/null | grep -q "^${REMOTE_NAME}:$"; then
+  echo "✗ Remote '${REMOTE_NAME}' non trovato nel config dell'utente '$OWNER'."
+  echo ""
+  echo "  Configura il remote SOTTO l'utente che girerà il cron:"
+  echo "      sudo -u $OWNER rclone config"
+  echo ""
+  echo "  Procedura: n (new remote) → nome=\"${REMOTE_NAME}\" → scegli storage"
+  echo "  (onedrive/dropbox/...) → account personal → autorizza"
+  echo "  Vedi docs/EXCEL_SYNC.md per i dettagli (anche modalità headless)."
+  echo ""
+  echo "  Remote attualmente configurati per '$OWNER':"
+  $RCLONE_AS_OWNER listremotes 2>/dev/null | sed 's/^/    /' || echo "    (nessuno)"
   exit 1
 fi
 
@@ -64,10 +84,11 @@ chown -R "$OWNER":"$OWNER" "$SYNC_DIR"
 chmod 750 "$SYNC_DIR"
 echo "✓ Cartella locale: $SYNC_DIR (owner $OWNER, mode 750)"
 
-# Test connessione al remote
-echo "→ Test connessione al remote '${REMOTE_NAME}:'..."
-if ! rclone lsd "${REMOTE_NAME}:" >/dev/null 2>&1; then
-  echo "✗ Impossibile accedere a ${REMOTE_NAME}: — verifica config rclone."
+# Test connessione al remote (come utente OWNER)
+echo "→ Test connessione al remote '${REMOTE_NAME}:' (come utente $OWNER)..."
+if ! $RCLONE_AS_OWNER lsd "${REMOTE_NAME}:" >/dev/null 2>&1; then
+  echo "✗ Impossibile accedere a ${REMOTE_NAME}: — verifica:"
+  echo "    sudo -u $OWNER rclone lsd ${REMOTE_NAME}:"
   exit 1
 fi
 echo "✓ Remote raggiungibile."

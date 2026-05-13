@@ -61,8 +61,13 @@ rclone version
 
 ### 3. Configura il remote cloud
 
+> ⚠️ **Importante**: il config rclone va creato sotto l'utente che
+> eseguirà il cron (default: `cadenza`), non sotto root. Altrimenti il
+> cron non troverà il config (sta in `~/.config/rclone/rclone.conf`
+> dell'utente).
+
 ```bash
-rclone config
+sudo -u cadenza rclone config
 ```
 
 Procedura guidata interattiva. Sintesi delle scelte:
@@ -96,11 +101,13 @@ sulla console del server quando rclone te lo chiede.
 
 ### 4. Verifica il remote
 
+Sempre come utente `cadenza`:
+
 ```bash
-rclone listremotes
+sudo -u cadenza rclone listremotes
 # deve mostrare:  cadenza-cloud:
 
-rclone lsd cadenza-cloud:
+sudo -u cadenza rclone lsd cadenza-cloud:
 # deve listare le cartelle root del tuo OneDrive/Dropbox (anche vuota va bene)
 ```
 
