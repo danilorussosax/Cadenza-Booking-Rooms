@@ -264,8 +264,11 @@ export function BookingFormDialog({
           ...payload,
           ...onBehalf,
           recurrence: { weeks: recurringWeeks },
+          // Default UX: salta le occorrenze in conflitto invece di abortire
+          // tutta la serie. L'utente vede skipped nel toast.
+          skipConflicts: true,
         });
-        return { kind: 'recurring', created: res.created, skipped: res.skipped.length };
+        return { kind: 'recurring', created: res.createdCount, skipped: res.skipped };
       }
       await bookingsApi.create({ ...payload, ...onBehalf });
       return { kind: 'single' };

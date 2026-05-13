@@ -75,6 +75,14 @@ module.exports = (sequelize) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      // FK alla serie ricorrente che ha generato questa prenotazione.
+      // NULL = prenotazione singola (caso più comune). Le occorrenze
+      // appartenenti a una serie possono essere modificate/cancellate
+      // individualmente o tutte insieme via BookingRecurrence.
+      recurrenceId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
     },
     {
       tableName: 'bookings',
@@ -94,6 +102,8 @@ module.exports = (sequelize) => {
         // Tick ghost-cancel: trova booking confermati con startTime nel passato
         // ancora senza checkedInAt e senza autoCancelledAt.
         { name: 'bookings_status_check', fields: ['status', 'checkedInAt', 'autoCancelledAt'] },
+        // Lookup "tutte le occorrenze di questa serie" per cancel-bulk
+        { name: 'bookings_recurrence', fields: ['recurrenceId'] },
       ],
     },
   );

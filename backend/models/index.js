@@ -83,6 +83,7 @@ const MonteOreSlot = require('./MonteOreSlot')(sequelize);
 const MonteOreAmendment = require('./MonteOreAmendment')(sequelize);
 const ContractType = require('./ContractType')(sequelize);
 const PasswordResetToken = require('./PasswordResetToken')(sequelize);
+const BookingRecurrence = require('./BookingRecurrence')(sequelize);
 
 // ===========================================
 // Associazioni / Relazioni
@@ -391,6 +392,33 @@ User.hasMany(PasswordResetToken, {
 });
 PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// BookingRecurrence -> Booking (1:N). SET NULL: cancellando la serie le
+// occorrenze restano come booking individuali con recurrenceId=null. Questo
+// preserva la storia delle prenotazioni passate (audit/analytics) e separa
+// la decisione "cancella serie" da "cancella occorrenze passate".
+// La route DELETE /recurrences/:id soft-cancella le occorrenze FUTURE
+// esplicitamente prima di distruggere la serie.
+BookingRecurrence.hasMany(Booking, {
+  foreignKey: 'recurrenceId',
+  as: 'occurrences',
+  onDelete: 'SET NULL',
+});
+Booking.belongsTo(BookingRecurrence, { foreignKey: 'recurrenceId', as: 'recurrence' });
+
+User.hasMany(BookingRecurrence, {
+  foreignKey: 'userId',
+  as: 'bookingRecurrences',
+  onDelete: 'CASCADE',
+});
+BookingRecurrence.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Room.hasMany(BookingRecurrence, {
+  foreignKey: 'roomId',
+  as: 'bookingRecurrences',
+  onDelete: 'CASCADE',
+});
+BookingRecurrence.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
+
 module.exports = {
   sequelize,
   User,
@@ -434,4 +462,5 @@ module.exports = {
   ContractType,
   BookingTypeCatalog,
   PasswordResetToken,
+  BookingRecurrence,
 };

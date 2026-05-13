@@ -63,10 +63,11 @@ describe('POST /api/bookings/recurring', () => {
         type: 'lezione',
         purpose: 'Pianoforte 3°',
         recurrence: { weeks: 4 },
+        skipConflicts: true,
       });
-    expect(res.status).toBe(200);
-    expect(res.body.created).toBe(4);
-    expect(res.body.skipped).toEqual([]);
+    expect(res.status).toBe(201);
+    expect(res.body.createdCount).toBe(4);
+    expect(res.body.skipped).toBe(0);
     expect(res.body.bookingIds).toHaveLength(4);
 
     const inDb = await Booking.findAll({
@@ -114,12 +115,14 @@ describe('POST /api/bookings/recurring', () => {
         endTime: '2030-09-02T16:00:00.000Z',
         type: 'lezione',
         recurrence: { weeks: 4 },
+        skipConflicts: true,
       });
-    expect(res.status).toBe(200);
-    expect(res.body.created).toBe(3);
-    expect(res.body.skipped).toHaveLength(1);
-    expect(res.body.skipped[0].date).toBe('2030-09-09');
-    expect(res.body.skipped[0].code).toBeDefined();
+    expect(res.status).toBe(201);
+    expect(res.body.createdCount).toBe(3);
+    expect(res.body.skipped).toBe(1);
+    expect(res.body.conflicts).toHaveLength(1);
+    expect(res.body.conflicts[0].startTime.startsWith('2030-09-09')).toBe(true);
+    expect(res.body.conflicts[0].code).toBeDefined();
 
     const inDb = await Booking.count({ where: { userId: user.id, status: 'confirmed' } });
     expect(inDb).toBe(3);
@@ -185,7 +188,8 @@ describe('POST /api/bookings/recurring', () => {
         recurrence: { weeks: 4 },
       });
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('VALIDATION_FAILED');
+    // Il nuovo handler usa code specifico RECURRENCE_TEMPLATE_TIME_INVALID
+    expect(['VALIDATION_FAILED', 'RECURRENCE_TEMPLATE_TIME_INVALID']).toContain(res.body.code);
   });
 
   it('rispetta allowRecurring=false → 403', async () => {
@@ -238,10 +242,11 @@ describe('POST /api/bookings/recurring', () => {
         endTime: '2030-09-02T09:00:00.000Z', // 1h × 52 sett = 52h totali
         type: 'lezione',
         recurrence: { weeks: 52 },
+        skipConflicts: true,
       });
     const elapsed = Date.now() - t0;
-    expect(res.status).toBe(200);
-    expect(res.body.created).toBeGreaterThanOrEqual(50); // almeno 50 (alcuni potrebbero saltare per quote weekly)
+    expect(res.status).toBe(201);
+    expect(res.body.createdCount).toBeGreaterThanOrEqual(50);
     // Sotto 10 secondi con SQLite test (Postgres dovrebbe essere ≤2s).
     expect(elapsed).toBeLessThan(10_000);
   });

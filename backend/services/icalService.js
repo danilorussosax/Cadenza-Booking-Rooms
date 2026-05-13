@@ -48,14 +48,56 @@ function bookingDescription(b) {
   return lines.join('\n');
 }
 
-// Raggruppa le prenotazioni in serie ricorrenti con cadenza settimanale fissa.
-// Una serie richiede: stessa room, stesso type, stessa fascia oraria (HH:mm),
-// stesso purpose, almeno 2 occorrenze, con tutti i delta tra date di start
-// multipli esatti di 7 giorni (1, 2, 3, … settimane). Solo cadenza settimanale
-// pura (FREQ=WEEKLY;INTERVAL=1) viene riconosciuta — euristica conservativa.
+// Raggruppa le prenotazioni in serie ricorrenti.
+//
+// Priorità 1 (ground-truth): booking che hanno `recurrenceId` valorizzato +
+//   l'oggetto `recurrence` incluso → vengono raggruppati per recurrenceId e
+//   l'RRULE viene emesso dalla regola esatta (DAILY/WEEKLY, INTERVAL, BYDAY,
+//   UNTIL, EXDATE). Questo è il caso post-F2 (POST /bookings/recurring).
+//
+// Priorità 2 (euristica legacy): booking SENZA recurrenceId che vengono
+//   riconosciuti per pattern (stessa room/orario/type, delta = 7 giorni).
+//   Serve per i booking creati prima dell'introduzione della feature.
+//
+// I booking residui non aggregabili restano come VEVENT singoli.
 function groupRecurrences(bookings) {
+  const result = [];
+  const consumed = new Set();
+
+  // ─── Priorità 1: gruppi per recurrenceId (ground-truth) ────────────────
+  const byRecurrence = new Map();
+  for (const b of bookings) {
+    if (!b.recurrenceId) continue;
+    if (!byRecurrence.has(b.recurrenceId)) byRecurrence.set(b.recurrenceId, []);
+    byRecurrence.get(b.recurrenceId).push(b);
+  }
+  for (const [, group] of byRecurrence) {
+    group.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    const master = group[0];
+    // Usa la regola esposta da Sequelize via include — se non c'è (es. il
+    // chiamante non ha incluso 'recurrence') ricadi sull'euristica per quel
+    // gruppo.
+    const rule = master.recurrence;
+    if (rule) {
+      result.push({
+        master,
+        count: group.length,
+        isRecurring: true,
+        rule, // BookingRecurrence istanza con frequency/interval/byWeekday/endDate/excludeDates
+      });
+      for (const b of group) consumed.add(b.id);
+    }
+  }
+
+  // ─── Priorità 2: euristica weekly su booking senza recurrenceId ────────
+  return groupRecurrencesByHeuristic(bookings, result, consumed);
+}
+
+function groupRecurrencesByHeuristic(bookings, result, consumed) {
   const buckets = new Map();
   for (const b of bookings) {
+    if (consumed.has(b.id)) continue; // già consumato da Priorità 1
+    if (b.recurrenceId) continue; // ha già una serie ufficiale, skip euristica
     const start = dayjs(b.startTime);
     const end = dayjs(b.endTime);
     const key = [
@@ -69,9 +111,6 @@ function groupRecurrences(bookings) {
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(b);
   }
-
-  const result = []; // { master: Booking, count: number, isRecurring: bool }
-  const consumed = new Set();
 
   for (const [, group] of buckets) {
     if (group.length < 2) continue;
@@ -99,8 +138,29 @@ function groupRecurrences(bookings) {
   return result;
 }
 
+/**
+ * Costruisce la stringa RRULE da una BookingRecurrence (ground-truth).
+ * Esempi:
+ *   weekly 1 byWeekday=[MO,WE,FR] endDate=2026-12-31
+ *     → FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR;UNTIL=20261231T235959Z
+ *   daily 2 endDate=2026-05-20
+ *     → FREQ=DAILY;INTERVAL=2;UNTIL=20260520T235959Z
+ */
+function rruleFromRecurrence(rule) {
+  const parts = [];
+  parts.push(`FREQ=${rule.frequency.toUpperCase()}`);
+  if (rule.interval && rule.interval !== 1) parts.push(`INTERVAL=${rule.interval}`);
+  if (rule.frequency === 'weekly' && Array.isArray(rule.byWeekday) && rule.byWeekday.length > 0) {
+    parts.push(`BYDAY=${rule.byWeekday.join(',')}`);
+  }
+  // UNTIL deve essere in UTC alla fine giornata
+  const until = dayjs(rule.endDate).endOf('day');
+  parts.push(`UNTIL=${until.format('YYYYMMDD')}T${until.format('HHmmss')}Z`);
+  return parts.join(';');
+}
+
 function bookingToEvent(entry) {
-  const { master, count, isRecurring } = entry;
+  const { master, count, isRecurring, rule } = entry;
   const event = {
     uid: `booking-${master.id}@${APP_DOMAIN}`,
     title: bookingSummary(master),
@@ -112,8 +172,27 @@ function bookingToEvent(entry) {
     calName: 'Cadenza',
     status: 'CONFIRMED',
   };
-  if (isRecurring && count > 1) {
-    // RRULE settimanale per `count` occorrenze totali
+  if (isRecurring && rule) {
+    // Caso 1 (post-F2): regola ground-truth. Emette RRULE preciso + EXDATE
+    // per le date escluse (festività configurate dall'utente).
+    event.recurrenceRule = rruleFromRecurrence(rule);
+    if (Array.isArray(rule.excludeDates) && rule.excludeDates.length > 0) {
+      // Le EXDATE in iCal usano lo stesso fuso/format del DTSTART. La libreria
+      // `ics` non espone direttamente exdate ma accetta `exclusionDates` come
+      // array di Date (gestite con la stessa logica TZ di start/end).
+      event.exclusionDates = rule.excludeDates.map((iso) => {
+        const d = dayjs(iso);
+        return [
+          d.year(),
+          d.month() + 1,
+          d.date(),
+          dayjs(master.startTime).hour(),
+          dayjs(master.startTime).minute(),
+        ];
+      });
+    }
+  } else if (isRecurring && count > 1) {
+    // Caso 2 (legacy): solo euristica weekly → COUNT
     event.recurrenceRule = `FREQ=WEEKLY;COUNT=${count};INTERVAL=1`;
   }
   return event;

@@ -54,12 +54,41 @@ export const bookingsApi = {
       body: reason ? { reason } : undefined,
     }),
 
-  createRecurring: (payload: CreateBookingPayload & { recurrence: { weeks: number } }) =>
+  /**
+   * Crea una serie ricorrente. Il backend accetta sia il formato legacy
+   * `{ recurrence: { weeks: N } }` (compat) sia il nuovo formato MRBS-style
+   * `{ recurrence: { frequency, interval, byWeekday, startDate, endDate, excludeDates } }`.
+   * Response 201: { recurrenceId, createdCount, requestedCount, skipped, conflicts, status }.
+   * Response 409 (conflicts senza skipConflicts): payload { error, code:'RECURRENCE_CONFLICTS', conflicts, validCount }.
+   */
+  createRecurring: (
+    payload: CreateBookingPayload & {
+      recurrence:
+        | { weeks: number }
+        | {
+            frequency: 'daily' | 'weekly';
+            interval?: number;
+            byWeekday?: string[] | null;
+            startDate: string;
+            endDate: string;
+            excludeDates?: string[];
+          };
+      skipConflicts?: boolean;
+    },
+  ) =>
     api<{
-      created: number;
-      skipped: { date: string; reason: string }[];
-      bookingIds: number[];
+      recurrenceId: number;
+      createdCount: number;
+      requestedCount: number;
+      skipped: number;
+      conflicts: { startTime: string; endTime: string; error: string; code: string }[];
+      status: string;
     }>('/api/bookings/recurring', { method: 'POST', body: payload }),
+
+  deleteRecurrence: (id: number) =>
+    api<{ ok: boolean; cancelledCount: number }>(`/api/bookings/recurrences/${id}`, {
+      method: 'DELETE',
+    }),
 
   availability: (roomId: number, date: string) =>
     api<{ date: string; bookings: Booking[] }>(`/api/bookings/availability/${roomId}`, {
