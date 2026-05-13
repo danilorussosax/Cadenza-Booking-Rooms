@@ -86,9 +86,12 @@ export default function ForgotPassword() {
             autoComplete="email"
             placeholder="nome@conservatorio.it"
             aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? 'email-error' : undefined}
             {...register('email')}
           />
-          <FieldError>{errors.email && t(`auth.validation.${errors.email.message}`)}</FieldError>
+          <FieldError id="email-error">
+            {errors.email && t(`auth.validation.${errors.email.message}`)}
+          </FieldError>
         </div>
 
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>

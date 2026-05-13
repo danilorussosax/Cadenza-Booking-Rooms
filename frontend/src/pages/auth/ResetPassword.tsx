@@ -134,6 +134,7 @@ export default function ResetPassword() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               aria-invalid={!!errors.newPassword}
+              aria-describedby={errors.newPassword ? 'newPassword-error' : undefined}
               {...register('newPassword')}
             />
             <button
@@ -146,7 +147,7 @@ export default function ResetPassword() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <FieldError>
+          <FieldError id="newPassword-error">
             {errors.newPassword && t(`auth.validation.${errors.newPassword.message}`)}
           </FieldError>
         </div>
@@ -158,9 +159,10 @@ export default function ResetPassword() {
             type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             aria-invalid={!!errors.confirmPassword}
+            aria-describedby={errors.confirmPassword ? 'confirmPassword-error' : undefined}
             {...register('confirmPassword')}
           />
-          <FieldError>
+          <FieldError id="confirmPassword-error">
             {errors.confirmPassword && t(`auth.validation.${errors.confirmPassword.message}`)}
           </FieldError>
         </div>
