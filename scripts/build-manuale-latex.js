@@ -93,6 +93,22 @@ const EMOJI_MAP = {
   '🟠': '\\textcolor{orange}{$\\bullet$}',
   '🔴': '\\textcolor{red}{$\\bullet$}',
   '🔵': '\\textcolor{blue}{$\\bullet$}',
+  '🟦': '\\textcolor{blue!60!white}{$\\blacksquare$}',
+  '🟪': '\\textcolor{violet}{$\\blacksquare$}',
+  '🟩': '\\textcolor{green!50!black}{$\\blacksquare$}',
+  '🟥': '\\textcolor{red}{$\\blacksquare$}',
+  '⬜': '\\textcolor{black!30}{$\\square$}',
+  '🏠': '\\textit{[home]}',
+  '📅': '\\textit{[cal]}',
+  '📋': '\\textit{[lista]}',
+  '⏱': '\\textit{[ore]}',
+  '👤': '\\textit{[profilo]}',
+  '🔗': '\\textit{[link]}',
+  '🇮🇹': '\\textbf{IT}',
+  '🇬🇧': '\\textbf{EN}',
+  '🇪🇸': '\\textbf{ES}',
+  '🇩🇪': '\\textbf{DE}',
+  '🇫🇷': '\\textbf{FR}',
   '⇄': '$\\leftrightarrow$',
   '→': '$\\rightarrow$',
   '←': '$\\leftarrow$',
@@ -504,4 +520,4 @@ fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, preamble + out.join('\n') + postamble, 'utf8');
 const bytes = fs.statSync(outputPath).size;
 console.log(`✓ Scritto ${outputPath} (${(bytes / 1024).toFixed(1)} KB)`);
-console.log('  Compila con: cd docs && xelatex MANUALE_ADMIN.tex');
+console.log(`  Compila con: cd ${path.dirname(outputPath)} && xelatex ${path.basename(outputPath)}`);
