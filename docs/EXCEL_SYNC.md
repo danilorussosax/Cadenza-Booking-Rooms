@@ -153,17 +153,17 @@ https://il-tuo-dominio/admin/server-settings?tab=servizi&sub=excel-export
 
 - **OneDrive**: app OneDrive → cartella `CadenzaBackup` → `cadenza-prenotazioni.xlsx`
 - **Dropbox**: app Dropbox → cartella `CadenzaBackup`
-- L'app mostra l'anteprima xlsx nativa (3 fogli: Prenotazioni / Griglia oggi / Info sync).
+- L'app mostra l'anteprima xlsx nativa. Tab presenti: **Prenotazioni** (lista flat dei prossimi N giorni), **Griglia · `<sede>`** (un foglio per ogni edificio con la matrice aule×slot di oggi, come nel Display), **Info sync**.
 
 ---
 
 ## Cosa contiene il file
 
-| Foglio           | Contenuto                                                                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Prenotazioni** | Lista flat di tutte le booking `confirmed` dei prossimi N giorni (default 30). Una riga per prenotazione: Aula, Edificio, Utente, Inizio, Fine, Tipo, Stato. |
-| **Griglia oggi** | Matrice aule × slot 30 min (07:00–23:00) del giorno corrente. Comoda per la portineria: "chi c'è in aula 12 alle 15:00?". Mostra il cognome del prenotante.  |
-| **Info sync**    | Quando è stato fatto l'ultimo export, durata, conteggio righe, versione.                                                                                     |
+| Foglio                 | Contenuto                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Prenotazioni**       | Lista flat di tutte le booking `confirmed` dei prossimi N giorni (default 30). Una riga per prenotazione: Aula, Edificio, Utente, Inizio, Fine, Tipo, Stato.                                                                                                                                                                                                                 |
+| **Griglia · `<sede>`** | **Un foglio per ogni edificio.** Matrice aule × slot 30 min (08:00–21:00) del giorno corrente, replica esatta del Display kiosk. Aule ordinate per piano (segue `Building.floors`) poi per nome numeric-aware (`Aula 9` prima di `Aula 10`). Banda alternata per piano. Celle: `Prof. <Cognome>` per i docenti, `🎵 <titolo>` per i concerti, cognome o ruolo per gli altri. |
+| **Info sync**          | Quando è stato fatto l'ultimo export, durata, conteggio righe, versione.                                                                                                                                                                                                                                                                                                     |
 
 ## Frequenza vs freschezza
 

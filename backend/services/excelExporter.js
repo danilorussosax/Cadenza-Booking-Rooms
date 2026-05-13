@@ -15,9 +15,11 @@
  *     "Prenotazioni manuali (offline)" dentro Cadenza.
  *
  * Fogli del workbook:
- *   1. "Prenotazioni"  — lista flat delle booking confermate dei prossimi N giorni
- *   2. "Griglia oggi"  — matrice aule × slot 30 min per il giorno corrente
- *   3. "Info sync"     — metadata (ultimo export OK, conteggio, versione)
+ *   1. "Prenotazioni"        — lista flat delle booking confermate (N giorni)
+ *   2. "Griglia · <sede>"    — UNA TAB PER OGNI EDIFICIO con matrice aule
+ *                              × slot 30 min (08:00–21:00) del giorno corrente,
+ *                              replica fedele del Display kiosk
+ *   3. "Info sync"           — metadata (ultimo export OK, conteggio, versione)
  *
  * Configurazione via env:
  *   EXCEL_EXPORT_ENABLED=true
@@ -104,50 +106,145 @@ function buildBookingsSheet(workbook, bookings) {
   }
 }
 
-/**
- * Foglio "Griglia oggi" — matrice aule × slot di 30 minuti del giorno corrente.
- * Colpo d'occhio per la portineria: "chi c'è in aula 12 alle 15:00?".
- */
-function buildTodayGridSheet(workbook, bookings, rooms) {
-  const sheet = workbook.addWorksheet('Griglia oggi');
-  const today = dayjs().startOf('day');
+// Slot della giornata replicati dal Display kiosk: 08:00 → 21:00 con
+// granularità 30 minuti. Totale 27 etichette (l'ultima è "21:00" inclusa
+// solo come bordo, le celle utili vanno fino a 20:30).
+const DAY_HOUR_START = 8;
+const DAY_HOUR_END = 21;
 
-  // Slot 7:00 → 23:00 con granularità 30 min = 32 colonne
+function buildDaySlots() {
   const slots = [];
-  for (let h = 7; h < 23; h++) {
+  for (let h = DAY_HOUR_START; h < DAY_HOUR_END; h++) {
     slots.push(`${String(h).padStart(2, '0')}:00`);
     slots.push(`${String(h).padStart(2, '0')}:30`);
   }
-  const columns = [
-    { header: 'Aula', key: 'room', width: 22 },
-    { header: 'Edificio', key: 'building', width: 18 },
-    ...slots.map((s, i) => ({ header: s, key: `s${i}`, width: 8 })),
-  ];
-  sheet.columns = columns;
-  sheet.getRow(1).font = { bold: true };
-  sheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+  return slots;
+}
 
-  // Mappa "roomId|slotIndex" → label utente
-  const cellMap = new Map();
-  for (const b of bookings) {
-    const start = dayjs(b.startTime);
-    const end = dayjs(b.endTime);
-    if (!start.isSame(today, 'day')) continue;
-    const startSlot = (start.hour() - 7) * 2 + (start.minute() >= 30 ? 1 : 0);
-    const endSlot = (end.hour() - 7) * 2 + (end.minute() > 0 ? 1 : 0);
-    for (let s = startSlot; s < endSlot; s++) {
-      if (s < 0 || s >= slots.length) continue;
-      const label = b.user ? b.user.lastName : 'X';
-      cellMap.set(`${b.roomId}|${s}`, label);
+// Collator numeric-aware: "Aula 9" prima di "Aula 10". Stesso identico
+// comportamento di frontend/src/lib/sortRooms.ts per fedeltà con il Display.
+const roomCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function sortRoomsForBuilding(rooms, building) {
+  const floors = building?.floors ?? [];
+  return [...rooms].sort((a, b) => {
+    const ai = floors.indexOf(a.floor);
+    const bi = floors.indexOf(b.floor);
+    const aIdx = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+    const bIdx = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+    if (aIdx !== bIdx) return aIdx - bIdx;
+    if (aIdx === Number.MAX_SAFE_INTEGER) {
+      const f = roomCollator.compare(a.floor || '', b.floor || '');
+      if (f !== 0) return f;
     }
+    return roomCollator.compare(a.name, b.name);
+  });
+}
+
+/**
+ * Sanifica il nome di un foglio Excel: max 31 char, niente \ / ? * [ ] :
+ * Se ci sono collisioni dopo il truncate, append " (N)".
+ */
+function safeSheetName(name, used) {
+  let s = String(name || 'Sede')
+    .replace(/[\\/?*[\]:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 28); // lasciamo margine per " (N)"
+  if (!s) s = 'Sede';
+  let candidate = s;
+  let i = 2;
+  while (used.has(candidate.toLowerCase())) {
+    candidate = `${s} (${i++})`;
   }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
 
-  for (const room of rooms) {
-    const row = { room: room.name, building: room.building?.name ?? '' };
-    for (let i = 0; i < slots.length; i++) {
-      row[`s${i}`] = cellMap.get(`${room.id}|${i}`) || '';
+/**
+ * Etichetta di una cella nella griglia, replica del Display kiosk:
+ *   - type=concerto → titolo del concerto (o "Concerto")
+ *   - altri tipi    → cognome del prenotante (se docente) o ruolo
+ */
+function cellLabel(b) {
+  if (b.type === 'concerto') {
+    return b.concertInfo?.title ? `🎵 ${b.concertInfo.title}` : '🎵 Concerto';
+  }
+  if (b.user) {
+    if (b.user.role === 'docente') return `Prof. ${b.user.lastName}`;
+    return b.user.lastName;
+  }
+  return b.type || 'Prenotato';
+}
+
+/**
+ * Crea UN foglio per ogni Building: matrice aule × slot 30 min del giorno
+ * corrente, con la stessa logica di ordinamento del Display kiosk.
+ */
+function buildPerBuildingGrids(workbook, buildings) {
+  const today = dayjs().startOf('day');
+  const slots = buildDaySlots();
+  const usedNames = new Set();
+
+  for (const building of buildings) {
+    const sortedRooms = sortRoomsForBuilding(building.rooms || [], building);
+    if (sortedRooms.length === 0) continue; // skip building senza aule prenotabili
+
+    const sheetName = safeSheetName(`Griglia · ${building.name}`, usedNames);
+    const sheet = workbook.addWorksheet(sheetName);
+
+    sheet.columns = [
+      { header: 'Piano', key: 'floor', width: 14 },
+      { header: 'Aula', key: 'room', width: 22 },
+      ...slots.map((s, i) => ({ header: s, key: `s${i}`, width: 7 })),
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).alignment = { horizontal: 'center' };
+    sheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+
+    // Mappa "roomId|slotIndex" → label
+    const cellMap = new Map();
+    for (const room of sortedRooms) {
+      for (const b of room.bookings || []) {
+        const start = dayjs(b.startTime);
+        const end = dayjs(b.endTime);
+        if (!start.isSame(today, 'day')) continue;
+        const startSlot = (start.hour() - DAY_HOUR_START) * 2 + (start.minute() >= 30 ? 1 : 0);
+        const endSlot = (end.hour() - DAY_HOUR_START) * 2 + (end.minute() > 0 ? 1 : 0);
+        const label = cellLabel(b);
+        for (let s = startSlot; s < endSlot; s++) {
+          if (s < 0 || s >= slots.length) continue;
+          cellMap.set(`${room.id}|${s}`, label);
+        }
+      }
     }
-    sheet.addRow(row);
+
+    // Righe + alternanza colore piano per leggibilità (replica del Display)
+    let prevFloor = null;
+    let zebra = false;
+    for (const room of sortedRooms) {
+      if (room.floor !== prevFloor) {
+        zebra = !zebra; // cambia banda quando cambia piano
+        prevFloor = room.floor;
+      }
+      const row = { floor: room.floor || '—', room: room.name };
+      for (let i = 0; i < slots.length; i++) {
+        row[`s${i}`] = cellMap.get(`${room.id}|${i}`) || '';
+      }
+      const addedRow = sheet.addRow(row);
+      if (zebra) {
+        addedRow.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF5F5F5' },
+          };
+        });
+      }
+    }
+
+    // Auto-filter sulla colonna Piano/Aula (esclude le righe-slot)
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 2 } };
   }
 }
 
@@ -192,16 +289,20 @@ function buildInfoSheet(workbook, info) {
  */
 async function buildWorkbook() {
   const ExcelJS = loadExcelJs();
-  const { Booking, Room, Building, User } = require('../models');
+  const models = require('../models');
+  const { Booking, Room, Building, User, ConcertInfo } = models;
   const { Op } = require('sequelize');
   const lookaheadDays = getLookaheadDays();
-  const from = dayjs().startOf('day').toDate();
-  const to = dayjs().add(lookaheadDays, 'day').endOf('day').toDate();
+  const todayStart = dayjs().startOf('day').toDate();
+  const todayEnd = dayjs().endOf('day').toDate();
+  const fromAll = todayStart;
+  const toAll = dayjs().add(lookaheadDays, 'day').endOf('day').toDate();
 
+  // Foglio "Prenotazioni": lista flat finestra lookahead
   const bookings = await Booking.findAll({
     where: {
       status: 'confirmed',
-      startTime: { [Op.between]: [from, to] },
+      startTime: { [Op.between]: [fromAll, toAll] },
     },
     include: [
       { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
@@ -210,12 +311,45 @@ async function buildWorkbook() {
     order: [['startTime', 'ASC']],
   });
 
-  const rooms = await Room.findAll({
-    where: { isBookable: true },
-    include: [{ model: Building, as: 'building' }],
+  // Per i fogli "Griglia · <sede>": ricarico la struttura Building → Rooms →
+  // Bookings del SOLO giorno corrente. Stesso pattern di /api/public/agenda
+  // così la griglia Excel è la replica esatta di ciò che vede il Display.
+  const includeConcert = ConcertInfo
+    ? [{ model: ConcertInfo, as: 'concertInfo', attributes: ['title'], required: false }]
+    : [];
+  const buildings = await Building.findAll({
+    include: [
+      {
+        model: Room,
+        as: 'rooms',
+        where: { isBookable: true },
+        required: false,
+        include: [
+          {
+            model: Booking,
+            as: 'bookings',
+            required: false,
+            where: {
+              status: 'confirmed',
+              startTime: { [Op.lt]: todayEnd },
+              endTime: { [Op.gt]: todayStart },
+            },
+            attributes: ['id', 'startTime', 'endTime', 'type', 'purpose'],
+            include: [
+              {
+                model: User,
+                as: 'user',
+                attributes: ['firstName', 'lastName', 'role'],
+              },
+              ...includeConcert,
+            ],
+          },
+        ],
+      },
+    ],
     order: [
-      ['buildingId', 'ASC'],
       ['name', 'ASC'],
+      [{ model: Room, as: 'rooms' }, 'name', 'ASC'],
     ],
   });
 
@@ -224,10 +358,10 @@ async function buildWorkbook() {
   workbook.created = new Date();
 
   buildBookingsSheet(workbook, bookings);
-  buildTodayGridSheet(workbook, bookings, rooms);
+  buildPerBuildingGrids(workbook, buildings);
   buildInfoSheet(workbook, {
     exportAt: new Date(),
-    nextExportAt: null, // riempito da exportNow se ha senso
+    nextExportAt: null,
     durationMs: 0,
     rowCount: bookings.length,
     lookaheadDays,
