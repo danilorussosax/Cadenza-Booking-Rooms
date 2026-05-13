@@ -6,6 +6,7 @@ import {
   Clock,
   Pencil,
   Plus,
+  RotateCcw,
   ShieldAlert,
   Trash2,
   Unlock,
@@ -807,6 +808,16 @@ function DetailDialog({
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
+  // Fase 6.4 — riporta la proposta in 'draft' chiedendo al docente di modificarla.
+  // Per 'generated' va prima eseguito unlock (che cancella i Booking generati).
+  const revertMutation = useMutation({
+    mutationFn: (reason: string) => monteOreAdminApi.revertToDraft(id, reason),
+    onSuccess: () => {
+      toast.success('Proposta riportata in bozza: il docente è stato avvisato');
+      refresh();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
 
   const [editingSchedule, setEditingSchedule] = useState<MonteOreSchedule | null>(null);
   const [adding, setAdding] = useState(false);
@@ -814,6 +825,8 @@ function DetailDialog({
   const [confirmReject, setConfirmReject] = useState(false);
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [includePast, setIncludePast] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
+  const [revertReason, setRevertReason] = useState('');
 
   return (
     <Dialog
@@ -1050,6 +1063,14 @@ function DetailDialog({
                   <>
                     <Button
                       variant="outline"
+                      onClick={() => setConfirmRevert(true)}
+                      title="Riporta la proposta in bozza al docente"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Richiedi modifica
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => setConfirmReject(true)}
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
@@ -1066,26 +1087,37 @@ function DetailDialog({
                   </>
                 )}
                 {proposal.status === 'approved' && (
-                  <Button
-                    onClick={() => {
-                      setIncludePast(false);
-                      setConfirmGenerate(true);
-                    }}
-                    disabled={
-                      generateMutation.isPending ||
-                      proposal.schedules.length === 0 ||
-                      proposal.schedules.some((s) => !s.roomId)
-                    }
-                  >
-                    <Zap className="h-4 w-4" />
-                    Crea prenotazioni dal monte ore
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmRevert(true)}
+                      title="Riporta la proposta in bozza al docente"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Richiedi modifica
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setIncludePast(false);
+                        setConfirmGenerate(true);
+                      }}
+                      disabled={
+                        generateMutation.isPending ||
+                        proposal.schedules.length === 0 ||
+                        proposal.schedules.some((s) => !s.roomId)
+                      }
+                    >
+                      <Zap className="h-4 w-4" />
+                      Crea prenotazioni dal monte ore
+                    </Button>
+                  </>
                 )}
                 {proposal.status === 'generated' && (
                   <Button
                     variant="outline"
                     onClick={() => unlockMutation.mutate()}
                     disabled={unlockMutation.isPending}
+                    title="Cancella i Booking generati e riporta la proposta a 'approved'. Per chiedere modifica al docente, esegui poi 'Richiedi modifica'."
                   >
                     <Unlock className="h-4 w-4" />
                     Annulla generazione
@@ -1145,6 +1177,49 @@ function DetailDialog({
                   >
                     <Zap className="h-4 w-4" />
                     Genera
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Revert-to-draft dialog (Fase 6.4) */}
+            <Dialog open={confirmRevert} onOpenChange={setConfirmRevert}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Richiedi modifica al docente</DialogTitle>
+                  <DialogDescription>
+                    La proposta torna in <strong>bozza</strong>: il docente vedrà un banner con il
+                    motivo, potrà modificare le fasce e re-inviare. La cronologia delle variazioni
+                    resta tracciata.
+                  </DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  rows={3}
+                  maxLength={500}
+                  value={revertReason}
+                  onChange={(e) => setRevertReason(e.target.value)}
+                  placeholder="Es. variazione contratto: rivedi le ore totali. Oppure: aula assegnata non più disponibile, scegline un'altra."
+                />
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setConfirmRevert(false);
+                      setRevertReason('');
+                    }}
+                  >
+                    Annulla
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      revertMutation.mutate(revertReason.trim());
+                      setConfirmRevert(false);
+                      setRevertReason('');
+                    }}
+                    disabled={revertMutation.isPending}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Riporta in bozza
                   </Button>
                 </DialogFooter>
               </DialogContent>
