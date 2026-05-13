@@ -672,6 +672,20 @@ async function runPreSyncMigrations() {
   // si lasciano slot orfani.
   await ensureMonteOreSlotsCascadeFk();
 
+  // Monte Ore — Fase 6.1: deroga individuale alla finestra di submission.
+  if (await ensureNullableDateColumn('users', 'monteOreSubmissionAllowedUntil')) {
+    logger.info('  ✓ Colonna users.monteOreSubmissionAllowedUntil aggiunta (deroga finestra)');
+  }
+
+  // Monte Ore — Fase 6.3: flag rivalidazione su proposta esistente quando
+  // l'admin cambia contratto/ore in corso d'anno.
+  if (await ensureBooleanColumn('monte_ore_proposals', 'requiresRevalidation', false)) {
+    logger.info('  ✓ Colonna monte_ore_proposals.requiresRevalidation aggiunta');
+  }
+  if (await ensureNullableStringColumn('monte_ore_proposals', 'revalidationReason', 500)) {
+    logger.info('  ✓ Colonna monte_ore_proposals.revalidationReason aggiunta');
+  }
+
   // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
   // preesistenti in chiaro (zero-rottura per i client già subscribed).
   if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {

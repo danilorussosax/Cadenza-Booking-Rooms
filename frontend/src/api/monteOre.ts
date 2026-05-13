@@ -37,6 +37,9 @@ export interface MonteOreProposal {
   workingDaysCount: number | null;
   minRequiredHoursSnapshot: number | null;
   amendmentCount: number;
+  /** Fase 6.3 — proposta da rivalidare dopo cambio contratto/ore admin. */
+  requiresRevalidation?: boolean;
+  revalidationReason?: string | null;
   notes: string | null;
   status: MonteOreStatus;
   submittedAt: string | null;
@@ -335,6 +338,14 @@ export const monteOreAdminApi = {
         body: {},
       },
     ),
+
+  /** Fase 6.4 — riporta una proposta submitted/approved in draft per chiedere
+   *  modifiche al docente. Per 'generated' chiamare prima `unlock`. */
+  revertToDraft: (id: number, reason?: string) =>
+    api<{ proposal: MonteOreProposal }>(`/api/admin/monte-ore/${id}/revert-to-draft`, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    }),
 
   // ---- Settings (calendario didattico, finestra inserimento) ----
   getSettings: (academicYear?: string) =>

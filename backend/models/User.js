@@ -276,6 +276,15 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      // Deroga individuale alla finestra di submission Monte Ore (Fase 6.1):
+      // se valorizzata, questo docente può inviare/modificare la sua proposta
+      // anche se la finestra globale di MonteOreSettings è chiusa, fino a
+      // questa data (inclusa). Tipico per docenti che subentrano in corso
+      // d'anno o per recuperi autorizzati dalla Direzione.
+      monteOreSubmissionAllowedUntil: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
     },
     {
       tableName: 'users',

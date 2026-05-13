@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { stringify: csvStringify } = require('csv-stringify/sync');
 const { sequelize, User, Course, Booking, MonteOreProposal, ContractType } = require('../models');
+const { currentAcademicYear } = require('../services/monteOreCalendarService');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { parseCSV } = require('../services/structureImporter');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
@@ -416,6 +417,9 @@ router.put(
         monteOreAnnualHoursOverride: rawHours,
         monteOreBypassDayConstraint: rawBypass,
         monteOreOverrideReason: rawReason,
+        // Fase 6.1: deroga individuale alla finestra di submission.
+        // Stringa YYYY-MM-DD (DATEONLY), oppure null/'' per revocare.
+        monteOreSubmissionAllowedUntil: rawSubmissionUntil,
       } = req.body || {};
 
       // Normalizzazione
@@ -481,7 +485,33 @@ router.put(
         });
       }
 
-      await user.update({
+      // Fase 6.1 — deroga finestra submission. Accetta stringa YYYY-MM-DD
+      // (inclusa) oppure null/'' per revocare. Se omessa nel body lasciamo
+      // il valore corrente invariato.
+      let submissionAllowedUntil; // undefined = no-op
+      if (rawSubmissionUntil !== undefined) {
+        if (rawSubmissionUntil === null || rawSubmissionUntil === '') {
+          submissionAllowedUntil = null;
+        } else {
+          const s = String(rawSubmissionUntil).slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            return res.status(400).json({
+              error: 'monteOreSubmissionAllowedUntil deve essere YYYY-MM-DD',
+              code: 'INVALID_DATE',
+            });
+          }
+          submissionAllowedUntil = s;
+        }
+      }
+
+      // Snapshot pre-update per rilevare cambiamenti rilevanti (6.3).
+      const before = {
+        contractType: user.contractType,
+        hours: user.monteOreAnnualHoursOverride,
+        bypass: user.monteOreBypassDayConstraint,
+      };
+
+      const updates = {
         contractType: contractType || null,
         monteOreAnnualHoursOverride: hoursOverride,
         monteOreBypassDayConstraint: bypass,
@@ -489,7 +519,40 @@ router.put(
         monteOreOverrideReason: settingOverride ? reason : null,
         monteOreOverrideSetAt: settingOverride ? new Date() : null,
         monteOreOverrideSetBy: settingOverride ? req.user.id : null,
-      });
+      };
+      if (submissionAllowedUntil !== undefined) {
+        updates.monteOreSubmissionAllowedUntil = submissionAllowedUntil;
+      }
+      await user.update(updates);
+
+      // Fase 6.3 — se il contratto / ore / bypass sono cambiati e il docente
+      // ha una proposta dell'AA corrente in stato submitted/approved/generated,
+      // la marchiamo come da rivalidare: il banner UI inviterà il docente a
+      // rivedere e ri-inviare. Non blocchiamo la richiesta se questa update
+      // fallisce: è un'ottimizzazione UX, non un invariant.
+      const contractChanged = before.contractType !== (contractType || null);
+      const hoursChanged = before.hours !== hoursOverride;
+      const bypassChanged = before.bypass !== bypass;
+      if (contractChanged || hoursChanged || bypassChanged) {
+        try {
+          const year = currentAcademicYear();
+          const note = `Variazione ${contractChanged ? 'contratto' : hoursChanged ? 'ore' : 'vincolo giorni'} (admin) in corso d'anno: rivedi e re-invia la proposta.`;
+          await MonteOreProposal.update(
+            { requiresRevalidation: true, revalidationReason: note },
+            {
+              where: {
+                userId: user.id,
+                academicYear: year,
+                status: ['submitted', 'approved', 'generated'],
+              },
+            },
+          );
+        } catch (e) {
+          // Log ma non blocca: la modifica utente è andata a buon fine.
+          // eslint-disable-next-line no-console
+          console.warn('[monte-ore] flag requiresRevalidation fallita:', e?.message);
+        }
+      }
 
       res.json({ user: user.toSafeJSON() });
     } catch (err) {

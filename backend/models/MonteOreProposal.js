@@ -119,6 +119,19 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      // Flag impostato dall'admin (o automaticamente quando cambia
+      // contratto/ore del docente in corso d'anno): il docente deve
+      // rivedere e ri-inviare la proposta perché i presupposti su cui
+      // era stata approvata non sono più validi. Banner in UI docente.
+      requiresRevalidation: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      revalidationReason: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
     },
     {
       tableName: 'monte_ore_proposals',

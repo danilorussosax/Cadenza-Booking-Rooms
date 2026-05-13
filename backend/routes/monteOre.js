@@ -61,11 +61,22 @@ function defaultRangeForYear(label) {
   return { validFrom: r.lessonsStartDate, validTo: r.lessonsEndDate };
 }
 
-async function isWithinSubmissionWindow(academicYear) {
+async function isWithinSubmissionWindow(academicYear, user = null) {
   const settings = await MonteOreSettings.findOne({ where: { academicYear } });
   if (!settings) return true; // se non configurato, consenti (modalità dev)
   const now = dayjs().format('YYYY-MM-DD');
-  return now >= settings.submissionWindowStart && now <= settings.submissionWindowEnd;
+  if (now >= settings.submissionWindowStart && now <= settings.submissionWindowEnd) {
+    return true;
+  }
+  // Deroga individuale (Fase 6.1): un docente subentrato in corso d'anno
+  // può avere `monteOreSubmissionAllowedUntil` valorizzato dalla Direzione,
+  // che lo abilita a inviare/modificare la propria proposta anche fuori
+  // dalla finestra globale, fino a quella data inclusa.
+  if (user && user.monteOreSubmissionAllowedUntil) {
+    const until = String(user.monteOreSubmissionAllowedUntil).slice(0, 10);
+    if (now <= until) return true;
+  }
+  return false;
 }
 
 // Normalizza il payload schedule prima di create/update
@@ -265,8 +276,10 @@ router.delete('/me/schedules/:id', authenticate, requireApproved, async (req, re
 router.post('/me/submit', authenticate, requireApproved, async (req, res, next) => {
   try {
     const year = req.body.academicYear || currentAcademicYearLabel();
-    // Validazione finestra di inserimento (configurabile da admin)
-    if (!(await isWithinSubmissionWindow(year))) {
+    // Validazione finestra di inserimento (configurabile da admin) +
+    // deroga individuale (User.monteOreSubmissionAllowedUntil) per docenti
+    // subentrati in corso d'anno o casi autorizzati dalla Direzione.
+    if (!(await isWithinSubmissionWindow(year, req.user))) {
       return res.status(400).json({
         error: 'Sei fuori dalla finestra di inserimento del monte ore',
         code: 'OUTSIDE_SUBMISSION_WINDOW',
@@ -1174,6 +1187,56 @@ adminRouter.post('/:id/unlock', authenticate, requireRole('admin'), async (req, 
     next(err);
   }
 });
+
+/**
+ * Fase 6.4 — l'admin riporta una proposta in 'draft' per chiedere al docente
+ * di modificarla. Ammesso solo per submitted/approved: per 'generated' va
+ * fatto prima l'unlock (che cancella i Booking) e poi questo endpoint.
+ *
+ * Reset di tutti i campi di workflow (approvedAt, rejectedAt, ...) così che
+ * il prossimo submit ricalcoli snapshot soglie/giorni a partire da zero.
+ * `revalidationReason` è valorizzato con la motivazione dell'admin.
+ */
+adminRouter.post(
+  '/:id/revert-to-draft',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const proposal = await MonteOreProposal.findByPk(req.params.id);
+      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
+      if (!['submitted', 'approved'].includes(proposal.status)) {
+        if (proposal.status === 'generated') {
+          return res.status(400).json({
+            error: 'Esegui prima "Annulla generazione" per riportare la proposta in draft',
+            code: 'INVALID_STATE',
+          });
+        }
+        return res.status(400).json({
+          error: 'Solo submitted o approved possono tornare in draft',
+          code: 'INVALID_STATE',
+        });
+      }
+      const reason = req.body?.reason
+        ? String(req.body.reason).trim().slice(0, 500)
+        : "Richiesta modifica dall'amministrazione";
+      await proposal.update({
+        status: 'draft',
+        submittedAt: null,
+        approvedAt: null,
+        rejectedAt: null,
+        approverId: null,
+        rejectionReason: null,
+        coordinatorNotes: null,
+        requiresRevalidation: true,
+        revalidationReason: reason,
+      });
+      res.json({ proposal: proposal.toJSON() });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ============================================================
 // ADMIN — amendments per proposta + decisione admin

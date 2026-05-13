@@ -232,6 +232,19 @@ export default function MonteOre() {
         </Alert>
       )}
 
+      {proposal.requiresRevalidation && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-medium">Proposta da rivalidare</p>
+            <p className="text-sm mt-1">
+              {proposal.revalidationReason ||
+                'I presupposti della tua proposta sono cambiati: rivedi e re-invia.'}
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {['draft', 'rejected'].includes(proposal.status) && submitBlockers.length > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
