@@ -2550,7 +2550,62 @@ Pagina di configurazione globale dello schermo \texttt{/display} esposto al pubb
 \subsubsection{Card "Rotazione prenotazioni"}
 
 
-Master toggle on/off + tabella edifici. Per ogni edificio: dot color + nome, conteggio aule, switch abilita/disabilita, e l'\textbf{intervallo di rotazione} (5--600 secondi). Disattivando il master, l'intera tabella diventa opaca.
+Master toggle on/off + tabella edifici. Per ogni edificio: dot color + nome, conteggio aule, switch abilita/disabilita, l'\textbf{intervallo di rotazione} (5--600 secondi) e la \textbf{modalità di vista} della tabella prenotazioni:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{|X|X|}
+\hline
+\rowcolor{tableheader} Modalità & Descrizione \\
+\hline
+\textbf{Settimana} (default) & Matrice aule × giorni Lun-Sab. Utile per la pianificazione settimanale. \\
+\hline
+\textbf{Giorno corrente} & Matrice aule (righe) × slot 30 min 08:00--21:00 (colonne) del giorno corrente, con celle colorate per tipo prenotazione e blocchi multi-slot fusi. Replica fedele della "Griglia oggi" del foglio Excel. Più informativa per la portineria che vuole sapere a colpo d'occhio chi ha quale aula adesso. \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+La modalità è \textbf{per-edificio}: la sede principale può mostrare la settimana e una sede più piccola solo l'oggi. Disattivando il master della rotazione, l'intera tabella diventa opaca.
+
+\subsubsection{Card "Link diretti per sede"}
+
+
+Tabelloni di ingresso che mostrano \textbf{solo una sede} invece della rotazione completa. L'admin trova in questa card l'URL pronto da copiare per ogni edificio.
+
+Sintassi accettate dal parser URL (priorità decrescente):
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{|X|X|}
+\hline
+\rowcolor{tableheader} URL & Comportamento \\
+\hline
+\texttt{/display} & Rotazione completa di tutti gli edifici abilitati (default). \\
+\hline
+\texttt{/display?b=\textless{}codice\textgreater{}} & Match esatto sul \texttt{code} dell'edificio (es. \texttt{/display?b=CENT}). Più stabile perché il code non cambia se l'admin rinomina la sede. \\
+\hline
+\texttt{/display?building=\textless{}slug\textgreater{}} & Alias verboso, identico a \texttt{?b=}. \\
+\hline
+\texttt{/display?\textless{}slug\textgreater{}} & Scorciatoia "key-boolean": una sola chiave senza valore (es. \texttt{/display?centrale}, \texttt{/display?radar}). Matcha contro \texttt{code} esatto, poi \texttt{name} esatto, poi \texttt{name} come substring (es. \texttt{centrale} matcha "Sede Centrale"). \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+La card mostra una riga per ogni edificio con:
+\begin{itemize}
+  \item \textbf{Apri} --- apre il kiosk in una nuova scheda (utile per testare prima di passare l'URL al monitor)
+  \item \textbf{Copia} --- copia l'URL completo negli appunti (con feedback "Copiato!" 2s)
+\end{itemize}
+
+Se lo slug non matcha alcun edificio (es. typo nell'URL), Cadenza ricade automaticamente sulla rotazione completa per non lasciare lo schermo vuoto.
+
+\begin{quote}
+\textbf{Suggerimento operativo}: assegna un \texttt{code} breve a ogni edificio in Struttura (es. \texttt{CENT}, \texttt{RADAR}, \texttt{STORICO}). I link basati su code sono più robusti dei link basati su name, perché il nome può cambiare nel tempo. Gli URL \texttt{/display?\textless{}slug\textgreater{}} funzionano comunque grazie al fallback substring.
+\end{quote}
 
 \subsubsection{Card "Concerti"}
 

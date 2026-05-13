@@ -1199,7 +1199,23 @@
       "save": "Save",
       "saved": "Infopoint configuration updated",
       "open_display": "Open Infopoint",
-      "preview_help": "Open /display in a new tab to verify the Infopoint rotation."
+      "preview_help": "Open /display in a new tab to verify the Infopoint rotation.",
+      "links_card": {
+        "title": "Direct links per site",
+        "subtitle": "Open the kiosk on a monitor of a specific site: the URL filters the rotation to that single building instead of cycling through all of them. Useful for entrance monitors of individual sites.",
+        "help_title": "Accepted syntax:",
+        "help_rotation": "full rotation (all buildings cycling)",
+        "help_code": "single site, exact match on building code",
+        "help_slug": "shortcut: matches code or name (even partial). Examples: /display?central, /display?radar",
+        "rotation_label": "Full rotation (all buildings)",
+        "with_code": "code: {{code}}",
+        "without_code": "no code set (using name)",
+        "no_buildings": "No buildings listed.",
+        "open": "Open",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "copy_fallback": "Copy this link manually:"
+      }
     },
     "quotas": {
       "title": "Dynamic resource quotas",

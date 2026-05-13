@@ -1199,7 +1199,23 @@
       "save": "Speichern",
       "saved": "Infopoint-Konfiguration aktualisiert",
       "open_display": "Infopoint öffnen",
-      "preview_help": "Öffnen Sie /display in einem neuen Tab, um die Infopoint-Rotation zu überprüfen."
+      "preview_help": "Öffnen Sie /display in einem neuen Tab, um die Infopoint-Rotation zu überprüfen.",
+      "links_card": {
+        "title": "Direkte Links pro Standort",
+        "subtitle": "Öffne die Anzeigetafel auf einem Monitor eines bestimmten Standorts: die URL filtert die Rotation auf dieses einzelne Gebäude statt durch alle zu zykeln. Nützlich für Eingangsmonitore einzelner Standorte.",
+        "help_title": "Akzeptierte Syntax:",
+        "help_rotation": "vollständige Rotation (alle Gebäude im Wechsel)",
+        "help_code": "einzelner Standort, exakte Übereinstimmung mit dem Gebäudecode",
+        "help_slug": "Abkürzung: passt auf Code oder Name (auch teilweise). Beispiele: /display?central, /display?radar",
+        "rotation_label": "Vollständige Rotation (alle Gebäude)",
+        "with_code": "Code: {{code}}",
+        "without_code": "kein Code gesetzt (verwende den Namen)",
+        "no_buildings": "Keine Gebäude in der Liste.",
+        "open": "Öffnen",
+        "copy": "Kopieren",
+        "copied": "Kopiert!",
+        "copy_fallback": "Kopiere diesen Link manuell:"
+      }
     },
     "quotas": {
       "title": "Dynamische Kontingente pro Ressource",

@@ -1199,7 +1199,23 @@
       "save": "Enregistrer",
       "saved": "Configuration de l'Infopoint mise à jour",
       "open_display": "Ouvrir l'Infopoint",
-      "preview_help": "Ouvrez /display dans un nouvel onglet pour vérifier la rotation de l'Infopoint."
+      "preview_help": "Ouvrez /display dans un nouvel onglet pour vérifier la rotation de l'Infopoint.",
+      "links_card": {
+        "title": "Liens directs par site",
+        "subtitle": "Ouvre le tableau sur un écran d'un site spécifique : l'URL filtre la rotation sur ce seul bâtiment au lieu de cycler entre tous. Utile pour les écrans d'entrée des sites individuels.",
+        "help_title": "Syntaxes acceptées :",
+        "help_rotation": "rotation complète (tous les bâtiments en cycle)",
+        "help_code": "un seul site, correspondance exacte sur le code du bâtiment",
+        "help_slug": "raccourci : correspond au code ou au nom (même partiel). Exemples : /display?central, /display?radar",
+        "rotation_label": "Rotation complète (tous les bâtiments)",
+        "with_code": "code : {{code}}",
+        "without_code": "aucun code défini (utilise le nom)",
+        "no_buildings": "Aucun bâtiment dans la liste.",
+        "open": "Ouvrir",
+        "copy": "Copier",
+        "copied": "Copié !",
+        "copy_fallback": "Copie ce lien manuellement :"
+      }
     },
     "quotas": {
       "title": "Quotas dynamiques par ressource",

@@ -4,8 +4,11 @@ import { motion } from 'framer-motion';
 import {
   CalendarCheck2,
   CalendarDays,
+  Check,
+  Copy,
   ExternalLink,
   Hash,
+  Link2,
   LoaderCircle,
   Megaphone,
   Music4,
@@ -19,6 +22,7 @@ import { institutesApi } from '@/api/institutes';
 import { structureApi } from '@/api/structure';
 import { httpErrorMessage } from '@/lib/api';
 import { buildingColor } from '@/lib/buildingColor';
+import { slugifyBuilding } from '@/lib/displayUrl';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -102,6 +106,21 @@ export default function AdminDisplayKiosk() {
 
   // Stato locale per ogni riga della tabella edifici (toggle rotazione + durata)
   const [rows, setRows] = useState<Record<number, RowState>>({});
+  // Stato per il feedback "Copiato" sui bottoni dei link diretti per sede.
+  // Si auto-resetta dopo 2 secondi così l'utente può copiare più link in
+  // sequenza senza che il badge resti acceso su uno solo.
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch {
+      // clipboard API non disponibile (browser vecchio o contesto non-secure):
+      // fallback con prompt che mostra la stringa e l'utente la copia a mano.
+      window.prompt(t('admin.display.links_card.copy_fallback'), text);
+    }
+  };
   // Stato locale globale per la card prenotazioni (master toggle rotazione)
   const [bookings, setBookings] = useState<{ enabled: boolean }>({ enabled: true });
   const [bookingsBaseline, setBookingsBaseline] = useState<{ enabled: boolean }>({ enabled: true });
@@ -449,6 +468,99 @@ export default function AdminDisplayKiosk() {
             </CardContent>
           </Card>
 
+          {/* Card "Link diretti per sede" — URL ready-to-copy per i tabelloni
+              di ingresso che mostrano SOLO una sede invece della rotazione
+              completa. Documenta anche le 3 sintassi accettate (?b, ?building,
+              ?<slug>) e il match a 3 livelli (code esatto, nome esatto,
+              substring del nome). */}
+          <Card>
+            <CardContent className="space-y-4 p-5">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 ring-1 ring-indigo-300/60 dark:bg-indigo-500/15 dark:ring-indigo-400/30">
+                  <Link2 className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
+                </span>
+                <div className="flex-1">
+                  <h2 className="text-base font-semibold">{t('admin.display.links_card.title')}</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t('admin.display.links_card.subtitle')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Help box con le 3 sintassi */}
+              <Alert>
+                <AlertDescription>
+                  <p className="text-xs font-medium">{t('admin.display.links_card.help_title')}</p>
+                  <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">/display</code> —{' '}
+                      {t('admin.display.links_card.help_rotation')}
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">
+                        /display?b=&lt;codice&gt;
+                      </code>{' '}
+                      — {t('admin.display.links_card.help_code')}
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">/display?&lt;slug&gt;</code> —{' '}
+                      {t('admin.display.links_card.help_slug')}
+                    </li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              {/* Lista URL per ogni building */}
+              <div className="space-y-2">
+                {/* URL rotazione (top) */}
+                {(() => {
+                  const base = typeof window !== 'undefined' ? window.location.origin : 'https://…';
+                  const url = `${base}/display`;
+                  const key = 'rotation';
+                  return (
+                    <LinkRow
+                      label={t('admin.display.links_card.rotation_label')}
+                      url={url}
+                      copied={copiedKey === key}
+                      onCopy={() => void copyToClipboard(url, key)}
+                    />
+                  );
+                })()}
+
+                {/* URL per ogni building */}
+                {buildings.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('admin.display.links_card.no_buildings')}
+                  </p>
+                )}
+                {buildings.map((b) => {
+                  const base = typeof window !== 'undefined' ? window.location.origin : 'https://…';
+                  // Preferiamo il code se valorizzato (più stabile rispetto al nome
+                  // che può cambiare). Altrimenti slugifichiamo il nome.
+                  const codeSlug = b.code ? slugifyBuilding(b.code) : null;
+                  const nameSlug = slugifyBuilding(b.name);
+                  const primarySlug = codeSlug ?? nameSlug;
+                  const url = `${base}/display?${primarySlug}`;
+                  const key = `b-${b.id}`;
+                  return (
+                    <LinkRow
+                      key={b.id}
+                      label={b.name}
+                      sublabel={
+                        b.code
+                          ? t('admin.display.links_card.with_code', { code: b.code })
+                          : t('admin.display.links_card.without_code')
+                      }
+                      url={url}
+                      copied={copiedKey === key}
+                      onCopy={() => void copyToClipboard(url, key)}
+                    />
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Card concerti: impostazioni globali della rotazione concerti.
               Replica gli stessi valori su tutti gli edifici al salvataggio. */}
           <Card className={cn(!concerts.enabled && 'opacity-90')}>
@@ -683,4 +795,58 @@ export default function AdminDisplayKiosk() {
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.round(v)));
+}
+
+interface LinkRowProps {
+  label: string;
+  sublabel?: string;
+  url: string;
+  copied: boolean;
+  onCopy: () => void;
+}
+
+/**
+ * Riga compatta con label dell'edificio, URL "ready-to-paste" mostrato in
+ * monospace, bottone "Apri" (link al kiosk) e bottone "Copia" con feedback
+ * temporaneo "Copiato!".
+ */
+function LinkRow({ label, sublabel, url, copied, onCopy }: LinkRowProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-stretch gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium">{label}</span>
+          {sublabel && <span className="text-[11px] text-muted-foreground">· {sublabel}</span>}
+        </div>
+        <code className="mt-0.5 block truncate text-xs text-muted-foreground">{url}</code>
+      </div>
+      <div className="flex shrink-0 gap-1.5">
+        <Button asChild variant="outline" size="sm">
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t('admin.display.links_card.open')}
+          </a>
+        </Button>
+        <Button
+          variant={copied ? 'default' : 'outline'}
+          size="sm"
+          onClick={onCopy}
+          className={cn(copied && 'bg-emerald-600 hover:bg-emerald-600')}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              {t('admin.display.links_card.copied')}
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              {t('admin.display.links_card.copy')}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 }

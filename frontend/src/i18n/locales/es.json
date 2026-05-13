@@ -1199,7 +1199,23 @@
       "save": "Guardar",
       "saved": "Configuración del Infopoint actualizada",
       "open_display": "Abrir Infopoint",
-      "preview_help": "Abre /display en una pestaña nueva para verificar la rotación del Infopoint."
+      "preview_help": "Abre /display en una pestaña nueva para verificar la rotación del Infopoint.",
+      "links_card": {
+        "title": "Enlaces directos por sede",
+        "subtitle": "Abre el panel en un monitor de una sede específica: la URL filtra la rotación a ese único edificio en lugar de cicl ar entre todos. Útil para monitores de entrada de cada sede.",
+        "help_title": "Sintaxis aceptadas:",
+        "help_rotation": "rotación completa (todos los edificios en ciclo)",
+        "help_code": "una sola sede, coincidencia exacta en el código del edificio",
+        "help_slug": "atajo: coincide con código o nombre (incluso parcial). Ejemplos: /display?central, /display?radar",
+        "rotation_label": "Rotación completa (todos los edificios)",
+        "with_code": "código: {{code}}",
+        "without_code": "sin código configurado (uso el nombre)",
+        "no_buildings": "Ningún edificio en la lista.",
+        "open": "Abrir",
+        "copy": "Copiar",
+        "copied": "¡Copiado!",
+        "copy_fallback": "Copia este enlace manualmente:"
+      }
     },
     "quotas": {
       "title": "Cuotas dinámicas por recurso",

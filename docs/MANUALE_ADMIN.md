@@ -1619,7 +1619,36 @@ Pagina di configurazione globale dello schermo `/display` esposto al pubblico ne
 
 #### Card "Rotazione prenotazioni"
 
-Master toggle on/off + tabella edifici. Per ogni edificio: dot color + nome, conteggio aule, switch abilita/disabilita, e l'**intervallo di rotazione** (5–600 secondi). Disattivando il master, l'intera tabella diventa opaca.
+Master toggle on/off + tabella edifici. Per ogni edificio: dot color + nome, conteggio aule, switch abilita/disabilita, l'**intervallo di rotazione** (5–600 secondi) e la **modalità di vista** della tabella prenotazioni:
+
+| Modalità                | Descrizione                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Settimana** (default) | Matrice aule × giorni Lun-Sab. Utile per la pianificazione settimanale.                                                                                                                                                                                                                               |
+| **Giorno corrente**     | Matrice aule (righe) × slot 30 min 08:00–21:00 (colonne) del giorno corrente, con celle colorate per tipo prenotazione e blocchi multi-slot fusi. Replica fedele della "Griglia oggi" del foglio Excel. Più informativa per la portineria che vuole sapere a colpo d'occhio chi ha quale aula adesso. |
+
+La modalità è **per-edificio**: la sede principale può mostrare la settimana e una sede più piccola solo l'oggi. Disattivando il master della rotazione, l'intera tabella diventa opaca.
+
+#### Card "Link diretti per sede"
+
+Tabelloni di ingresso che mostrano **solo una sede** invece della rotazione completa. L'admin trova in questa card l'URL pronto da copiare per ogni edificio.
+
+Sintassi accettate dal parser URL (priorità decrescente):
+
+| URL                        | Comportamento                                                                                                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/display`                 | Rotazione completa di tutti gli edifici abilitati (default).                                                                                                                                                            |
+| `/display?b=<codice>`      | Match esatto sul `code` dell'edificio (es. `/display?b=CENT`). Più stabile perché il code non cambia se l'admin rinomina la sede.                                                                                       |
+| `/display?building=<slug>` | Alias verboso, identico a `?b=`.                                                                                                                                                                                        |
+| `/display?<slug>`          | Scorciatoia "key-boolean": una sola chiave senza valore (es. `/display?centrale`, `/display?radar`). Matcha contro `code` esatto, poi `name` esatto, poi `name` come substring (es. `centrale` matcha "Sede Centrale"). |
+
+La card mostra una riga per ogni edificio con:
+
+- **Apri** — apre il kiosk in una nuova scheda (utile per testare prima di passare l'URL al monitor)
+- **Copia** — copia l'URL completo negli appunti (con feedback "Copiato!" 2s)
+
+Se lo slug non matcha alcun edificio (es. typo nell'URL), Cadenza ricade automaticamente sulla rotazione completa per non lasciare lo schermo vuoto.
+
+> **Suggerimento operativo**: assegna un `code` breve a ogni edificio in Struttura (es. `CENT`, `RADAR`, `STORICO`). I link basati su code sono più robusti dei link basati su name, perché il nome può cambiare nel tempo. Gli URL `/display?<slug>` funzionano comunque grazie al fallback substring.
 
 #### Card "Concerti"
 
