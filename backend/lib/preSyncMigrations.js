@@ -750,6 +750,13 @@ async function runPreSyncMigrations() {
   if (await ensureNullableIntColumn('booking_rule_exceptions', 'roomId')) {
     logger.info('  ✓ Colonna booking_rule_exceptions.roomId aggiunta (scope per aula)');
   }
+
+  // F2 — Ricorrenze MRBS-style: FK Booking.recurrenceId → booking_recurrences.id.
+  // Senza questa pre-migration sync({safe}) fallisce su CREATE INDEX
+  // bookings_recurrence: la colonna non viene aggiunta a tabelle esistenti.
+  if (await ensureNullableIntColumn('bookings', 'recurrenceId')) {
+    logger.info('  ✓ Colonna bookings.recurrenceId aggiunta (F2 ricorrenze)');
+  }
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).
