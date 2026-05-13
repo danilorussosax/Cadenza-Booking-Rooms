@@ -3,6 +3,7 @@ import { useParams, Navigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
 import { BookOpen, GraduationCap, ShieldCheck, AlertCircle } from 'lucide-react';
 import { docsApi, screenshotUrl, type ManualSlug } from '@/api/docs';
 import { httpErrorMessage } from '@/lib/api';
@@ -75,6 +76,25 @@ export default function HelpPage() {
     }
     // <style>…</style>
     md = md.replace(/<style>[\s\S]*?<\/style>/g, '');
+    // Heading: rimuove emoji/simboli decorativi (⭐, 🎵, 🤖, ecc.) prima che
+    // rehype-slug calcoli l'id. Nel TOC del manuale i link sono scritti
+    // ignorando gli emoji (es. `[§6. Regole]( #6-regole-prenotazione)` per
+    // `## 6. ⭐ Regole prenotazione`): senza questo strip i due slug
+    // divergono e i link dell'indice non agganciano la sezione.
+    md = md.replace(/^(#{1,6}\s+)(.*)$/gm, (_m, hashes: string, rest: string) => {
+      const cleaned = rest
+        // Range Unicode dei simboli e degli emoji più usati: Misc Symbols,
+        // Dingbats, Misc Symbols+Pictographs, Emoticons, Transport+Map,
+        // Supplemental Symbols, Symbols & Pictographs Extended-A.
+        .replace(
+          /[☀-➿⬀-⯿\u{1F300}-\u{1F5FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu,
+          '',
+        )
+        // Doppi spazi residui dopo lo strip
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      return `${hashes}${cleaned}`;
+    });
     // immagini: ![alt](screenshots/file.png) → ![alt](/api/docs/screenshots/file.png)
     md = md.replace(
       /!\[([^\]]*)\]\(screenshots\/([^)]+)\)/g,
@@ -158,6 +178,10 @@ export default function HelpPage() {
             <article className="prose prose-slate dark:prose-invert prose-headings:font-display prose-headings:font-medium prose-h1:text-3xl prose-h2:mt-10 prose-h2:border-b prose-h2:pb-2 prose-h3:mt-6 prose-img:rounded-md prose-img:border prose-img:shadow-sm prose-table:text-sm prose-th:bg-muted/40 prose-th:py-2 prose-td:py-2 prose-blockquote:border-l-amber-500 prose-blockquote:bg-amber-50/40 dark:prose-blockquote:bg-amber-950/15 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:not-italic max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                // rehype-slug assegna un id automatico ad ogni heading
+                // (`## 1. Introduzione` → id="1-introduzione"). Senza questo
+                // i link `#1-introduzione` dell'indice non avrebbero target.
+                rehypePlugins={[rehypeSlug]}
                 components={{
                   // Override img: aggiungiamo loading lazy + alt accessibile.
                   img: ({ src, alt, ...rest }) => (
@@ -168,10 +192,34 @@ export default function HelpPage() {
                       {...rest}
                     />
                   ),
-                  // I link interni del manuale (anchor di sezione) restano <a>,
-                  // gli esterni si aprono in nuova tab.
+                  // I link interni del manuale (anchor di sezione) intercettano
+                  // il click per fare smooth-scroll senza ricaricare la rotta
+                  // React. I link esterni si aprono in nuova tab.
                   a: ({ href, children, ...rest }) => {
-                    const isExternal = href?.startsWith('http');
+                    const isInternal = typeof href === 'string' && href.startsWith('#');
+                    const isExternal = typeof href === 'string' && href.startsWith('http');
+                    if (isInternal) {
+                      const internalHref: string = href;
+                      return (
+                        <a
+                          href={internalHref}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const id = internalHref.slice(1);
+                            const target = document.getElementById(id);
+                            if (target) {
+                              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              // Aggiorna l'URL bar senza navigare: utile per
+                              // condividere il link a una sezione specifica.
+                              window.history.replaceState(null, '', internalHref);
+                            }
+                          }}
+                          {...rest}
+                        >
+                          {children}
+                        </a>
+                      );
+                    }
                     return (
                       <a
                         href={href}
