@@ -30,8 +30,13 @@ const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
 const COLOR_YELLOW = 'FFFFF2CC';
 const COLOR_GREY_LIGHT = 'FFE7E6E6';
-const COLOR_GREY_DARK = 'FF808080';
 const COLOR_HEADER = 'FFD9E1F2';
+// Celle non utilizzabili — coerenza visiva col riquadro Sospensioni:
+//   - settimana intera in sospensione → nero (full_week)
+//   - singolo giorno in sospensione   → rosso (partial: festività infrasettimanali
+//                                              + sessioni d'esame)
+const COLOR_BLOCK_FULL = 'FF000000';
+const COLOR_BLOCK_PARTIAL = 'FFC0392B';
 
 /**
  * Per ogni "settimana" prodotta da `computeWeeks` ritorna anche il giorno
@@ -142,12 +147,16 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
     'Compilazione:',
     '  • Anagrafica → scheda "Anagrafica" — compilare i campi a sfondo giallo.',
     '  • Orario → scheda "Orario" — inserire l\'attività nelle celle (giorno × settimana).',
-    '  • Le settimane completamente sospese (grigio scuro) NON sono modificabili.',
-    '  • Le celle con sfondo grigio chiaro indicano festività infrasettimanali e NON sono modificabili.',
     '  • La soglia minima è indicata in Anagrafica (cella "Soglia ore").',
     '',
-    'Categorie sospensione:',
-    '  • holiday      → festività deterministiche (1 nov, 8 dic, Natale, Pasqua, ecc.)',
+    'Legenda colori (foglio "Orario"):',
+    '  ■ NERO    → settimana interamente sospesa (Natale, Pasqua, full_week)',
+    "  ■ ROSSO   → giorno bloccato: festività infrasettimanale o sessione d'esame",
+    "  ■ grigio  → fuori dal periodo di lezioni dell'AA",
+    '  Le celle nere e rosse NON sono modificabili.',
+    '',
+    'Categorie sospensione (foglio "Sospensioni"):',
+    '  • holiday      → festività deterministiche (Natale, Pasqua, 25 apr, 1 mag, 2 giu, ecc.)',
     "  • exam_session → sessioni d'esame configurate dall'admin",
     '  • custom       → ponti/chiusure straordinarie',
     '',
@@ -243,34 +252,41 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
         suspensions,
       );
       if (fullSusp) {
-        // Merge C..H sulla riga + sfondo grigio scuro + testo bianco
+        // Settimana interamente sospesa: merge C..H + nero + testo bianco.
         sOra.mergeCells(rowIdx, 3, rowIdx, 8);
         const merged = row.getCell(3);
-        merged.value = `SOSPENSIONE: ${fullSusp.name}`;
+        const label =
+          fullSusp.category === 'exam_session'
+            ? `SESSIONE D'ESAME: ${fullSusp.name}`
+            : `SOSPENSIONE: ${fullSusp.name}`;
+        merged.value = label;
         merged.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         merged.alignment = { horizontal: 'center', vertical: 'middle' };
-        setBg(merged, COLOR_GREY_DARK);
+        setBg(merged, COLOR_BLOCK_FULL);
         setBorder(merged);
         setBorder(row.getCell(1));
         setBorder(row.getCell(2));
       } else {
-        // 6 giorni: Lun-Sab. Celle bloccate → grigio chiaro + commento.
+        // 6 giorni: Lun-Sab.
+        //   - partial suspension (festività infrasettimanali + sessioni esame
+        //     in giorno singolo) → ROSSO con commento (nome sospensione)
+        //   - fuori periodo lezioni                     → grigio chiaro
         for (let i = 0; i < 6; i++) {
           const cell = row.getCell(3 + i);
           const dayIso = weekStart.add(i, 'day').format('YYYY-MM-DD');
           const partial = findPartialForDay(dayIso, suspensions);
-          // Fuori periodo lezioni → grigio chiaro
           const beforeStart = dayjs(dayIso).isBefore(dayjs(settings.lessonsStartDate), 'day');
           const afterEnd = dayjs(dayIso).isAfter(dayjs(settings.lessonsEndDate), 'day');
-          if (partial || beforeStart || afterEnd) {
+          if (partial) {
+            setBg(cell, COLOR_BLOCK_PARTIAL);
+            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            const prefix = partial.category === 'exam_session' ? 'Esame' : 'Festa';
+            cell.value = prefix;
+            cell.note = partial.name;
+          } else if (beforeStart || afterEnd) {
             setBg(cell, COLOR_GREY_LIGHT);
-            if (partial) {
-              cell.note = partial.name;
-            } else if (beforeStart) {
-              cell.note = "Prima dell'inizio lezioni";
-            } else {
-              cell.note = 'Dopo la fine lezioni';
-            }
+            cell.note = beforeStart ? "Prima dell'inizio lezioni" : 'Dopo la fine lezioni';
           }
           setBorder(cell);
         }
