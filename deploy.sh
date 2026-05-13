@@ -30,7 +30,9 @@ set -euo pipefail
 #      (500 EACCES sui file statici, 404 sugli alias)
 #   6. npm ci --omit=dev sul backend del VPS solo se package-lock.json è cambiato
 #   7. pm2 restart cadenza-backend
-#   8. Healthcheck post-deploy
+#   8. Healthcheck robusto (/api/ready, 5 retry × 3s) — verifica anche DB
+#      connesso, così intercetta migrazioni schema fallite invece di
+#      dichiarare deploy OK mentre il backend è in restart loop.
 #
 # Uso:
 #   ./deploy.sh                # deploy interattivo con conferma
@@ -390,16 +392,45 @@ blue "[7/8] Restart backend (pm2)…"
 ssh ${SSH_OPTS} "$SSH_TARGET" "pm2 restart cadenza-backend --update-env >/dev/null && pm2 status cadenza-backend --no-color | tail -3"
 
 # ------------------------------------------------------------
-# 8. Healthcheck
+# 8. Healthcheck robusto: /api/ready (testa anche connessione DB e
+#    quindi indirettamente la riuscita delle preSyncMigrations).
+#    5 tentativi con sleep 3s tra uno e l'altro = fino a ~15s di tolleranza
+#    per gestire restart PM2 lenti + sync schema iniziale. Accetta SOLO 200.
+#    Se PM2 boota e crasha per migration fallita (es. colonna mancante)
+#    questo loop lo intercetta entro pochi secondi, invece di dichiarare
+#    "deploy completo" mentre il backend è in restart loop infinito.
 # ------------------------------------------------------------
-blue "[8/8] Healthcheck post-deploy…"
-sleep 2
-HEALTH_HTTP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/")
-if [[ "$HEALTH_HTTP" =~ ^(200|301|302|404)$ ]]; then
-  green "    ✓ backend risponde (HTTP $HEALTH_HTTP)"
-else
-  red "    ✗ backend non risponde (HTTP $HEALTH_HTTP)"
-  red "      Controlla i log: ssh ${SSH_TARGET} 'pm2 logs cadenza-backend --lines 50 --nostream'"
+blue "[8/8] Healthcheck post-deploy (/api/ready · max 5 tentativi)…"
+HEALTH_OK=0
+HEALTH_HTTP=""
+HEALTH_BODY=""
+for attempt in 1 2 3 4 5; do
+  sleep 3
+  HEALTH_RESP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /tmp/cadenza-health.json -w '%{http_code}' http://127.0.0.1:3000/api/ready && cat /tmp/cadenza-health.json && rm -f /tmp/cadenza-health.json")
+  # La prima riga è il codice HTTP (3 cifre), il resto è il body JSON.
+  HEALTH_HTTP="${HEALTH_RESP:0:3}"
+  HEALTH_BODY="${HEALTH_RESP:3}"
+  if [[ "$HEALTH_HTTP" == "200" ]]; then
+    HEALTH_OK=1
+    green "    ✓ backend pronto al tentativo ${attempt} (HTTP 200, DB raggiungibile)"
+    break
+  fi
+  yellow "    tentativo ${attempt}/5: HTTP ${HEALTH_HTTP:-?}, riprovo tra 3s…"
+done
+
+if [[ "$HEALTH_OK" -eq 0 ]]; then
+  red "    ✗ backend non pronto dopo 5 tentativi (ultimo HTTP $HEALTH_HTTP)"
+  if [[ -n "$HEALTH_BODY" ]]; then
+    red "      Body risposta: $HEALTH_BODY"
+  fi
+  red ""
+  red "      Ultime 30 righe dei log:"
+  ssh ${SSH_OPTS} "$SSH_TARGET" "pm2 logs cadenza-backend --lines 30 --nostream 2>/dev/null" \
+    | sed 's/^/        /' || true
+  red ""
+  red "      Diagnosi rapida lato VPS:"
+  red "        ssh ${SSH_TARGET} 'pm2 list'"
+  red "        ssh ${SSH_TARGET} 'pm2 logs cadenza-backend --lines 100 --nostream'"
   exit 1
 fi
 
