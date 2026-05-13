@@ -1159,8 +1159,11 @@
         "rooms_count": "Aule",
         "enabled": "In rotazione",
         "interval": "Durata (secondi)",
+        "view_mode": "Modalità vista",
         "actions": "Azioni"
       },
+      "view_mode_weekly": "Settimana",
+      "view_mode_daily": "Giorno corrente",
       "concerts_on": "Attivi",
       "concerts_off": "Disattivati",
       "bookings_card": {

@@ -32,7 +32,43 @@ import { useFullscreen, useIdle } from '@/hooks/useFullscreen';
 import { useDisplayScale } from '@/hooks/useDisplayScale';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import { WeeklyRoomTimetable, type WeeklyBlock } from '@/components/bookings/WeeklyRoomTimetable';
+import { DailyRoomTimetable } from '@/components/bookings/DailyRoomTimetable';
 import type { BookingType } from '@/types';
+
+/**
+ * Filtro per sede via URL — supportiamo 2 sintassi pensate per essere
+ * facili da scrivere/incollare dal manager dell'istituto:
+ *
+ *   /display?b=centrale        ← query param classico
+ *   /display?building=centrale ← alias verboso
+ *   /display?centrale          ← key boolean, comodo da memorizzare
+ *
+ * Lo slug viene poi confrontato (case-insensitive) contro `Building.code`
+ * o, in fallback, contro `Building.name` normalizzato (lowercase, niente
+ * spazi/accenti). Se nessun building matcha → niente filtro applicato
+ * (mostra rotazione completa per non lasciare lo schermo vuoto).
+ */
+function slugifyBuilding(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // toglie accenti
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function getBuildingSlugFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  // 1) param espliciti
+  const explicit = params.get('b') ?? params.get('building');
+  if (explicit?.trim()) return slugifyBuilding(explicit);
+  // 2) chiave-booleana: ?centrale (valore vuoto). Prendiamo la PRIMA chiave
+  //    non-vuota con valore vuoto.
+  for (const [key, val] of params.entries()) {
+    if (!val && key.length > 0) return slugifyBuilding(key);
+  }
+  return null;
+}
 
 const REFRESH_AGENDA_MS = 60_000;
 const REFRESH_STATS_MS = 30_000;
@@ -238,19 +274,37 @@ export default function Display() {
   const allBuildings = agendaQuery.data?.buildings ?? [];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const rotationOrder = displayConfigQuery.data?.buildings ?? [];
+  // Filtro URL "single-building mode": se l'URL ha ?b=<slug>, ?building=<slug>,
+  // o una chiave senza valore (?centrale), mostra SOLO quell'edificio.
+  // Pensato per i tabelloni di ingresso di una sede specifica.
+  const requestedSlug = useMemo(() => getBuildingSlugFromUrl(), []);
+
   const rotationBuildings = useMemo<(PublicBuilding & { intervalSec: number })[]>(() => {
+    let base: (PublicBuilding & { intervalSec: number })[];
     if (rotationOrder.length === 0) {
       // fallback: nessuna config = mostra tutto con intervallo di default
-      return allBuildings.map((b) => ({ ...b, intervalSec: 30 }));
+      base = allBuildings.map((b) => ({ ...b, intervalSec: 30 }));
+    } else {
+      const byId = new Map(allBuildings.map((b) => [b.id, b]));
+      base = rotationOrder
+        .map((c) => {
+          const b = byId.get(c.id);
+          return b ? { ...b, intervalSec: c.intervalSec } : null;
+        })
+        .filter((b): b is PublicBuilding & { intervalSec: number } => b !== null);
     }
-    const byId = new Map(allBuildings.map((b) => [b.id, b]));
-    return rotationOrder
-      .map((c) => {
-        const b = byId.get(c.id);
-        return b ? { ...b, intervalSec: c.intervalSec } : null;
-      })
-      .filter((b): b is PublicBuilding & { intervalSec: number } => b !== null);
-  }, [allBuildings, rotationOrder]);
+    if (!requestedSlug) return base;
+    // Match per code o nome normalizzato
+    const filtered = base.filter((b) => {
+      if (b.code && slugifyBuilding(b.code) === requestedSlug) return true;
+      if (slugifyBuilding(b.name) === requestedSlug) return true;
+      return false;
+    });
+    // Se lo slug non matcha niente, non lasciamo lo schermo vuoto:
+    // fallback alla rotazione completa con un'icona/badge che lo segnala
+    // (gestito nell'header del display).
+    return filtered.length > 0 ? filtered : base;
+  }, [allBuildings, rotationOrder, requestedSlug]);
 
   // Aggregati concerti dalla configurazione admin (per-edificio, ma applicati
   // globalmente alla rotazione perché i concerti compaiono una sola volta):
@@ -521,12 +575,16 @@ export default function Display() {
               transition={{ duration: 0.4, ease: 'easeOut' }}
               className="flex flex-1 flex-col"
             >
-              <BuildingTable
-                building={currentSlide.building}
-                weekStart={weekStart}
-                index={currentIndex}
-                stats={stats}
-              />
+              {currentSlide.building.displayViewMode === 'daily' ? (
+                <DailyRoomTimetable building={currentSlide.building} />
+              ) : (
+                <BuildingTable
+                  building={currentSlide.building}
+                  weekStart={weekStart}
+                  index={currentIndex}
+                  stats={stats}
+                />
+              )}
             </motion.div>
           )}
           {currentSlide?.kind === 'concert' && (

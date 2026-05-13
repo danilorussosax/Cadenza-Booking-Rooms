@@ -1163,8 +1163,11 @@
         "rooms_count": "Räume",
         "enabled": "Im Wechsel",
         "interval": "Dauer (Sekunden)",
+        "view_mode": "Ansicht",
         "actions": "Aktionen"
       },
+      "view_mode_weekly": "Woche",
+      "view_mode_daily": "Heutiger Tag",
       "concerts_on": "Aktiv",
       "concerts_off": "Deaktiviert",
       "bookings_card": {

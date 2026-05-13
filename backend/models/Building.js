@@ -117,6 +117,19 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      // Modalità di visualizzazione della tabella prenotazioni nel kiosk
+      // pubblico per questo edificio:
+      //   - 'weekly'  → matrice aule × giorni Lun-Sab con slot 30' (default storico)
+      //   - 'daily'   → matrice aule × orari del giorno corrente, replica della
+      //                 "Griglia oggi" del foglio Excel. Più informativa per
+      //                 la portineria all'inizio della giornata.
+      // Configurabile per singolo edificio così la sede principale può
+      // mostrare la settimana e una sede più piccola/turistica solo l'oggi.
+      displayViewMode: {
+        type: DataTypes.ENUM('weekly', 'daily'),
+        allowNull: false,
+        defaultValue: 'weekly',
+      },
     },
     {
       tableName: 'buildings',

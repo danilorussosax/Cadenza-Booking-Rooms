@@ -41,6 +41,7 @@ const BUILDING_ALLOWED = {
   displayAnnouncementsCount: { type: 'integer', min: 0, max: 100 },
   displayAnnouncementsIntervalSec: { type: 'integer', min: 1, max: 600 },
   displayAnnouncementsPinnedOnly: 'boolean',
+  displayViewMode: { type: 'enum', values: ['weekly', 'daily'] },
 };
 
 const ROOM_ALLOWED = {

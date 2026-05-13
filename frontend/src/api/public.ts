@@ -38,8 +38,11 @@ export interface PublicRoom {
 
 export interface PublicBuilding {
   id: number;
+  code: string | null;
   name: string;
   floors: string[];
+  /** 'weekly' (default) | 'daily' — modalità tabella prenotazioni del kiosk. */
+  displayViewMode: 'weekly' | 'daily';
   institute: { id: number; name: string } | null;
   rooms: PublicRoom[];
 }
@@ -78,6 +81,7 @@ export interface PublicStats {
 
 export interface DisplayConfigBuilding {
   id: number;
+  code: string | null;
   name: string;
   intervalSec: number;
   /** Toggle on/off della rotazione concerti per questo edificio. */
@@ -98,6 +102,8 @@ export interface DisplayConfigBuilding {
   announcementsIntervalSec: number;
   /** Mostra solo gli annunci con isPinned=true. */
   announcementsPinnedOnly: boolean;
+  /** 'weekly' (default) | 'daily' — modalità tabella prenotazioni del kiosk. */
+  viewMode: 'weekly' | 'daily';
 }
 
 export interface PublicAnnouncement {

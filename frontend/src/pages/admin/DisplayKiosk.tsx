@@ -32,6 +32,8 @@ interface RowState {
   buildingId: number;
   enabled: boolean;
   intervalSec: number;
+  /** Modalità tabella prenotazioni — 'weekly' (default) o 'daily'. */
+  viewMode: 'weekly' | 'daily';
 }
 
 interface ConcertsCfg {
@@ -137,6 +139,7 @@ export default function AdminDisplayKiosk() {
         buildingId: b.id,
         enabled: b.displayEnabled ?? true,
         intervalSec: b.displayIntervalSec ?? 30,
+        viewMode: b.displayViewMode === 'daily' ? 'daily' : 'weekly',
       };
     }
     setRows(next);
@@ -181,6 +184,7 @@ export default function AdminDisplayKiosk() {
       if (!r) continue;
       if (r.enabled !== (b.displayEnabled ?? true)) return true;
       if (r.intervalSec !== (b.displayIntervalSec ?? 30)) return true;
+      if (r.viewMode !== (b.displayViewMode === 'daily' ? 'daily' : 'weekly')) return true;
     }
     return false;
   }, [buildings, rows]);
@@ -196,7 +200,8 @@ export default function AdminDisplayKiosk() {
           if (!r) return false;
           const tableChanged =
             r.enabled !== (b.displayEnabled ?? true) ||
-            r.intervalSec !== (b.displayIntervalSec ?? 30);
+            r.intervalSec !== (b.displayIntervalSec ?? 30) ||
+            r.viewMode !== (b.displayViewMode === 'daily' ? 'daily' : 'weekly');
           // Quando una delle card globali è "dirty" propaghiamo i valori a
           // tutti gli edifici, indipendentemente dalla riga tabella.
           return tableChanged || bookingsDirty || concertsDirty || announcementsDirty;
@@ -206,6 +211,7 @@ export default function AdminDisplayKiosk() {
           return structureApi.updateBuilding(b.id, {
             displayEnabled: r.enabled,
             displayIntervalSec: clamp(r.intervalSec, 5, 600),
+            displayViewMode: r.viewMode,
             displayBookingsEnabled: bookingsDirty
               ? bookings.enabled
               : (b.displayBookingsEnabled ?? true),
@@ -349,6 +355,9 @@ export default function AdminDisplayKiosk() {
                       </th>
                       <th className="px-4 py-3 font-medium">{t('admin.display.table.enabled')}</th>
                       <th className="px-4 py-3 font-medium">{t('admin.display.table.interval')}</th>
+                      <th className="px-4 py-3 font-medium">
+                        {t('admin.display.table.view_mode')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -411,6 +420,23 @@ export default function AdminDisplayKiosk() {
                               className="w-24"
                               disabled={!r.enabled || !bookings.enabled}
                             />
+                          </td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={r.viewMode}
+                              onChange={(e) => {
+                                const v = e.target.value === 'daily' ? 'daily' : 'weekly';
+                                setRows((s) => ({
+                                  ...s,
+                                  [b.id]: { ...s[b.id], viewMode: v },
+                                }));
+                              }}
+                              disabled={!r.enabled || !bookings.enabled}
+                              className="w-36 rounded-md border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                            >
+                              <option value="weekly">{t('admin.display.view_mode_weekly')}</option>
+                              <option value="daily">{t('admin.display.view_mode_daily')}</option>
+                            </select>
                           </td>
                         </motion.tr>
                       );

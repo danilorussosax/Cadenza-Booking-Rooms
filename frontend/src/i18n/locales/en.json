@@ -1163,8 +1163,11 @@
         "rooms_count": "Rooms",
         "enabled": "In rotation",
         "interval": "Duration (seconds)",
+        "view_mode": "View mode",
         "actions": "Actions"
       },
+      "view_mode_weekly": "Week",
+      "view_mode_daily": "Current day",
       "concerts_on": "On",
       "concerts_off": "Off",
       "bookings_card": {

@@ -59,6 +59,7 @@ router.get('/display-config', async (req, res) => {
     where: { displayEnabled: true },
     attributes: [
       'id',
+      'code',
       'name',
       'displayIntervalSec',
       'displayBookingsEnabled',
@@ -70,12 +71,14 @@ router.get('/display-config', async (req, res) => {
       'displayAnnouncementsCount',
       'displayAnnouncementsIntervalSec',
       'displayAnnouncementsPinnedOnly',
+      'displayViewMode',
     ],
     order: [['name', 'ASC']],
   });
   res.json({
     buildings: buildings.map((b) => ({
       id: b.id,
+      code: b.code ?? null,
       name: b.name,
       intervalSec: Math.max(5, Math.min(600, b.displayIntervalSec || 30)),
       bookingsEnabled: b.displayBookingsEnabled !== false,
@@ -87,6 +90,7 @@ router.get('/display-config', async (req, res) => {
       announcementsCount: Math.max(0, Math.min(30, b.displayAnnouncementsCount ?? 5)),
       announcementsIntervalSec: Math.max(5, Math.min(600, b.displayAnnouncementsIntervalSec ?? 12)),
       announcementsPinnedOnly: b.displayAnnouncementsPinnedOnly === true,
+      viewMode: b.displayViewMode === 'daily' ? 'daily' : 'weekly',
     })),
   });
 });
@@ -225,8 +229,10 @@ router.get('/agenda', async (req, res) => {
 
   const data = buildings.map((b) => ({
     id: b.id,
+    code: b.code ?? null,
     name: b.name,
     floors: b.floors,
+    displayViewMode: b.displayViewMode || 'weekly',
     institute: b.institute ? { id: b.institute.id, name: b.institute.name } : null,
     rooms: (b.rooms || []).map((r) => ({
       id: r.id,

@@ -237,6 +237,34 @@ async function ensureNullableStringColumn(table, name, length = 500) {
  * Su SQLite l'ENUM è solo un CHECK constraint; Sequelize lo gestisce a sync,
  * quindi non serve azione esplicita.
  */
+/**
+ * Aggiunge `buildings.displayViewMode` se mancante. Idempotente.
+ * Postgres: ENUM('weekly','daily'); SQLite: TEXT con default 'weekly'.
+ */
+async function ensureBuildingsDisplayViewMode() {
+  const qi = sequelize.getQueryInterface();
+  let desc;
+  try {
+    desc = await qi.describeTable('buildings');
+  } catch {
+    return false;
+  }
+  if (desc.displayViewMode) return false;
+  const dialect = sequelize.getDialect();
+  if (dialect === 'sqlite') {
+    await sequelize.query(
+      "ALTER TABLE buildings ADD COLUMN displayViewMode TEXT NOT NULL DEFAULT 'weekly'",
+    );
+  } else {
+    await qi.addColumn('buildings', 'displayViewMode', {
+      type: sequelize.Sequelize.DataTypes.ENUM('weekly', 'daily'),
+      allowNull: false,
+      defaultValue: 'weekly',
+    });
+  }
+  return true;
+}
+
 async function ensurePostgresEnumValue(enumTypeName, value) {
   if (sequelize.getDialect() !== 'postgres') return false;
   try {
@@ -350,6 +378,11 @@ async function runPreSyncMigrations() {
   }
   if (await ensureBooleanColumn('buildings', 'displayAnnouncementsPinnedOnly', false)) {
     logger.info('  ✓ Colonna buildings.displayAnnouncementsPinnedOnly aggiunta (default = false)');
+  }
+
+  // Modalità visualizzazione kiosk per building: 'weekly' (default) | 'daily'
+  if (await ensureBuildingsDisplayViewMode()) {
+    logger.info("  ✓ Colonna buildings.displayViewMode aggiunta (default 'weekly')");
   }
 
   // Sistema check-in / anti ghost-booking

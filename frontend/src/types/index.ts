@@ -160,6 +160,12 @@ export interface Building {
   displayAnnouncementsIntervalSec?: number;
   /** Mostra solo gli annunci con isPinned=true. */
   displayAnnouncementsPinnedOnly?: boolean;
+  /**
+   * Modalità tabella prenotazioni del kiosk per questo edificio:
+   *   - 'weekly' (default storico): matrice aule × giorni della settimana
+   *   - 'daily' : matrice aule × orari del giorno corrente
+   */
+  displayViewMode?: 'weekly' | 'daily';
   rooms?: Room[];
 }
 

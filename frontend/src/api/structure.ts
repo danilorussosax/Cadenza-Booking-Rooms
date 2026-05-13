@@ -40,6 +40,7 @@ export interface UpsertBuildingPayload {
   displayAnnouncementsCount?: number;
   displayAnnouncementsIntervalSec?: number;
   displayAnnouncementsPinnedOnly?: boolean;
+  displayViewMode?: 'weekly' | 'daily';
 }
 
 export interface UpsertRoomPayload {

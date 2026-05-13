@@ -1163,8 +1163,11 @@
         "rooms_count": "Salles",
         "enabled": "En rotation",
         "interval": "Durée (secondes)",
+        "view_mode": "Mode d'affichage",
         "actions": "Actions"
       },
+      "view_mode_weekly": "Semaine",
+      "view_mode_daily": "Jour courant",
       "concerts_on": "Activés",
       "concerts_off": "Désactivés",
       "bookings_card": {
