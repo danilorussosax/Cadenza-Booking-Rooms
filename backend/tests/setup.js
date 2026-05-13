@@ -20,6 +20,14 @@ if (!process.env.BACKUP_DIR) {
   process.env.BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-tests-bkp-'));
 }
 
+// FRONTEND_URL esplicito anche in test: senza questo il middleware CORS in
+// app.js cade su `origin: true` (riflette qualsiasi Origin) e il test
+// "CORS non lascia passare origin sconosciuta" fallisce perché vede
+// l'header riflesso indietro all'attaccante.
+if (!process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL = 'http://localhost:5173';
+}
+
 require('../config/database.test');
 
 // Vitest 3 è ESM-only. In CommonJS dobbiamo usare i global iniettati
