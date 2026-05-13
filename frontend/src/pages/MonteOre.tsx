@@ -79,17 +79,30 @@ export default function MonteOre() {
   const [editing, setEditing] = useState<MonteOreSchedule | null>(null);
   const [adding, setAdding] = useState(false);
 
+  // Risolve l'AA target del docente (current vs next a finestra aperta).
+  // È l'autorità per tutte le query della pagina: tutti i fetch passano
+  // `?year={target}` per evitare race su rollover anno (1 nov, finestra
+  // submission aperta, ecc.).
+  const targetYearQuery = useQuery({
+    queryKey: ['monte-ore', 'academic-year', 'me'],
+    queryFn: () => monteOreApi.getAcademicYearForTeacher(),
+  });
+  const targetItem = targetYearQuery.data?.items[0];
+  const targetYear = targetItem?.academicYear;
+
   const proposalQuery = useQuery({
-    queryKey: ['monte-ore', 'me'],
-    queryFn: () => monteOreApi.getMine(),
+    queryKey: ['monte-ore', 'me', targetYear],
+    queryFn: () => monteOreApi.getMine(targetYear),
+    enabled: !!targetYear,
   });
 
   // Soglia personalizzata (override) — null se l'utente non è un docente.
   // Il banner viene mostrato solo se l'admin ha impostato un override (source
   // === 'user_override') o se il bypass del vincolo 2-4 giorni è attivo.
   const thresholdQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'threshold'],
-    queryFn: () => monteOreApi.getMyThreshold(),
+    queryKey: ['monte-ore', 'me', 'threshold', targetYear],
+    queryFn: () => monteOreApi.getMyThreshold(targetYear),
+    enabled: !!targetYear,
   });
 
   const proposal = proposalQuery.data?.proposal;
@@ -147,7 +160,7 @@ export default function MonteOre() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => monteOreApi.submitMine(),
+    mutationFn: () => monteOreApi.submitMine(targetYear),
     onSuccess: () => {
       toast.success('Proposta inviata al coordinatore');
       void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
@@ -155,7 +168,7 @@ export default function MonteOre() {
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
-  if (proposalQuery.isLoading) {
+  if (targetYearQuery.isLoading || proposalQuery.isLoading) {
     return (
       <div className="mx-auto max-w-5xl space-y-4">
         <Skeleton className="h-10 w-72" />
@@ -219,6 +232,27 @@ export default function MonteOre() {
           )}
         </div>
       </header>
+
+      {/* Banner AA "non in corso" — visibile quando il docente sta compilando
+          il monte ore dell'AA prossimo (rollover automatico durante la
+          finestra di submission). Diversifica visivamente il caso normale
+          (AA corrente) dal caso più raro (AA futuro) per evitare confusione. */}
+      {targetItem && !targetItem.isCurrent && (
+        <Alert>
+          <CalendarRange className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-medium">
+              Stai compilando il monte ore per l'AA {targetItem.academicYear}
+              {targetItem.isNext ? ' (prossimo)' : ''}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {targetItem.submissionOpen
+                ? 'La finestra di inserimento è attualmente aperta.'
+                : 'La finestra di inserimento non risulta aperta al momento.'}
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {hasIndividualOverride && (
         <Alert>
@@ -482,6 +516,7 @@ export default function MonteOre() {
         isPatternEmpty={proposal.schedules.length === 0}
         minHoursOverride={threshold?.source === 'user_override' ? threshold.minHours : null}
         isOverriddenThreshold={threshold?.source === 'user_override'}
+        academicYear={targetYear}
       />
 
       {/* Dialog: aggiungi/modifica riga */}

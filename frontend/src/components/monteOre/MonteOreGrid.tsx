@@ -67,6 +67,12 @@ interface Props {
   minHoursOverride?: number | null;
   /** True se la soglia mostrata viene da override individuale: cambia la label. */
   isOverriddenThreshold?: boolean;
+  /**
+   * AA target del docente. Quando valorizzato viene propagato come `?year=`
+   * a tutte le query (calendar / slots / amendments). Se omesso il backend
+   * cade sull'AA corrente, compatibilità retro.
+   */
+  academicYear?: string;
 }
 
 /**
@@ -81,6 +87,7 @@ export default function MonteOreGrid({
   isPatternEmpty,
   minHoursOverride,
   isOverriddenThreshold,
+  academicYear,
 }: Props) {
   const qc = useQueryClient();
   const [newDayOpen, setNewDayOpen] = useState(false);
@@ -91,20 +98,20 @@ export default function MonteOreGrid({
   const allowMove = ['approved', 'generated'].includes(proposalStatus);
 
   const calendarQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'calendar'],
-    queryFn: () => monteOreApi.getCalendar(),
+    queryKey: ['monte-ore', 'me', 'calendar', academicYear],
+    queryFn: () => monteOreApi.getCalendar(academicYear),
     retry: false,
   });
 
   const slotsQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'slots'],
-    queryFn: () => monteOreApi.getMySlots(),
+    queryKey: ['monte-ore', 'me', 'slots', academicYear],
+    queryFn: () => monteOreApi.getMySlots(academicYear),
     enabled: !calendarQuery.isError,
   });
 
   const amendmentsQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'amendments'],
-    queryFn: () => monteOreApi.getMyAmendments(),
+    queryKey: ['monte-ore', 'me', 'amendments', academicYear],
+    queryFn: () => monteOreApi.getMyAmendments(academicYear),
     enabled: !calendarQuery.isError && ['approved', 'generated'].includes(proposalStatus),
   });
 

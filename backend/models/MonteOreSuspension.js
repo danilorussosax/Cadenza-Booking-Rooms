@@ -47,6 +47,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 'partial',
       },
+      // Categoria semantica (perché esiste la sospensione), complementare a
+      // `kind` (come viene renderizzata). Vedi migration
+      // 20260513214348-add-category-to-monte-ore-suspensions.js.
+      category: {
+        type: DataTypes.ENUM('exam_session', 'holiday', 'custom'),
+        allowNull: false,
+        defaultValue: 'custom',
+      },
       notes: {
         type: DataTypes.TEXT,
         allowNull: true,
@@ -64,7 +72,14 @@ module.exports = (sequelize) => {
     {
       tableName: 'monte_ore_suspensions',
       paranoid: false,
-      indexes: [{ fields: ['instituteId', 'academicYear'] }, { fields: ['dateFrom', 'dateTo'] }],
+      indexes: [
+        { fields: ['instituteId', 'academicYear'] },
+        { fields: ['dateFrom', 'dateTo'] },
+        {
+          fields: ['instituteId', 'academicYear', 'category'],
+          name: 'monte_ore_suspensions_inst_year_category',
+        },
+      ],
     },
   );
 

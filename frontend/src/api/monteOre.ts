@@ -94,6 +94,7 @@ export interface MonteOreSettings {
 }
 
 export type SuspensionKind = 'full_week' | 'partial';
+export type SuspensionCategory = 'holiday' | 'exam_session' | 'custom';
 
 export interface MonteOreSuspension {
   id: number;
@@ -103,7 +104,52 @@ export interface MonteOreSuspension {
   dateFrom: string;
   dateTo: string;
   kind: SuspensionKind;
+  category?: SuspensionCategory;
   notes: string | null;
+}
+
+// ============================================================
+// Academic year selector / bootstrap (F3 — gestione AA)
+// ============================================================
+
+export interface AcademicYearOption {
+  academicYear: string;
+  label: string;
+  isCurrent: boolean;
+  isNext: boolean;
+  submissionOpen: boolean;
+  hasSettings: boolean;
+  /** Solo admin, presente per AA "futuri" non ancora bootstrappati. */
+  canCreateNew?: boolean;
+}
+
+export interface AcademicYearListResponse {
+  items: AcademicYearOption[];
+  /** AA suggerito come default (admin: current; docente: target). */
+  default: string;
+}
+
+export type AcademicYearBootstrapMode = 'default' | 'from_previous';
+
+export interface BootstrapAcademicYearPayload {
+  academicYear: string;
+  mode?: AcademicYearBootstrapMode;
+  previousYear?: string | null;
+  overwrite?: boolean;
+}
+
+export interface BootstrapResponse {
+  settings: MonteOreSettings;
+  suspensionsCreated: number;
+  suspensionsSkipped: number;
+}
+
+export interface ExamSessionPayload {
+  academicYear: string;
+  name: string;
+  dateFrom: string;
+  dateTo: string;
+  notes?: string | null;
 }
 
 export interface MonteOreSlot {
@@ -315,6 +361,19 @@ export const monteOreApi = {
       method: 'POST',
       body,
     }),
+
+  /**
+   * Lista degli AA disponibili. Per `scope='admin'` ritorna tutti gli AA con
+   * settings + flag `canCreateNew` sugli AA futuri non ancora creati.
+   * Per docente (senza scope) ritorna solo l'AA target.
+   */
+  listAcademicYears: (scope?: 'admin') =>
+    api<AcademicYearListResponse>('/api/monte-ore/academic-years', {
+      query: scope ? { scope } : undefined,
+    }),
+
+  /** Alias docente: ritorna unicamente l'AA target del docente corrente. */
+  getAcademicYearForTeacher: () => api<AcademicYearListResponse>('/api/monte-ore/academic-years'),
 };
 
 // ============================================================
@@ -451,6 +510,77 @@ export const monteOreAdminApi = {
       method: 'POST',
       body: reason ? { reason } : {},
     }),
+
+  // ---- Bootstrap AA + sessioni d'esame (F3 — gestione AA) ----
+
+  /**
+   * Crea (o sovrascrive) un AA: settings con range deterministico 1 nov → 31
+   * ott, finestra inserimento default e suspensions (festività + opzionali
+   * personalizzate clonate dall'AA precedente con +1 anno).
+   */
+  createAcademicYear: (payload: BootstrapAcademicYearPayload) =>
+    api<BootstrapResponse>('/api/admin/monte-ore/academic-years', {
+      method: 'POST',
+      body: payload,
+    }),
+
+  listExamSessions: (academicYear: string) =>
+    api<{ examSessions: MonteOreSuspension[] }>('/api/admin/monte-ore/exam-sessions', {
+      query: { academicYear },
+    }),
+
+  createExamSession: (payload: ExamSessionPayload) =>
+    api<{ examSession: MonteOreSuspension }>('/api/admin/monte-ore/exam-sessions', {
+      method: 'POST',
+      body: payload,
+    }),
+
+  updateExamSession: (id: number, patch: Partial<Omit<ExamSessionPayload, 'academicYear'>>) =>
+    api<{ examSession: MonteOreSuspension }>(`/api/admin/monte-ore/exam-sessions/${id}`, {
+      method: 'PATCH',
+      body: patch,
+    }),
+
+  deleteExamSession: (id: number) =>
+    api<{ message: string }>(`/api/admin/monte-ore/exam-sessions/${id}`, {
+      method: 'DELETE',
+    }),
+
+  /**
+   * URL di download del template Excel pre-popolato per l'AA selezionato.
+   * Pensato per <a href download> — il browser gestisce direttamente il flusso.
+   *
+   * NOTA: l'endpoint richiede auth Bearer; per usarlo con <a download> serve
+   * che il token sia veicolato via cookie o intercettato. In alternativa,
+   * scaricare con fetch+blob (helper a parte).
+   */
+  getImportTemplateUrl: (academicYear: string) =>
+    `/api/admin/monte-ore/import-template.xlsx?academicYear=${encodeURIComponent(academicYear)}`,
+
+  /**
+   * Scarica il template Excel via fetch (gestisce il Bearer token) e
+   * triggera il download via blob: necessario perché <a href> diretto non
+   * propaga l'header Authorization.
+   */
+  downloadImportTemplate: async (academicYear: string): Promise<void> => {
+    const token = (await import('@/lib/api')).tokenStore.get();
+    const url = `/api/admin/monte-ore/import-template.xlsx?academicYear=${encodeURIComponent(academicYear)}`;
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error(`Download fallito (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = `monte-ore-template-${academicYear.replace('/', '-')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  },
 };
 
 // Re-export per chi consuma il modulo

@@ -916,6 +916,105 @@ router.get('/me/amendments', authenticate, requireApproved, async (req, res, nex
   }
 });
 
+/**
+ * GET /api/monte-ore/academic-years
+ *
+ * Lista degli AA disponibili. Comportamento dipendente dal ruolo:
+ *
+ *   - Utente NON admin → ritorna SOLO l'AA target del docente (calcolato
+ *     con `resolveTargetAcademicYearForTeacher`): 1 elemento.
+ *   - Admin (o `scope=admin`) → ritorna tutti gli AA con settings + flag
+ *     `canCreateNew` per AA futuri non ancora presenti.
+ *
+ * Shape:
+ *   { items: [{ academicYear, label, isCurrent, isNext, submissionOpen,
+ *               hasSettings, canCreateNew? }],
+ *     default: "Y/Y+1" }
+ */
+router.get('/academic-years', authenticate, async (req, res, next) => {
+  try {
+    const today = new Date();
+    const currentLabel = calendarService.currentAcademicYear(today);
+    const nextLabel = calendarService.nextAcademicYear(today);
+
+    const isAdmin =
+      req.user?.role === 'admin' || (req.query.scope === 'admin' && req.user?.role === 'admin');
+
+    if (!isAdmin) {
+      // Docente: target = next se finestra aperta sui settings dell'AA next.
+      const nextSettings = await MonteOreSettings.findOne({
+        where: { academicYear: nextLabel },
+      });
+      const target = calendarService.resolveTargetAcademicYearForTeacher(today, nextSettings);
+      const targetSettings = await MonteOreSettings.findOne({ where: { academicYear: target } });
+      const submissionOpen = targetSettings
+        ? calendarService.isSubmissionWindowOpen(targetSettings, today)
+        : false;
+      const isNext = target === nextLabel;
+      const isCurrent = target === currentLabel;
+      let label = `AA ${target}`;
+      if (isCurrent) label += ' (in corso)';
+      else if (isNext) label += ' (prossimo)';
+      return res.json({
+        items: [
+          {
+            academicYear: target,
+            label,
+            isCurrent,
+            isNext,
+            submissionOpen,
+            hasSettings: !!targetSettings,
+          },
+        ],
+        default: target,
+      });
+    }
+
+    // Admin: tutti gli AA con settings + AA "futuri" candidati alla creazione.
+    const all = await MonteOreSettings.findAll({ order: [['academicYear', 'DESC']] });
+    const items = all.map((s) => {
+      const isCurrent = s.academicYear === currentLabel;
+      const isNext = s.academicYear === nextLabel;
+      let label = `AA ${s.academicYear}`;
+      if (isCurrent) label += ' (in corso)';
+      else if (isNext) label += ' (prossimo)';
+      return {
+        academicYear: s.academicYear,
+        label,
+        isCurrent,
+        isNext,
+        submissionOpen: calendarService.isSubmissionWindowOpen(s, today),
+        hasSettings: true,
+      };
+    });
+
+    // Assicura che current e next siano presenti (anche se senza settings)
+    const present = new Set(items.map((i) => i.academicYear));
+    const ensure = (aaLabel) => {
+      if (!present.has(aaLabel)) {
+        items.push({
+          academicYear: aaLabel,
+          label: `AA ${aaLabel}${aaLabel === currentLabel ? ' (in corso)' : aaLabel === nextLabel ? ' (prossimo)' : ''}`,
+          isCurrent: aaLabel === currentLabel,
+          isNext: aaLabel === nextLabel,
+          submissionOpen: false,
+          hasSettings: false,
+          canCreateNew: true,
+        });
+      }
+    };
+    ensure(currentLabel);
+    ensure(nextLabel);
+
+    // Ordina DESC per stringa "YYYY/YYYY"
+    items.sort((a, b) => (a.academicYear < b.academicYear ? 1 : -1));
+
+    res.json({ items, default: currentLabel });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ============================================================
 // ADMIN — endpoints di gestione
 // ============================================================
@@ -969,6 +1068,165 @@ function sanitizeSuspension(body) {
 // IMPORTANTE: le route concrete (/settings, /suspensions, /amendments) DEVONO
 // stare PRIMA delle route param /:id, altrimenti Express matcha "settings"
 // come parametro :id e ritorna 404 dal handler proposta.
+
+// ---- Academic Years (bootstrap) ----
+/**
+ * POST /api/admin/monte-ore/academic-years
+ *
+ * Body: { academicYear, mode?, previousYear?, overwrite? }
+ *
+ *   - `academicYear` deve matchare `^\d{4}/\d{4}$` con Y+1 = secondo numero.
+ *   - `mode` ∈ {'default','from_previous'} (default 'default').
+ *   - `previousYear` richiesto in mode='from_previous'.
+ *   - `overwrite` (default false) → se true sovrascrive settings esistenti e
+ *     ri-applica le festività deterministiche.
+ *
+ * Ritorna `{ settings, suspensionsCreated, suspensionsSkipped }`.
+ */
+adminRouter.post('/academic-years', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { academicYear, mode, previousYear, overwrite } = req.body || {};
+    if (!academicYear || !/^\d{4}\/\d{4}$/.test(academicYear)) {
+      return res.status(400).json({
+        error: 'academicYear non valido (atteso formato "YYYY/YYYY")',
+        code: 'VALIDATION_FAILED',
+      });
+    }
+    const [a, b] = academicYear.split('/').map(Number);
+    if (b !== a + 1) {
+      return res.status(400).json({
+        error: 'academicYear non coerente: il secondo anno deve essere il primo + 1',
+        code: 'VALIDATION_FAILED',
+      });
+    }
+    const { bootstrapAcademicYear } = require('../services/academicYearBootstrap');
+    const result = await bootstrapAcademicYear({
+      academicYear,
+      mode: mode === 'from_previous' ? 'from_previous' : 'default',
+      previousYear: previousYear || null,
+      overwrite: !!overwrite,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ---- Exam Sessions (sospensioni con category='exam_session') ----
+adminRouter.get('/exam-sessions', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const year = req.query.academicYear || calendarService.currentAcademicYear();
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+    const where = { academicYear: year, category: 'exam_session' };
+    if (settings) where.instituteId = settings.instituteId;
+    const items = await MonteOreSuspension.findAll({
+      where,
+      order: [['dateFrom', 'ASC']],
+    });
+    res.json({ examSessions: items.map((s) => s.toJSON()) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/exam-sessions', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const year = req.body.academicYear || calendarService.currentAcademicYear();
+    const data = sanitizeSuspension(req.body);
+    if (!data.name || !data.dateFrom || !data.dateTo) {
+      return res
+        .status(400)
+        .json({ error: 'name, dateFrom, dateTo sono obbligatori', code: 'VALIDATION_FAILED' });
+    }
+    let instituteId;
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+    if (settings) instituteId = settings.instituteId;
+    else instituteId = await resolveDefaultInstituteId();
+
+    const susp = await MonteOreSuspension.create({
+      instituteId,
+      academicYear: year,
+      name: data.name,
+      dateFrom: data.dateFrom,
+      dateTo: data.dateTo,
+      kind: 'partial',
+      category: 'exam_session',
+      notes: data.notes || null,
+    });
+    res.status(201).json({ examSession: susp.toJSON() });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
+
+adminRouter.patch(
+  '/exam-sessions/:id',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const susp = await MonteOreSuspension.findByPk(req.params.id);
+      if (!susp || susp.category !== 'exam_session') {
+        return res.status(404).json({ error: 'Sessione esame non trovata' });
+      }
+      const patch = {};
+      const data = sanitizeSuspension(req.body);
+      if (data.name !== undefined) patch.name = data.name;
+      if (data.dateFrom !== undefined) patch.dateFrom = data.dateFrom;
+      if (data.dateTo !== undefined) patch.dateTo = data.dateTo;
+      if (data.notes !== undefined) patch.notes = data.notes;
+      await susp.update(patch);
+      res.json({ examSession: susp.toJSON() });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+adminRouter.delete(
+  '/exam-sessions/:id',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const susp = await MonteOreSuspension.findByPk(req.params.id);
+      if (!susp || susp.category !== 'exam_session') {
+        return res.status(404).json({ error: 'Sessione esame non trovata' });
+      }
+      await susp.destroy();
+      res.json({ message: 'Sessione esame eliminata' });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---- Import template Excel ----
+adminRouter.get(
+  '/import-template.xlsx',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const year = req.query.academicYear || calendarService.currentAcademicYear();
+      const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+      const suspensions = await MonteOreSuspension.findAll({
+        where: { academicYear: year },
+        order: [['dateFrom', 'ASC']],
+      });
+      const { streamTemplate } = require('../services/monteOreTemplateService');
+      await streamTemplate(res, {
+        academicYear: year,
+        settings: settings ? settings.toJSON() : null,
+        suspensions: suspensions.map((s) => s.toJSON()),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ---- Settings ----
 adminRouter.get('/settings/list', authenticate, requireRole('admin'), async (req, res, next) => {

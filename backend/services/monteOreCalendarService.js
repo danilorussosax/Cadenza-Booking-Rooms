@@ -185,9 +185,92 @@ function currentAcademicYear(today = new Date()) {
   return `${year - 1}/${year}`;
 }
 
+/**
+ * Anno accademico "prossimo" rispetto a `today`. Si intende l'AA che inizia
+ * al prossimo 1° novembre futuro (cioè quello successivo all'AA corrente).
+ *
+ * Esempi:
+ *   - 13 maggio 2026 → currentAcademicYear = "2025/2026" → next = "2026/2027"
+ *   - 15 nov 2026   → currentAcademicYear = "2026/2027" → next = "2027/2028"
+ *   - 1 nov 2026    → corrente "2026/2027" → next "2027/2028"
+ *   - 31 ott 2026   → corrente "2025/2026" → next "2026/2027"
+ */
+function nextAcademicYear(today = new Date()) {
+  const cur = currentAcademicYear(today);
+  const [a] = cur.split('/').map(Number);
+  return `${a + 1}/${a + 2}`;
+}
+
+/**
+ * Ritorna true se la data `today` è dentro la finestra di submission
+ * configurata in `settings` (estremi inclusi). Confronto effettuato su
+ * stringhe `YYYY-MM-DD` per evitare side-effect di timezone.
+ *
+ * `settings.submissionWindowStart` / `End` sono DATEONLY.
+ */
+function isSubmissionWindowOpen(settings, today = new Date()) {
+  if (!settings) return false;
+  const start = settings.submissionWindowStart;
+  const end = settings.submissionWindowEnd;
+  if (!start || !end) return false;
+  const todayIso = dayjs(today).format('YYYY-MM-DD');
+  const startIso = String(start).slice(0, 10);
+  const endIso = String(end).slice(0, 10);
+  return todayIso >= startIso && todayIso <= endIso;
+}
+
+/**
+ * Risolve l'AA target per un docente al tempo `today`.
+ *
+ *   - se esiste un `nextSettings` (settings dell'AA prossimo) E la sua
+ *     finestra di submission è aperta in `today` → ritorna `nextAcademicYear()`
+ *     (cioè il docente sta pianificando il prossimo anno);
+ *   - altrimenti → ritorna `currentAcademicYear()` (anno in corso).
+ *
+ * `nextSettings` può essere null/undefined: si comporta come finestra chiusa.
+ */
+function resolveTargetAcademicYearForTeacher(today = new Date(), nextSettings = null) {
+  if (nextSettings && isSubmissionWindowOpen(nextSettings, today)) {
+    return nextAcademicYear(today);
+  }
+  return currentAcademicYear(today);
+}
+
+/**
+ * Computus (algoritmo di Gauss) per il calcolo della Pasqua cattolica.
+ *
+ * Ritorna `{ year, month, day }` con `month` 1-12 e `day` 1-31.
+ *
+ * Valori noti (per i test):
+ *   2024 → 31 marzo, 2025 → 20 aprile, 2026 → 5 aprile,
+ *   2027 → 28 marzo, 2030 → 21 aprile.
+ */
+function computeEaster(year) {
+  const Y = Number(year);
+  const a = Y % 19;
+  const b = Math.floor(Y / 100);
+  const c = Y % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const L = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * L) / 451);
+  const month = Math.floor((h + L - 7 * m + 114) / 31); // 3=marzo, 4=aprile
+  const day = ((h + L - 7 * m + 114) % 31) + 1;
+  return { year: Y, month, day };
+}
+
 module.exports = {
   computeWeeks,
   defaultRangeForAcademicYear,
   currentAcademicYear,
+  nextAcademicYear,
+  isSubmissionWindowOpen,
+  resolveTargetAcademicYearForTeacher,
+  computeEaster,
   DAYS_IT_SHORT,
 };

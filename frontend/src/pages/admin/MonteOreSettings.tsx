@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarRange, Save, Plus, Trash2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { CalendarRange, Save, Plus, Trash2, ArrowLeft, AlertCircle, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   monteOreAdminApi,
@@ -10,6 +10,8 @@ import {
   type SuspensionKind,
 } from '@/api/monteOre';
 import { httpErrorMessage } from '@/lib/api';
+import { AdminAcademicYearSelector } from '@/components/monteOre/AcademicYearSelector';
+import { ExamSessionsEditor } from '@/components/monteOre/ExamSessionsEditor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,24 +27,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-function currentAY(today = new Date()): string {
-  const y = today.getFullYear();
-  const m = today.getMonth() + 1;
-  return m >= 11 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
-}
-
 export default function AdminMonteOreSettings() {
   const qc = useQueryClient();
-  const [year, setYear] = useState(currentAY());
+  // AA selezionato — risolto dal selettore (storage > default).
+  const [year, setYear] = useState<string | undefined>(undefined);
+  const [downloading, setDownloading] = useState(false);
 
   const settingsQuery = useQuery({
     queryKey: ['admin', 'monte-ore', 'settings', year],
     queryFn: () => monteOreAdminApi.getSettings(year),
+    enabled: !!year,
   });
 
   const suspensionsQuery = useQuery({
     queryKey: ['admin', 'monte-ore', 'suspensions', year],
     queryFn: () => monteOreAdminApi.listSuspensions(year),
+    enabled: !!year,
   });
 
   const updateMutation = useMutation({
@@ -57,11 +57,24 @@ export default function AdminMonteOreSettings() {
 
   const settings = settingsQuery.data?.settings;
   const suspensions = suspensionsQuery.data?.suspensions ?? [];
-  const yearOptions = (() => {
-    const cur = currentAY();
-    const [a] = cur.split('/').map(Number);
-    return [`${a - 1}/${a}`, `${a}/${a + 1}`, `${a + 1}/${a + 2}`];
-  })();
+
+  /**
+   * Scarica il template Excel pre-popolato per l'AA selezionato.
+   * Usa il helper che gestisce il Bearer via fetch + blob (un <a download>
+   * diretto non propagherebbe l'header Authorization).
+   */
+  const handleDownloadTemplate = async () => {
+    if (!year) return;
+    try {
+      setDownloading(true);
+      await monteOreAdminApi.downloadImportTemplate(year);
+      toast.success('Template Excel scaricato');
+    } catch (err) {
+      toast.error(httpErrorMessage(err));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -83,29 +96,28 @@ export default function AdminMonteOreSettings() {
       </header>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Anno accademico
-          </Label>
-          <Select value={year} onValueChange={setYear}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {yearOptions.map((y) => (
-                <SelectItem key={y} value={y}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="ml-auto text-xs text-muted-foreground">
-            Anno conservatorio: 1 nov → 31 ott
-          </span>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <AdminAcademicYearSelector value={year} onChange={setYear} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadTemplate}
+              disabled={!year || downloading}
+            >
+              <Download className="h-4 w-4" />
+              {downloading ? 'Download…' : 'Scarica template Excel'}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Anno conservatorio: 1 nov → 31 ott
+            </span>
+          </div>
         </CardContent>
       </Card>
 
-      {settingsQuery.isLoading ? (
+      {!year ? (
+        <Skeleton className="h-72 w-full" />
+      ) : settingsQuery.isLoading ? (
         <Skeleton className="h-72 w-full" />
       ) : settings ? (
         <SettingsForm
@@ -120,11 +132,15 @@ export default function AdminMonteOreSettings() {
         </Alert>
       )}
 
-      <SuspensionsCard
-        academicYear={year}
-        suspensions={suspensions}
-        loading={suspensionsQuery.isLoading}
-      />
+      {year && (
+        <SuspensionsCard
+          academicYear={year}
+          suspensions={suspensions}
+          loading={suspensionsQuery.isLoading}
+        />
+      )}
+
+      {year && <ExamSessionsEditor academicYear={year} />}
     </div>
   );
 }

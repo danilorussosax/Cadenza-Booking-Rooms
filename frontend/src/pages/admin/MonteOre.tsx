@@ -30,6 +30,7 @@ import {
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
 import { ContractTypesPanel } from '@/components/admin/ContractTypesPanel';
+import { AdminAcademicYearSelector } from '@/components/monteOre/AcademicYearSelector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -182,11 +183,19 @@ export default function AdminMonteOre() {
   const [macroTab, setMacroTab] = useState<MacroTab>('proposals');
   const [statusFilter, setStatusFilter] = useState<MonteOreProposal['status'] | 'all'>('submitted');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // AA selezionato globalmente per la pagina admin (proposals, amendments,
+  // ecc.). Risolto al primo render dal componente AdminAcademicYearSelector
+  // (storage > default backend).
+  const [selectedYear, setSelectedYear] = useState<string | undefined>(undefined);
 
   const listQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'list', statusFilter],
-    queryFn: () => monteOreAdminApi.list(statusFilter === 'all' ? {} : { status: statusFilter }),
-    enabled: macroTab === 'proposals',
+    queryKey: ['admin', 'monte-ore', 'list', statusFilter, selectedYear],
+    queryFn: () =>
+      monteOreAdminApi.list({
+        ...(statusFilter === 'all' ? {} : { status: statusFilter }),
+        ...(selectedYear ? { academicYear: selectedYear } : {}),
+      }),
+    enabled: macroTab === 'proposals' && !!selectedYear,
   });
 
   // Counter per badge "richieste in attesa" sulla tab
@@ -204,7 +213,7 @@ export default function AdminMonteOre() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
             <Clock className="h-6 w-6 text-primary" />
@@ -221,6 +230,13 @@ export default function AdminMonteOre() {
           </Link>
         </Button>
       </header>
+
+      {/* Selettore AA: governa proposals, exam-sessions, settings, ecc. */}
+      <Card>
+        <CardContent className="p-4">
+          <AdminAcademicYearSelector value={selectedYear} onChange={setSelectedYear} />
+        </CardContent>
+      </Card>
 
       {/* Macro tab strip (stesso stile di Regole prenotazione) */}
       <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2 lg:grid-cols-3">
