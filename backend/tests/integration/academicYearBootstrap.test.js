@@ -38,7 +38,7 @@ describe('Academic Year Bootstrap — endpoint REST', () => {
       .set('Authorization', authHeader)
       .send({ academicYear: '2026/2027' });
     expect(r.status).toBe(201);
-    expect(r.body.suspensionsCreated).toBe(8);
+    expect(r.body.suspensionsCreated).toBe(6);
     expect(r.body.suspensionsSkipped).toBe(0);
     expect(r.body.settings.academicYear).toBe('2026/2027');
     expect(r.body.settings.lessonsStartDate).toBe('2026-11-02');
@@ -46,7 +46,7 @@ describe('Academic Year Bootstrap — endpoint REST', () => {
     const susCount = await MonteOreSuspension.count({
       where: { academicYear: '2026/2027', category: 'holiday' },
     });
-    expect(susCount).toBe(8);
+    expect(susCount).toBe(6);
   });
 
   it('POST /academic-years — idempotente su re-run', async () => {
@@ -62,7 +62,7 @@ describe('Academic Year Bootstrap — endpoint REST', () => {
       .send({ academicYear: '2026/2027' });
     expect(r2.status).toBe(201);
     expect(r2.body.suspensionsCreated).toBe(0);
-    expect(r2.body.suspensionsSkipped).toBe(8);
+    expect(r2.body.suspensionsSkipped).toBe(6);
   });
 
   it('POST /academic-years — rifiuta formato invalido (400)', async () => {

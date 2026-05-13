@@ -135,8 +135,8 @@ describe('defaultSettingsFor / firstMondayFrom', () => {
 
 describe('defaultHolidaysFor — AA "2026/2027"', () => {
   const list = defaultHolidaysFor('2026/2027');
-  it('produce 8 festività deterministiche', () => {
-    expect(list).toHaveLength(8);
+  it('produce 6 festività deterministiche', () => {
+    expect(list).toHaveLength(6);
   });
   it('include Vacanze di Pasqua basate su Computus', () => {
     // Pasqua 2027 = 28 marzo (cattolica)
@@ -152,11 +152,13 @@ describe('defaultHolidaysFor — AA "2026/2027"', () => {
     expect(nat.dateTo).toBe('2027-01-06');
     expect(nat.kind).toBe('full_week');
   });
-  it('Tutti i Santi/Immacolata sono partial', () => {
-    const ts = list.find((h) => h.name === 'Tutti i Santi');
+  it('Immacolata è partial', () => {
     const imm = list.find((h) => h.name === 'Immacolata');
-    expect(ts.kind).toBe('partial');
     expect(imm.kind).toBe('partial');
+  });
+  it('NON include Tutti i Santi e Ferragosto', () => {
+    expect(list.find((h) => h.name === 'Tutti i Santi')).toBeUndefined();
+    expect(list.find((h) => h.name === 'Ferragosto')).toBeUndefined();
   });
   it('tutte le entries hanno category="holiday"', () => {
     for (const h of list) expect(h.category).toBe('holiday');
@@ -176,19 +178,19 @@ describe('bootstrapAcademicYear (mode=default) — integrazione DB', () => {
     instituteId = inst.id;
   });
 
-  it('crea settings + 8 festività (= 1 Pasqua inclusa)', async () => {
+  it('crea settings + 6 festività (= 1 Pasqua inclusa)', async () => {
     const res = await bootstrapAcademicYear({
       academicYear: '2026/2027',
       instituteId,
     });
-    expect(res.suspensionsCreated).toBe(8);
+    expect(res.suspensionsCreated).toBe(6);
     expect(res.suspensionsSkipped).toBe(0);
     expect(res.settings.academicYear).toBe('2026/2027');
 
     const sus = await MonteOreSuspension.findAll({
       where: { instituteId, academicYear: '2026/2027' },
     });
-    expect(sus).toHaveLength(8);
+    expect(sus).toHaveLength(6);
     // Tutte category=holiday
     for (const s of sus) expect(s.category).toBe('holiday');
   });
@@ -197,11 +199,11 @@ describe('bootstrapAcademicYear (mode=default) — integrazione DB', () => {
     await bootstrapAcademicYear({ academicYear: '2026/2027', instituteId });
     const second = await bootstrapAcademicYear({ academicYear: '2026/2027', instituteId });
     expect(second.suspensionsCreated).toBe(0);
-    expect(second.suspensionsSkipped).toBe(8);
+    expect(second.suspensionsSkipped).toBe(6);
     const count = await MonteOreSuspension.count({
       where: { instituteId, academicYear: '2026/2027' },
     });
-    expect(count).toBe(8);
+    expect(count).toBe(6);
   });
 
   it('overwrite=true ricrea i settings se esistenti', async () => {

@@ -8,14 +8,12 @@
  * Y e finisce il 31 ottobre dell'anno Y+1.
  *
  * Festività generate (mode='default'):
- *   - Tutti i Santi             (1 nov  Y)        — partial
  *   - Immacolata                (8 dic  Y)        — partial
  *   - Vacanze di Natale         (24 dic Y → 6 gen Y+1) — full_week
+ *   - Vacanze di Pasqua         (Pasqua-2 → Pasqua+2 di Y+1) — full_week
  *   - Festa della Liberazione   (25 apr Y+1)      — partial
  *   - Festa dei Lavoratori      (1 mag  Y+1)      — partial
  *   - Festa della Repubblica    (2 giu  Y+1)      — partial
- *   - Ferragosto                (15 ago Y+1)      — partial
- *   - Vacanze di Pasqua         (Pasqua-2 → Pasqua+2 di Y+1) — full_week
  *
  * Tutte queste righe sono `category='holiday'`.
  *
@@ -27,7 +25,11 @@
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { sequelize, MonteOreSettings, MonteOreSuspension, Institute } = require('../models');
-const { computeEaster } = require('./monteOreCalendarService');
+const {
+  computeEaster,
+  currentAcademicYear,
+  nextAcademicYear,
+} = require('./monteOreCalendarService');
 
 /**
  * Primo lunedì utile da `dateIso` (incluso). Ritorna 'YYYY-MM-DD'.
@@ -69,12 +71,6 @@ function defaultHolidaysFor(academicYear) {
   const easter = easterHolidayRange(Y1);
   return [
     {
-      name: 'Tutti i Santi',
-      dateFrom: isoDate(Y, 11, 1),
-      dateTo: isoDate(Y, 11, 1),
-      kind: 'partial',
-    },
-    {
       name: 'Immacolata',
       dateFrom: isoDate(Y, 12, 8),
       dateTo: isoDate(Y, 12, 8),
@@ -108,12 +104,6 @@ function defaultHolidaysFor(academicYear) {
       name: 'Festa della Repubblica',
       dateFrom: isoDate(Y1, 6, 2),
       dateTo: isoDate(Y1, 6, 2),
-      kind: 'partial',
-    },
-    {
-      name: 'Ferragosto',
-      dateFrom: isoDate(Y1, 8, 15),
-      dateTo: isoDate(Y1, 8, 15),
       kind: 'partial',
     },
   ].map((h) => ({ ...h, category: 'holiday', notes: null }));
@@ -312,8 +302,54 @@ async function bootstrapAcademicYear({
   return sequelize.transaction(run);
 }
 
+/**
+ * Garantisce che gli AA "attivi" (corrente + prossimo) abbiano `MonteOreSettings`
+ * e le festività di default. Idempotente: chiamabile a ogni boot senza
+ * duplicare nulla. Per ogni istituto presente nel sistema.
+ *
+ * Pensato per essere chiamato in `server.js` dopo il seed, così che ogni AA
+ * compaia automaticamente con il calendario completo, senza bisogno che
+ * l'admin clicchi "Nuovo AA" dal pannello.
+ *
+ * @param {object} [opts]
+ * @param {Date} [opts.today]            data di riferimento (testabilità)
+ * @returns {Promise<Array<{instituteId:number, academicYear:string, created:number, skipped:number}>>}
+ */
+async function ensureBootstrapForActiveYears({ today = new Date() } = {}) {
+  const institutes = await Institute.findAll({ attributes: ['id'], order: [['id', 'ASC']] });
+  if (!institutes.length) return [];
+
+  const years = [currentAcademicYear(today), nextAcademicYear(today)];
+  const results = [];
+  for (const inst of institutes) {
+    for (const academicYear of years) {
+      try {
+        const { suspensionsCreated, suspensionsSkipped } = await bootstrapAcademicYear({
+          academicYear,
+          instituteId: inst.id,
+          mode: 'default',
+          overwrite: false,
+        });
+        results.push({
+          instituteId: inst.id,
+          academicYear,
+          created: suspensionsCreated,
+          skipped: suspensionsSkipped,
+        });
+      } catch (err) {
+        // Non bloccare il boot per un errore di bootstrap. Log e prosegui.
+        console.warn(
+          `  ⚠ Bootstrap AA ${academicYear} (istituto ${inst.id}) fallito: ${err.message}`,
+        );
+      }
+    }
+  }
+  return results;
+}
+
 module.exports = {
   bootstrapAcademicYear,
+  ensureBootstrapForActiveYears,
   defaultHolidaysFor,
   defaultSettingsFor,
   firstMondayFrom,

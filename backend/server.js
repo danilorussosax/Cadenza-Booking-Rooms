@@ -96,6 +96,20 @@ async function start() {
     }
 
     try {
+      const { ensureBootstrapForActiveYears } = require('./services/academicYearBootstrap');
+      const bootstrapped = await ensureBootstrapForActiveYears();
+      if (bootstrapped.some((r) => r.created > 0)) {
+        const summary = bootstrapped
+          .filter((r) => r.created > 0)
+          .map((r) => `${r.academicYear}: ${r.created} festività`)
+          .join(', ');
+        console.log(`  ✓ Calendario monte ore: bootstrap automatico ${summary}`);
+      }
+    } catch (err) {
+      console.warn('  ⚠ Bootstrap calendario monte ore fallito:', err.message);
+    }
+
+    try {
       const { initOAuthStrategies } = require('./config/passport');
       const oauth = await initOAuthStrategies();
       console.log(
