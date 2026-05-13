@@ -131,7 +131,9 @@
     "admin_integrations_isidata": "Import Isidata",
     "admin_server_settings": "Impostazioni Server",
     "monte_ore": "Monte ore",
-    "admin_monte_ore": "Gestione Monte Ore"
+    "admin_monte_ore": "Gestione Monte Ore",
+    "help": "Manuale",
+    "help_admin": "Manuale Admin"
   },
   "auth": {
     "login": {

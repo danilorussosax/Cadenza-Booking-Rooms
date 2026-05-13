@@ -131,7 +131,9 @@
     "admin_integrations_isidata": "Isidata-Import",
     "admin_server_settings": "Servereinstellungen",
     "monte_ore": "Stundenkontingent",
-    "admin_monte_ore": "Stundenkontingent verwalten"
+    "admin_monte_ore": "Stundenkontingent verwalten",
+    "help": "Handbuch",
+    "help_admin": "Admin-Handbuch"
   },
   "auth": {
     "login": {

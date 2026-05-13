@@ -131,7 +131,9 @@
     "admin_integrations_isidata": "Import Isidata",
     "admin_server_settings": "Ajustes del servidor",
     "monte_ore": "Horas didácticas",
-    "admin_monte_ore": "Gestión horas didácticas"
+    "admin_monte_ore": "Gestión horas didácticas",
+    "help": "Manual",
+    "help_admin": "Manual admin"
   },
   "auth": {
     "login": {

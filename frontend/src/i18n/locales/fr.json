@@ -131,7 +131,9 @@
     "admin_integrations_isidata": "Import Isidata",
     "admin_server_settings": "Paramètres serveur",
     "monte_ore": "Quota horaire",
-    "admin_monte_ore": "Gestion quota horaire"
+    "admin_monte_ore": "Gestion quota horaire",
+    "help": "Manuel",
+    "help_admin": "Manuel admin"
   },
   "auth": {
     "login": {

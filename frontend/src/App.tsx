@@ -45,6 +45,7 @@ const Display = lazy(() => import('@/pages/Display'));
 const Instruments = lazy(() => import('@/pages/Instruments'));
 const MyLoans = lazy(() => import('@/pages/MyLoans'));
 const CheckInRoom = lazy(() => import('@/pages/CheckInRoom'));
+const Help = lazy(() => import('@/pages/Help'));
 const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'));
 const Terms = lazy(() => import('@/pages/legal/Terms'));
 
@@ -104,6 +105,12 @@ export default function App() {
             <Route path="/check-in/room/:id" element={<CheckInRoom />} />
             <Route path="/monte-ore" element={<MonteOre />} />
             <Route path="/profile" element={<Profile />} />
+
+            {/* Manuali in-app (Help). /help redirige al manuale docente
+                (visibile a tutti gli auth). /help/admin: route esistente,
+                la pagina applica internamente la guard role=admin. */}
+            <Route path="/help" element={<Navigate to="/help/docente" replace />} />
+            <Route path="/help/:slug" element={<Help />} />
 
             {/* Admin section — RequireAdmin guard inside the same layout */}
             <Route path="/admin">

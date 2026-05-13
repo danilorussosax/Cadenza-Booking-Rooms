@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   BarChart3,
+  BookOpen,
   Building2,
   CalendarPlus,
   ChevronDown,
@@ -61,6 +62,9 @@ const NAV: NavItem[] = [
   { to: '/rooms', labelKey: 'nav.rooms', icon: Music4 },
   { to: '/instruments', labelKey: 'nav.instruments', icon: Guitar },
   { to: '/my-loans', labelKey: 'nav.my_loans', icon: PackageOpen },
+  // Manuale in-app: ogni utente vede il manuale docente (la pagina filtra
+  // poi se l'utente è admin per offrire il toggle al manuale admin).
+  { to: '/help/docente', labelKey: 'nav.help', icon: BookOpen },
 ];
 
 // Sidebar admin riorganizzata nell'ordine logico richiesto:
@@ -123,6 +127,9 @@ const ADMIN_NAV: NavItem[] = [
     icon: Server,
     roles: ['admin'],
   },
+  // Manuale Admin in-app — separato dal Manuale (docente) della sidebar
+  // utente. Punta a /help/admin (la pagina filtra anche client-side).
+  { to: '/help/admin', labelKey: 'nav.help_admin', icon: BookOpen, roles: ['admin'] },
   // L'import anagrafica Isidata è esposto come riquadro nella pagina
   // "Utenti" (admin/users), accanto alle card di Google/Microsoft OAuth.
   // Manteniamo la rotta `/admin/integrations/isidata` per accesso diretto

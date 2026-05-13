@@ -305,6 +305,7 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/app-icons', require('./routes/appIcons'));
   // Tipologie contrattuali docenti (Monte Ore — gestione admin + lookup)
   app.use('/api/contract-types', require('./routes/contractTypes'));
+  app.use('/api/docs', require('./routes/docs'));
 
   // Liveness: il processo è vivo (sempre 200, no DB call). Per Kubernetes
   // livenessProbe (riavvio container).

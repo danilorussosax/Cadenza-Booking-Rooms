@@ -131,7 +131,9 @@
     "admin_integrations_isidata": "Isidata import",
     "admin_server_settings": "Server settings",
     "monte_ore": "Hour budget",
-    "admin_monte_ore": "Hour budget management"
+    "admin_monte_ore": "Hour budget management",
+    "help": "Manual",
+    "help_admin": "Admin manual"
   },
   "auth": {
     "login": {
