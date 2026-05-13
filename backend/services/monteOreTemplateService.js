@@ -8,11 +8,11 @@
  * Fogli prodotti:
  *   1. Istruzioni    — testo statico (compilazione, regole gialle/grigie).
  *   2. Anagrafica    — campi docente + AA (pre-popolato), soglia ore, ecc.
- *   3. Orario        — matrice settimane × giorni Lun-Sab. Settimane intere
- *                      coperte da una suspension `kind='full_week'` →
- *                      riga grigia "SOSPENSIONE: {name}". Celle coperte da
- *                      `kind='partial'` → grigio chiaro + commento con il
- *                      nome della festività.
+ *   3. Orario        — matrice settimane × giorni Lun-Sab. Qualsiasi giorno
+ *                      coperto da una MonteOreSuspension (festività, vacanze
+ *                      lunghe, sessione esame, ponti) → cella rossa. Settimana
+ *                      Lun-Sab interamente sospesa → merge rosso "SOSPENSIONE:
+ *                      {name}". Giorni fuori dal periodo di lezioni → grigio.
  *   4. Sospensioni   — elenco delle MonteOreSuspension dell'AA con periodo,
  *                      categoria, nome, note.
  *   5. Tipi attività — placeholder per override (settimana, giorno, orario,
@@ -31,12 +31,9 @@ const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 const COLOR_YELLOW = 'FFFFF2CC';
 const COLOR_GREY_LIGHT = 'FFE7E6E6';
 const COLOR_HEADER = 'FFD9E1F2';
-// Celle non utilizzabili — coerenza visiva col riquadro Sospensioni:
-//   - settimana intera in sospensione → nero (full_week)
-//   - singolo giorno in sospensione   → rosso (partial: festività infrasettimanali
-//                                              + sessioni d'esame)
-const COLOR_BLOCK_FULL = 'FF000000';
-const COLOR_BLOCK_PARTIAL = 'FFC0392B';
+// Tutte le sospensioni (festività, vacanze lunghe, sessioni d'esame, ponti
+// custom) usano lo stesso rosso. Coerenza visiva col riquadro Sospensioni.
+const COLOR_BLOCK = 'FFC0392B';
 
 /**
  * Per ogni "settimana" prodotta da `computeWeeks` ritorna anche il giorno
@@ -140,10 +137,9 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
     '  • La soglia minima è indicata in Anagrafica (cella "Soglia ore").',
     '',
     'Legenda colori (foglio "Orario"):',
-    '  ■ NERO    → settimana interamente sospesa (Natale, Pasqua, full_week)',
-    "  ■ ROSSO   → giorno bloccato: festività infrasettimanale o sessione d'esame",
+    "  ■ ROSSO   → giorno o settimana sospesa (festività, vacanze, sessione d'esame, ponti)",
     "  ■ grigio  → fuori dal periodo di lezioni dell'AA",
-    '  Le celle nere e rosse NON sono modificabili.',
+    '  Le celle rosse NON sono modificabili.',
     '',
     'Categorie sospensione (foglio "Sospensioni"):',
     '  • holiday      → festività deterministiche (Natale, Pasqua, 25 apr, 1 mag, 2 giu, ecc.)',
@@ -252,7 +248,7 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
         merged.value = label;
         merged.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         merged.alignment = { horizontal: 'center', vertical: 'middle' };
-        setBg(merged, COLOR_BLOCK_FULL);
+        setBg(merged, COLOR_BLOCK);
         setBorder(merged);
         setBorder(row.getCell(1));
         setBorder(row.getCell(2));
@@ -268,7 +264,7 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
           const beforeStart = dayjs(dayIso).isBefore(dayjs(settings.lessonsStartDate), 'day');
           const afterEnd = dayjs(dayIso).isAfter(dayjs(settings.lessonsEndDate), 'day');
           if (susp) {
-            setBg(cell, COLOR_BLOCK_PARTIAL);
+            setBg(cell, COLOR_BLOCK);
             cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             const prefix = susp.category === 'exam_session' ? 'Esame' : 'Festa';

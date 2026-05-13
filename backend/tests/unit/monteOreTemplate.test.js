@@ -12,8 +12,7 @@
 const ExcelJS = require('exceljs');
 const { buildTemplateWorkbook } = require('../../services/monteOreTemplateService');
 
-const COLOR_BLOCK_FULL = 'FF000000';
-const COLOR_BLOCK_PARTIAL = 'FFC0392B';
+const COLOR_BLOCK = 'FFC0392B';
 
 const baseSettings = {
   academicYear: '2026/2027',
@@ -44,7 +43,7 @@ function bg(cell) {
 }
 
 describe('Template Excel — rendering sospensioni colorate', () => {
-  it('Vacanze di Natale: settimana 28 dic → 02 gen interamente nera', async () => {
+  it('Vacanze di Natale: settimana 28 dic → 02 gen interamente rossa', async () => {
     const wb = await build([
       {
         name: 'Vacanze di Natale',
@@ -57,9 +56,9 @@ describe('Template Excel — rendering sospensioni colorate', () => {
     const ws = wb.getWorksheet('Orario');
     const r = findRow(ws, '28 Dec') || findRow(ws, '28 Dic');
     expect(r).toBeTruthy();
-    // C..H merged with single black cell labeled "SOSPENSIONE: ..."
+    // C..H merged in singola cella rossa con label "SOSPENSIONE: ..."
     const c = ws.getRow(r).getCell(3);
-    expect(bg(c)).toBe(COLOR_BLOCK_FULL);
+    expect(bg(c)).toBe(COLOR_BLOCK);
     expect(String(c.value || '')).toMatch(/SOSPENSIONE/i);
   });
 
@@ -79,8 +78,8 @@ describe('Template Excel — rendering sospensioni colorate', () => {
     const row = ws.getRow(r);
     // 22 mar = lun (libera), …, 26 mar = ven (sospesa), 27 mar = sab (sospesa)
     expect(bg(row.getCell(3))).toBeNull(); // Lun
-    expect(bg(row.getCell(7))).toBe(COLOR_BLOCK_PARTIAL); // Ven
-    expect(bg(row.getCell(8))).toBe(COLOR_BLOCK_PARTIAL); // Sab
+    expect(bg(row.getCell(7))).toBe(COLOR_BLOCK); // Ven
+    expect(bg(row.getCell(8))).toBe(COLOR_BLOCK); // Sab
     expect(String(row.getCell(7).value || '')).toBe('Festa');
   });
 
@@ -98,8 +97,8 @@ describe('Template Excel — rendering sospensioni colorate', () => {
     const r = findRow(ws, '29 Mar');
     expect(r).toBeTruthy();
     const row = ws.getRow(r);
-    expect(bg(row.getCell(3))).toBe(COLOR_BLOCK_PARTIAL); // Lun = dell'Angelo
-    expect(bg(row.getCell(4))).toBe(COLOR_BLOCK_PARTIAL); // Mar
+    expect(bg(row.getCell(3))).toBe(COLOR_BLOCK); // Lun = dell'Angelo
+    expect(bg(row.getCell(4))).toBe(COLOR_BLOCK); // Mar
     expect(bg(row.getCell(5))).toBeNull(); // Mer libera
   });
 
@@ -117,7 +116,7 @@ describe('Template Excel — rendering sospensioni colorate', () => {
     const r = findRow(ws, '22 Feb');
     expect(r).toBeTruthy();
     const row = ws.getRow(r);
-    expect(bg(row.getCell(3))).toBe(COLOR_BLOCK_PARTIAL); // Lun
+    expect(bg(row.getCell(3))).toBe(COLOR_BLOCK); // Lun
     expect(String(row.getCell(3).value || '')).toBe('Esame');
   });
 });
