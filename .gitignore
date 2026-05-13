@@ -27,6 +27,12 @@ e2e/test-results/
 backend/.stryker-tmp/
 backend/reports/mutation/
 
+# Credenziali esterne (Google Sheets service account, ecc.)
+# MAI committare: contengono chiavi private RSA o OAuth tokens.
+backend/secrets/
+**/google-sheets-sa.json
+**/*.private.json
+
 # Misc
 .tsbuildinfo
 *.tsbuildinfo

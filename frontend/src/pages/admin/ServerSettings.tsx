@@ -10,6 +10,7 @@ import {
   Monitor,
   Palette,
   QrCode,
+  Sheet,
   ToggleLeft,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -24,6 +25,7 @@ import AdminDisplayKiosk from '@/pages/admin/DisplayKiosk';
 import AdminQrCodes from '@/pages/admin/QrCodes';
 import AdminAuditLog from '@/pages/admin/AuditLog';
 import AdminBackups from '@/pages/admin/Backups';
+import AdminGoogleSheetsMirror from '@/pages/admin/GoogleSheetsMirror';
 import AdminModules from '@/pages/admin/Modules';
 import AdminAppearanceSettings from '@/pages/admin/AppearanceSettings';
 
@@ -36,7 +38,7 @@ import AdminAppearanceSettings from '@/pages/admin/AppearanceSettings';
 // Type definitions
 // ─────────────────────────────────────────────────────────────────────────
 
-type SubTabValue = 'mail' | 'mail-outbox' | 'messaging' | 'backups';
+type SubTabValue = 'mail' | 'mail-outbox' | 'messaging' | 'backups' | 'sheets-mirror';
 type MacroValue = 'servizi' | 'aspetto' | 'qrcodes' | 'display' | 'audit-log' | 'modules';
 
 interface SubTabDef {
@@ -102,6 +104,15 @@ const SERVIZI_SUBTABS: SubTabDef[] = [
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBg: 'bg-amber-100 dark:bg-amber-500/15',
     Component: AdminBackups,
+  },
+  {
+    value: 'sheets-mirror',
+    labelKey: 'admin.server_settings.tabs.sheets_mirror',
+    descriptionKey: 'admin.server_settings.tabs.sheets_mirror_description',
+    icon: Sheet,
+    iconColor: 'text-green-600 dark:text-green-400',
+    iconBg: 'bg-green-100 dark:bg-green-500/15',
+    Component: AdminGoogleSheetsMirror,
   },
 ];
 

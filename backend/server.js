@@ -121,6 +121,8 @@ async function start() {
         .catch((e) => {
           console.error('[backup] start failed:', e.message);
         });
+      // Mirror Google Sheets — no-op se disabilitato in env.
+      require('./services/googleSheetsScheduler').start();
     });
 
     // Errori di listen (EADDRINUSE, EACCES, …) → messaggio chiaro invece di
@@ -159,6 +161,7 @@ async function safeShutdown(code = 0) {
       require('./services/retentionScheduler').stop();
       require('./services/mailOutboxScheduler').stop();
       require('./services/backupScheduler').stop();
+      require('./services/googleSheetsScheduler').stop();
       console.log('  ✓ Scheduler fermati');
     } catch (e) {
       console.warn('  ⚠ Errore stop scheduler:', e.message);

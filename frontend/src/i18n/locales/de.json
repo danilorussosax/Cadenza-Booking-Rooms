@@ -683,6 +683,8 @@
         "display_description": "Konfiguration des öffentlichen Infopoints für die wöchentliche rotierende Anzeige der Räume.",
         "audit_log_description": "Append-only-Tracking administrativer Aktionen auf Benutzern, Strukturen und Konfigurationen. Unveränderliche Einträge für Audit und Compliance.",
         "backups_description": "Geplante Backups der Datenbank und Wiederherstellung aus Snapshots.",
+        "sheets_mirror": "Google Sheets Spiegel",
+        "sheets_mirror_description": "Repliziert die Buchungen periodisch in ein Google Sheet. Wenn Cadenza nicht erreichbar ist, prüft die Pforte das Sheet vom Smartphone.",
         "modules": "Module",
         "modules_description": "Zeigt optionale Module in der Seitenleiste an oder verbirgt sie. Die Funktionen bleiben im Backend stets aktiv: Der Schalter steuert nur die Sichtbarkeit der Links in der UI.",
         "servizi": "Dienste",
