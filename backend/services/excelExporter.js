@@ -121,6 +121,30 @@ function buildDaySlots() {
   return slots;
 }
 
+// Palette per tipo prenotazione — derivata da frontend/src/lib/bookings.ts
+// (BOOKING_TYPE_STYLES.soft) per fedeltà visiva col Display kiosk.
+// ARGB: prefisso FF = alpha 100%. Colori Tailwind v3:
+//   *-100 → fill della cella
+//   *-200 → bordo
+//   *-900 → testo
+const TYPE_FILL_ARGB = {
+  studio_individuale: { bg: 'FFD1FAE5', border: 'FFA7F3D0', text: 'FF064E3B' }, // emerald
+  lezione: { bg: 'FFE0F2FE', border: 'FFBAE6FD', text: 'FF0C4A6E' }, // sky
+  prova: { bg: 'FFFEF3C7', border: 'FFFDE68A', text: 'FF78350F' }, // amber
+  concerto: { bg: 'FFFFE4E6', border: 'FFFECDD3', text: 'FF881337' }, // rose
+  altro: { bg: 'FFEDE9FE', border: 'FFDDD6FE', text: 'FF4C1D95' }, // violet
+};
+function paletteFor(type) {
+  return TYPE_FILL_ARGB[type] || TYPE_FILL_ARGB.altro;
+}
+
+// Colori "neutri" per le righe base + header
+const HEADER_BG_ARGB = 'FFF1F5F9'; // slate-100
+const HEADER_TEXT_ARGB = 'FF0F172A'; // slate-900
+const FLOOR_BAND_ARGB = 'FFF8FAFC'; // slate-50 (zebra leggero per cambio piano)
+const ROOM_LABEL_TEXT_ARGB = 'FF334155'; // slate-700
+const CELL_BORDER_ARGB = 'FFE2E8F0'; // slate-200 — griglia neutra di sfondo
+
 // Collator numeric-aware: "Aula 9" prima di "Aula 10". Stesso identico
 // comportamento di frontend/src/lib/sortRooms.ts per fedeltà con il Display.
 const roomCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -177,73 +201,136 @@ function cellLabel(b) {
   return b.type || 'Prenotato';
 }
 
+// Helper: bordo uniforme (replica della "card" del Display)
+function softBorder(argb) {
+  return {
+    top: { style: 'thin', color: { argb } },
+    bottom: { style: 'thin', color: { argb } },
+    left: { style: 'thin', color: { argb } },
+    right: { style: 'thin', color: { argb } },
+  };
+}
+
 /**
  * Crea UN foglio per ogni Building: matrice aule × slot 30 min del giorno
- * corrente, con la stessa logica di ordinamento del Display kiosk.
+ * corrente, con:
+ *   - celle colorate per tipo prenotazione (palette di BOOKING_TYPE_STYLES)
+ *   - merge orizzontale dei blocchi contigui (replica dei rettangoli del Display)
+ *   - bordi soft per griglia neutra
+ *   - banda alternata al cambio piano
+ *   - header sticky (freeze pane su riga 1 + colonne A-B)
  */
 function buildPerBuildingGrids(workbook, buildings) {
   const today = dayjs().startOf('day');
   const slots = buildDaySlots();
+  const FIRST_SLOT_COL = 3; // A=Piano, B=Aula, C=primo slot
   const usedNames = new Set();
 
   for (const building of buildings) {
     const sortedRooms = sortRoomsForBuilding(building.rooms || [], building);
-    if (sortedRooms.length === 0) continue; // skip building senza aule prenotabili
+    if (sortedRooms.length === 0) continue;
 
     const sheetName = safeSheetName(`Griglia · ${building.name}`, usedNames);
     const sheet = workbook.addWorksheet(sheetName);
 
+    // ─── Header ─────────────────────────────────────────────────────────
     sheet.columns = [
       { header: 'Piano', key: 'floor', width: 14 },
       { header: 'Aula', key: 'room', width: 22 },
-      ...slots.map((s, i) => ({ header: s, key: `s${i}`, width: 7 })),
+      ...slots.map((s, i) => ({ header: s, key: `s${i}`, width: 6 })),
     ];
-    sheet.getRow(1).font = { bold: true };
-    sheet.getRow(1).alignment = { horizontal: 'center' };
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: HEADER_TEXT_ARGB } };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.height = 22;
+    headerRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_BG_ARGB } };
+      cell.border = softBorder(CELL_BORDER_ARGB);
+    });
     sheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
 
-    // Mappa "roomId|slotIndex" → label
-    const cellMap = new Map();
-    for (const room of sortedRooms) {
-      for (const b of room.bookings || []) {
-        const start = dayjs(b.startTime);
-        const end = dayjs(b.endTime);
-        if (!start.isSame(today, 'day')) continue;
-        const startSlot = (start.hour() - DAY_HOUR_START) * 2 + (start.minute() >= 30 ? 1 : 0);
-        const endSlot = (end.hour() - DAY_HOUR_START) * 2 + (end.minute() > 0 ? 1 : 0);
-        const label = cellLabel(b);
-        for (let s = startSlot; s < endSlot; s++) {
-          if (s < 0 || s >= slots.length) continue;
-          cellMap.set(`${room.id}|${s}`, label);
-        }
-      }
-    }
-
-    // Righe + alternanza colore piano per leggibilità (replica del Display)
+    // ─── Righe base (aule) ──────────────────────────────────────────────
+    // Prima aggiungo tutte le righe vuote; dopo dipingo i blocchi prenotazione.
     let prevFloor = null;
     let zebra = false;
+    const roomToRowIndex = new Map(); // roomId → numero riga Excel (1-based)
     for (const room of sortedRooms) {
       if (room.floor !== prevFloor) {
-        zebra = !zebra; // cambia banda quando cambia piano
+        zebra = !zebra;
         prevFloor = room.floor;
       }
       const row = { floor: room.floor || '—', room: room.name };
-      for (let i = 0; i < slots.length; i++) {
-        row[`s${i}`] = cellMap.get(`${room.id}|${i}`) || '';
-      }
-      const addedRow = sheet.addRow(row);
-      if (zebra) {
-        addedRow.eachCell({ includeEmpty: true }, (cell) => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFF5F5F5' },
-          };
-        });
+      for (let i = 0; i < slots.length; i++) row[`s${i}`] = '';
+      const added = sheet.addRow(row);
+      added.height = 22;
+      roomToRowIndex.set(room.id, added.number);
+
+      // Stile righe base: bordo soft, font slate-700 per piano/aula,
+      // banda zebra leggera al cambio piano
+      added.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.border = softBorder(CELL_BORDER_ARGB);
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        if (colNumber <= 2) {
+          cell.font = { bold: colNumber === 2, color: { argb: ROOM_LABEL_TEXT_ARGB } };
+          cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        }
+        if (zebra) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FLOOR_BAND_ARGB } };
+        }
+      });
+    }
+
+    // ─── Blocchi prenotazione: colorati + merge orizzontale ─────────────
+    for (const room of sortedRooms) {
+      const rowIdx = roomToRowIndex.get(room.id);
+      if (!rowIdx) continue;
+      const bookings = (room.bookings || [])
+        .filter((b) => dayjs(b.startTime).isSame(today, 'day'))
+        .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+      for (const b of bookings) {
+        const start = dayjs(b.startTime);
+        const end = dayjs(b.endTime);
+        let startSlot = (start.hour() - DAY_HOUR_START) * 2 + (start.minute() >= 30 ? 1 : 0);
+        let endSlot = (end.hour() - DAY_HOUR_START) * 2 + (end.minute() > 0 ? 1 : 0);
+        // Clamp dentro la finestra visibile
+        startSlot = Math.max(0, startSlot);
+        endSlot = Math.min(slots.length, endSlot);
+        if (endSlot <= startSlot) continue;
+
+        const palette = paletteFor(b.type);
+        const label = cellLabel(b);
+        const startCol = FIRST_SLOT_COL + startSlot;
+        const endCol = FIRST_SLOT_COL + endSlot - 1;
+
+        // Merge se il blocco copre più di uno slot (replica del rettangolo
+        // del Display). Single-slot resta singola cella.
+        if (endCol > startCol) {
+          sheet.mergeCells(rowIdx, startCol, rowIdx, endCol);
+        }
+        const cell = sheet.getCell(rowIdx, startCol);
+        cell.value = label;
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+          shrinkToFit: true,
+        };
+        cell.font = {
+          bold: true,
+          size: 10,
+          color: { argb: palette.text },
+        };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: palette.bg },
+        };
+        cell.border = softBorder(palette.border);
       }
     }
 
-    // Auto-filter sulla colonna Piano/Aula (esclude le righe-slot)
+    // Auto-filter sulle prime due colonne (Piano / Aula)
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 2 } };
   }
 }
