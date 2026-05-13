@@ -238,7 +238,7 @@ export default function MonteOre() {
           <AlertDescription>
             <p className="font-medium">Proposta da rivalidare</p>
             <p className="text-sm mt-1">
-              {proposal.revalidationReason ||
+              {proposal.revalidationReason ??
                 'I presupposti della tua proposta sono cambiati: rivedi e re-invia.'}
             </p>
           </AlertDescription>

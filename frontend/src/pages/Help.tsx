@@ -12,18 +12,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 
-const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: typeof BookOpen }> = {
-  admin: {
-    title: 'Manuale Amministratore',
-    subtitle: 'Guida pratica per la gestione del Conservatorio',
-    icon: ShieldCheck,
-  },
-  docente: {
-    title: 'Manuale Docente',
-    subtitle: 'Guida pratica per docenti, contrattisti e collaboratori',
-    icon: GraduationCap,
-  },
-};
+const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: typeof BookOpen }> =
+  {
+    admin: {
+      title: 'Manuale Amministratore',
+      subtitle: 'Guida pratica per la gestione del Conservatorio',
+      icon: ShieldCheck,
+    },
+    docente: {
+      title: 'Manuale Docente',
+      subtitle: 'Guida pratica per docenti, contrattisti e collaboratori',
+      icon: GraduationCap,
+    },
+  };
 
 /**
  * Pagina "Aiuto" — renderizza il manuale Markdown caricato dall'API.
@@ -36,26 +37,26 @@ const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: t
  *  - Il front-matter YAML del file viene rimosso prima del render perché è
  *    metadata destinato al converter LaTeX, non leggibile in UI.
  */
+function isValidSlug(s: string | undefined): s is ManualSlug {
+  return s === 'admin' || s === 'docente';
+}
+
 export default function HelpPage() {
-  const { slug } = useParams<{ slug: ManualSlug }>();
+  const { slug: rawSlug } = useParams<{ slug: string }>();
   const { user } = useAuth();
 
-  // Slug valido?
-  if (!slug || (slug !== 'admin' && slug !== 'docente')) {
-    return <Navigate to="/help/docente" replace />;
-  }
-  // Guard role: admin manual lo vede solo l'admin (anche il backend lo blocca
-  // con 403, ma redirect lato client è più gentile).
-  if (slug === 'admin' && user?.role !== 'admin') {
-    return <Navigate to="/help/docente" replace />;
-  }
-
-  const meta = SLUG_LABELS[slug];
-  const Icon = meta.icon;
+  // Normalizziamo lo slug PRIMA dei hook: se invalido o admin senza permessi
+  // ricadiamo su 'docente' (l'effettivo redirect avviene dopo i hook tramite
+  // <Navigate />). Questo è cruciale per non chiamare useQuery/useMemo
+  // condizionalmente — react-hooks/rules-of-hooks lo vieta.
+  const slug: ManualSlug = isValidSlug(rawSlug) ? rawSlug : 'docente';
+  const needsRedirect = !isValidSlug(rawSlug) || (slug === 'admin' && user?.role !== 'admin');
 
   const query = useQuery({
     queryKey: ['docs', slug],
     queryFn: () => docsApi.get(slug),
+    // Non fetchiamo se dobbiamo redirectare: evita una request inutile a /admin.
+    enabled: !needsRedirect,
     // Cache 5 min: anche il backend cache 5 min in Cache-Control privato.
     staleTime: 5 * 60 * 1000,
   });
@@ -75,11 +76,23 @@ export default function HelpPage() {
     // <style>…</style>
     md = md.replace(/<style>[\s\S]*?<\/style>/g, '');
     // immagini: ![alt](screenshots/file.png) → ![alt](/api/docs/screenshots/file.png)
-    md = md.replace(/!\[([^\]]*)\]\(screenshots\/([^)]+)\)/g, (_m, alt, file) => {
-      return `![${alt}](${screenshotUrl(file)})`;
-    });
+    md = md.replace(
+      /!\[([^\]]*)\]\(screenshots\/([^)]+)\)/g,
+      (_m: string, alt: string, file: string) => {
+        return `![${alt}](${screenshotUrl(file)})`;
+      },
+    );
     return md;
   }, [query.data]);
+
+  // Tutti i hook sono stati chiamati: ora possiamo gestire il redirect senza
+  // violare le rules-of-hooks.
+  if (needsRedirect) {
+    return <Navigate to="/help/docente" replace />;
+  }
+
+  const meta = SLUG_LABELS[slug];
+  const Icon = meta.icon;
 
   // L'utente vede UN solo manuale alla volta, ma se è admin diamo un toggle
   // discreto per saltare all'altro manuale senza tornare alla sidebar.

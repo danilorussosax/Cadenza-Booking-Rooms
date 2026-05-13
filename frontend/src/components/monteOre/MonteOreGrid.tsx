@@ -773,8 +773,13 @@ function SlotMoveDialog({
   });
 
   const changeRoom = useMutation({
-    mutationFn: () =>
-      monteOreApi.changeSlotRoom(slot.id, { roomId: newRoomId!, notes: notes || undefined }),
+    mutationFn: () => {
+      if (newRoomId == null) throw new Error('roomId mancante');
+      return monteOreApi.changeSlotRoom(slot.id, {
+        roomId: newRoomId,
+        notes: notes || undefined,
+      });
+    },
     onSuccess: () => {
       toast.success('Richiesta cambio aula inviata al coordinatore');
       refresh();
@@ -784,11 +789,13 @@ function SlotMoveDialog({
   });
 
   const moveTo = useMutation({
-    mutationFn: () =>
-      monteOreApi.moveSlotTo(slot.id, {
-        targetSlotId: targetSlotId!,
+    mutationFn: () => {
+      if (targetSlotId == null) throw new Error('targetSlotId mancante');
+      return monteOreApi.moveSlotTo(slot.id, {
+        targetSlotId,
         notes: notes || undefined,
-      }),
+      });
+    },
     onSuccess: (data) => {
       toast.success(
         data.amendment.status === 'auto_approved'
