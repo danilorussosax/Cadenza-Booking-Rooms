@@ -31,18 +31,18 @@ module.exports = {
       //    parent diventa soft-deleted ora.
       await queryInterface.sequelize.query(
         `UPDATE buildings
-         SET deletedAt = CURRENT_TIMESTAMP, updatedAt = CURRENT_TIMESTAMP
-         WHERE deletedAt IS NULL
-           AND instituteId IN (SELECT id FROM institutes WHERE deletedAt IS NOT NULL)`,
+         SET "deletedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+         WHERE "deletedAt" IS NULL
+           AND "instituteId" IN (SELECT id FROM institutes WHERE "deletedAt" IS NOT NULL)`,
         { transaction: t },
       );
 
       // 2. Rooms orfane (Building soft-deleted, Room ancora alive).
       await queryInterface.sequelize.query(
         `UPDATE rooms
-         SET deletedAt = CURRENT_TIMESTAMP, updatedAt = CURRENT_TIMESTAMP
-         WHERE deletedAt IS NULL
-           AND buildingId IN (SELECT id FROM buildings WHERE deletedAt IS NOT NULL)`,
+         SET "deletedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+         WHERE "deletedAt" IS NULL
+           AND "buildingId" IN (SELECT id FROM buildings WHERE "deletedAt" IS NOT NULL)`,
         { transaction: t },
       );
     });
