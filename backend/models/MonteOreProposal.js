@@ -132,6 +132,30 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(500),
         allowNull: true,
       },
+      // ---- Origine della proposta ----
+      // 'user'         → creata dal docente via UI (default storico)
+      // 'admin_import' → importata dall'admin via Excel "Monte Ore" — tracciata
+      //                  dai campi `importedAt` / `importedById` / `importSourceRef`.
+      source: {
+        type: DataTypes.ENUM('user', 'admin_import'),
+        allowNull: false,
+        defaultValue: 'user',
+      },
+      importedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      // Riferimento logico all'admin importatore (no FK constraint — segue il
+      // pattern di User.contractType).
+      importedById: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      // Nome del file Excel originale (es. "monteore-mario-rossi.xlsx").
+      importSourceRef: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
     },
     {
       tableName: 'monte_ore_proposals',
@@ -146,6 +170,8 @@ module.exports = (sequelize) => {
           unique: true,
           name: 'monte_ore_proposals_user_year_uq',
         },
+        // Filtra rapidamente le proposte importate (admin) in stato submitted.
+        { fields: ['source', 'status'], name: 'monte_ore_proposals_source_status' },
       ],
     },
   );

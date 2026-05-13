@@ -1,5 +1,18 @@
-import { api } from '@/lib/api';
+import { api, HttpError, tokenStore } from '@/lib/api';
 import type { Booking, BookingType, Role } from '@/types';
+
+/**
+ * `JSON.parse` con fallback al testo grezzo (allineato all'helper interno di
+ * `lib/api.ts`). Usato per parsare le response di endpoint che bypassano
+ * `api()` (es. upload multipart).
+ */
+function safeJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
 
 export type MonteOreStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'generated';
 
@@ -71,8 +84,41 @@ export interface MonteOreProposal {
     monteOreOverrideReason?: string | null;
   };
   approver?: { id: number; firstName: string; lastName: string } | null;
+  /**
+   * Origine della proposta:
+   *   - 'user' (default): inserita dal docente via UI;
+   *   - 'admin_import': creata da un admin importando un file Excel pre-popolato
+   *     (`POST /api/admin/monte-ore/import`). Sblocca badge "importata" + il
+   *     blocco "Origine" nel dettaglio.
+   */
+  source?: 'user' | 'admin_import';
+  /** ISO timestamp dell'import (valorizzato solo per `source='admin_import'`). */
+  importedAt?: string | null;
+  /** Id dell'utente admin che ha eseguito l'import. */
+  importedById?: number | null;
+  /** Riferimento al file originario (nome file o hash) — solo log/diagnostica. */
+  importSourceRef?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================================
+// Import Excel monte ore (admin)
+// ============================================================
+
+/**
+ * Response di `POST /api/admin/monte-ore/import`:
+ * proposta creata + dati utente di destinazione + riepilogo (n. fasce, ore
+ * settimanali, warning non bloccanti incontrati dal parser).
+ */
+export interface ImportExcelResponse {
+  proposal: MonteOreProposal;
+  user: { id: number; email: string; fullName: string };
+  summary: {
+    schedulesCreated: number;
+    totalHoursPattern: number;
+    warnings: string[];
+  };
 }
 
 // ============================================================
@@ -577,12 +623,56 @@ export const monteOreAdminApi = {
     `/api/admin/monte-ore/import-template.xlsx?academicYear=${encodeURIComponent(academicYear)}`,
 
   /**
+   * Importa un file Excel monte ore precompilato (formato del template
+   * scaricabile via `downloadImportTemplate`). Il backend deduce il docente
+   * destinatario dall'email indicata nel foglio e crea/sovrascrive la
+   * proposta dell'AA letto dal file.
+   *
+   * Flag:
+   *   - `overwrite=false` impedisce di toccare una proposta esistente in
+   *     draft/submitted/rejected (default true);
+   *   - `force=true` (querystring) permette di sovrascrivere anche proposte
+   *     in stati "protetti" (approved/generated) — usare con cautela.
+   *
+   * NB: bypassa l'helper `api()` perché serve `multipart/form-data` con
+   * boundary auto-generato dal browser (impossibile via `Content-Type` manuale)
+   * e mantiene il token gestito da `tokenStore`.
+   */
+  importExcel: async (
+    file: File,
+    opts: { overwrite?: boolean; force?: boolean } = {},
+  ): Promise<ImportExcelResponse> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    // Backend default = true; mandiamo il flag solo per disattivare overwrite.
+    if (opts.overwrite === false) fd.append('overwrite', 'false');
+    const token = tokenStore.get();
+    const url = `/api/admin/monte-ore/import${opts.force ? '?force=true' : ''}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      body: fd,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const text = await res.text();
+    const data: unknown = text ? safeJsonParse(text) : null;
+    if (!res.ok) {
+      const payload =
+        (data && typeof data === 'object' ? (data as { error?: string; code?: string }) : {}) ?? {};
+      throw new HttpError(res.status, {
+        error: payload.error ?? `Errore HTTP ${res.status}`,
+        code: payload.code,
+      });
+    }
+    return data as ImportExcelResponse;
+  },
+
+  /**
    * Scarica il template Excel via fetch (gestisce il Bearer token) e
    * triggera il download via blob: necessario perché <a href> diretto non
    * propaga l'header Authorization.
    */
   downloadImportTemplate: async (academicYear: string): Promise<void> => {
-    const token = (await import('@/lib/api')).tokenStore.get();
+    const token = tokenStore.get();
     const url = `/api/admin/monte-ore/import-template.xlsx?academicYear=${encodeURIComponent(academicYear)}`;
     const res = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},

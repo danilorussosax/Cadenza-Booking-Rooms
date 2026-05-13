@@ -4,12 +4,14 @@ import { toast } from 'sonner';
 import {
   CheckCircle2,
   Clock,
+  FileSpreadsheet,
   Pencil,
   Plus,
   RotateCcw,
   ShieldAlert,
   Trash2,
   Unlock,
+  Upload,
   XCircle,
   Zap,
   CalendarRange,
@@ -31,6 +33,7 @@ import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
 import { ContractTypesPanel } from '@/components/admin/ContractTypesPanel';
 import { AdminAcademicYearSelector } from '@/components/monteOre/AcademicYearSelector';
+import { ImportExcelDialog } from '@/components/monteOre/ImportExcelDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,6 +190,9 @@ export default function AdminMonteOre() {
   // ecc.). Risolto al primo render dal componente AdminAcademicYearSelector
   // (storage > default backend).
   const [selectedYear, setSelectedYear] = useState<string | undefined>(undefined);
+  // Dialog import Excel monte ore (admin → POST /api/admin/monte-ore/import).
+  // L'AA viene letto dal file, ma passiamo `selectedYear` come info display.
+  const [importOpen, setImportOpen] = useState(false);
 
   const listQuery = useQuery({
     queryKey: ['admin', 'monte-ore', 'list', statusFilter, selectedYear],
@@ -231,12 +237,30 @@ export default function AdminMonteOre() {
         </Button>
       </header>
 
-      {/* Selettore AA: governa proposals, exam-sessions, settings, ecc. */}
+      {/* Selettore AA: governa proposals, exam-sessions, settings, ecc.
+       *  Affiancato a destra dal bottone "Importa Excel" che apre il dialog
+       *  multipart upload per il monte ore di un singolo docente. */}
       <Card>
-        <CardContent className="p-4">
-          <AdminAcademicYearSelector value={selectedYear} onChange={setSelectedYear} />
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <AdminAcademicYearSelector value={selectedYear} onChange={setSelectedYear} />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            title="Importa monte ore di un docente da file Excel pre-compilato"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Importa Excel
+          </Button>
         </CardContent>
       </Card>
+
+      <ImportExcelDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        academicYear={selectedYear}
+      />
 
       {/* Macro tab strip (stesso stile di Regole prenotazione) */}
       <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -336,6 +360,20 @@ export default function AdminMonteOre() {
                           {threshold.contractType && threshold.contractType !== 'titolare' && (
                             <Badge variant="secondary" className="text-[10px]">
                               {CONTRACT_LABEL[threshold.contractType]}
+                            </Badge>
+                          )}
+                          {p.source === 'admin_import' && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] gap-1"
+                              title={
+                                p.importedAt
+                                  ? `Importata da Excel il ${new Date(p.importedAt).toLocaleString('it-IT')}`
+                                  : 'Proposta importata da Excel'
+                              }
+                            >
+                              <Upload className="h-3 w-3" />
+                              importata
                             </Badge>
                           )}
                         </p>
@@ -957,6 +995,28 @@ function DetailDialog({
                   Note del docente
                 </Label>
                 <p className="mt-1 whitespace-pre-wrap">{proposal.notes}</p>
+              </div>
+            )}
+
+            {proposal.source === 'admin_import' && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Origine
+                </Label>
+                <p className="mt-1 flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-primary" />
+                  Importata da Excel
+                  {proposal.importedAt && (
+                    <span className="text-muted-foreground">
+                      · il {new Date(proposal.importedAt).toLocaleString('it-IT')}
+                    </span>
+                  )}
+                </p>
+                {proposal.importSourceRef && (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    File: <span className="font-mono">{proposal.importSourceRef}</span>
+                  </p>
+                )}
               </div>
             )}
 
