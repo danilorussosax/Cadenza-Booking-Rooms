@@ -2,7 +2,7 @@
 title: 'Cadenza · Manuale Amministratore'
 subtitle: 'Guida pratica per la gestione di un Conservatorio musicale'
 author: 'Danilo Russo, docente del Conservatorio'
-date: '9 maggio 2026'
+date: '13 maggio 2026'
 lang: it
 papersize: a4
 documentclass: article
@@ -25,8 +25,8 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.5}
-  - \fancyhead[R]{\small 9 maggio 2026}
+  - \fancyhead[L]{\small Cadenza · Manuale Amministratore v1.6}
+  - \fancyhead[R]{\small 13 maggio 2026}
   - \fancyfoot[C]{\small\thepage\ / \pageref*{LastPage}}
   - \renewcommand{\headrulewidth}{0.4pt}
 ---
@@ -59,33 +59,32 @@ header-includes:
 
 # Cadenza · Manuale Amministratore
 
-> **Versione**: 1.5 · **Data**: 9 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.6 · **Data**: 13 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: Direttori, DSGA e coordinatori didattici dei Conservatori
 > **Prerequisiti**: account con ruolo `admin` su una installazione Cadenza già attiva
 
 ---
 
-## Cosa c'è di nuovo in v1.5 (9 maggio 2026)
+## Cosa c'è di nuovo in v1.6 (13 maggio 2026)
 
-> Questa edizione del manuale è stata **ripulita** dei contenuti puramente tecnici (API, codici di errore, dettagli implementativi) e arricchita di **scenari guidati** ed **esempi reali** sulle aree più complesse (Regole/Quote/Eccezioni e Monte Ore). L'obiettivo è renderla una guida pratica utilizzabile da chi gestisce il Conservatorio quotidianamente, lasciando ai documenti di sviluppo i dettagli per il personale IT.
+> Questa edizione **rende il manuale autosufficiente per screenshot**: ogni pagina admin importante ha ora un'immagine reale a corredo. Inoltre arrivano tre nuove funzionalità lato Monte Ore — _spostamenti del docente_, _richiesta di modifica all'admin_ e _deroga della finestra di inserimento per il singolo docente_ — tutte documentate qui sotto.
 
-Modifiche principali rispetto alla v1.4:
+Novità v1.6:
 
-- Linguaggio più semplice e diretto, meno gergo informatico.
-- Rimossi i riferimenti a chiamate API, codici d'errore, query SQL, comandi `curl`.
-- Rimossi i mockup testuali "Riferimento UI" duplicati: ora ci sono **screenshot reali** della UI per tutte le pagine principali.
-- Tabelle dei campi form alleggerite: nomi e significati, senza limiti di caratteri o dettagli di validazione.
-- Sezione "Sicurezza e hardening" (ex §16) rimossa: i suoi contenuti vivono ora in `docs/SECURITY.md` e `docs/AUDIT_QUALITA_PRODUZIONE.md`, dove sono più pertinenti.
-- Aggiornata la nuova feature **Eccezioni con scope per aula** (§6.3) e il **toggle vista calendario 1 / 3 giorni** della dashboard utente (§2).
-- **Nuovi screenshot**: dashboard utente (1 e 3 giorni), pagina di prenotazione, le mie prenotazioni, aule raggruppate per edificio, profilo, dialog "Nuova eccezione" con campo Aula.
-- **Approfondimento §6 — Regole / Quote / Eccezioni**:
-  - §6.1bis con 3 scenari guidati di configurazione "Per ruolo" (Conservatorio piccolo, grande, sessione esami)
-  - §6.2 ampliato con la spiegazione "regola vs quota in una frase", la lista dei tetti combinabili e una **sequenza passo-passo** di come Cadenza valuta una prenotazione contro più quote
-  - §6.3 ampliato con **6 scenari guidati** completi (Aula in ristrutturazione, sessione esami, sala concerti riservata, aula a numero chiuso, vacanze di Natale, sciopero) ciascuno con i parametri esatti del form
-- **Approfondimento §8 — Monte Ore**:
-  - §8.2bis nuovo: **flusso completo in 5 fasi** (Settings → Inserimento → Approvazione → Generazione → Variazioni) con tabella stati
-  - §8.5bis nuovo: **5 casi guidati** durante la revisione delle proposte (entro soglia, sotto soglia, aula non assegnata, conflitto generazione, fuori vincolo CCNL)
-  - §8.6 ampliato: tabella dei **4 tipi di amendment** + spiegazione del tetto annuale di variazioni
+- ⭐ **§8.6bis — Spostamenti del docente** (`change_time`, `change_room`, `move_to`): il docente, su una proposta già approvata, può chiedere cambio orario, cambio aula puntuale di una singola occorrenza, oppure spostare una lezione su un'altra cella libera senza consumare due variazioni. Tabella decisionale auto / pending + screenshot del dialog "Spostamento lezione".
+- ⭐ **§8.5ter — "Richiedi modifica"** dal pannello admin: nuovo bottone nel dettaglio della proposta che riporta lo stato a `bozza` e notifica al docente con motivazione. Sostituisce il rifiuto secco quando manca poco e basterebbe una correzione mirata.
+- ⭐ **§8.10bis — Deroga finestra di inserimento individuale**: l'admin può aprire la finestra Monte Ore per il singolo docente subentrato in corso d'anno, senza dover riaprire la finestra globale.
+- ⭐ **§8.11 — Banner "proposta da rivalidare"**: quando l'admin modifica contratto/ore di un docente che ha già una proposta approvata o generata, il sistema marca automaticamente la proposta con una motivazione e mostra al docente un banner rosso.
+- **Tabella amendments aggiornata**: passa da 4 a **6 tipi** (`toggle_off`, `toggle_on`, `change_time`, `add_new_day`, `change_room`, `move_to`) con regole di approvazione e impatto sul calendario.
+- **Screenshot aggiunti per le sezioni che ne erano prive**: Utenti, Provider OAuth, Corsi, Livelli, Struttura, Approvazioni, Registro attività, Bookings, Inventario strumenti (5 viste), Quote prestiti, Analytics, Annunci, Mail Outbox, Tipologie docenti Monte Ore, Server Settings (Backup, QR Codes, Display kiosk, Audit Log, Moduli).
+- §6.2bis aggiornato con screenshot della tab "Quote prestiti".
+- §3.6 aggiornato con screenshot dei Provider OAuth.
+
+Modifiche da v1.4 → v1.5 (per chi salta versioni):
+
+- Linguaggio più semplice; rimossi gli accenni tecnici ad API e codici d'errore.
+- Aggiunti scenari guidati su §6 (Regole/Quote/Eccezioni — 6 casi) e §8.5bis (revisione proposte — 5 casi).
+- Introdotta la deroga Monte Ore per contratto orario (§8.10) con form admin.
 
 Per le note tecniche di rilascio (changelog di versione 2.x della piattaforma) vedi `docs/AUDIT_QUALITA_PRODUZIONE.md`.
 
@@ -190,6 +189,7 @@ Tutti gli utenti (studente / docente / admin) hanno accesso alle stesse pagine "
   ![Pagina Aule — sezioni espandibili per edificio](screenshots/rooms-grouped.png)
 - **Profilo** (`/profile`) — anagrafica, password, preferenze notifiche, link iCal personale.
   ![Pagina Profilo — anagrafica e preferenze](screenshots/profile-page.png)
+  ![Pagina Profilo — card "Aggiungi a Home" (PWA, icona dell'app)](screenshots/profile-app-icon.png)
 
 > **Differenza tra "Sidebar Operazioni" e "Impostazioni Server"**: le prime 11 voci della sidebar sono per le **attività quotidiane**. _Impostazioni Server_ raggruppa invece la **configurazione del sistema** (mail, QR, display, audit, backup, moduli) ed è la voce che apri raramente.
 
@@ -198,6 +198,8 @@ Tutti gli utenti (studente / docente / admin) hanno accesso alle stesse pagine "
 ## 3. Utenti
 
 URL: `/admin/users`
+
+![Pagina Utenti — toolbar, filtri, tabella e barra azioni in blocco](screenshots/users-overview.png)
 
 ### 3.1 Cosa puoi fare in questa pagina
 
@@ -267,6 +269,8 @@ Campi essenziali:
 
 In coda alla pagina Utenti due card affiancate permettono di abilitare il **login con Google Workspace** e **Microsoft 365 / Entra ID**.
 
+![Card Provider OAuth — campi Client ID / Secret / Tenant per Google e Microsoft](screenshots/users-oauth-providers.png)
+
 Per ciascun provider devi inserire i parametri ricevuti dal pannello sviluppatori del provider stesso (Client ID, Client Secret, eventuale Tenant per Microsoft, e il Callback URL). Le credenziali vengono salvate **cifrate**: nessuno, neppure l'admin, le vede in chiaro dopo il primo salvataggio.
 
 > **Importante**: dopo aver attivato un provider, **riavvia il backend** (vedi §12.4) perché il provider sia effettivamente disponibile sul login. Cadenza ti mostra un alert informativo dopo il salvataggio.
@@ -310,6 +314,8 @@ La pagina ha due **macro-tab** in alto:
 
 ### 4.2 Tab "Corsi"
 
+![Tab Corsi — toolbar import/export, filtri e tabella corsi](screenshots/courses-overview.png)
+
 La toolbar offre:
 
 - **Esporta CSV** — scarica l'elenco corsi (`corsi-AAAA-MM-GG.csv`)
@@ -333,6 +339,8 @@ Se non hai ancora configurato livelli, compare un avviso "Nessun livello configu
 
 ### 4.3 Tab "Livelli"
 
+![Tab Livelli — anagrafica dei livelli di studio (propedeutico, triennio, ecc.)](screenshots/courses-livelli.png)
+
 Il catalogo dei livelli di studio (es. `propedeutico`, `triennio`, `biennio`, `master`). Una volta creato un livello lo riusi su tutti i corsi che lo supportano. Ogni livello ha codice, etichetta visualizzata, ordine in lista e stato attivo/disattivato.
 
 ---
@@ -342,6 +350,8 @@ Il catalogo dei livelli di studio (es. `propedeutico`, `triennio`, `biennio`, `m
 URL: `/admin/structure` (con scheda `?tab=sedi|dotazioni`)
 
 ### 5.1 Layout
+
+![Tab Sedi — Istituto > Edificio > Aula con card espandibili e bottoni inline](screenshots/structure-sedi.png)
 
 Macro-tab selector in alto: **Sedi** e **Dotazioni**.
 
@@ -394,6 +404,8 @@ Permette di descrivere lo strumentario di una specifica aula: nome, tipologia, q
 Selezionando edifici o aule (checkbox), in basso compare una card fissa con i conteggi degli elementi selezionati e i bottoni **Deseleziona** ed **Elimina**. La cancellazione di un edificio rimuove a cascata anche le sue aule, le dotazioni e le prenotazioni; lo stesso vale per la cancellazione di un'aula. Cadenza ti riporta i conteggi finali nel toast (es. "5 aule eliminate, 12 prenotazioni rimosse").
 
 ### 5.7 Tab "Dotazioni"
+
+![Tab Dotazioni — catalogo template riusabili da assegnare alle aule](screenshots/structure-dotazioni.png)
 
 Il catalogo riusabile delle dotazioni (template). Una volta creato il template "Pianoforte verticale", lo riusi assegnandolo a tutte le aule che lo posseggono in due click. Cambiare il template aggiorna automaticamente tutte le aule che lo usano.
 
@@ -580,6 +592,8 @@ Quando uno studente prova a prenotare 2h in Aula 12 (pianoforte coda) il marted�
 > **Quote vs eccezioni**: la quota è **strutturale e permanente** ("Aula 12 vale così tutto l'anno"). L'eccezione è **temporanea** ("dal 1 al 30 giugno cambiamo le regole"). Vedi §6.3 per le eccezioni.
 
 ### 6.2bis Tab "Quote prestiti"
+
+![Tab Quote prestiti — limiti per famiglia, strumento e globali sull'inventario](screenshots/rules-quote-prestiti.png)
 
 Stesso schema delle quote aule, ma applicato all'**inventario strumenti**:
 
@@ -788,6 +802,8 @@ Tre pagine distinte ma correlate:
 
 URL: `/admin/approvals`
 
+![Pagina Approvazioni — coda richieste pending + card "Variazioni Monte Ore" con badge](screenshots/approvals-overview.png)
+
 Qui finiscono:
 
 - prenotazioni su aule che richiedono approvazione (sale concerti, auditorium)
@@ -801,6 +817,8 @@ In testa alla pagina compare anche una card-link a **"Variazioni Monte Ore"** co
 ### 7.2 Registro attività ⭐
 
 URL: `/admin/activity-log`
+
+![Registro attività — tabella prenotazioni future con bulk-cancel e scambio aula](screenshots/activity-log-overview.png)
 
 > Questa è la pagina che usi quando devi **intervenire su prenotazioni già confermate**: cancellarne molte d'un colpo (chiusura last-minute) o **scambiare** aula/orario fra due prenotazioni.
 
@@ -835,6 +853,8 @@ Lo scambio avviene in modo **atomico** (o riesce su entrambe o non tocca nulla).
 
 URL: `/admin/bookings` — alias deprecato di `/admin/activity-log`. Mantenuto solo perché qualcuno ha il bookmark; usa la pagina **Registro attività** per i nuovi flussi.
 
+![Pagina Bookings (alias) — stessa tabella del Registro attività](screenshots/bookings-overview.png)
+
 ---
 
 ## 8. ⭐ Gestione Monte Ore
@@ -852,6 +872,8 @@ Pagina con **3 macro-tab card**:
 - **Proposte** — coda proposte da approvare/generare
 - **Richieste variazioni** — variazioni post-approvazione, badge contatore in sospeso
 - **Tipologie docenti** — gestione tipi contratto e impatto sull'override individuale
+
+![Tab Tipologie docenti — anagrafica contratti (titolare, supplente, contratto orario…) con soglia ore di default](screenshots/admin-monteore-contract-types.png)
 
 In header c'è il pulsante **"Calendario didattico"** che porta alla pagina di configurazione (vedi §8.3).
 
@@ -1011,6 +1033,31 @@ Il vincolo CCNL è 2-4 giorni/sett. Se il docente fa 5 giorni, in dialog vedi un
 1. **Rifiuta** con motivo "vincolo CCNL: max 4 giorni/sett, ridistribuisci le ore in 4 giorni".
 2. Se è un docente con **bypass del vincolo** (es. supplente part-time concordato per fare 5 giorni × 1h), imposta la deroga individuale (§8.10) → spunta "Esente dal vincolo 2-4 gg/sett" → approva.
 
+### 8.5ter ⭐ "Richiedi modifica" — riapertura controllata della proposta (v1.6)
+
+> Novità di maggio 2026. Risponde al caso "la proposta è quasi corretta ma manca un dettaglio": non vuoi rifiutarla (il docente dovrebbe rifare tutto da capo) né approvarla (ci sono ancora problemi).
+
+Nel dettaglio della proposta, **finché lo stato è `In attesa` o `Approvata`**, accanto ai bottoni Approva / Rifiuta compare ora **"Richiedi modifica"** (icona ↻). Click su quel bottone apre un dialog con una textarea **"Motivazione"** (max 500 caratteri): il testo che scrivi verrà mostrato al docente in un banner rosso sulla sua pagina `/monte-ore`.
+
+Effetti del click "Riporta in bozza":
+
+| Stato di partenza | Cosa fa "Richiedi modifica"                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `In attesa`       | Riporta in `bozza`. Il docente può modificare e re-inviare.                                                                                                              |
+| `Approvata`       | Riporta in `bozza`. Le aule assegnate restano (non vengono perse), ma la firma di approvazione viene annullata. Va re-inviata + ri-approvata.                            |
+| `Generata`        | **Non disponibile**: prima usa "Annulla generazione" per cancellare i Booking, poi "Richiedi modifica" diventa attivo. Cadenza te lo segnala con un tooltip sul bottone. |
+
+**Differenza con "Rifiuta"**: il rifiuto è una decisione definitiva e va motivata come tale (la proposta è incompatibile con i vincoli). "Richiedi modifica" è una **collaborazione**: stai chiedendo una correzione mirata, e il docente lo capisce dal banner.
+
+**Esempi pratici di motivazione**:
+
+- "Mancano 12 ore alla soglia 324h: aggiungi una fascia di 4h × 3 settimane."
+- "Aula 12 non disponibile più il martedì pomeriggio (corso jazz). Spostala su Aula 5 o cambia orario."
+- "Hai messo 5 giorni a settimana: rivedi in massimo 4 giorni come da CCNL."
+- "Sopra soglia (340h vs 324). Ottimo, ma riduci le ore o aggiorniamo la deroga: contattaci."
+
+Tutte le richieste di modifica passano per il **registro attività** (chi, quando, cosa). Il docente vede il banner rosso finché non re-invia.
+
 ### 8.6 Tab "Richieste variazioni"
 
 ![Tab Richieste variazioni — coda amendment con badge pending](screenshots/monteore-amendments.png)
@@ -1021,31 +1068,96 @@ Una volta che la proposta è approvata, il docente può chiedere di **modificare
 - "Rimuovo la lezione del 5 dicembre per malattia, recupero il 7"
 - "Cambio l'aula da 101 a 102 per i prossimi 3 mesi"
 
-La tabella mostra: docente · AA, tipo (Disattivazione · Riattivazione · Cambio orario · Nuovo giorno), riepilogo dello slot toccato, note del docente, stato (In attesa · Auto-approvata · Approvata · Rifiutata) e i bottoni di azione.
+La tabella mostra: docente · AA, tipo (Disattivazione · Riattivazione · Cambio orario · Nuovo giorno · **Cambio aula** · **Spostamento**), riepilogo dello slot toccato, note del docente, stato (In attesa · Auto-approvata · Approvata · Rifiutata) e i bottoni di azione.
 
-#### I 4 tipi di amendment in dettaglio
+#### I 6 tipi di amendment in dettaglio
 
-| Tipo               | Cosa chiede il docente                                                                  | Effetto sul calendario quando approvi                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Disattivazione** | "Cancella la lezione del 12 ottobre"                                                    | Lo slot Monte Ore viene marcato `inattivo`; la prenotazione corrispondente nel calendario aule viene annullata |
-| **Riattivazione**  | "La lezione che avevo cancellato del 12 ottobre rimettila"                              | Lo slot torna `attivo` e Cadenza ricrea la prenotazione (se l'aula è ancora libera in quella fascia)           |
-| **Cambio orario**  | "Quella del lunedì 14:00 spostala alle 16:00"                                           | Lo slot mantiene la stessa data ma nuovi orari; la prenotazione viene aggiornata                               |
-| **Nuovo giorno**   | "Voglio aggiungere una lezione il giovedì 13 ottobre, sono in ritardo con il programma" | Cadenza ti chiede in dialog quale aula assegnare → crea il nuovo slot e la prenotazione                        |
+| Tipo               | Cosa chiede il docente                                                         | Decisione                                                              | Effetto sul calendario quando approvi                                                        |
+| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Disattivazione** | "Cancella la lezione del 12 ottobre"                                           | **Auto** sempre (libera ore, non costa budget)                         | Lo slot diventa `inattivo`; la prenotazione corrispondente viene annullata                   |
+| **Riattivazione**  | "Rimetti la lezione del 12 ottobre che avevo cancellato"                       | **Auto** se è una cella del pattern, altrimenti pending                | Lo slot torna `attivo` e Cadenza ricrea la prenotazione (se l'aula è libera)                 |
+| **Cambio orario**  | "Quella del lunedì 14:00 spostala alle 16:00"                                  | **Auto** se la cella era nel piano originale, altrimenti pending       | Lo slot mantiene la stessa data ma con i nuovi orari; il Booking viene aggiornato            |
+| **Nuovo giorno**   | "Aggiungo una lezione il giovedì 13 ottobre, sono in ritardo con il programma" | **Pending sempre**                                                     | All'approvazione assegni l'aula → crea il nuovo slot e la prenotazione                       |
+| **Cambio aula** ⭐ | "L'aula 12 il 22 ottobre non va, spostala in aula 5"                           | **Pending sempre** (l'aula è risorsa condivisa, va verificata)         | Override puntuale su quella singola occorrenza; pattern e altre settimane restano invariate  |
+| **Spostamento** ⭐ | "Sposta la lezione del 12 ottobre al 19 ottobre"                               | **Auto** se sia source sia target sono nel pattern, altrimenti pending | Toggle off del source + on del target in atomico; conta come **1 sola** variazione di budget |
 
-Per ognuno il docente scrive una **nota** che tu vedi in chiaro al momento di approvare. Es. "spostamento per visita medica" o "recupero della classe X".
+Per ognuno il docente scrive una **nota** facoltativa che tu vedi in chiaro al momento di approvare. Es. "spostamento per visita medica" o "recupero della classe X".
 
-#### Auto-approve per casi semplici
-
-Per ridurre il carico amministrativo puoi attivare in _Settings → Monte Ore_ l'**auto-approve amendments** per:
-
-- spostamenti di ±7 giorni che non cambiano aula
-- cancellazioni con almeno 24h di anticipo
-
-Tutti gli altri restano in stato "In attesa" e richiedono la tua approvazione manuale.
+> **"Auto-approvata" vs "In attesa"**: le variazioni "auto" vengono applicate dal sistema senza il tuo intervento (e segnalate nello storico). Restano comunque tracciate nel registro attività con nome del docente, slot toccato, decisione del sistema e motivazione. Le "In attesa" richiedono che tu clicchi Approva/Rifiuta nella tab. Vedi §8.6bis per la logica completa.
 
 #### Tetto annuale di amendments
 
 Per evitare che la proposta venga riscritta di settimana in settimana, in _Settings → Monte Ore_ puoi impostare un **massimo di amendments per proposta per anno** (default: 3). Quando un docente raggiunge il tetto, vedrà un alert e non potrà più richiedere variazioni. In casi eccezionali tu admin puoi sempre **applicare modifiche manualmente** (modifica diretta della proposta) senza intaccare il contatore.
+
+> **Cosa consuma il budget**:
+>
+> - **Sì**: riattivazione, cambio orario, nuovo giorno, cambio aula, spostamento (1 sola unità per spostamento, anche se è off+on di due celle)
+> - **No**: disattivazione (libera ore, sempre lecita)
+
+### 8.6bis ⭐ Spostamenti del docente — come funzionano (v1.6)
+
+> Da maggio 2026 il docente ha tre nuovi modi per "spostare" una lezione, oltre alla disattivazione/riattivazione di una cella. Sapere come funzionano ti aiuta a interpretare le richieste nella tab Variazioni.
+
+Sulla griglia annuale del docente, **ogni cella attiva** ha un piccolo bottone `⋮` in alto a destra. Click sul puntino apre il dialog **"Spostamento lezione"** con tre tab:
+
+```
+  Cambia orario          Cambia aula           Sposta a…
+  ─────────────          ───────────           ──────────
+  Stessa data,           Stessa data e         Toggle off
+  cambia start/end       orario, cambia aula   + toggle on
+                                               atomico
+  ─────────────          ───────────           ──────────
+  AUTO se la cella       PENDING sempre        AUTO se sia
+  era nel piano          (aula = risorsa       source che
+  originale, altrimenti  condivisa)            target sono
+  PENDING                                      nel pattern;
+                                               PENDING altrim.
+```
+
+#### Tre scenari di spostamento — esempio guidato
+
+> Il prof. Rossi ha una proposta approvata con pattern "Lun 14-17 in Aula 12, Mer 14-17 in Aula 12". Vediamo cosa fa il sistema quando il prof. usa ciascuna delle tre azioni.
+
+**Scenario 1 — Cambia orario di una singola occorrenza**
+
+Lunedì 6 novembre Rossi ha una visita medica alle 14: vorrebbe iniziare alle 16 invece che alle 14. Click `⋮` sulla cella del 6 novembre → tab **Cambia orario** → 16:00–19:00 → Salva.
+
+- Source: stesso giorno, era nel piano (`originalActive=true`) → **decisione auto-approvata**.
+- Effetto: lo slot del 6 novembre passa a 16:00–19:00. Tutti gli altri lunedì restano alle 14:00. La prenotazione corrispondente nel calendario aule viene aggiornata.
+- Budget: 1 variazione consumata.
+
+**Scenario 2 — Cambia aula per una sola settimana**
+
+Mercoledì 8 novembre l'Aula 12 è prenotata per un concerto: Rossi sposta solo quel mercoledì in Aula 5. Click `⋮` → tab **Cambia aula** → seleziona "Aula 5 · Sede Storica" → Salva.
+
+- **Decisione pending sempre**: l'aula è risorsa condivisa, l'admin deve confermare che Aula 5 è davvero libera nel suo ruolo.
+- Tu admin la vedi nella tab Variazioni. Apri il dialog di approvazione, controlli, **Approva**.
+- Effetto: lo slot del 8 novembre prende `roomId = Aula 5` come override. Il pattern e tutte le altre settimane di Aula 12 restano. Il Booking corrispondente passa ad Aula 5.
+- Budget: 1 variazione consumata all'approvazione.
+
+**Scenario 3 — Sposta una lezione ad un altro giorno**
+
+Rossi vuole spostare la lezione di lunedì 13 novembre a giovedì 16 novembre. Click `⋮` sulla cella del 13/11 → tab **Sposta a…** → seleziona "16/11 14:00–17:00" → Sposta.
+
+- Caso A: il giovedì 14:00 è una cella **inattiva del pattern** (es. il pattern aveva giovedì come opzione ma il prof. non l'aveva usato) → **auto-approvata**.
+- Caso B: la destinazione è una cella fuori pattern → **pending**.
+- Effetto: in atomico, lo slot del 13/11 va `inattivo` (e il Booking si cancella) + lo slot del 16/11 va `attivo` (e il Booking si crea).
+- Budget: **1 sola variazione** consumata (non 2): è il vantaggio del "sposta a…" rispetto a fare disattivazione + riattivazione manualmente.
+
+#### Cosa vedi tu admin
+
+Nella tab Variazioni le tipologie nuove sono etichettate:
+
+- **Cambio aula** — sempre `In attesa`, attendono tua approvazione. Il payload include il `roomId` richiesto.
+- **Spostamento** — può essere `Auto-approvata` (registrata e applicata) oppure `In attesa` se la destinazione è fuori pattern.
+
+In entrambi i casi vedi la cella sorgente e la destinazione/aula nella colonna "Cella", così puoi decidere a colpo d'occhio.
+
+#### Come reagire alle richieste di cambio aula
+
+1. Apri la richiesta → vedi quale aula chiede il docente e per quale data/orario.
+2. **Controllo rapido**: nel calendario aule cerca quel slot. Se l'aula è libera, click **Approva**. Se occupata da un'altra prenotazione (es. un altro docente che ha appena prenotato), suggerisci una terza aula via "Richiedi modifica" sul singolo amendment (tab Variazioni → ✗ Rifiuta con motivazione).
+3. **Cosa NON fare**: non spostare manualmente l'aula sullo `schedule` originale dal dettaglio proposta. Quello cambierebbe l'aula per **tutto l'anno**, non solo per un giorno. La richiesta di cambio aula del docente è già la modalità "puntuale" corretta.
 
 ### 8.7 Generazione slot e materializzazione prenotazioni
 
@@ -1132,6 +1244,51 @@ Ogni modifica della deroga viene tracciata automaticamente nel **registro attivi
 
 > Per il dettaglio progettuale completo della deroga vedi `docs/MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md`.
 
+### 8.10bis ⭐ Deroga finestra di inserimento per il singolo docente (v1.6)
+
+> Casistica tipica: la finestra Monte Ore istituzionale era 15 set – 15 ott. È il 10 novembre e un nuovo docente (subentro per sostituzione, contratto firmato a stagione iniziata) deve presentare la sua proposta. Non vuoi riaprire la finestra globale per tutti.
+
+Nel form _Modifica utente_ del singolo docente, accanto agli altri campi Monte Ore, compare ora il campo:
+
+| Campo                                 | Significato                                                                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finestra Monte Ore aperta fino al** | Data (YYYY-MM-DD). Se valorizzata, **solo questo docente** può inviare/modificare la proposta fino a quella data, anche se la finestra globale è chiusa. |
+
+Quando il docente arriva a `/monte-ore` e fa "Invia al coordinatore", il sistema controlla nell'ordine:
+
+1. La finestra globale (`Settings → Finestra inserimento`) è aperta?
+2. Se no, il singolo docente ha una data di deroga `≥ oggi`?
+
+Se entrambe le risposte sono "no", la submit viene bloccata con messaggio chiaro. Altrimenti la proposta viene inviata regolarmente.
+
+**Quando usarla**:
+
+- Subentro contrattuale tardivo (es. nomine MIUR di novembre/gennaio)
+- Recupero su un docente che ha avuto un problema con la procedura
+- Anno accademico atipico (es. apertura ritardata, prolungamento)
+
+**Quando NON usarla**:
+
+- Se tutti i docenti sono in ritardo, **riapri la finestra globale** invece (è un'azione singola e più tracciabile).
+- Se la deroga serve per più di 2-3 docenti, valuta se la finestra istituzionale è dimensionata bene.
+
+Tutte le deroghe sono nel registro attività con utente, valore, motivazione testuale.
+
+### 8.11 ⭐ Banner "Proposta da rivalidare" (v1.6)
+
+Quando l'admin modifica il **tipo contratto**, le **ore override** o l'esenzione **bypass giorni** di un docente che ha **già** una proposta in stato `In attesa`, `Approvata` o `Generata`, il sistema marca automaticamente la proposta come "da rivalidare" e mostra al docente, sulla sua pagina `/monte-ore`, un banner rosso:
+
+```
+⚠  Proposta da rivalidare
+   Variazione contratto (admin) in corso d'anno: rivedi e re-invia la proposta.
+```
+
+Il banner non blocca nulla: la proposta resta operativa fino a quando il docente la rivede. Serve come **promemoria visibile** che i presupposti della proposta sono cambiati e va data una scorsa.
+
+**Come si svuota il flag**: alla prossima submit del docente, il banner scompare. In alternativa, se la modifica era cosmetica e non c'è bisogno di rivalidare, puoi usare "Richiedi modifica" (§8.5ter) per riportare in bozza e farsi inviare la versione aggiornata.
+
+> Tecnicamente il flag è una colonna `requiresRevalidation` sulla proposta, scritta dal hook nell'endpoint `PUT /api/users/:id/monte-ore-override`. Vedi `docs/AUDIT_QUALITA_PRODUZIONE.md` per il dettaglio implementativo.
+
 ---
 
 ## 9. Inventario strumenti
@@ -1141,6 +1298,8 @@ URL: `/admin/instruments` (con scheda `?tab=inventory|all_loans|overdue|expiring
 Pagina con **5 tab**: Inventario · Tutti i prestiti · Scaduti · In scadenza (entro 2 giorni) · Regole prestito.
 
 ### 9.1 Tab "Inventario"
+
+![Tab Inventario — catalogo strumenti con filtri famiglia/condizione, foto, bulk bar](screenshots/instruments-overview.png)
 
 In header: **Esporta CSV** · **Importa CSV** · **+ Nuovo strumento**.
 
@@ -1166,6 +1325,8 @@ Selezionando più righe, in basso compare la barra ambra con i bottoni: **Desele
 
 ### 9.2 Tab "Tutti i prestiti"
 
+![Tab Tutti i prestiti — utenti, strumento, periodo, stato e azioni PDF](screenshots/instruments-loans-all.png)
+
 Tabella di tutti i prestiti con qualunque stato (`richiesto`, `attivo`, `scaduto`, `restituito`, `rifiutato`).
 
 Colonne: utente, strumento, periodo (dal/al), stato (badge colore), azioni dipendenti dallo stato:
@@ -1177,6 +1338,8 @@ Colonne: utente, strumento, periodo (dal/al), stato (badge colore), azioni dipen
 | `restituito`         | 📄 Stampa restituzione (PDF)                    |
 
 ### 9.3 Tab "Scaduti" e "In scadenza"
+
+![Tab Scaduti — prestiti oltre la data di restituzione, con bottone Solleva](screenshots/instruments-overdue.png)
 
 Liste filtrate dei prestiti a rischio. Bottone **"Solleva"** → invia mail di reminder all'utente. Tutti i prestiti scaduti generano automaticamente reminder ogni 7 giorni.
 
@@ -1192,6 +1355,8 @@ Ogni cambio stato genera una mail automatica all'interessato.
 
 ### 9.4 Tab "Regole prestito"
 
+![Tab Regole prestito — mappa strumento ↔ corsi autorizzati](screenshots/instruments-loan-rules.png)
+
 Tabella che mappa ogni strumento ai **corsi autorizzati** a richiederlo in prestito. Per ogni riga: foto + nome + codice + famiglia + chip dei corsi (oppure "Tutto permesso").
 
 Click **Modifica** → dialog con: ricerca corsi, bottoni `Seleziona tutto` / `Deseleziona tutto`, griglia checkbox 2 colonne dei corsi attivi.
@@ -1203,6 +1368,8 @@ Click **Modifica** → dialog con: ricerca corsi, bottoni `Seleziona tutto` / `D
 ## 10. Statistiche / Analytics
 
 URL: `/admin/analytics`
+
+![Pagina Analytics — KPI grid (4 card), heatmap settimanale, top aule/utenti, no-show](screenshots/analytics-overview.png)
 
 ### 10.1 Layout
 
@@ -1242,6 +1409,8 @@ In alto: bottoni **Export CSV** e **Export PDF** + filtro per data (dal–al). S
 ## 11. Annunci
 
 URL: `/admin/announcements`
+
+![Pagina Annunci — griglia di card con badge audience e azioni inline](screenshots/announcements-overview.png)
 
 In header: bottone **+ Nuovo annuncio**. Sotto, una griglia di card animate. Ogni card mostra:
 
@@ -1345,6 +1514,8 @@ Compili destinatario e tipo email (Generica · uno specifico template), clicchi 
 
 URL legacy: `/admin/mail-outbox` (ora sub-tab di Server Settings).
 
+![Sotto-tab Servizi → Mail Outbox — coda email, banner salute SMTP, retry e cleanup](screenshots/mail-outbox-overview.png)
+
 #### Banner di salute SMTP
 
 In alto, banner con 4 colori:
@@ -1380,6 +1551,8 @@ Una card per ogni canale (**Telegram · WhatsApp · Signal · Email/IMAP**). Ogn
 I parametri tecnici per ciascun canale (token, secret, webhook URL) sono spiegati passo-passo in `docs/BOT-MESSAGING.md`.
 
 ### 12.4 Servizi → Backups
+
+![Sotto-tab Servizi → Backups — scheduler, lista backup con restore e upload remoto](screenshots/server-settings-backups.png)
 
 #### Card "Scheduler"
 
@@ -1419,6 +1592,8 @@ Due card:
 
 ### 12.6 QR Codes
 
+![Sotto-tab QR Codes — sicurezza check-in IP, generazione QR per aula](screenshots/server-settings-qrcodes.png)
+
 #### Card "Sicurezza check-in"
 
 Permette di restringere il check-in (la "presentazione" all'aula tramite QR) **solo agli IP della rete interna del Conservatorio**. Configura:
@@ -1442,6 +1617,8 @@ Lista delle aule con anteprima del QR e i bottoni:
 In header: **Rigenera tutti** — operazione di emergenza (es. dopo un incidente di sicurezza).
 
 ### 12.7 Display Kiosk (admin)
+
+![Sotto-tab Display kiosk — rotazione edifici, concerti, annunci, privacy](screenshots/server-settings-display.png)
 
 Pagina di configurazione globale dello schermo `/display` esposto al pubblico nelle aule.
 
@@ -1471,6 +1648,8 @@ In fondo: bottone **Salva** (disabilitato se non hai modificato nulla).
 
 ### 12.8 Audit Log
 
+![Sotto-tab Audit Log — tabella eventi con filtri action/target/actor/date](screenshots/server-settings-audit-log.png)
+
 URL: `/admin/audit-log` (sub-tab di Server Settings; rinominato in "Registro Log" per distinguerlo dal "Registro attività" operativo di §7.2).
 
 #### Filtri
@@ -1494,6 +1673,8 @@ Bottoni **Apply** / **Reset** (Reset visibile solo se ci sono filtri attivi).
 Per conformità GDPR i record dell'audit log oltre i **730 giorni** vengono rimossi automaticamente dal sistema. Prima del prune, Cadenza esegue un **export firmato** in `backups/audit/` (file `.gz` + sidecar `.hmac` con la chiave HMAC), così gli archivi storici restano disponibili per audit forensic. Solo se l'export riesce, il prune procede; in caso contrario i dati vengono preservati per il prossimo tentativo.
 
 ### 12.9 Moduli
+
+![Sotto-tab Moduli — toggle Monte Ore e Prestito strumenti per nascondere voci sidebar](screenshots/server-settings-moduli.png)
 
 Card con due interruttori:
 
