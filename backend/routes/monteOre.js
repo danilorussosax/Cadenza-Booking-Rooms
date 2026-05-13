@@ -470,11 +470,14 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
     if (['approved', 'generated'].includes(proposal.status)) {
       // Tutto in transazione (SERIALIZABLE su Postgres per evitare race su
       // amendmentCount; default su SQLite/MySQL che non lo supportano nativamente).
+      // withSerializableRetry gestisce il 40001 (serialization_failure) di Postgres
+      // con backoff esponenziale.
       const txOpts =
         sequelize.getDialect() === 'postgres'
           ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
           : {};
-      const result = await sequelize.transaction(txOpts, async (t) => {
+      const { withSerializableRetry } = require('../lib/serializableTx');
+      const result = await withSerializableRetry(sequelize, txOpts, async (t) => {
         const p = await MonteOreProposal.findByPk(slot.proposalId, { transaction: t });
         const s = await MonteOreSlot.findByPk(slot.id, { transaction: t });
         const kind = s.isActive ? 'toggle_off' : 'toggle_on';
@@ -689,7 +692,8 @@ async function createAndApplyAmendment({
     sequelize.getDialect() === 'postgres'
       ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
       : {};
-  return sequelize.transaction(txOpts, async (t) => {
+  const { withSerializableRetry } = require('../lib/serializableTx');
+  return withSerializableRetry(sequelize, txOpts, async (t) => {
     let maxAmend = 3;
     if (consumesBudget) {
       const settings = await MonteOreSettings.findOne({

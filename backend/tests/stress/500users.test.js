@@ -172,6 +172,8 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
       internal5xx: 0,
     };
 
+    const errorSamples = new Map(); // label → primo body 5xx visto
+
     /** Esegue una richiesta + traccia latenza/status. */
     async function timed(label, requestFn) {
       const t = Date.now();
@@ -182,8 +184,14 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
       if (r.status >= 200 && r.status < 300) counters.ok++;
       else if (r.status === 429) counters.rateLimited++;
       else if (r.status === 400 && r.body?.code === 'BOOKING_CONFLICT') counters.conflict++;
-      else if (r.status >= 500) counters.internal5xx++;
-      else counters.other4xx++;
+      else if (r.status === 409 && r.body?.code === 'BOOKING_CONFLICT') counters.conflict++;
+      else if (r.status === 409 && r.body?.code === 'TOO_MUCH_CONTENTION') counters.conflict++;
+      else if (r.status >= 500) {
+        counters.internal5xx++;
+        if (!errorSamples.has(label)) {
+          errorSamples.set(label, { status: r.status, body: JSON.stringify(r.body).slice(0, 300) });
+        }
+      } else counters.other4xx++;
       return r;
     }
 
@@ -278,6 +286,12 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
     console.log(`  • 5xx INTERNAL:   ${counters.internal5xx}`);
     console.log('Latenze (ms):');
     for (const k of Object.keys(latencies)) console.log(`  ${stats(k, latencies[k])}`);
+    if (errorSamples.size > 0) {
+      console.log('Primi sample di 5xx per endpoint:');
+      for (const [label, sample] of errorSamples) {
+        console.log(`  ${label}: status=${sample.status} body=${sample.body}`);
+      }
+    }
     console.log('══════════════════════════════════════\n');
 
     // ─── Invarianti ──────────────────────────────────────────────────
