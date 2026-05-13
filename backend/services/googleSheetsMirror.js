@@ -28,9 +28,27 @@
 
 const fs = require('fs');
 const path = require('path');
-const { google } = require('googleapis');
 const dayjs = require('dayjs');
 const logger = require('../lib/logger').child({ scope: 'googleSheets' });
+
+// `googleapis` è una dipendenza pesante (~10 MB) richiesta solo quando il
+// modulo è ATTIVO. Il caricamento lazy permette al backend di partire anche
+// se la dipendenza manca sul VPS (es. npm ci non eseguito dopo il deploy)
+// purché GOOGLE_SHEETS_MIRROR_ENABLED resti false. Quando enabled=true e
+// googleapis manca, l'admin vede l'errore nel pannello "Verifica connessione"
+// invece di un crash al boot.
+let _google = null;
+function loadGoogleApis() {
+  if (_google) return _google;
+  try {
+    _google = require('googleapis').google;
+    return _google;
+  } catch (err) {
+    throw new Error(
+      `Dipendenza "googleapis" mancante: esegui "npm install googleapis" nel backend. Detail: ${err.message}`,
+    );
+  }
+}
 
 // In-memory state per stato/diagnostica (esposto in /admin/server-settings).
 let lastSyncAt = null;
@@ -68,6 +86,7 @@ function getSheetsClient() {
         `Imposta GOOGLE_SHEETS_SA_JSON_PATH o crea il file (vedi docs/SHEETS_MIRROR.md).`,
     );
   }
+  const google = loadGoogleApis();
   const auth = new google.auth.GoogleAuth({
     keyFile: keyPath,
     scopes: [
