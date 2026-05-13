@@ -542,29 +542,41 @@ router.put('/checkin-settings', authenticate, requireRole('admin'), async (req, 
 // mostrare o nascondere i link "Monte ore" e "Strumenti" in UI.
 // Singleton sull'unico Institute.
 // =========================================================
+// Espone il REGISTRY (lista dei moduli toggle-abili). La UI lo consuma per
+// iterare invece di hardcodare gli N moduli. Lascia anche scoprire i
+// `defaultEnabled` quando l'Institute è appena seedato.
+const { listModules, publicRegistry } = require('../services/moduleFlags');
+const { invalidateModuleCache } = require('../middleware/moduleGuard');
+
+router.get('/module-settings/registry', authenticate, requireRole('admin'), (req, res) => {
+  res.json({ modules: publicRegistry() });
+});
+
 router.get('/module-settings', authenticate, requireRole('admin'), async (req, res) => {
+  const cols = listModules().map((m) => m.column);
   const inst = await Institute.findOne({
-    attributes: ['id', 'moduleMonteOreEnabled', 'moduleInstrumentLoansEnabled'],
+    attributes: ['id', ...cols],
     order: [['id', 'ASC']],
   });
   if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
-  res.json({
-    moduleMonteOreEnabled: !!inst.moduleMonteOreEnabled,
-    moduleInstrumentLoansEnabled: !!inst.moduleInstrumentLoansEnabled,
-  });
+  const out = {};
+  for (const m of listModules()) {
+    out[m.column] = !!inst[m.column];
+  }
+  res.json(out);
 });
 
 router.put('/module-settings', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findOne({ order: [['id', 'ASC']] });
   if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
 
-  const { moduleMonteOreEnabled, moduleInstrumentLoansEnabled } = req.body || {};
+  // Itera sul registry: per ogni modulo accettiamo il booleano sotto la
+  // sua colonna esatta. Body sconosciuti (campi non in registry) sono
+  // ignorati — anti mass-assignment by default.
   const update = {};
-  if (typeof moduleMonteOreEnabled === 'boolean') {
-    update.moduleMonteOreEnabled = moduleMonteOreEnabled;
-  }
-  if (typeof moduleInstrumentLoansEnabled === 'boolean') {
-    update.moduleInstrumentLoansEnabled = moduleInstrumentLoansEnabled;
+  for (const m of listModules()) {
+    const v = req.body?.[m.column];
+    if (typeof v === 'boolean') update[m.column] = v;
   }
   if (Object.keys(update).length === 0) {
     return res.status(400).json({
@@ -573,10 +585,16 @@ router.put('/module-settings', authenticate, requireRole('admin'), async (req, r
     });
   }
   await inst.update(update);
-  res.json({
-    moduleMonteOreEnabled: !!inst.moduleMonteOreEnabled,
-    moduleInstrumentLoansEnabled: !!inst.moduleInstrumentLoansEnabled,
-  });
+  // Propaga immediatamente la modifica al middleware moduleGuard, senza
+  // attendere il TTL della cache (utile per i test e per evitare la finestra
+  // di 30 s in cui un modulo appena spento sarebbe ancora "raggiungibile").
+  invalidateModuleCache();
+
+  const out = {};
+  for (const m of listModules()) {
+    out[m.column] = !!inst[m.column];
+  }
+  res.json(out);
 });
 
 router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req, res, next) => {

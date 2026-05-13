@@ -14,6 +14,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstrumentLoan, LoanStatus } from '@/types';
+import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
+import { isModuleDisabledError } from '@/lib/moduleFlags';
 
 type Tab = 'active' | 'requested' | 'history';
 
@@ -69,6 +71,12 @@ export default function MyLoans() {
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
+
+  // Modulo disattivato → backend 404 MODULE_DISABLED. Tutti gli hook sono
+  // già stati chiamati: ora possiamo gestire l'early return safely.
+  if (isModuleDisabledError(query.error)) {
+    return <ModuleDisabledCard moduleLabel="Prestito strumenti" />;
+  }
 
   const downloadPdf = async (loan: InstrumentLoan, kind: 'delivery' | 'return') => {
     try {

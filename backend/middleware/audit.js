@@ -41,6 +41,7 @@ const AUDIT_PATTERNS = [
   { regex: /^\/api\/users\/(\d+)/, targetType: 'user' },
 
   // Structure (institute / building / room / equipment)
+  { regex: /^\/api\/structure\/module-settings/, targetType: 'module_settings' },
   { regex: /^\/api\/structure\/institutes(?:\/(\d+))?(?:\/(?:logo))?/, targetType: 'institute' },
   { regex: /^\/api\/structure\/buildings(?:\/(\d+))?/, targetType: 'building' },
   { regex: /^\/api\/structure\/rooms(?:\/(\d+))?(?:\/(?:photo|qr))?/, targetType: 'room' },

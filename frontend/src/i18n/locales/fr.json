@@ -692,7 +692,7 @@
       },
       "modules": {
         "title": "Modules activables",
-        "subtitle": "Affichez ou masquez les modules optionnels dans la sidebar. La logique backend reste toujours active : ces toggles n'agissent que sur la visibilité des liens dans l'interface.",
+        "subtitle": "Activez ou désactivez les modules fonctionnels. Quand un module est désactivé, le lien de la sidebar disparaît et ses routes répondent \"non actif\" (les données restent en BDD).",
         "monte_ore_label": "Quota horaire enseignants",
         "monte_ore_description": "Entrées de sidebar « Quota horaire » (côté enseignant) et « Gestion quota horaire » (côté admin). En désactivant le toggle, les liens disparaissent mais les routes et les API restent fonctionnelles.",
         "instrument_loans_label": "Emprunt d'instruments",

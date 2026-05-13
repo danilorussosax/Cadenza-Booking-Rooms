@@ -5,9 +5,13 @@ export interface FullInstitute extends Institute {
   buildings: (Building & { rooms: (Room & { equipment: Equipment[] })[] })[];
 }
 
+/** Le colonne note vivono come campi tipizzati; l'index signature permette
+ *  però di aggiungere/leggere nuovi moduli dinamici (es. `moduleBotEnabled`)
+ *  senza dover patchare il client TypeScript. */
 export interface ModuleSettings {
   moduleMonteOreEnabled: boolean;
   moduleInstrumentLoansEnabled: boolean;
+  [moduleColumn: string]: boolean;
 }
 
 export const institutesApi = {

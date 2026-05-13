@@ -692,7 +692,7 @@
       },
       "modules": {
         "title": "Aktivierbare Module",
-        "subtitle": "Zeigt optionale Module in der Seitenleiste an oder verbirgt sie. Die Backend-Logik bleibt stets aktiv: Diese Schalter wirken sich nur auf die Sichtbarkeit der Links in der Oberfläche aus.",
+        "subtitle": "Aktivieren oder deaktivieren Sie funktionale Module. Wenn ein Modul deaktiviert ist, verschwindet der Link in der Seitenleiste und die Routen antworten mit \"nicht aktiv\" (Daten bleiben in der DB).",
         "monte_ore_label": "Dozenten-Stundenkontingent",
         "monte_ore_description": "Seitenleisten-Einträge \"Stundenkontingent\" (Dozentenseite) und \"Stundenkontingent verwalten\" (Adminseite). Beim Ausschalten verschwinden die Links, aber Routen und APIs bleiben funktionsfähig.",
         "instrument_loans_label": "Instrumentenausleihe",

@@ -281,10 +281,15 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/rules', require('./routes/rules'));
   app.use('/api/admin/rules', require('./routes/rulesPreview'));
   app.use('/api/bookings', require('./routes/bookings'));
-  app.use('/api/instruments', require('./routes/instruments'));
-  app.use('/api/loans', require('./routes/instrumentLoans'));
-  app.use('/api/admin/instrument-loan-rules', require('./routes/instrumentLoanRules'));
-  app.use('/api/admin/instrument-loan-quotas', require('./routes/loanQuotas'));
+  // Module-guard: se "Prestito strumenti" è disattivato, le 4 rotte qui sotto
+  // ritornano 404 con code MODULE_DISABLED (utenti redirezionati a una
+  // pagina di placeholder lato UI).
+  const { requireModuleEnabled } = require('./middleware/moduleGuard');
+  const guardLoans = requireModuleEnabled('instrumentLoans');
+  app.use('/api/instruments', guardLoans, require('./routes/instruments'));
+  app.use('/api/loans', guardLoans, require('./routes/instrumentLoans'));
+  app.use('/api/admin/instrument-loan-rules', guardLoans, require('./routes/instrumentLoanRules'));
+  app.use('/api/admin/instrument-loan-quotas', guardLoans, require('./routes/loanQuotas'));
   app.use('/api/admin/announcements', require('./routes/announcementsAdmin'));
   app.use('/api/announcements', require('./routes/announcements'));
   app.use('/api/public', require('./routes/public'));
@@ -295,10 +300,13 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/admin/oauth-settings', require('./routes/oauthSettings'));
   app.use('/api/admin/messaging-settings', require('./routes/messagingSettings'));
   app.use('/api/admin/integrations', require('./routes/integrations'));
-  // Monte Ore — proposte annuali del docente + gestione coordinatore
+  // Monte Ore — proposte annuali del docente + gestione coordinatore.
+  // Module-guard: se il toggle "Monte Ore docenti" è OFF entrambi i router
+  // ritornano 404 MODULE_DISABLED.
   const monteOre = require('./routes/monteOre');
-  app.use('/api/monte-ore', monteOre.router);
-  app.use('/api/admin/monte-ore', monteOre.adminRouter);
+  const guardMonteOre = requireModuleEnabled('monteOre');
+  app.use('/api/monte-ore', guardMonteOre, monteOre.router);
+  app.use('/api/admin/monte-ore', guardMonteOre, monteOre.adminRouter);
   app.use('/api/users/me/bot-bindings', require('./routes/botBindings'));
   app.use('/api/messaging', require('./routes/messagingWebhook'));
   // Listing dinamico delle icone app personalizzabili (Profilo → Icona app)

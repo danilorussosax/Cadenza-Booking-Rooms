@@ -692,14 +692,10 @@
       },
       "modules": {
         "title": "Moduli attivabili",
-        "subtitle": "Mostra o nascondi i moduli opzionali nella sidebar. La logica di backend resta sempre attiva: questi toggle agiscono solo sulla visibilità dei link in interfaccia.",
-        "monte_ore_label": "Monte Ore docenti",
-        "monte_ore_description": "Voci di sidebar \"Monte Ore\" (lato docente) e \"Gestione Monte Ore\" (lato admin). Spegnendo il toggle i link spariscono ma le rotte e le API restano funzionanti.",
-        "instrument_loans_label": "Prestito strumenti",
-        "instrument_loans_description": "Voci di sidebar \"Strumenti\" (catalogo) e \"I miei prestiti\" + sezione admin \"Inventario strumenti\". Spegnendo il toggle i link spariscono ma le rotte e le API restano funzionanti.",
+        "subtitle": "Attiva o disattiva i moduli funzionali. Quando un modulo è disattivato il link sparisce dalla sidebar e le rotte rispondono \"non attivo\" (i dati restano in DB).",
         "saved": "Modulo aggiornato",
         "save_failed": "Impossibile aggiornare il modulo",
-        "backend_note": "I dati esistenti non vengono mai cancellati. Riattivando il modulo i link tornano subito visibili."
+        "backend_note": "I dati esistenti non vengono mai cancellati. Riattivando il modulo i link e le pagine tornano subito disponibili."
       }
     },
     "users": {

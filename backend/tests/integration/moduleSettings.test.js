@@ -147,24 +147,75 @@ describe('moduleSettings toggle', () => {
     await preSync.runPreSyncMigrations();
   });
 
-  it('le rotte di Monte Ore restano attive anche con flag disattivato', async () => {
+  it('disattivare un modulo blocca le sue rotte con 404 MODULE_DISABLED', async () => {
     const { token: adminTok } = await createAdmin();
-    // disattiva il modulo
+    // Disattiva entrambi i moduli
     await request(app)
       .put('/api/structure/module-settings')
       .set('Authorization', `Bearer ${adminTok}`)
       .send({ moduleMonteOreEnabled: false, moduleInstrumentLoansEnabled: false });
 
-    // GET /api/monte-ore/me deve continuare a rispondere (200/204/etc.,
-    // NON 404). Il toggle è solo di presentazione.
+    // GET /api/monte-ore/me → 404 con code MODULE_DISABLED
     const res = await request(app)
       .get('/api/monte-ore/me')
       .set('Authorization', `Bearer ${adminTok}`);
-    expect(res.status).not.toBe(404);
-    // E lo stesso per gli strumenti
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('MODULE_DISABLED');
+    expect(res.body.module).toBe('monteOre');
+
+    // GET /api/instruments → 404 con code MODULE_DISABLED
     const res2 = await request(app)
       .get('/api/instruments')
       .set('Authorization', `Bearer ${adminTok}`);
-    expect(res2.status).not.toBe(404);
+    expect(res2.status).toBe(404);
+    expect(res2.body.code).toBe('MODULE_DISABLED');
+    expect(res2.body.module).toBe('instrumentLoans');
+
+    // GET /api/loans → 404 (sub-modulo dello stesso flag)
+    const res3 = await request(app).get('/api/loans').set('Authorization', `Bearer ${adminTok}`);
+    expect(res3.status).toBe(404);
+    expect(res3.body.code).toBe('MODULE_DISABLED');
+
+    // Riattivando il modulo, le rotte tornano accessibili.
+    await request(app)
+      .put('/api/structure/module-settings')
+      .set('Authorization', `Bearer ${adminTok}`)
+      .send({ moduleMonteOreEnabled: true });
+    const res4 = await request(app)
+      .get('/api/monte-ore/me')
+      .set('Authorization', `Bearer ${adminTok}`);
+    expect(res4.status).not.toBe(404);
+  });
+
+  it('GET /module-settings/registry restituisce il registro pubblico', async () => {
+    const { token: adminTok } = await createAdmin();
+    const res = await request(app)
+      .get('/api/structure/module-settings/registry')
+      .set('Authorization', `Bearer ${adminTok}`);
+    expect(res.status).toBe(200);
+    const keys = res.body.modules.map((m) => m.key);
+    expect(keys).toEqual(expect.arrayContaining(['monteOre', 'instrumentLoans']));
+    const monteOre = res.body.modules.find((m) => m.key === 'monteOre');
+    expect(monteOre.column).toBe('moduleMonteOreEnabled');
+    expect(monteOre.label).toBe('Monte Ore docenti');
+    expect(typeof monteOre.description).toBe('string');
+  });
+
+  it('PUT /module-settings con audit: la modifica viene tracciata in AuditLog', async () => {
+    const { AuditLog } = require('../../models');
+    const { token: adminTok } = await createAdmin();
+    await request(app)
+      .put('/api/structure/module-settings')
+      .set('Authorization', `Bearer ${adminTok}`)
+      .send({ moduleMonteOreEnabled: false });
+    // Lascia il tempo al middleware audit (write async dopo res.finish).
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = await AuditLog.findOne({
+      where: { targetType: 'module_settings' },
+      order: [['id', 'DESC']],
+    });
+    expect(entry).not.toBeNull();
+    expect(entry.action).toBe('PUT');
+    expect(entry.payload.moduleMonteOreEnabled).toBe(false);
   });
 });

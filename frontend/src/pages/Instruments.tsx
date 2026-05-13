@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Instrument, InstrumentFamily } from '@/types';
+import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
+import { isModuleDisabledError } from '@/lib/moduleFlags';
 
 const FAMILY_KEYS: InstrumentFamily[] = [
   'archi',
@@ -70,6 +72,11 @@ export default function Instruments() {
         .some((v) => v.toLowerCase().includes(term)),
     );
   }, [query.data, search]);
+
+  // Modulo Prestito strumenti disattivato → backend 404 MODULE_DISABLED.
+  if (isModuleDisabledError(query.error)) {
+    return <ModuleDisabledCard moduleLabel="Prestito strumenti" />;
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

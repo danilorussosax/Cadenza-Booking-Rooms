@@ -692,7 +692,7 @@
       },
       "modules": {
         "title": "Módulos opcionales",
-        "subtitle": "Muestra u oculta los módulos opcionales en la barra lateral. La lógica de backend permanece siempre activa: estos toggles solo afectan a la visibilidad de los enlaces.",
+        "subtitle": "Activa o desactiva los módulos funcionales. Cuando un módulo está desactivado, el enlace de la barra lateral desaparece y las rutas responden \"no activo\" (los datos permanecen en BD).",
         "monte_ore_label": "Horas del profesorado (Monte Ore)",
         "monte_ore_description": "Elementos \"Monte Ore\" (lado profesor) y \"Gestión Monte Ore\" (lado admin). Al apagarlo los enlaces desaparecen, pero las rutas y APIs siguen funcionando.",
         "instrument_loans_label": "Préstamo de instrumentos",

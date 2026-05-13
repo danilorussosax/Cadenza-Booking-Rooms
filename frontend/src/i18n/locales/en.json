@@ -692,7 +692,7 @@
       },
       "modules": {
         "title": "Optional modules",
-        "subtitle": "Show or hide optional modules in the sidebar. The backend logic stays always active: these toggles only affect link visibility.",
+        "subtitle": "Activate or deactivate functional modules. When a module is disabled the sidebar link disappears and its routes return \"not active\" (data stays in DB).",
         "monte_ore_label": "Teacher hours plan (Monte Ore)",
         "monte_ore_description": "Sidebar items \"Monte Ore\" (teacher view) and \"Monte Ore management\" (admin view). Turning the toggle off hides the links but the routes and APIs keep working.",
         "instrument_loans_label": "Instrument loans",

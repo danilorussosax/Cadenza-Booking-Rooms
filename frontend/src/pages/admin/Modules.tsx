@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Clock, Guitar, Info } from 'lucide-react';
+import { Clock, Guitar, Info, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { institutesApi, type ModuleSettings } from '@/api/institutes';
-import { httpErrorMessage } from '@/lib/api';
+import { api, httpErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,15 +11,53 @@ import { Skeleton } from '@/components/ui/skeleton';
 /**
  * Pannello admin: tab "Moduli" della pagina Impostazioni Server.
  *
- * I toggle sono **puramente di presentazione**: il backend espone sempre
- * tutte le rotte (Monte Ore + Prestito strumenti). Disattivando il
- * modulo si nasconde solo il link nella sidebar — i bookmark, le API e
- * i dati esistenti continuano a funzionare.
+ * Da v2.x i toggle **non sono più solo presentazionali**: oltre a nascondere
+ * il link in sidebar, disattivano davvero le rotte del modulo (il backend
+ * ritorna 404 con codice `MODULE_DISABLED`). Le pagine corrispondenti
+ * mostrano un placeholder "Modulo non attivo" invece di errori generici.
+ *
+ * I moduli sono caricati dinamicamente da `/api/structure/module-settings/registry`:
+ * aggiungerne uno nuovo richiede solo una entry in `services/moduleFlags.js`
+ * (no modifiche a questa UI).
  */
+
+interface ModuleDef {
+  key: string;
+  column: string;
+  label: string;
+  description: string;
+  defaultEnabled: boolean;
+}
+
+// Icone Lucide ai moduli noti — niente icona = fallback "Package" generico.
+const ICON_BY_KEY: Record<string, { icon: React.ReactNode; bg: string }> = {
+  monteOre: {
+    icon: <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+    bg: 'bg-amber-100 dark:bg-amber-500/15',
+  },
+  instrumentLoans: {
+    icon: <Guitar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
+    bg: 'bg-emerald-100 dark:bg-emerald-500/15',
+  },
+};
+const FALLBACK_ICON = {
+  icon: <Package className="h-5 w-5 text-muted-foreground" />,
+  bg: 'bg-muted',
+};
+
 export default function AdminModules() {
   const { t } = useTranslation();
   const qc = useQueryClient();
 
+  // Registry dei moduli disponibili — fonte di verità per icone, label,
+  // descrizioni e ordine di visualizzazione.
+  const registryQuery = useQuery({
+    queryKey: ['admin', 'module-settings', 'registry'],
+    queryFn: () => api<{ modules: ModuleDef[] }>('/api/structure/module-settings/registry'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Valori correnti dei flag (booleani indicizzati per colonna DB).
   const settingsQuery = useQuery({
     queryKey: ['admin', 'module-settings'],
     queryFn: () => institutesApi.getModuleSettings(),
@@ -41,7 +79,9 @@ export default function AdminModules() {
     },
   });
 
-  const settings = settingsQuery.data;
+  const settings = settingsQuery.data as Record<string, boolean> | undefined;
+  const isLoading = registryQuery.isLoading || settingsQuery.isLoading;
+  const modules = registryQuery.data?.modules ?? [];
 
   return (
     <div className="space-y-4">
@@ -55,35 +95,31 @@ export default function AdminModules() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {settingsQuery.isLoading ? (
+          {isLoading ? (
             <>
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
             </>
           ) : (
             <>
-              <ModuleRow
-                icon={<Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
-                iconBg="bg-amber-100 dark:bg-amber-500/15"
-                label={t('admin.server_settings.modules.monte_ore_label')}
-                description={t('admin.server_settings.modules.monte_ore_description')}
-                checked={!!settings?.moduleMonteOreEnabled}
-                disabled={mutation.isPending}
-                onChange={(v) => {
-                  mutation.mutate({ moduleMonteOreEnabled: v });
-                }}
-              />
-              <ModuleRow
-                icon={<Guitar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
-                iconBg="bg-emerald-100 dark:bg-emerald-500/15"
-                label={t('admin.server_settings.modules.instrument_loans_label')}
-                description={t('admin.server_settings.modules.instrument_loans_description')}
-                checked={!!settings?.moduleInstrumentLoansEnabled}
-                disabled={mutation.isPending}
-                onChange={(v) => {
-                  mutation.mutate({ moduleInstrumentLoansEnabled: v });
-                }}
-              />
+              {modules.map((m) => {
+                const visual = ICON_BY_KEY[m.key] ?? FALLBACK_ICON;
+                const checked = settings ? settings[m.column] : m.defaultEnabled;
+                return (
+                  <ModuleRow
+                    key={m.key}
+                    icon={visual.icon}
+                    iconBg={visual.bg}
+                    label={m.label}
+                    description={m.description}
+                    checked={checked}
+                    disabled={mutation.isPending}
+                    onChange={(v) => {
+                      mutation.mutate({ [m.column]: v });
+                    }}
+                  />
+                );
+              })}
               <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>{t('admin.server_settings.modules.backend_note')}</p>

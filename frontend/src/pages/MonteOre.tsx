@@ -48,6 +48,8 @@ import { Badge } from '@/components/ui/badge';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import type { BookingType } from '@/types';
 import MonteOreGrid from '@/components/monteOre/MonteOreGrid';
+import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
+import { isModuleDisabledError } from '@/lib/moduleFlags';
 
 const DAYS_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
 const TYPE_OPTIONS: { value: BookingType; label: string }[] = [
@@ -161,6 +163,13 @@ export default function MonteOre() {
         <Skeleton className="h-64 w-full" />
       </div>
     );
+  }
+
+  // Modulo "Monte Ore" disattivato dalla Direzione → backend ritorna 404
+  // MODULE_DISABLED. Mostriamo un placeholder leggibile invece dell'alert
+  // generico "errore non specificato".
+  if (isModuleDisabledError(proposalQuery.error)) {
+    return <ModuleDisabledCard moduleLabel="Monte Ore" />;
   }
 
   if (!proposal) {
