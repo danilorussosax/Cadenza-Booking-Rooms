@@ -60,6 +60,15 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 3,
       },
+      // Override admin: se true, questo è l'AA che i docenti vedono per
+      // l'inserimento del monte ore (anche fuori dalla finestra di submission
+      // automatica). Vincolo applicativo + UNIQUE INDEX parziale: al più
+      // una riga con questo flag=true per istituto.
+      isActiveForTeachers: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'monte_ore_settings',

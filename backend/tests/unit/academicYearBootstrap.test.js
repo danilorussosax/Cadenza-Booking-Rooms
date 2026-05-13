@@ -107,6 +107,28 @@ describe('resolveTargetAcademicYearForTeacher', () => {
     const today = new Date('2026-09-15T12:00:00Z');
     expect(resolveTargetAcademicYearForTeacher(today, null)).toBe(currentAcademicYear(today));
   });
+  it('activeSettings (override admin) vince su tutto', () => {
+    const today = new Date('2026-05-13T12:00:00Z'); // fuori finestra
+    const nextSettings = {
+      submissionWindowStart: '2026-09-01',
+      submissionWindowEnd: '2026-10-31',
+    };
+    const activeSettings = { isActiveForTeachers: true, academicYear: '2024/2025' };
+    expect(resolveTargetAcademicYearForTeacher(today, nextSettings, activeSettings)).toBe(
+      '2024/2025',
+    );
+  });
+  it('activeSettings con flag=false → ignorato, usa logica next', () => {
+    const today = new Date('2026-09-15T12:00:00Z');
+    const nextSettings = {
+      submissionWindowStart: '2026-09-01',
+      submissionWindowEnd: '2026-10-31',
+    };
+    const activeSettings = { isActiveForTeachers: false, academicYear: '2024/2025' };
+    expect(resolveTargetAcademicYearForTeacher(today, nextSettings, activeSettings)).toBe(
+      '2026/2027',
+    );
+  });
 });
 
 describe('defaultSettingsFor / firstMondayFrom', () => {

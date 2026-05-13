@@ -222,14 +222,23 @@ function isSubmissionWindowOpen(settings, today = new Date()) {
 /**
  * Risolve l'AA target per un docente al tempo `today`.
  *
- *   - se esiste un `nextSettings` (settings dell'AA prossimo) E la sua
- *     finestra di submission è aperta in `today` → ritorna `nextAcademicYear()`
- *     (cioè il docente sta pianificando il prossimo anno);
- *   - altrimenti → ritorna `currentAcademicYear()` (anno in corso).
+ * Priorità (alto → basso):
+ *   1. `activeSettings` con `isActiveForTeachers=true` → override esplicito
+ *      dell'admin, vince su qualsiasi finestra. Ritorna quel `academicYear`.
+ *   2. `nextSettings` con finestra di submission aperta → AA prossimo
+ *      (comportamento storico: il docente sta pianificando il prossimo anno).
+ *   3. Fallback → AA corrente.
  *
- * `nextSettings` può essere null/undefined: si comporta come finestra chiusa.
+ * `activeSettings` e `nextSettings` possono essere null/undefined.
  */
-function resolveTargetAcademicYearForTeacher(today = new Date(), nextSettings = null) {
+function resolveTargetAcademicYearForTeacher(
+  today = new Date(),
+  nextSettings = null,
+  activeSettings = null,
+) {
+  if (activeSettings && activeSettings.isActiveForTeachers) {
+    return activeSettings.academicYear;
+  }
   if (nextSettings && isSubmissionWindowOpen(nextSettings, today)) {
     return nextAcademicYear(today);
   }

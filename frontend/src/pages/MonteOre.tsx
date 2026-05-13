@@ -237,18 +237,24 @@ export default function MonteOre() {
           il monte ore dell'AA prossimo (rollover automatico durante la
           finestra di submission). Diversifica visivamente il caso normale
           (AA corrente) dal caso più raro (AA futuro) per evitare confusione. */}
-      {targetItem && !targetItem.isCurrent && (
+      {targetItem && (!targetItem.isCurrent || targetItem.adminActivated) && (
         <Alert>
           <CalendarRange className="h-4 w-4" />
           <AlertDescription>
             <p className="font-medium">
               Stai compilando il monte ore per l'AA {targetItem.academicYear}
-              {targetItem.isNext ? ' (prossimo)' : ''}
+              {targetItem.adminActivated
+                ? " (attivato dall'amministrazione)"
+                : targetItem.isNext
+                  ? ' (prossimo)'
+                  : ''}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {targetItem.submissionOpen
-                ? 'La finestra di inserimento è attualmente aperta.'
-                : 'La finestra di inserimento non risulta aperta al momento.'}
+              {targetItem.adminActivated
+                ? "L'amministrazione ha selezionato questo anno accademico come quello attivo per l'inserimento."
+                : targetItem.submissionOpen
+                  ? 'La finestra di inserimento è attualmente aperta.'
+                  : 'La finestra di inserimento non risulta aperta al momento.'}
             </p>
           </AlertDescription>
         </Alert>

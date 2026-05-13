@@ -91,6 +91,7 @@ export interface MonteOreSettings {
   submissionWindowEnd: string;
   minRequiredHours: number;
   maxAmendmentsPerYear: number;
+  isActiveForTeachers: boolean;
 }
 
 export type SuspensionKind = 'full_week' | 'partial';
@@ -121,6 +122,10 @@ export interface AcademicYearOption {
   hasSettings: boolean;
   /** Solo admin, presente per AA "futuri" non ancora bootstrappati. */
   canCreateNew?: boolean;
+  /** L'admin ha marcato esplicitamente questo AA come attivo per i docenti. */
+  adminActivated?: boolean;
+  /** Solo admin: id della riga MonteOreSettings. */
+  settingsId?: number;
 }
 
 export interface AcademicYearListResponse {
@@ -523,6 +528,20 @@ export const monteOreAdminApi = {
       method: 'POST',
       body: payload,
     }),
+
+  /**
+   * Override admin: marca (o smarca) un AA come "attivo per i docenti".
+   * Vince sulla finestra di submission automatica. Atomico: disattiva tutti
+   * gli altri AA dello stesso istituto.
+   */
+  activateAcademicYearForTeachers: (academicYear: string, active = true) =>
+    api<{ activated: MonteOreSettings | null; deactivated: number }>(
+      `/api/admin/monte-ore/academic-years/${encodeURIComponent(academicYear)}/activate-for-teachers`,
+      {
+        method: 'POST',
+        body: { active },
+      },
+    ),
 
   listExamSessions: (academicYear: string) =>
     api<{ examSessions: MonteOreSuspension[] }>('/api/admin/monte-ore/exam-sessions', {

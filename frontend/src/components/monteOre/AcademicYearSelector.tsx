@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { CalendarPlus } from 'lucide-react';
-import { monteOreApi, type AcademicYearOption } from '@/api/monteOre';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarPlus, UserCheck, UserX } from 'lucide-react';
+import { monteOreAdminApi, monteOreApi, type AcademicYearOption } from '@/api/monteOre';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -55,6 +57,7 @@ interface Props {
  *   primo render (value undefined) viene usato lo storage o il `default`.
  */
 export function AdminAcademicYearSelector({ value, onChange }: Props) {
+  const queryClient = useQueryClient();
   const yearsQuery = useQuery({
     queryKey: ['monte-ore', 'academic-years', 'admin'],
     queryFn: () => monteOreApi.listAcademicYears('admin'),
@@ -66,6 +69,20 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
 
   const items = yearsQuery.data?.items ?? [];
   const defaultYear = yearsQuery.data?.default;
+
+  const activateMut = useMutation({
+    mutationFn: ({ year, active }: { year: string; active: boolean }) =>
+      monteOreAdminApi.activateAcademicYearForTeachers(year, active),
+    onSuccess: (res, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
+      if (vars.active) {
+        toast.success(`AA ${vars.year} attivato per i docenti`);
+      } else {
+        toast.success(`Override rimosso: ripristinata logica automatica`);
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   // Risoluzione del primo valore quando i dati arrivano: storage > default.
   useEffect(() => {
@@ -134,6 +151,11 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       {/* Badge contestuali per l'AA selezionato */}
       {selected && (
         <div className="flex flex-wrap items-center gap-1.5">
+          {selected.adminActivated && (
+            <Badge variant="success" className="bg-emerald-600 hover:bg-emerald-600">
+              attivato per docenti
+            </Badge>
+          )}
           {selected.isCurrent && <Badge variant="success">in corso</Badge>}
           {selected.isNext && !selected.isCurrent && <Badge variant="secondary">prossimo</Badge>}
           {selected.submissionOpen && <Badge variant="secondary">submission aperta</Badge>}
@@ -143,6 +165,37 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
             </Badge>
           )}
         </div>
+      )}
+
+      {/* Toggle "attivo per i docenti" — solo se l'AA esiste */}
+      {selected && selected.hasSettings && (
+        <Button
+          type="button"
+          variant={selected.adminActivated ? 'outline' : 'default'}
+          size="sm"
+          disabled={activateMut.isPending}
+          onClick={() =>
+            activateMut.mutate({ year: selected.academicYear, active: !selected.adminActivated })
+          }
+          className="gap-1.5"
+          title={
+            selected.adminActivated
+              ? 'Rimuovi override: torna alla logica automatica della finestra di submission'
+              : "Imposta questo AA come visibile ai docenti per l'inserimento"
+          }
+        >
+          {selected.adminActivated ? (
+            <>
+              <UserX className="h-3.5 w-3.5" />
+              Disattiva per docenti
+            </>
+          ) : (
+            <>
+              <UserCheck className="h-3.5 w-3.5" />
+              Attiva per docenti
+            </>
+          )}
+        </Button>
       )}
 
       <NewAcademicYearDialog

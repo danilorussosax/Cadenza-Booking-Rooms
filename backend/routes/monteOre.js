@@ -941,19 +941,28 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
       req.user?.role === 'admin' || (req.query.scope === 'admin' && req.user?.role === 'admin');
 
     if (!isAdmin) {
-      // Docente: target = next se finestra aperta sui settings dell'AA next.
+      // Override admin: settings con isActiveForTeachers=true vincono.
+      const activeSettings = await MonteOreSettings.findOne({
+        where: { isActiveForTeachers: true },
+      });
       const nextSettings = await MonteOreSettings.findOne({
         where: { academicYear: nextLabel },
       });
-      const target = calendarService.resolveTargetAcademicYearForTeacher(today, nextSettings);
+      const target = calendarService.resolveTargetAcademicYearForTeacher(
+        today,
+        nextSettings,
+        activeSettings,
+      );
       const targetSettings = await MonteOreSettings.findOne({ where: { academicYear: target } });
       const submissionOpen = targetSettings
         ? calendarService.isSubmissionWindowOpen(targetSettings, today)
         : false;
       const isNext = target === nextLabel;
       const isCurrent = target === currentLabel;
+      const adminActivated = !!activeSettings && activeSettings.academicYear === target;
       let label = `AA ${target}`;
-      if (isCurrent) label += ' (in corso)';
+      if (adminActivated) label += " (attivato dall'amministrazione)";
+      else if (isCurrent) label += ' (in corso)';
       else if (isNext) label += ' (prossimo)';
       return res.json({
         items: [
@@ -964,6 +973,7 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
             isNext,
             submissionOpen,
             hasSettings: !!targetSettings,
+            adminActivated,
           },
         ],
         default: target,
@@ -976,7 +986,8 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
       const isCurrent = s.academicYear === currentLabel;
       const isNext = s.academicYear === nextLabel;
       let label = `AA ${s.academicYear}`;
-      if (isCurrent) label += ' (in corso)';
+      if (s.isActiveForTeachers) label += ' (attivato per docenti)';
+      else if (isCurrent) label += ' (in corso)';
       else if (isNext) label += ' (prossimo)';
       return {
         academicYear: s.academicYear,
@@ -985,6 +996,8 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
         isNext,
         submissionOpen: calendarService.isSubmissionWindowOpen(s, today),
         hasSettings: true,
+        adminActivated: !!s.isActiveForTeachers,
+        settingsId: s.id,
       };
     });
 
@@ -1112,6 +1125,54 @@ adminRouter.post('/academic-years', authenticate, requireRole('admin'), async (r
     next(err);
   }
 });
+
+/**
+ * POST /api/admin/monte-ore/academic-years/:academicYear/activate-for-teachers
+ *
+ * Marca l'AA specificato come "attivo per i docenti": vince sulla logica
+ * automatica della finestra di submission. Atomico in transazione:
+ * disattiva tutti gli altri AA dello stesso istituto, poi attiva quello
+ * indicato. Body opzionale: `{ active: false }` per rimuovere l'override.
+ *
+ * Ritorna `{ activated: settings|null, deactivated: number }`.
+ */
+adminRouter.post(
+  '/academic-years/:academicYear/activate-for-teachers',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const { academicYear } = req.params;
+      const active = req.body?.active !== false; // default true
+      if (!/^\d{4}\/\d{4}$/.test(academicYear)) {
+        return res.status(400).json({ error: 'academicYear non valido' });
+      }
+      const target = await MonteOreSettings.findOne({ where: { academicYear } });
+      if (!target) {
+        return res.status(404).json({ error: 'Settings non trovati per questo AA' });
+      }
+      const { sequelize } = require('../models');
+      const result = await sequelize.transaction(async (t) => {
+        const [deactivated] = await MonteOreSettings.update(
+          { isActiveForTeachers: false },
+          {
+            where: { instituteId: target.instituteId, isActiveForTeachers: true },
+            transaction: t,
+          },
+        );
+        if (active) {
+          target.isActiveForTeachers = true;
+          await target.save({ transaction: t });
+        }
+        return { deactivated };
+      });
+      const fresh = await MonteOreSettings.findByPk(target.id);
+      res.json({ activated: active ? fresh : null, deactivated: result.deactivated });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ---- Exam Sessions (sospensioni con category='exam_session') ----
 adminRouter.get('/exam-sessions', authenticate, requireRole('admin'), async (req, res, next) => {
