@@ -33,42 +33,8 @@ import { useDisplayScale } from '@/hooks/useDisplayScale';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import { WeeklyRoomTimetable, type WeeklyBlock } from '@/components/bookings/WeeklyRoomTimetable';
 import { DailyRoomTimetable } from '@/components/bookings/DailyRoomTimetable';
+import { findBuildingBySlug, parseDisplayBuildingSlug } from '@/lib/displayUrl';
 import type { BookingType } from '@/types';
-
-/**
- * Filtro per sede via URL — supportiamo 2 sintassi pensate per essere
- * facili da scrivere/incollare dal manager dell'istituto:
- *
- *   /display?b=centrale        ← query param classico
- *   /display?building=centrale ← alias verboso
- *   /display?centrale          ← key boolean, comodo da memorizzare
- *
- * Lo slug viene poi confrontato (case-insensitive) contro `Building.code`
- * o, in fallback, contro `Building.name` normalizzato (lowercase, niente
- * spazi/accenti). Se nessun building matcha → niente filtro applicato
- * (mostra rotazione completa per non lasciare lo schermo vuoto).
- */
-function slugifyBuilding(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // toglie accenti
-    .replace(/[^a-z0-9]+/g, '');
-}
-
-function getBuildingSlugFromUrl(): string | null {
-  if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  // 1) param espliciti
-  const explicit = params.get('b') ?? params.get('building');
-  if (explicit?.trim()) return slugifyBuilding(explicit);
-  // 2) chiave-booleana: ?centrale (valore vuoto). Prendiamo la PRIMA chiave
-  //    non-vuota con valore vuoto.
-  for (const [key, val] of params.entries()) {
-    if (!val && key.length > 0) return slugifyBuilding(key);
-  }
-  return null;
-}
 
 const REFRESH_AGENDA_MS = 60_000;
 const REFRESH_STATS_MS = 30_000;
@@ -277,7 +243,10 @@ export default function Display() {
   // Filtro URL "single-building mode": se l'URL ha ?b=<slug>, ?building=<slug>,
   // o una chiave senza valore (?centrale), mostra SOLO quell'edificio.
   // Pensato per i tabelloni di ingresso di una sede specifica.
-  const requestedSlug = useMemo(() => getBuildingSlugFromUrl(), []);
+  const requestedSlug = useMemo(
+    () => (typeof window !== 'undefined' ? parseDisplayBuildingSlug(window.location.search) : null),
+    [],
+  );
 
   const rotationBuildings = useMemo<(PublicBuilding & { intervalSec: number })[]>(() => {
     let base: (PublicBuilding & { intervalSec: number })[];
@@ -294,16 +263,11 @@ export default function Display() {
         .filter((b): b is PublicBuilding & { intervalSec: number } => b !== null);
     }
     if (!requestedSlug) return base;
-    // Match per code o nome normalizzato
-    const filtered = base.filter((b) => {
-      if (b.code && slugifyBuilding(b.code) === requestedSlug) return true;
-      if (slugifyBuilding(b.name) === requestedSlug) return true;
-      return false;
-    });
-    // Se lo slug non matcha niente, non lasciamo lo schermo vuoto:
-    // fallback alla rotazione completa con un'icona/badge che lo segnala
-    // (gestito nell'header del display).
-    return filtered.length > 0 ? filtered : base;
+    // Match per code o nome normalizzato (helper testato in lib/displayUrl)
+    const match = findBuildingBySlug(base, requestedSlug);
+    // Se lo slug non matcha niente, fallback alla rotazione completa per non
+    // lasciare lo schermo vuoto in caso di errore di battitura nell'URL.
+    return match ? [match] : base;
   }, [allBuildings, rotationOrder, requestedSlug]);
 
   // Aggregati concerti dalla configurazione admin (per-edificio, ma applicati
