@@ -70,49 +70,39 @@ function buildSixDayWeeks(weeks) {
 }
 
 /**
- * Verifica se la settimana è interamente coperta da una sospensione
- * `kind='full_week'`. Restituisce la suspension match o null.
+ * Match per il giorno specifico: ritorna la PRIMA suspension che copre la
+ * data (qualsiasi kind/category). Il `kind` decide solo come la sospensione
+ * appare in altre UI; nel template è la finestra date a contare.
  */
-function fullWeekSuspensionFor(week, suspensions) {
-  const ws = dayjs(week.weekStart);
-  const we = dayjs(week.weekStart).add(5, 'day'); // sabato
-  return (
-    (suspensions || []).find((s) =>
-      s.kind === 'full_week' && dayjs(s.dateFrom).isSame(ws, 'day') === false
-        ? dayjs(s.dateFrom).isBefore(ws, 'day') || dayjs(s.dateFrom).isSame(ws, 'day')
-        : true,
-    ) || null
-  );
-}
-
-/**
- * Match più semplice: full_week che copre [ws, we] inclusivo.
- */
-function findFullWeekSuspension(week, suspensions) {
-  const ws = dayjs(week.weekStart);
-  const we = ws.add(5, 'day');
+function findSuspensionForDay(dateIso, suspensions) {
   return (
     (suspensions || []).find(
       (s) =>
-        s.kind === 'full_week' &&
-        !dayjs(s.dateFrom).isAfter(ws, 'day') &&
-        !dayjs(s.dateTo).isBefore(we, 'day'),
-    ) || null
-  );
-}
-
-/**
- * Match per il giorno specifico (partial).
- */
-function findPartialForDay(dateIso, suspensions) {
-  return (
-    (suspensions || []).find(
-      (s) =>
-        s.kind === 'partial' &&
         !dayjs(s.dateFrom).isAfter(dayjs(dateIso), 'day') &&
         !dayjs(s.dateTo).isBefore(dayjs(dateIso), 'day'),
     ) || null
   );
+}
+
+/**
+ * Verifica se TUTTI i 6 giorni Lun-Sab della settimana sono coperti da una
+ * sospensione (anche da sospensioni DIVERSE — è raro ma possibile). In tal
+ * caso restituisce la suspension che copre il lunedì (rappresentante per
+ * il merge della riga). Altrimenti null.
+ *
+ * Esempio: Natale (24/12 → 6/1, full_week) → la settimana 28/12 → 2/1 è
+ * interamente coperta → merge nero.
+ * Esempio Pasqua (Ven Santo → mar successivo): NESSUNA settimana lavorativa
+ * Lun-Sab è interamente coperta → no merge, celle singole rosse (ven/sab
+ * della settimana che precede Pasqua e lun/mar di quella successiva).
+ */
+function findFullWeekSuspension(week, suspensions) {
+  const ws = dayjs(week.weekStart);
+  for (let i = 0; i < 6; i++) {
+    const dayIso = ws.add(i, 'day').format('YYYY-MM-DD');
+    if (!findSuspensionForDay(dayIso, suspensions)) return null;
+  }
+  return findSuspensionForDay(ws.format('YYYY-MM-DD'), suspensions);
 }
 
 function setBg(cell, argb) {
@@ -267,23 +257,23 @@ async function buildTemplateWorkbook({ academicYear, settings, suspensions = [] 
         setBorder(row.getCell(1));
         setBorder(row.getCell(2));
       } else {
-        // 6 giorni: Lun-Sab.
-        //   - partial suspension (festività infrasettimanali + sessioni esame
-        //     in giorno singolo) → ROSSO con commento (nome sospensione)
-        //   - fuori periodo lezioni                     → grigio chiaro
+        // 6 giorni: Lun-Sab. Verifico ciascun giorno contro QUALSIASI
+        // sospensione (kind=full_week parziale come Pasqua, kind=partial
+        // come 25 apr/1 mag, e exam_session). Le settimane interamente
+        // coperte sono già state catturate dal ramo `if` sopra.
         for (let i = 0; i < 6; i++) {
           const cell = row.getCell(3 + i);
           const dayIso = weekStart.add(i, 'day').format('YYYY-MM-DD');
-          const partial = findPartialForDay(dayIso, suspensions);
+          const susp = findSuspensionForDay(dayIso, suspensions);
           const beforeStart = dayjs(dayIso).isBefore(dayjs(settings.lessonsStartDate), 'day');
           const afterEnd = dayjs(dayIso).isAfter(dayjs(settings.lessonsEndDate), 'day');
-          if (partial) {
+          if (susp) {
             setBg(cell, COLOR_BLOCK_PARTIAL);
             cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            const prefix = partial.category === 'exam_session' ? 'Esame' : 'Festa';
+            const prefix = susp.category === 'exam_session' ? 'Esame' : 'Festa';
             cell.value = prefix;
-            cell.note = partial.name;
+            cell.note = susp.name;
           } else if (beforeStart || afterEnd) {
             setBg(cell, COLOR_GREY_LIGHT);
             cell.note = beforeStart ? "Prima dell'inizio lezioni" : 'Dopo la fine lezioni';
