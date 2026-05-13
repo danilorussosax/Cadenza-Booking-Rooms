@@ -286,4 +286,26 @@ describe('routes/structure — anti mass-assignment', () => {
     expect(res.status).toBe(400);
     expect(res.body.code).toMatch(/INVALID_ENUM|VALIDATION/);
   });
+
+  // Regression: il validator deve accettare TUTTI i valori dell'ENUM
+  // Room.type del model, non una lista parallela disallineata. In passato
+  // ("classe", "aula_concerti", "aula_didattica") venivano rifiutati come
+  // "Valore non valido per type" anche se erano nel model.
+  it.each(['studio', 'sala_prove', 'aula_concerti', 'classe', 'aula_didattica', 'altro'])(
+    "PUT /rooms/:id accetta type=%s (allineato all'ENUM del model)",
+    async (validType) => {
+      const { authHeader } = await createAdmin();
+      const inst = await Institute.create({ name: 'I', code: 'I', city: 'X', country: 'IT' });
+      const b = await Building.create({ instituteId: inst.id, name: 'Edif' });
+      const { Room } = require('../../models');
+      const r = await Room.create({ buildingId: b.id, name: 'R1', floor: 'PT', type: 'studio' });
+
+      const res = await request(app)
+        .put(`/api/structure/rooms/${r.id}`)
+        .set('Authorization', authHeader)
+        .send({ type: validType });
+      expect(res.status).toBe(200);
+      expect(res.body.room.type).toBe(validType);
+    },
+  );
 });

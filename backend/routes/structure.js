@@ -50,8 +50,12 @@ const ROOM_ALLOWED = {
   floor: { type: 'string', maxLength: 50, nullable: true },
   capacity: { type: 'integer', min: 0, max: 10000, nullable: true },
   type: {
+    // Allineato all'ENUM del model Room.type. Storicamente questo validator
+    // aveva una lista diversa (aula/concerto/ufficio) che non riflette mai
+    // esistita nel model: salvare un'aula con tipo "classe" o "aula_concerti"
+    // veniva rifiutato dal validator con "Valore X non valido per type".
     type: 'enum',
-    values: ['studio', 'aula', 'concerto', 'ufficio', 'sala_prove', 'altro'],
+    values: ['studio', 'sala_prove', 'aula_concerti', 'classe', 'aula_didattica', 'altro'],
   },
   allowedRoles: 'json',
   allowedCourseIds: 'json',
