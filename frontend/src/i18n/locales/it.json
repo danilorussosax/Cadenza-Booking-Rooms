@@ -683,8 +683,6 @@
         "display_description": "Configurazione dell'Infopoint pubblico per la visualizzazione settimanale delle aule a rotazione.",
         "audit_log_description": "Tracciamento append-only delle azioni amministrative su utenti, struttura e configurazioni. Voci immutabili usate per audit e compliance.",
         "backups_description": "Backup pianificati del database e ripristino da snapshot.",
-        "sheets_mirror": "Mirror Google Sheets",
-        "sheets_mirror_description": "Riversa periodicamente le prenotazioni in un foglio Google. Se Cadenza è irraggiungibile, la portineria consulta il foglio dal telefono.",
         "modules": "Moduli",
         "modules_description": "Mostra o nascondi i moduli opzionali in sidebar. Le funzioni restano sempre attive lato backend: il toggle controlla solo la visibilità dei link in UI.",
         "servizi": "Servizi",
