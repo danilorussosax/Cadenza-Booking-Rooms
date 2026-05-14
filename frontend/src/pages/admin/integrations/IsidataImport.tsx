@@ -175,11 +175,38 @@ export default function IsidataImport() {
  * Il prop `source` permette di riusare lo stesso wizard per altri provider
  * (es. ESSE3 CINECA): il backend è parametrico su `source` e l'unica
  * differenza visibile è la URL chiamata (`/api/admin/integrations/{source}-csv/...`)
- * e il filtro `provider` per la sezione storico run. Le etichette i18n
- * rimangono "Isidata" — futuro: tradurre quando ESSE3 sarà GA.
+ * e il filtro `provider` per la sezione storico run.
+ *
+ * Le stringhe i18n sono dinamiche: l'helper `tk(suffix)` cerca prima la
+ * chiave specifica del provider (`integrations.esse3.<suffix>`), poi
+ * ricade sulla base isidata (`integrations.isidata.<suffix>`). Permette di
+ * definire solo le chiavi che cambiano davvero (es. dropzone_label che
+ * cita il nome del provider) lasciando il resto condiviso.
  */
+/**
+ * Factory di helper i18n con fallback per il riuso del componente con
+ * diversi provider (isidata, esse3): prova prima la chiave specifica del
+ * provider e poi ricade sulla base isidata. Definito a livello di module
+ * (non hook) per essere usato anche nei componenti satellite del file
+ * (CompareRunDialog, CompareRunBody, ChangedBlock).
+ */
+function buildProviderTk(t: ReturnType<typeof useTranslation>['t'], source: IntegrationSource) {
+  return (suffix: string, opts?: Record<string, unknown>): string => {
+    const sentinel = '__TK_MISS__';
+    if (source !== 'isidata') {
+      const specific = t(`integrations.${source}.${suffix}`, {
+        ...opts,
+        defaultValue: sentinel,
+      });
+      if (specific !== sentinel) return specific;
+    }
+    return t(`integrations.isidata.${suffix}`, opts);
+  };
+}
+
 export function IsidataImportContent({ source = 'isidata' }: { source?: IntegrationSource } = {}) {
   const { t } = useTranslation();
+  const tk = buildProviderTk(t, source);
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
@@ -245,7 +272,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
     },
     onSuccess: (data) => {
       toast.success(
-        t('integrations.isidata.toast.applied', {
+        tk('toast.applied', {
           created: data.summary.created,
           updated: data.summary.updated,
           orphaned: data.summary.orphaned,
@@ -269,7 +296,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
     onSuccess: (data) => {
       setSetupDialogOpen(false);
       toast.success(
-        t('integrations.isidata.toast.setup_links_sent', {
+        tk('toast.setup_links_sent', {
           sent: data.sent,
           skipped: data.skipped,
         }),
@@ -333,7 +360,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              {t('integrations.isidata.step1_title')}
+              {tk('step1_title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -347,12 +374,8 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
               )}
             >
               <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
-              <p className="font-medium">
-                {file ? file.name : t('integrations.isidata.dropzone_label')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t('integrations.isidata.dropzone_hint')}
-              </p>
+              <p className="font-medium">{file ? file.name : tk('dropzone_label')}</p>
+              <p className="text-xs text-muted-foreground">{tk('dropzone_hint')}</p>
               <input
                 id="isidata-file"
                 ref={fileInputRef}
@@ -367,13 +390,13 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
             </label>
 
             <p className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-              {t('integrations.isidata.mapping_upload_hint')}
+              {tk('mapping_upload_hint')}
             </p>
 
             <div className="flex justify-end gap-2">
               <Button onClick={handlePreview} disabled={!file || previewMutation.isPending}>
                 {previewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('integrations.isidata.preview_action')}
+                {tk('preview_action')}
               </Button>
             </div>
           </CardContent>
@@ -411,9 +434,9 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
               <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-              <p className="text-xl font-medium">{t('integrations.isidata.done_title')}</p>
-              <p className="text-sm text-muted-foreground">{t('integrations.isidata.done_hint')}</p>
-              <Button onClick={reset}>{t('integrations.isidata.import_another')}</Button>
+              <p className="text-xl font-medium">{tk('done_title')}</p>
+              <p className="text-sm text-muted-foreground">{tk('done_hint')}</p>
+              <Button onClick={reset}>{tk('import_another')}</Button>
             </CardContent>
           </Card>
 
@@ -429,18 +452,16 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                   <Mail className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                   <div className="space-y-1">
                     <p className="font-medium">
-                      {t('integrations.isidata.setup_banner.title', {
+                      {tk('setup_banner.title', {
                         count: lastApply?.createdUserIds?.length ?? 0,
                       })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('integrations.isidata.setup_banner.subtitle')}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{tk('setup_banner.subtitle')}</p>
                   </div>
                 </div>
                 <Button onClick={() => setSetupDialogOpen(true)} className="shrink-0">
                   <Mail className="h-4 w-4" />
-                  {t('integrations.isidata.setup_banner.cta', {
+                  {tk('setup_banner.cta', {
                     count: lastApply?.createdUserIds?.length ?? 0,
                   })}
                 </Button>
@@ -452,17 +473,17 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
           <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>{t('integrations.isidata.setup_dialog.title')}</DialogTitle>
+                <DialogTitle>{tk('setup_dialog.title')}</DialogTitle>
                 <DialogDescription>
-                  {t('integrations.isidata.setup_dialog.description', {
+                  {tk('setup_dialog.description', {
                     count: lastApply?.createdUserIds?.length ?? 0,
                   })}
                 </DialogDescription>
               </DialogHeader>
               <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li>· {t('integrations.isidata.setup_dialog.bullet_skip_existing')}</li>
-                <li>· {t('integrations.isidata.setup_dialog.bullet_invalidate_previous')}</li>
-                <li>· {t('integrations.isidata.setup_dialog.bullet_one_link')}</li>
+                <li>· {tk('setup_dialog.bullet_skip_existing')}</li>
+                <li>· {tk('setup_dialog.bullet_invalidate_previous')}</li>
+                <li>· {tk('setup_dialog.bullet_one_link')}</li>
               </ul>
               <DialogFooter>
                 <Button
@@ -484,7 +505,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                   ) : (
                     <Mail className="h-4 w-4" />
                   )}
-                  {t('integrations.isidata.setup_dialog.confirm', {
+                  {tk('setup_dialog.confirm', {
                     count: lastApply?.createdUserIds?.length ?? 0,
                   })}
                 </Button>
@@ -500,16 +521,14 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            {t('integrations.isidata.history_title')}
+            {tk('history_title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {runsQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
           ) : (runsQuery.data?.runs ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t('integrations.isidata.history_empty')}
-            </p>
+            <p className="text-sm text-muted-foreground">{tk('history_empty')}</p>
           ) : (
             <ul className="divide-y">
               {(runsQuery.data?.runs ?? []).map((r) => (
@@ -524,7 +543,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {t('integrations.isidata.run_summary', {
+                      {tk('run_summary', {
                         fetched: r.fetched,
                         created: r.created,
                         updated: r.updated,
@@ -539,12 +558,10 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                       size="sm"
                       onClick={() => setCompareRunId(r.id)}
                       data-testid={`compare-run-${r.id}`}
-                      aria-label={t('integrations.isidata.compare_action')}
+                      aria-label={tk('compare_action')}
                     >
                       <GitCompare className="h-4 w-4" />
-                      <span className="hidden sm:inline">
-                        {t('integrations.isidata.compare_action')}
-                      </span>
+                      <span className="hidden sm:inline">{tk('compare_action')}</span>
                     </Button>
                     <RunStatusBadge status={r.status} />
                   </div>
@@ -579,6 +596,10 @@ function PreviewView({
   mappingValid: boolean;
 }) {
   const { t } = useTranslation();
+  // PreviewView serve sia isidata che esse3: per ora le stringhe della
+  // preview sono comuni, ma usiamo tk per consentire override per-provider
+  // se necessario in futuro (es. dropzone_label, kpi.* personalizzate).
+  const tk = buildProviderTk(t, 'isidata');
   const { summary, diff, safetyChecks, softWarnings } = preview;
   const showCreate = filter === 'all' || filter === 'create';
   const showUpdate = filter === 'all' || filter === 'update';
@@ -600,10 +621,8 @@ function PreviewView({
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>{t('integrations.isidata.step2_title')}</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('integrations.isidata.preview_hint')}
-            </p>
+            <CardTitle>{tk('step2_title')}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">{tk('preview_hint')}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" /> {t('common.back')}
@@ -614,7 +633,7 @@ function PreviewView({
             color="emerald"
             icon={UserPlus}
             value={summary.toCreate}
-            label={t('integrations.isidata.kpi.create')}
+            label={tk('kpi.create')}
             onClick={() => onFilterChange('create')}
             active={filter === 'create'}
           />
@@ -622,7 +641,7 @@ function PreviewView({
             color="sky"
             icon={UserCheck}
             value={summary.toUpdate}
-            label={t('integrations.isidata.kpi.update')}
+            label={tk('kpi.update')}
             onClick={() => onFilterChange('update')}
             active={filter === 'update'}
           />
@@ -630,7 +649,7 @@ function PreviewView({
             color="amber"
             icon={UserX}
             value={summary.toOrphan}
-            label={t('integrations.isidata.kpi.orphan')}
+            label={tk('kpi.orphan')}
             onClick={() => onFilterChange('orphan')}
             active={filter === 'orphan'}
           />
@@ -638,7 +657,7 @@ function PreviewView({
             color="muted"
             icon={FileSpreadsheet}
             value={summary.fetched}
-            label={t('integrations.isidata.kpi.fetched')}
+            label={tk('kpi.fetched')}
             onClick={() => onFilterChange('all')}
             active={filter === 'all'}
           />
@@ -653,7 +672,7 @@ function PreviewView({
           >
             <p className="flex items-center gap-2 font-semibold text-rose-900 dark:text-rose-200">
               <AlertTriangle className="h-5 w-5" />
-              {t('integrations.isidata.safety.critical_title')}
+              {tk('safety.critical_title')}
             </p>
             <ul className="mt-2 space-y-1 pl-7 text-rose-900 dark:text-rose-100">
               {criticalWarnings.map((w, i) => (
@@ -672,7 +691,7 @@ function PreviewView({
           >
             <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4" />
-              {t('integrations.isidata.safety.warning_title')}
+              {tk('safety.warning_title')}
             </p>
             <ul className="mt-2 space-y-1 pl-7 text-amber-900 dark:text-amber-100">
               {nonCriticalSafety.map((w, i) => (
@@ -688,15 +707,13 @@ function PreviewView({
           <div className="rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
             <p className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4" />
-              {t('integrations.isidata.warnings_count', { count: summary.warnings.length })}
+              {tk('warnings_count', { count: summary.warnings.length })}
             </p>
             <ul className="mt-2 max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-amber-900 dark:text-amber-200">
               {summary.warnings.slice(0, 50).map((w, i) => (
                 <li key={i}>
                   {w.row ? (
-                    <span className="font-semibold">
-                      {t('integrations.isidata.row', { row: w.row })}:{' '}
-                    </span>
+                    <span className="font-semibold">{tk('row', { row: w.row })}: </span>
                   ) : null}
                   {w.msg}
                 </li>
@@ -706,11 +723,7 @@ function PreviewView({
         )}
 
         {showCreate && diff.toCreate.length > 0 && (
-          <Section
-            title={t('integrations.isidata.create_section')}
-            count={diff.toCreate.length}
-            accent="emerald"
-          >
+          <Section title={tk('create_section')} count={diff.toCreate.length} accent="emerald">
             <DiffTable
               rows={diff.toCreate.map((u) => ({
                 key: u.externalId ?? u.email ?? `${u.lastName}-${u.firstName}`,
@@ -723,22 +736,18 @@ function PreviewView({
                 ],
               }))}
               headers={[
-                t('integrations.isidata.col.matricola'),
-                t('integrations.isidata.col.name'),
-                t('integrations.isidata.col.email'),
-                t('integrations.isidata.col.role'),
-                t('integrations.isidata.col.course'),
+                tk('col.matricola'),
+                tk('col.name'),
+                tk('col.email'),
+                tk('col.role'),
+                tk('col.course'),
               ]}
             />
           </Section>
         )}
 
         {showUpdate && diff.toUpdate.length > 0 && (
-          <Section
-            title={t('integrations.isidata.update_section')}
-            count={diff.toUpdate.length}
-            accent="sky"
-          >
+          <Section title={tk('update_section')} count={diff.toUpdate.length} accent="sky">
             <DiffTable
               rows={diff.toUpdate.map((u) => ({
                 key: `${u.local.id}`,
@@ -748,22 +757,13 @@ function PreviewView({
                   changedSummary(u),
                 ],
               }))}
-              headers={[
-                t('integrations.isidata.col.matricola'),
-                t('integrations.isidata.col.name'),
-                t('integrations.isidata.col.changes'),
-              ]}
+              headers={[tk('col.matricola'), tk('col.name'), tk('col.changes')]}
             />
           </Section>
         )}
 
         {showOrphan && diff.toOrphan.length > 0 && (
-          <Section
-            title={t('integrations.isidata.orphan_section')}
-            count={diff.toOrphan.length}
-            accent="amber"
-            warning
-          >
+          <Section title={tk('orphan_section')} count={diff.toOrphan.length} accent="amber" warning>
             <DiffTable
               rows={diff.toOrphan.map((u) => ({
                 key: `${u.id}`,
@@ -772,17 +772,15 @@ function PreviewView({
                   `${u.lastName} ${u.firstName}`,
                   u.email ?? '—',
                   roleLabel(u.role, t),
-                  u.isActive
-                    ? t('integrations.isidata.orphan_will_disable')
-                    : t('integrations.isidata.orphan_already_disabled'),
+                  u.isActive ? tk('orphan_will_disable') : tk('orphan_already_disabled'),
                 ],
               }))}
               headers={[
-                t('integrations.isidata.col.matricola'),
-                t('integrations.isidata.col.name'),
-                t('integrations.isidata.col.email'),
-                t('integrations.isidata.col.role'),
-                t('integrations.isidata.col.action'),
+                tk('col.matricola'),
+                tk('col.name'),
+                tk('col.email'),
+                tk('col.role'),
+                tk('col.action'),
               ]}
             />
           </Section>
@@ -790,7 +788,7 @@ function PreviewView({
 
         {summary.toCreate + summary.toUpdate + summary.toOrphan === 0 && (
           <div className="rounded-lg border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            {t('integrations.isidata.nothing_to_apply')}
+            {tk('nothing_to_apply')}
           </div>
         )}
 
@@ -812,7 +810,7 @@ function PreviewView({
                   <ChevronRight className="h-4 w-4" />
                 )}
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
-                {t('integrations.isidata.soft_warnings_title', { count: softWarn.length })}
+                {tk('soft_warnings_title', { count: softWarn.length })}
               </span>
             </button>
             {softOpen && (
@@ -833,7 +831,7 @@ function PreviewView({
               onChange={(e) => setConfirmed(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-input"
             />
-            <span>{t('integrations.isidata.confirm_label')}</span>
+            <span>{tk('confirm_label')}</span>
           </label>
           {criticalWarnings.length > 0 && (
             <label
@@ -847,15 +845,14 @@ function PreviewView({
                 className="mt-0.5 h-4 w-4 rounded border-input"
                 data-testid="critical-ack-checkbox"
               />
-              <span>{t('integrations.isidata.confirm_critical_label')}</span>
+              <span>{tk('confirm_critical_label')}</span>
             </label>
           )}
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-between gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-muted-foreground">
-            {t('integrations.isidata.hash_label')}:{' '}
-            <code className="font-mono">{preview.hash.slice(0, 12)}…</code>
+            {tk('hash_label')}: <code className="font-mono">{preview.hash.slice(0, 12)}…</code>
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onBack} disabled={applying}>
@@ -873,7 +870,7 @@ function PreviewView({
               }
             >
               {applying && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t('integrations.isidata.apply_action')}
+              {tk('apply_action')}
             </Button>
           </div>
         </div>
@@ -907,6 +904,9 @@ function changedSummary(u: ToUpdateItem): string {
 }
 
 function roleLabel(role: string, t: ReturnType<typeof useTranslation>['t']) {
+  // Helper plain: usa direttamente t() perché viene chiamato anche da puri
+  // render (formatPrimitive), non dipende dal provider. Il sed precedente
+  // l'aveva accidentalmente convertito in tk().
   if (role === 'docente') return t('integrations.isidata.role.docente');
   if (role === 'studente') return t('integrations.isidata.role.studente');
   return role;
@@ -1071,6 +1071,7 @@ function MappingCard({
   reloading: boolean;
 }) {
   const { t } = useTranslation();
+  const tk = buildProviderTk(t, 'isidata');
   const auto = preview.autoDetected ?? emptyMapping();
   const headers = preview.detectedHeaders ?? preview.headers;
 
@@ -1093,17 +1094,17 @@ function MappingCard({
   return (
     <Card data-testid="mapping-card">
       <CardHeader>
-        <CardTitle className="text-base">{t('integrations.isidata.mapping_title')}</CardTitle>
-        <p className="text-xs text-muted-foreground">{t('integrations.isidata.mapping_hint')}</p>
+        <CardTitle className="text-base">{tk('mapping_title')}</CardTitle>
+        <p className="text-xs text-muted-foreground">{tk('mapping_hint')}</p>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="overflow-x-auto rounded-md border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.target')}</th>
-                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.header')}</th>
-                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.status')}</th>
+                <th className="px-3 py-2">{tk('mapping_col.target')}</th>
+                <th className="px-3 py-2">{tk('mapping_col.header')}</th>
+                <th className="px-3 py-2">{tk('mapping_col.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1131,7 +1132,7 @@ function MappingCard({
                        *  per la UI di mapping è una sciocchezza implementarci
                        *  un componente custom. Stile minimo per coerenza. */}
                       <select
-                        aria-label={t('integrations.isidata.mapping_aria_select', {
+                        aria-label={tk('mapping_aria_select', {
                           target: t(`integrations.isidata.target.${target}`),
                         })}
                         data-testid={`mapping-select-${target}`}
@@ -1139,7 +1140,7 @@ function MappingCard({
                         value={value}
                         onChange={(e) => setField(target, e.target.value || null)}
                       >
-                        <option value="">{t('integrations.isidata.mapping_unmapped')}</option>
+                        <option value="">{tk('mapping_unmapped')}</option>
                         {headers.map((h) => (
                           <option key={h} value={h}>
                             {h}
@@ -1158,7 +1159,7 @@ function MappingCard({
         </div>
         <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
           <Button variant="ghost" size="sm" onClick={onResetAuto} data-testid="mapping-reset-auto">
-            <RotateCcw className="h-4 w-4" /> {t('integrations.isidata.mapping_reset_auto')}
+            <RotateCcw className="h-4 w-4" /> {tk('mapping_reset_auto')}
           </Button>
           <Button
             size="sm"
@@ -1167,7 +1168,7 @@ function MappingCard({
             data-testid="mapping-reload"
           >
             {reloading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {t('integrations.isidata.mapping_reload')}
+            {tk('mapping_reload')}
           </Button>
         </div>
       </CardContent>
@@ -1218,6 +1219,10 @@ function MappingStatusBadge({ status }: { status: MappingRowStatus }) {
 // =====================================================
 function CompareRunDialog({ runId, onClose }: { runId: number | null; onClose: () => void }) {
   const { t } = useTranslation();
+  // CompareRunDialog non riceve `source` esplicito (è sempre invocato dal
+  // wizard isidata/esse3 ma i contenuti del dialog non variano fra i due
+  // provider): usiamo i18n isidata come baseline.
+  const tk = buildProviderTk(t, 'isidata');
   const open = runId !== null;
   const query = useQuery({
     queryKey: ['admin', 'integrations', 'compare', runId],
@@ -1242,9 +1247,9 @@ function CompareRunDialog({ runId, onClose }: { runId: number | null; onClose: (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCompare className="h-5 w-5" />
-            {t('integrations.isidata.compare_title')}
+            {tk('compare_title')}
           </DialogTitle>
-          <DialogDescription>{t('integrations.isidata.compare_subtitle')}</DialogDescription>
+          <DialogDescription>{tk('compare_subtitle')}</DialogDescription>
         </DialogHeader>
         {query.isLoading ? (
           <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
@@ -1262,10 +1267,11 @@ function CompareRunDialog({ runId, onClose }: { runId: number | null; onClose: (
 
 function CompareRunBody({ data }: { data: CompareRunsResponse }) {
   const { t } = useTranslation();
+  const tk = buildProviderTk(t, 'isidata');
   if (!data.hasPrevious || !data.changes) {
     return (
       <p className="rounded-lg border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-        {t('integrations.isidata.compare_empty')}
+        {tk('compare_empty')}
       </p>
     );
   }
@@ -1274,7 +1280,7 @@ function CompareRunBody({ data }: { data: CompareRunsResponse }) {
     <div className="space-y-4">
       <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
         <p>
-          {t('integrations.isidata.compare_header', {
+          {tk('compare_header', {
             current: current.id,
             previous: previous?.id ?? '?',
             date: previous ? dayjs(previous.startedAt).format('D MMM YYYY · HH:mm') : '',
@@ -1285,21 +1291,12 @@ function CompareRunBody({ data }: { data: CompareRunsResponse }) {
         data-testid="compare-delta"
         className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/20 p-3"
       >
-        <DeltaTile
-          label={t('integrations.isidata.compare_delta_create')}
-          value={changes.delta.create}
-        />
-        <DeltaTile
-          label={t('integrations.isidata.compare_delta_update')}
-          value={changes.delta.update}
-        />
-        <DeltaTile
-          label={t('integrations.isidata.compare_delta_deactivate')}
-          value={changes.delta.deactivate}
-        />
+        <DeltaTile label={tk('compare_delta_create')} value={changes.delta.create} />
+        <DeltaTile label={tk('compare_delta_update')} value={changes.delta.update} />
+        <DeltaTile label={tk('compare_delta_deactivate')} value={changes.delta.deactivate} />
       </section>
       <MatricolaList
-        title={t('integrations.isidata.compare_newly_created', {
+        title={tk('compare_newly_created', {
           count: changes.newlyCreatedMatricole.length,
         })}
         accent="emerald"
@@ -1307,7 +1304,7 @@ function CompareRunBody({ data }: { data: CompareRunsResponse }) {
         testId="compare-newly-created"
       />
       <MatricolaList
-        title={t('integrations.isidata.compare_newly_deactivated', {
+        title={tk('compare_newly_deactivated', {
           count: changes.newlyDeactivatedMatricole.length,
         })}
         accent="rose"
@@ -1315,16 +1312,16 @@ function CompareRunBody({ data }: { data: CompareRunsResponse }) {
         testId="compare-newly-deactivated"
       />
       <MatricolaList
-        title={t('integrations.isidata.compare_repeat_updates', {
+        title={tk('compare_repeat_updates', {
           count: changes.repeatUpdatesMatricole.length,
         })}
         accent="amber"
         items={changes.repeatUpdatesMatricole}
-        hint={t('integrations.isidata.compare_repeat_updates_hint')}
+        hint={tk('compare_repeat_updates_hint')}
         testId="compare-repeat-updates"
       />
       <MatricolaList
-        title={t('integrations.isidata.compare_recovered', {
+        title={tk('compare_recovered', {
           count: changes.recoveredMatricole.length,
         })}
         accent="violet"

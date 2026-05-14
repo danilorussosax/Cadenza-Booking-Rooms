@@ -2024,6 +2024,12 @@
     }
   },
   "integrations": {
+    "esse3": {
+      "title": "Importazione anagrafica da ESSE3 (CINECA)",
+      "subtitle": "Carica l'export standard ESSE3 (CSV o XLSX). Il sistema riconosce automaticamente gli header tipici della Suite Studenti AFAM.",
+      "dropzone_label": "Trascina qui il file XLSX di ESSE3, oppure clicca per scegliere",
+      "history_title": "Esecuzioni recenti ESSE3"
+    },
     "isidata": {
       "title": "Importazione anagrafica da Isidata",
       "subtitle": "Carica un export XLSX/CSV dalla segreteria Isidata: Cadenza confronta i dati e mostra cosa cambierà prima di applicare.",
