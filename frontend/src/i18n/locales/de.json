@@ -2058,7 +2058,54 @@
       "run_summary": "Gelesen {{fetched}} · Erstellt {{created}} · Aktualisiert {{updated}} · Deaktiviert {{orphaned}} · Fehler {{errors}}",
       "toast": {
         "applied": "Sync abgeschlossen: {{created}} erstellt, {{updated}} aktualisiert, {{orphaned}} deaktiviert."
-      }
+      },
+      "mapping_upload_hint": "Das Header-Mapping (automatische Erkennung) wird nach dem ersten Upload berechnet. Sie können es im Vorschaufenster überprüfen und anpassen.",
+      "mapping_title": "Feld-Mapping",
+      "mapping_hint": "Überprüfen Sie, dass jedes Cadenza-Feld mit dem richtigen Datei-Header verbunden ist. Zeilen im Zustand \"manuell\" werden bei zukünftigen Auto-Erkennungen nicht angetastet.",
+      "mapping_col": {
+        "target": "Cadenza-Feld",
+        "header": "Datei-Header",
+        "status": "Status"
+      },
+      "mapping_unmapped": "— nicht zugeordnet —",
+      "mapping_reset_auto": "Auto-Mapping wiederherstellen",
+      "mapping_reload": "Vorschau mit diesem Mapping neu laden",
+      "mapping_aria_select": "Quell-Header für Feld {{target}}",
+      "mapping_status": {
+        "auto": "Auto",
+        "manual": "Manuell",
+        "missing": "Fehlend",
+        "optional": "Optional"
+      },
+      "target": {
+        "matricola": "Matrikelnummer",
+        "externalId": "Externe ID",
+        "email": "E-Mail",
+        "firstName": "Vorname",
+        "lastName": "Nachname",
+        "role": "Rolle",
+        "courseCode": "Kurscode",
+        "courseName": "Kursname",
+        "status": "Status",
+        "contractType": "Vertragstyp"
+      },
+      "compare_action": "Mit vorherigem vergleichen",
+      "compare_title": "Lauf-Vergleich",
+      "compare_subtitle": "Unterschiede zum vorherigen \"success\"-Lauf desselben Anbieters.",
+      "compare_empty": "Kein vorheriger Lauf zum Vergleich verfügbar.",
+      "compare_header": "Vergleich Lauf #{{current}} mit #{{previous}} ({{date}})",
+      "compare_delta_create": "Δ Erstellt",
+      "compare_delta_update": "Δ Aktualisiert",
+      "compare_delta_deactivate": "Δ Deaktiviert",
+      "compare_newly_created_one": "Neuer Eintritt ({{count}})",
+      "compare_newly_created_other": "Neue Eintritte ({{count}})",
+      "compare_newly_deactivated_one": "Neue Deaktivierung ({{count}})",
+      "compare_newly_deactivated_other": "Neue Deaktivierungen ({{count}})",
+      "compare_repeat_updates_one": "Wiederholte Änderung ({{count}})",
+      "compare_repeat_updates_other": "Wiederholte Änderungen ({{count}})",
+      "compare_repeat_updates_hint": "Auch im vorherigen Lauf aktualisierte Nutzer: könnten Tippfehler in der Quelldatei sein — bitte prüfen.",
+      "compare_recovered_one": "Zurückgekehrter Nutzer ({{count}})",
+      "compare_recovered_other": "Zurückgekehrte Nutzer ({{count}})"
     }
   }
 }

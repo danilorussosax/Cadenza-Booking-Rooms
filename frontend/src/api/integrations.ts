@@ -90,11 +90,35 @@ export interface SoftWarning {
   count?: number;
 }
 
+/**
+ * Mapping "user-facing" emesso dal backend (Miglioria 1 — UI guidata).
+ * Per ogni target canonico, il nome dell'header del file sorgente (o null
+ * se non risolto). `TARGET_FIELDS` di backend definisce le chiavi attese.
+ */
+export type EffectiveMapping = Record<string, string | null>;
+
 export interface PreviewResponse {
   token: string;
   hash: string;
   headers: string[];
   headerMap: Record<string, string>;
+  /**
+   * Header rilevati dal file. Equivalente a `headers` ma esposto separatamente
+   * per chiarezza semantica nella UI di mapping guidato.
+   */
+  detectedHeaders?: string[];
+  /**
+   * Mapping risolto applicando gli overrides admin (è ciò che il backend
+   * usa per la sessione corrente). Le chiavi sono target canonici (matricola,
+   * email, ...), i valori sono header del file o null.
+   */
+  effectiveMapping?: EffectiveMapping;
+  /**
+   * Mapping risolto SENZA overrides — utile alla UI per:
+   *   - bottone "Ripristina mapping automatico"
+   *   - calcolare delta-vs-auto da spedire come `mappingOverrides`
+   */
+  autoDetected?: EffectiveMapping;
   summary: DiffSummary;
   // Marcati come opzionali per retro-compatibilità: il backend li popola
   // sempre da Cadenza 1.6+, ma una preview "vecchia" cache-ata potrebbe
@@ -106,6 +130,39 @@ export interface PreviewResponse {
     toUpdate: ToUpdateItem[];
     toOrphan: ToOrphanItem[];
   };
+}
+
+/**
+ * Response di GET /api/admin/integrations/runs/:id/compare-previous
+ * (Miglioria 2 — diff "ultimi 2 run" per audit).
+ */
+export interface CompareRunsResponse {
+  previous: RunSummary | null;
+  current: RunSummary;
+  hasPrevious: boolean;
+  changes: RunCompareChanges | null;
+}
+
+export interface RunSummary {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  createdCount: number;
+  updatedCount: number;
+  deactivatedCount: number;
+}
+
+export interface RunCompareChanges {
+  delta: {
+    create: number;
+    update: number;
+    deactivate: number;
+  };
+  newlyCreatedMatricole: string[];
+  newlyDeactivatedMatricole: string[];
+  repeatUpdatesMatricole: string[];
+  recoveredMatricole: string[];
 }
 
 export interface ApplyResponse {
@@ -174,4 +231,11 @@ export const integrationsApi = {
   /** Storia degli ultimi run (default: tutti i provider). */
   runs: (params: { provider?: string; limit?: number } = {}) =>
     api<{ runs: SyncRun[] }>('/api/admin/integrations/runs', { query: { ...params } }),
+
+  /**
+   * Confronta il run `:id` con il precedente "success" dello stesso provider
+   * (Miglioria 2). Restituisce `hasPrevious=false` se non c'è precedente.
+   */
+  comparePrevious: (id: number) =>
+    api<CompareRunsResponse>(`/api/admin/integrations/runs/${id}/compare-previous`),
 };

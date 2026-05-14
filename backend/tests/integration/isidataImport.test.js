@@ -352,6 +352,144 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
   });
 
   // ===========================================================
+  // Miglioria 2 (UI): preview restituisce detectedHeaders + effectiveMapping + autoDetected
+  // ===========================================================
+  it('preview: include detectedHeaders/effectiveMapping/autoDetected per la UI guidata', async () => {
+    const { token: adminTok } = await createAdmin();
+    const buf = await buildXlsxBuffer([
+      ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
+      ['M1', 'Rossi', 'Mario', 'mario@x.test', 'studente'],
+    ]);
+    const res = await request(app)
+      .post('/api/admin/integrations/isidata-csv/preview')
+      .set('Authorization', `Bearer ${adminTok}`)
+      .attach('file', buf, 'isidata.xlsx');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.detectedHeaders)).toBe(true);
+    expect(res.body.detectedHeaders).toEqual(
+      expect.arrayContaining(['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo']),
+    );
+    expect(res.body.effectiveMapping).toBeTruthy();
+    expect(res.body.effectiveMapping.email).toBe('Email');
+    expect(res.body.effectiveMapping.firstName).toBe('Nome');
+    expect(res.body.effectiveMapping.lastName).toBe('Cognome');
+    expect(res.body.effectiveMapping.role).toBe('Ruolo');
+    // courseCode non presente → null nella proiezione
+    expect(res.body.effectiveMapping.courseCode).toBeNull();
+    // autoDetected coincide con effectiveMapping quando non ci sono override.
+    expect(res.body.autoDetected).toEqual(res.body.effectiveMapping);
+  });
+
+  // ===========================================================
+  // Miglioria 2 (compare-previous): confronto run-vs-run per audit
+  // ===========================================================
+  describe('GET /runs/:id/compare-previous', () => {
+    async function applyImport(adminTok, rows) {
+      const buf = await buildXlsxBuffer(rows);
+      const previewRes = await request(app)
+        .post('/api/admin/integrations/isidata-csv/preview')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .attach('file', buf, 'isidata.xlsx');
+      expect(previewRes.status).toBe(200);
+      const res = await request(app)
+        .post('/api/admin/integrations/isidata-csv/apply')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .send({
+          token: previewRes.body.token,
+          confirmedDiffHash: previewRes.body.hash,
+          confirmCriticalWarnings: true,
+        });
+      expect(res.status).toBe(201);
+      return res.body.runId;
+    }
+
+    it('200 con hasPrevious=false su un singolo run', async () => {
+      const { token: adminTok } = await createAdmin();
+      const runId = await applyImport(adminTok, [
+        ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
+        ['S1', 'Solo', 'Uno', 's1@x.test', 'studente'],
+      ]);
+      const res = await request(app)
+        .get(`/api/admin/integrations/runs/${runId}/compare-previous`)
+        .set('Authorization', `Bearer ${adminTok}`);
+      expect(res.status).toBe(200);
+      expect(res.body.hasPrevious).toBe(false);
+      expect(res.body.previous).toBeNull();
+      expect(res.body.changes).toBeNull();
+      expect(res.body.current).toBeTruthy();
+      expect(res.body.current.id).toBe(runId);
+    });
+
+    it('200 con changes valorizzati su 2 run consecutivi (newly/recovered/repeat)', async () => {
+      const { token: adminTok } = await createAdmin();
+
+      // Run 1: importa 3 utenti (A, B, C).
+      await applyImport(adminTok, [
+        ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
+        ['A', 'A', 'A', 'a@x.test', 'studente'],
+        ['B', 'B', 'B', 'b@x.test', 'studente'],
+        ['C', 'C', 'C', 'c@x.test', 'studente'],
+      ]);
+
+      // Run 2:
+      //   - A presente con stesso cognome  → niente (no-op)
+      //   - B con cognome cambiato         → update ripetuto se cambia di nuovo nel run 3
+      //   - C non presente                 → deactivate
+      //   - D nuovo                        → create
+      await applyImport(adminTok, [
+        ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
+        ['A', 'A', 'A', 'a@x.test', 'studente'],
+        ['B', 'Bnew', 'B', 'b@x.test', 'studente'],
+        ['D', 'D', 'D', 'd@x.test', 'studente'],
+      ]);
+
+      // Run 3:
+      //   - C torna (recovered: era nella deactivate-list di run 2 → ora in create/update)
+      //   - B cambia di nuovo cognome (repeat update)
+      //   - D scompare (newly deactivated)
+      //   - E nuovo (newly created)
+      const run3Id = await applyImport(adminTok, [
+        ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
+        ['A', 'A', 'A', 'a@x.test', 'studente'],
+        ['B', 'Bnewer', 'B', 'b@x.test', 'studente'],
+        ['C', 'C', 'C', 'c@x.test', 'studente'],
+        ['E', 'E', 'E', 'e@x.test', 'studente'],
+      ]);
+
+      const res = await request(app)
+        .get(`/api/admin/integrations/runs/${run3Id}/compare-previous`)
+        .set('Authorization', `Bearer ${adminTok}`);
+      expect(res.status).toBe(200);
+      expect(res.body.hasPrevious).toBe(true);
+      expect(res.body.previous).toBeTruthy();
+      expect(res.body.changes).toBeTruthy();
+
+      const { changes } = res.body;
+      // E è creato in run3 ma non in run2 → newly created
+      expect(changes.newlyCreatedMatricole).toEqual(expect.arrayContaining(['E']));
+      // D è disattivato in run3 ma non in run2 → newly deactivated
+      expect(changes.newlyDeactivatedMatricole).toEqual(expect.arrayContaining(['D']));
+      // B è in toUpdate sia di run2 che run3 → repeat updates
+      expect(changes.repeatUpdatesMatricole).toEqual(expect.arrayContaining(['B']));
+      // C era in toOrphan di run2 (D non esiste ancora), in run3 è in toCreate → recovered
+      expect(changes.recoveredMatricole).toEqual(expect.arrayContaining(['C']));
+      // delta numerici
+      expect(typeof changes.delta.create).toBe('number');
+      expect(typeof changes.delta.update).toBe('number');
+      expect(typeof changes.delta.deactivate).toBe('number');
+    });
+
+    it('404 se id non esiste', async () => {
+      const { token: adminTok } = await createAdmin();
+      const res = await request(app)
+        .get('/api/admin/integrations/runs/999999/compare-previous')
+        .set('Authorization', `Bearer ${adminTok}`);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('NOT_FOUND');
+    });
+  });
+
+  // ===========================================================
   // Miglioria 3: collegamento courseCode → Course.courseId
   // ===========================================================
   it('apply: courseCode noto → User.courseId valorizzato dalla map', async () => {

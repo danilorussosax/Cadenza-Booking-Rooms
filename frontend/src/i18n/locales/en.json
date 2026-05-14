@@ -2058,7 +2058,54 @@
       "run_summary": "Read {{fetched}} · Created {{created}} · Updated {{updated}} · Deactivated {{orphaned}} · Errors {{errors}}",
       "toast": {
         "applied": "Sync complete: {{created}} created, {{updated}} updated, {{orphaned}} deactivated."
-      }
+      },
+      "mapping_upload_hint": "Header mapping (auto-detection) is computed after the first upload. You'll be able to review and tweak it in the preview screen.",
+      "mapping_title": "Field mapping",
+      "mapping_hint": "Check that each Cadenza field is linked to the correct file header. Rows in \"manual\" state won't be touched by future auto-detections.",
+      "mapping_col": {
+        "target": "Cadenza field",
+        "header": "File header",
+        "status": "Status"
+      },
+      "mapping_unmapped": "— not mapped —",
+      "mapping_reset_auto": "Reset to auto-detected mapping",
+      "mapping_reload": "Reload preview with this mapping",
+      "mapping_aria_select": "Source header for field {{target}}",
+      "mapping_status": {
+        "auto": "Auto",
+        "manual": "Manual",
+        "missing": "Missing",
+        "optional": "Optional"
+      },
+      "target": {
+        "matricola": "Matricola",
+        "externalId": "External ID",
+        "email": "Email",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "role": "Role",
+        "courseCode": "Course code",
+        "courseName": "Course name",
+        "status": "Status",
+        "contractType": "Contract type"
+      },
+      "compare_action": "Compare with previous",
+      "compare_title": "Run comparison",
+      "compare_subtitle": "Differences against the previous \"success\" run of the same provider.",
+      "compare_empty": "No previous run available for comparison.",
+      "compare_header": "Comparing run #{{current}} with #{{previous}} ({{date}})",
+      "compare_delta_create": "Δ Created",
+      "compare_delta_update": "Δ Updated",
+      "compare_delta_deactivate": "Δ Deactivated",
+      "compare_newly_created_one": "Newly created ({{count}})",
+      "compare_newly_created_other": "Newly created ({{count}})",
+      "compare_newly_deactivated_one": "Newly deactivated ({{count}})",
+      "compare_newly_deactivated_other": "Newly deactivated ({{count}})",
+      "compare_repeat_updates_one": "Repeat update ({{count}})",
+      "compare_repeat_updates_other": "Repeat updates ({{count}})",
+      "compare_repeat_updates_hint": "Users updated in the previous run too: could be typos in the source file — investigate.",
+      "compare_recovered_one": "Recovered user ({{count}})",
+      "compare_recovered_other": "Recovered users ({{count}})"
     }
   }
 }

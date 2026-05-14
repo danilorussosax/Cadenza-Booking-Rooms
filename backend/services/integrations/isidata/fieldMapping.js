@@ -96,6 +96,47 @@ function buildHeaderMap(headers, overrides = null) {
 }
 
 /**
+ * Lista canonica dei target field "user-facing" che la UI guidata (Miglioria 1)
+ * espone all'admin. Non includiamo `birthDate` perché non è ancora persistito
+ * lato `User` né usato dal diff engine — verrà aggiunto quando supportato a
+ * monte. L'ordine è quello in cui appariranno nella tabella di mapping.
+ */
+const TARGET_FIELDS = [
+  'matricola',
+  'externalId',
+  'email',
+  'firstName',
+  'lastName',
+  'role',
+  'courseCode',
+  'courseName',
+  'status',
+  'contractType',
+];
+
+/**
+ * Restituisce, per ciascun TARGET_FIELDS, l'header sorgente risolto da
+ * `headerMap` (o null se non risolto). Diverso da `buildHeaderMap` perché:
+ *   - normalizza la shape: TUTTI i target compaiono (anche con valore null);
+ *   - è un proiezione "view" pensata per la UI tabellare.
+ *
+ * @param {string[]} headers — gli header originali del file (case preserved).
+ * @param {object} headerMap — output di `buildHeaderMap` (target → header).
+ * @returns {Record<string,string|null>}
+ */
+function extractEffectiveMapping(headers, headerMap) {
+  const headerSet = new Set(Array.isArray(headers) ? headers : []);
+  const out = {};
+  for (const target of TARGET_FIELDS) {
+    const h = headerMap && typeof headerMap === 'object' ? headerMap[target] : null;
+    // Difensivo: se il headerMap riferisce un header non più presente
+    // (caso patologico, non realistico oggi) restituiamo null.
+    out[target] = h && headerSet.has(h) ? h : null;
+  }
+  return out;
+}
+
+/**
  * Coerce stringa di stato in 'active' | 'inactive'.
  *
  *   - 'attivo', 'iscritto', 's', 'si', 'sì', 'true', '1', 'a', 'active' → active
@@ -339,10 +380,12 @@ module.exports = {
   normalizeHeader,
   resolveHeader,
   buildHeaderMap,
+  extractEffectiveMapping,
   applyMapping,
   coerceRole,
   coerceStatus,
   coerceContractType,
   sanitizeOverrides,
   DEFAULT_ALIASES,
+  TARGET_FIELDS,
 };

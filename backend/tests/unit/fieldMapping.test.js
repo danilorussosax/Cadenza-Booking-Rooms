@@ -8,11 +8,13 @@
 const {
   resolveHeader,
   buildHeaderMap,
+  extractEffectiveMapping,
   coerceStatus,
   coerceRole,
   coerceContractType,
   applyMapping,
   sanitizeOverrides,
+  TARGET_FIELDS,
 } = require('../../services/integrations/isidata/fieldMapping');
 
 describe('fieldMapping.coerceStatus', () => {
@@ -298,6 +300,41 @@ describe('fieldMapping.applyMapping', () => {
     );
     expect(r.user.externalId).toBe('M');
     expect(r.user.matricola).toBe('12345');
+  });
+});
+
+describe('fieldMapping.extractEffectiveMapping', () => {
+  it('proietta tutti i TARGET_FIELDS (inclusi i non risolti come null)', () => {
+    const headers = ['Matricola', 'Email', 'Nome', 'Cognome'];
+    const map = buildHeaderMap(headers);
+    const eff = extractEffectiveMapping(headers, map);
+    // Tutti i target presenti come key, anche se non risolti
+    for (const t of TARGET_FIELDS) {
+      expect(Object.prototype.hasOwnProperty.call(eff, t)).toBe(true);
+    }
+    expect(eff.externalId).toBe('Matricola');
+    expect(eff.email).toBe('Email');
+    expect(eff.firstName).toBe('Nome');
+    expect(eff.lastName).toBe('Cognome');
+    expect(eff.role).toBeNull(); // header "Ruolo" non presente
+    expect(eff.courseCode).toBeNull();
+  });
+
+  it('un header del headerMap che non è più in headers viene mappato a null', () => {
+    // Caso patologico: headerMap riferisce un header "fantasma".
+    const eff = extractEffectiveMapping(['Email'], { email: 'Email', firstName: 'NonEsiste' });
+    expect(eff.email).toBe('Email');
+    expect(eff.firstName).toBeNull();
+  });
+
+  it('headers/headerMap vuoti o assenti → tutti null', () => {
+    const eff1 = extractEffectiveMapping([], {});
+    for (const t of TARGET_FIELDS) {
+      expect(eff1[t]).toBeNull();
+    }
+    const eff2 = extractEffectiveMapping(undefined, undefined);
+    expect(eff2.email).toBeNull();
+    expect(eff2.matricola).toBeNull();
   });
 });
 

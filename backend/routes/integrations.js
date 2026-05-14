@@ -23,6 +23,7 @@ const {
   buildHeaderMap,
   applyMapping,
   sanitizeOverrides,
+  extractEffectiveMapping,
 } = require('../services/integrations/isidata/fieldMapping');
 const { computeDiff, computeSafetyChecks } = require('../services/integrations/diffEngine');
 
@@ -321,6 +322,19 @@ router.post(
         '[integrations.isidata] preview generato',
       );
 
+      // Mapping "user-facing" per la UI guidata (Miglioria 1):
+      //   - `detectedHeaders` = elenco completo degli header del file (così la
+      //     UI può popolare i dropdown);
+      //   - `effectiveMapping` = mapping risolto DOPO l'applicazione degli
+      //     overrides admin (è ciò che il backend useŕa davvero);
+      //   - `autoDetected`     = mapping risolto SENZA overrides — serve alla
+      //     UI per (a) "Ripristina mapping automatico" e (b) calcolare i
+      //     delta-vs-auto da rinviare in `mappingOverrides` su una preview
+      //     successiva.
+      const autoHeaderMap = buildHeaderMap(headers, null);
+      const effectiveMapping = extractEffectiveMapping(headers, headerMap);
+      const autoDetected = extractEffectiveMapping(headers, autoHeaderMap);
+
       // Serializza il diff per la UI: gli oggetti Sequelize devono essere
       // ridotti a JSON puro (response immutabile).
       res.json({
@@ -328,6 +342,9 @@ router.post(
         hash,
         headers,
         headerMap,
+        detectedHeaders: headers,
+        effectiveMapping,
+        autoDetected,
         summary: {
           fetched: externals.length,
           warnings,
@@ -670,18 +687,27 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
       errors === 0 ? 'success' : created + updated + orphaned > 0 ? 'partial' : 'failed';
 
     // Snapshot diff "leggera" per audit (no `raw` per non gonfiare il DB).
+    // Includiamo `matricola` (oltre a externalId) per rendere possibile il
+    // confronto run-vs-run (Miglioria 2): l'endpoint compare-previous estrae
+    // matricole o, in fallback, externalId.
     const diffSnapshot = {
       toCreate: diff.toCreate.map((e) => ({
+        matricola: e.matricola ?? null,
         externalId: e.externalId,
         email: e.email,
         role: e.role,
       })),
       toUpdate: diff.toUpdate.map((u) => ({
         userId: u.local.id,
+        matricola: u.local?.matricola ?? u.external?.matricola ?? null,
         externalId: u.external.externalId,
         fieldsChanged: u.fieldsChanged,
       })),
-      toOrphan: diff.toOrphan.map((u) => ({ userId: u.id })),
+      toOrphan: diff.toOrphan.map((u) => ({
+        userId: u.id,
+        matricola: u.matricola ?? null,
+        externalId: u.externalId ?? null,
+      })),
       warnings,
     };
     await run.update({
@@ -769,6 +795,154 @@ router.get('/runs', authenticate, requireRole('admin'), async (req, res, next) =
     next(err);
   }
 });
+
+// =====================================================
+// Helper: estrae l'array di matricole da una sezione del diffSnapshot
+// (toCreate / toUpdate / toDeactivate). Lo snapshot è "leggero" (vedi
+// route /apply): può contenere record con shape diverse a seconda della
+// versione di Cadenza che l'ha scritta. Strategia robusta:
+//   1. cerca `record.matricola`;
+//   2. fallback `record.externalId`;
+//   3. per toUpdate guarda anche dentro `record.external?.matricola/externalId`;
+//   4. filtra null/undefined/duplicati.
+//
+// Restituisce un Set (per intersection/difference) — il caller fa Array.from.
+// =====================================================
+function extractMatricoleSet(records) {
+  const out = new Set();
+  if (!Array.isArray(records)) return out;
+  for (const r of records) {
+    if (!r || typeof r !== 'object') continue;
+    const candidates = [
+      r.matricola,
+      r.externalId,
+      r.external?.matricola,
+      r.external?.externalId,
+      r.existing?.matricola,
+      r.existing?.externalId,
+    ];
+    for (const c of candidates) {
+      if (c == null) continue;
+      const s = String(c).trim();
+      if (s) {
+        out.add(s);
+        break; // primo non-null vince per record
+      }
+    }
+  }
+  return out;
+}
+
+// Lo snapshot legacy ha la chiave `toOrphan` (vedi /apply: usa `toOrphan`),
+// non `toDeactivate`. Accettiamo entrambe le forme per resilienza.
+function getDeactivateSection(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return [];
+  return snapshot.toDeactivate ?? snapshot.toOrphan ?? [];
+}
+
+// =====================================================
+// GET /api/admin/integrations/runs/:id/compare-previous
+// Confronta il run corrente con il precedente run "success" dello stesso
+// provider, evidenziando matricole "veramente nuove" rispetto all'apply
+// passato — utile per audit di sorpassi/rientri.
+// =====================================================
+router.get(
+  '/runs/:id/compare-previous',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: 'id non valido', code: 'VALIDATION_FAILED' });
+      }
+      const current = await IntegrationSyncRun.findByPk(id);
+      if (!current) {
+        return res.status(404).json({ error: 'Run non trovato', code: 'NOT_FOUND' });
+      }
+      // Cerca il run precedente "success" dello stesso provider con id < current.id.
+      // Ordinamento per startedAt DESC: il run più recente prima del corrente.
+      const previous = await IntegrationSyncRun.findOne({
+        where: {
+          provider: current.provider,
+          status: 'success',
+          id: { [Op.lt]: current.id },
+        },
+        order: [['startedAt', 'DESC']],
+      });
+
+      if (!previous) {
+        return res.json({
+          previous: null,
+          current: serializeRunSummary(current),
+          hasPrevious: false,
+          changes: null,
+        });
+      }
+
+      const currentSnap = current.diffSnapshot || {};
+      const previousSnap = previous.diffSnapshot || {};
+
+      const currentCreate = extractMatricoleSet(currentSnap.toCreate);
+      const previousCreate = extractMatricoleSet(previousSnap.toCreate);
+      const currentUpdate = extractMatricoleSet(currentSnap.toUpdate);
+      const previousUpdate = extractMatricoleSet(previousSnap.toUpdate);
+      const currentDeact = extractMatricoleSet(getDeactivateSection(currentSnap));
+      const previousDeact = extractMatricoleSet(getDeactivateSection(previousSnap));
+
+      // Set operations: helper inline per leggibilità.
+      const diffSet = (a, b) => Array.from(a).filter((x) => !b.has(x));
+      const intersect = (a, b) => Array.from(a).filter((x) => b.has(x));
+      const unionFromTwo = (a, b) => {
+        const u = new Set(a);
+        for (const x of b) u.add(x);
+        return u;
+      };
+
+      const newlyCreatedMatricole = diffSet(currentCreate, previousCreate);
+      const newlyDeactivatedMatricole = diffSet(currentDeact, previousDeact);
+      const repeatUpdatesMatricole = intersect(currentUpdate, previousUpdate);
+      // Recovered: in previous era nella deactivate-list, ora è in toCreate o
+      // toUpdate del run corrente (l'utente è tornato).
+      const currentCreateOrUpdate = unionFromTwo(currentCreate, currentUpdate);
+      const recoveredMatricole = Array.from(previousDeact).filter((x) =>
+        currentCreateOrUpdate.has(x),
+      );
+
+      res.json({
+        previous: serializeRunSummary(previous),
+        current: serializeRunSummary(current),
+        hasPrevious: true,
+        changes: {
+          delta: {
+            create: (current.created ?? 0) - (previous.created ?? 0),
+            update: (current.updated ?? 0) - (previous.updated ?? 0),
+            deactivate: (current.orphaned ?? 0) - (previous.orphaned ?? 0),
+          },
+          newlyCreatedMatricole,
+          newlyDeactivatedMatricole,
+          repeatUpdatesMatricole,
+          recoveredMatricole,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Proiezione compatta per la response di compare-previous.
+function serializeRunSummary(run) {
+  return {
+    id: run.id,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    status: run.status,
+    createdCount: run.created ?? 0,
+    updatedCount: run.updated ?? 0,
+    deactivatedCount: run.orphaned ?? 0,
+  };
+}
 
 // Esposto come property non-enumerable per non interferire con eventuali
 // itera-over su `module.exports`. Usato da `services/retentionScheduler.js`

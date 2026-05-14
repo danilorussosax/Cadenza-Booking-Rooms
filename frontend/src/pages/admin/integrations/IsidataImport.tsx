@@ -9,8 +9,10 @@ import {
   ChevronDown,
   ChevronRight,
   FileSpreadsheet,
+  GitCompare,
   History,
   Loader2,
+  RotateCcw,
   ShieldAlert,
   Upload,
   UserCheck,
@@ -20,6 +22,8 @@ import {
 import { httpErrorMessage } from '@/lib/api';
 import {
   integrationsApi,
+  type CompareRunsResponse,
+  type EffectiveMapping,
   type ExternalUser,
   type PreviewResponse,
   type ToOrphanItem,
@@ -29,10 +33,110 @@ import { dayjs } from '@/lib/date';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/ui/field-error';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+
+/**
+ * Target field canonici esposti dal backend (TARGET_FIELDS lato fieldMapping.js).
+ * Mantenuti in sync manualmente: una stringa estranea qui produce solo righe
+ * "non risolte" (fallback null), niente crash.
+ */
+const TARGET_FIELDS = [
+  'matricola',
+  'externalId',
+  'email',
+  'firstName',
+  'lastName',
+  'role',
+  'courseCode',
+  'courseName',
+  'status',
+  'contractType',
+] as const;
+type TargetField = (typeof TARGET_FIELDS)[number];
+
+// Target obbligatori per applicare l'import: il backend richiede matricola
+// OPPURE email per matchare/creare. Replichiamo il check qui per disabilitare
+// il bottone "Ricarica anteprima" prima di sprecare una request.
+const REQUIRED_FIELDS: TargetField[] = ['matricola', 'email'];
+
+// Chiave localStorage per la persistenza opzionale dell'ultimo mapping admin.
+// Salva un Record<TargetField,string|null> — al reopen, se TUTTI gli header
+// referenziati sono presenti nel nuovo file, prepopoliamo. Altrimenti no.
+const MAPPING_LS_KEY = 'isidata.lastMapping';
+
+function readSavedMapping(): EffectiveMapping | null {
+  try {
+    const raw = localStorage.getItem(MAPPING_LS_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw) as unknown;
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+    return obj as EffectiveMapping;
+  } catch {
+    return null;
+  }
+}
+
+function saveMappingToLs(map: EffectiveMapping) {
+  try {
+    localStorage.setItem(MAPPING_LS_KEY, JSON.stringify(map));
+  } catch {
+    /* quota / disabled — silently ignore */
+  }
+}
+
+/**
+ * Restituisce true se TUTTI gli header non-null in `saved` sono presenti in
+ * `available`. Usato per decidere se prepopolare la UI da localStorage.
+ */
+function savedMappingApplicable(
+  saved: EffectiveMapping | null,
+  available: string[] | undefined,
+): boolean {
+  if (!saved || !Array.isArray(available)) return false;
+  const set = new Set(available);
+  for (const v of Object.values(saved)) {
+    if (v && !set.has(v)) return false;
+  }
+  return true;
+}
+
+/**
+ * Calcola gli `mappingOverrides` da spedire al backend: per ogni target dove
+ * la UI differisce da `autoDetected`, includiamo l'header scelto (o stringa
+ * vuota se l'admin ha esplicitamente disattivato il mapping su un target che
+ * l'auto-detect aveva risolto — il backend filtra stringhe vuote, quindi
+ * sostanzialmente "demappiamo" rimuovendo dal payload).
+ *
+ * Restituisce `undefined` se non ci sono delta (così il caller può evitare di
+ * spedire il campo del tutto).
+ */
+function computeDelta(
+  current: EffectiveMapping,
+  auto: EffectiveMapping,
+): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  for (const target of TARGET_FIELDS) {
+    const cur = current[target] ?? null;
+    const a = auto[target] ?? null;
+    if (cur !== a && cur) {
+      out[target] = cur;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function emptyMapping(): EffectiveMapping {
+  const out: EffectiveMapping = {};
+  for (const t of TARGET_FIELDS) out[t] = null;
+  return out;
+}
 
 type Step = 'upload' | 'preview' | 'done';
 
@@ -64,11 +168,15 @@ export function IsidataImportContent() {
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
-  const [overridesText, setOverridesText] = useState('');
-  const [overridesError, setOverridesError] = useState<string | null>(null);
-  const [overridesOpen, setOverridesOpen] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [filter, setFilter] = useState<'all' | 'create' | 'update' | 'orphan'>('all');
+  // Mapping "live" — può essere ≠ da preview.effectiveMapping quando l'admin
+  // ha modificato il dropdown ma non ha ancora rilanciato la preview. Una
+  // volta cliccato "Ricarica anteprima", il backend ricalcola e la nuova
+  // response sovrascrive lo stato locale via `useEffect`.
+  const [currentMapping, setCurrentMapping] = useState<EffectiveMapping | null>(null);
+  // Compare dialog (Miglioria 2)
+  const [compareRunId, setCompareRunId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const previewMutation = useMutation({
@@ -76,6 +184,22 @@ export function IsidataImportContent() {
       integrationsApi.preview(input.file, input.overrides),
     onSuccess: (data) => {
       setPreview(data);
+      // Sincronizza il mapping "live" con la response più recente. Se in
+      // localStorage c'è un mapping precedente e gli header del nuovo file
+      // lo supportano, lo prepopoliamo "over" l'effective.
+      const eff = data.effectiveMapping ?? emptyMapping();
+      const saved = readSavedMapping();
+      if (saved && savedMappingApplicable(saved, data.detectedHeaders)) {
+        // Merge: per i target dove `saved` ha un valore presente nei nuovi
+        // headers, lo usiamo; altrimenti fallback sull'effective.
+        const merged: EffectiveMapping = { ...eff };
+        for (const k of TARGET_FIELDS) {
+          if (saved[k] !== undefined) merged[k] = saved[k];
+        }
+        setCurrentMapping(merged);
+      } else {
+        setCurrentMapping(eff);
+      }
       setStep('preview');
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -126,33 +250,34 @@ export function IsidataImportContent() {
     e.preventDefault();
   };
 
-  const parsedOverrides = useMemo(() => {
-    if (!overridesText.trim()) return undefined;
-    try {
-      const obj: unknown = JSON.parse(overridesText);
-      if (typeof obj !== 'object' || Array.isArray(obj) || obj === null) {
-        throw new Error('non è un oggetto JSON');
-      }
-      return obj as Record<string, string>;
-    } catch {
-      return null;
-    }
-  }, [overridesText]);
-
   const handlePreview = () => {
-    setOverridesError(null);
     if (!file) return;
-    if (overridesText.trim() && parsedOverrides === null) {
-      setOverridesError(t('integrations.isidata.overrides_invalid'));
-      return;
-    }
-    previewMutation.mutate({ file, overrides: parsedOverrides ?? undefined });
+    // Prima preview: nessun override → auto-detect lato backend.
+    previewMutation.mutate({ file });
+  };
+
+  // Rilancia la preview applicando il `currentMapping` come overrides
+  // (delta vs autoDetected così non rispediamo header già auto-risolti).
+  const handleReloadWithMapping = () => {
+    if (!file || !preview) return;
+    const auto = preview.autoDetected ?? emptyMapping();
+    const cur = currentMapping ?? auto;
+    const overrides = computeDelta(cur, auto);
+    // Persistenza locale: salva l'ultimo mapping scelto.
+    saveMappingToLs(cur);
+    previewMutation.mutate({ file, overrides });
+  };
+
+  // Reset del mapping ai valori auto-detected.
+  const handleResetAuto = () => {
+    if (!preview) return;
+    setCurrentMapping(preview.autoDetected ?? emptyMapping());
   };
 
   const reset = () => {
     setFile(null);
-    setOverridesText('');
     setPreview(null);
+    setCurrentMapping(null);
     setStep('upload');
   };
 
@@ -196,42 +321,9 @@ export function IsidataImportContent() {
               />
             </label>
 
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between text-sm font-medium"
-                onClick={() => setOverridesOpen((v) => !v)}
-              >
-                <span className="flex items-center gap-2">
-                  {overridesOpen ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  {t('integrations.isidata.overrides_title')}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {t('integrations.isidata.overrides_hint_short')}
-                </span>
-              </button>
-              {overridesOpen && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {t('integrations.isidata.overrides_help')}
-                  </p>
-                  <Label htmlFor="overrides">{t('integrations.isidata.overrides_label')}</Label>
-                  <Input
-                    id="overrides"
-                    placeholder='{"externalId": "Numero matricola", "email": "Email istituzionale"}'
-                    value={overridesText}
-                    onChange={(e) => setOverridesText(e.target.value)}
-                    aria-invalid={!!overridesError}
-                    aria-describedby={overridesError ? 'overrides-error' : undefined}
-                  />
-                  <FieldError id="overrides-error">{overridesError}</FieldError>
-                </div>
-              )}
-            </div>
+            <p className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+              {t('integrations.isidata.mapping_upload_hint')}
+            </p>
 
             <div className="flex justify-end gap-2">
               <Button onClick={handlePreview} disabled={!file || previewMutation.isPending}>
@@ -244,14 +336,31 @@ export function IsidataImportContent() {
       )}
 
       {step === 'preview' && preview && (
-        <PreviewView
-          preview={preview}
-          filter={filter}
-          onFilterChange={setFilter}
-          onBack={reset}
-          onApply={() => applyMutation.mutate()}
-          applying={applyMutation.isPending}
-        />
+        <>
+          <MappingCard
+            preview={preview}
+            currentMapping={currentMapping ?? preview.effectiveMapping ?? emptyMapping()}
+            onChange={setCurrentMapping}
+            onReload={handleReloadWithMapping}
+            onResetAuto={handleResetAuto}
+            reloading={previewMutation.isPending}
+          />
+          <PreviewView
+            preview={preview}
+            filter={filter}
+            onFilterChange={setFilter}
+            onBack={reset}
+            onApply={() => applyMutation.mutate()}
+            applying={applyMutation.isPending}
+            // Blocca l'applicazione se neanche un campo "obbligatorio" è
+            // mappato (matricola/email): replica defensive del check backend.
+            mappingValid={
+              REQUIRED_FIELDS.some(
+                (f) => !!(currentMapping ?? preview.effectiveMapping ?? {})[f],
+              )
+            }
+          />
+        </>
       )}
 
       {step === 'done' && (
@@ -264,6 +373,11 @@ export function IsidataImportContent() {
           </CardContent>
         </Card>
       )}
+
+      <CompareRunDialog
+        runId={compareRunId}
+        onClose={() => setCompareRunId(null)}
+      />
 
       <Card>
         <CardHeader>
@@ -302,7 +416,21 @@ export function IsidataImportContent() {
                       })}
                     </p>
                   </div>
-                  <RunStatusBadge status={r.status} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCompareRunId(r.id)}
+                      data-testid={`compare-run-${r.id}`}
+                      aria-label={t('integrations.isidata.compare_action')}
+                    >
+                      <GitCompare className="h-4 w-4" />
+                      <span className="hidden sm:inline">
+                        {t('integrations.isidata.compare_action')}
+                      </span>
+                    </Button>
+                    <RunStatusBadge status={r.status} />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -323,6 +451,7 @@ function PreviewView({
   onBack,
   onApply,
   applying,
+  mappingValid,
 }: {
   preview: PreviewResponse;
   filter: 'all' | 'create' | 'update' | 'orphan';
@@ -330,6 +459,7 @@ function PreviewView({
   onBack: () => void;
   onApply: () => void;
   applying: boolean;
+  mappingValid: boolean;
 }) {
   const { t } = useTranslation();
   const { summary, diff, safetyChecks, softWarnings } = preview;
@@ -619,6 +749,7 @@ function PreviewView({
               data-testid="apply-button"
               disabled={
                 !confirmed ||
+                !mappingValid ||
                 (criticalWarnings.length > 0 && !criticalAck) ||
                 applying ||
                 summary.toCreate + summary.toUpdate + summary.toOrphan === 0
@@ -799,6 +930,376 @@ function RunStatusBadge({ status }: { status: string }) {
     >
       {status}
     </span>
+  );
+}
+
+// =====================================================
+// MappingCard (Miglioria 1): tabella di mapping campo-per-campo.
+// Sostituisce il vecchio Textarea JSON con dropdown per ciascun target
+// canonico. L'admin può modificare e rilanciare la preview "live".
+// =====================================================
+function MappingCard({
+  preview,
+  currentMapping,
+  onChange,
+  onReload,
+  onResetAuto,
+  reloading,
+}: {
+  preview: PreviewResponse;
+  currentMapping: EffectiveMapping;
+  onChange: (m: EffectiveMapping) => void;
+  onReload: () => void;
+  onResetAuto: () => void;
+  reloading: boolean;
+}) {
+  const { t } = useTranslation();
+  const auto = preview.autoDetected ?? emptyMapping();
+  const headers = preview.detectedHeaders ?? preview.headers ?? [];
+
+  const setField = (target: TargetField, header: string | null) => {
+    onChange({ ...currentMapping, [target]: header });
+  };
+
+  // Calcola "dirty": l'admin ha modificato qualcosa rispetto al mapping
+  // che il backend sta effettivamente usando. Usiamo effectiveMapping (non
+  // autoDetected) per non confondere "ho cambiato manualmente" con "uso
+  // override già spediti".
+  const effective = preview.effectiveMapping ?? auto;
+  const dirty = useMemo(() => {
+    for (const k of TARGET_FIELDS) {
+      if ((currentMapping[k] ?? null) !== (effective[k] ?? null)) return true;
+    }
+    return false;
+  }, [currentMapping, effective]);
+
+  return (
+    <Card data-testid="mapping-card">
+      <CardHeader>
+        <CardTitle className="text-base">{t('integrations.isidata.mapping_title')}</CardTitle>
+        <p className="text-xs text-muted-foreground">{t('integrations.isidata.mapping_hint')}</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="overflow-x-auto rounded-md border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.target')}</th>
+                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.header')}</th>
+                <th className="px-3 py-2">{t('integrations.isidata.mapping_col.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TARGET_FIELDS.map((target) => {
+                const value = currentMapping[target] ?? '';
+                const autoVal = auto[target] ?? null;
+                const isRequired = REQUIRED_FIELDS.includes(target);
+                const status: MappingRowStatus = computeRowStatus({
+                  value: value || null,
+                  autoVal,
+                  isRequired,
+                });
+                return (
+                  <tr key={target} className="border-t" data-testid={`mapping-row-${target}`}>
+                    <td className="px-3 py-2 align-middle">
+                      <span className="font-medium">
+                        {t(`integrations.isidata.target.${target}`)}
+                      </span>
+                      {isRequired && (
+                        <span className="ml-1 text-xs text-rose-700 dark:text-rose-300">*</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      {/* Native select: i radix select non supportano value="" e
+                       *  per la UI di mapping è una sciocchezza implementarci
+                       *  un componente custom. Stile minimo per coerenza. */}
+                      <select
+                        aria-label={t('integrations.isidata.mapping_aria_select', {
+                          target: t(`integrations.isidata.target.${target}`),
+                        })}
+                        data-testid={`mapping-select-${target}`}
+                        className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-2 text-sm shadow-xs focus:outline-hidden focus:ring-2 focus:ring-ring"
+                        value={value}
+                        onChange={(e) => setField(target, e.target.value || null)}
+                      >
+                        <option value="">{t('integrations.isidata.mapping_unmapped')}</option>
+                        {headers.map((h) => (
+                          <option key={h} value={h}>
+                            {h}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 align-middle text-xs">
+                      <MappingStatusBadge status={status} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onResetAuto}
+            data-testid="mapping-reset-auto"
+          >
+            <RotateCcw className="h-4 w-4" /> {t('integrations.isidata.mapping_reset_auto')}
+          </Button>
+          <Button
+            size="sm"
+            onClick={onReload}
+            disabled={!dirty || reloading}
+            data-testid="mapping-reload"
+          >
+            {reloading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t('integrations.isidata.mapping_reload')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type MappingRowStatus = 'auto' | 'manual' | 'missing' | 'optional';
+
+function computeRowStatus({
+  value,
+  autoVal,
+  isRequired,
+}: {
+  value: string | null;
+  autoVal: string | null;
+  isRequired: boolean;
+}): MappingRowStatus {
+  if (!value) {
+    return isRequired ? 'missing' : 'optional';
+  }
+  return value === autoVal ? 'auto' : 'manual';
+}
+
+function MappingStatusBadge({ status }: { status: MappingRowStatus }) {
+  const { t } = useTranslation();
+  const tones: Record<MappingRowStatus, string> = {
+    auto: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+    manual: 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300',
+    missing: 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+    optional: 'bg-muted text-muted-foreground',
+  };
+  return (
+    <span
+      className={cn(
+        'rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase',
+        tones[status],
+      )}
+    >
+      {t(`integrations.isidata.mapping_status.${status}`)}
+    </span>
+  );
+}
+
+// =====================================================
+// CompareRunDialog (Miglioria 2): apre un dialog con il diff di
+// "ultimi 2 run". Carica via API on-demand (mount con runId valorizzato).
+// =====================================================
+function CompareRunDialog({
+  runId,
+  onClose,
+}: {
+  runId: number | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const open = runId !== null;
+  const query = useQuery({
+    queryKey: ['admin', 'integrations', 'compare', runId],
+    queryFn: () => integrationsApi.comparePrevious(runId!),
+    enabled: open,
+    // Niente refetch automatico: il run è immutabile, la comparison anche.
+    staleTime: Infinity,
+    gcTime: 5 * 60 * 1000,
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent data-testid="compare-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <GitCompare className="h-5 w-5" />
+            {t('integrations.isidata.compare_title')}
+          </DialogTitle>
+          <DialogDescription>
+            {t('integrations.isidata.compare_subtitle')}
+          </DialogDescription>
+        </DialogHeader>
+        {query.isLoading ? (
+          <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+        ) : query.isError ? (
+          <p className="text-sm text-rose-700 dark:text-rose-300">
+            {httpErrorMessage(query.error)}
+          </p>
+        ) : query.data ? (
+          <CompareRunBody data={query.data} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CompareRunBody({ data }: { data: CompareRunsResponse }) {
+  const { t } = useTranslation();
+  if (!data.hasPrevious || !data.changes) {
+    return (
+      <p className="rounded-lg border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+        {t('integrations.isidata.compare_empty')}
+      </p>
+    );
+  }
+  const { changes, previous, current } = data;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
+        <p>
+          {t('integrations.isidata.compare_header', {
+            current: current.id,
+            previous: previous?.id ?? '?',
+            date: previous ? dayjs(previous.startedAt).format('D MMM YYYY · HH:mm') : '',
+          })}
+        </p>
+      </div>
+      <section
+        data-testid="compare-delta"
+        className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/20 p-3"
+      >
+        <DeltaTile label={t('integrations.isidata.compare_delta_create')} value={changes.delta.create} />
+        <DeltaTile label={t('integrations.isidata.compare_delta_update')} value={changes.delta.update} />
+        <DeltaTile
+          label={t('integrations.isidata.compare_delta_deactivate')}
+          value={changes.delta.deactivate}
+        />
+      </section>
+      <MatricolaList
+        title={t('integrations.isidata.compare_newly_created', {
+          count: changes.newlyCreatedMatricole.length,
+        })}
+        accent="emerald"
+        items={changes.newlyCreatedMatricole}
+        testId="compare-newly-created"
+      />
+      <MatricolaList
+        title={t('integrations.isidata.compare_newly_deactivated', {
+          count: changes.newlyDeactivatedMatricole.length,
+        })}
+        accent="rose"
+        items={changes.newlyDeactivatedMatricole}
+        testId="compare-newly-deactivated"
+      />
+      <MatricolaList
+        title={t('integrations.isidata.compare_repeat_updates', {
+          count: changes.repeatUpdatesMatricole.length,
+        })}
+        accent="amber"
+        items={changes.repeatUpdatesMatricole}
+        hint={t('integrations.isidata.compare_repeat_updates_hint')}
+        testId="compare-repeat-updates"
+      />
+      <MatricolaList
+        title={t('integrations.isidata.compare_recovered', {
+          count: changes.recoveredMatricole.length,
+        })}
+        accent="violet"
+        items={changes.recoveredMatricole}
+        testId="compare-recovered"
+      />
+    </div>
+  );
+}
+
+function DeltaTile({ label, value }: { label: string; value: number }) {
+  const sign = value > 0 ? '+' : '';
+  const tone =
+    value > 0
+      ? 'text-emerald-700 dark:text-emerald-300'
+      : value < 0
+      ? 'text-rose-700 dark:text-rose-300'
+      : 'text-muted-foreground';
+  return (
+    <div className="rounded-md bg-card p-2 text-center">
+      <p className={cn('font-display text-xl font-medium', tone)}>
+        {sign}
+        {value}
+      </p>
+      <p className="text-[0.625rem] uppercase tracking-wider text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function MatricolaList({
+  title,
+  accent,
+  items,
+  hint,
+  testId,
+}: {
+  title: string;
+  accent: 'emerald' | 'rose' | 'amber' | 'violet';
+  items: string[];
+  hint?: string;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const accents: Record<typeof accent, string> = {
+    emerald: 'border-emerald-300/60',
+    rose: 'border-rose-300/60',
+    amber: 'border-amber-300/60',
+    violet: 'border-violet-300/60',
+  } as Record<typeof accent, string>;
+  return (
+    <section
+      className={cn('rounded-lg border p-3 text-sm', accents[accent])}
+      data-testid={testId}
+    >
+      <button
+        type="button"
+        className="flex w-full items-center justify-between font-medium"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2">
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {title}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1">
+          {hint && <p className="text-xs italic text-muted-foreground">{hint}</p>}
+          {items.length === 0 ? (
+            <p className="text-xs text-muted-foreground">—</p>
+          ) : (
+            <ul className="flex flex-wrap gap-1">
+              {items.slice(0, 200).map((m) => (
+                <li
+                  key={m}
+                  className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground/80"
+                >
+                  {m}
+                </li>
+              ))}
+              {items.length > 200 && (
+                <li className="text-xs text-muted-foreground">+{items.length - 200}…</li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

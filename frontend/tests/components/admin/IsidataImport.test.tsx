@@ -10,6 +10,7 @@ vi.mock('sonner', () => ({
 const previewMock = vi.fn();
 const applyMock = vi.fn();
 const runsMock = vi.fn();
+const compareMock = vi.fn();
 
 vi.mock('@/api/integrations', async () => {
   // Manteniamo i type ma sovrascriviamo le funzioni con i mock.
@@ -20,6 +21,7 @@ vi.mock('@/api/integrations', async () => {
       preview: (...args: unknown[]) => previewMock(...args),
       apply: (...args: unknown[]) => applyMock(...args),
       runs: (...args: unknown[]) => runsMock(...args),
+      comparePrevious: (...args: unknown[]) => compareMock(...args),
     },
   };
 });
@@ -31,6 +33,31 @@ const basePreview = {
   hash: 'f'.repeat(64),
   headers: ['Matricola', 'Cognome', 'Nome'],
   headerMap: { externalId: 'Matricola' },
+  detectedHeaders: ['Matricola', 'Cognome', 'Nome', 'Email'],
+  effectiveMapping: {
+    matricola: 'Matricola',
+    externalId: 'Matricola',
+    email: 'Email',
+    firstName: 'Nome',
+    lastName: 'Cognome',
+    role: null,
+    courseCode: null,
+    courseName: null,
+    status: null,
+    contractType: null,
+  },
+  autoDetected: {
+    matricola: 'Matricola',
+    externalId: 'Matricola',
+    email: 'Email',
+    firstName: 'Nome',
+    lastName: 'Cognome',
+    role: null,
+    courseCode: null,
+    courseName: null,
+    status: null,
+    contractType: null,
+  },
   summary: {
     fetched: 5,
     warnings: [],
@@ -70,6 +97,7 @@ describe('<IsidataImportContent /> — safety warnings', () => {
     previewMock.mockReset();
     applyMock.mockReset();
     runsMock.mockReset();
+    compareMock.mockReset();
     runsMock.mockResolvedValue({ runs: [] });
   });
 
@@ -139,6 +167,148 @@ describe('<IsidataImportContent /> — safety warnings', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('soft-warnings')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('<IsidataImportContent /> — mapping UI guidata', () => {
+  beforeEach(() => {
+    previewMock.mockReset();
+    applyMock.mockReset();
+    runsMock.mockReset();
+    compareMock.mockReset();
+    runsMock.mockResolvedValue({ runs: [] });
+  });
+
+  it('renderizza la tabella di mapping con una riga per ogni target field', async () => {
+    previewMock.mockResolvedValue(basePreview);
+    renderWithProviders(<IsidataImportContent />);
+    await goToPreview();
+
+    // Aspetta la card di mapping
+    await screen.findByTestId('mapping-card');
+    // 10 target fields previsti
+    const targets = [
+      'matricola',
+      'externalId',
+      'email',
+      'firstName',
+      'lastName',
+      'role',
+      'courseCode',
+      'courseName',
+      'status',
+      'contractType',
+    ];
+    for (const t of targets) {
+      expect(screen.getByTestId(`mapping-row-${t}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`mapping-select-${t}`)).toBeInTheDocument();
+    }
+  });
+
+  it('cambiare un select segna lo stato come manual + abilita il bottone reload', async () => {
+    previewMock.mockResolvedValue(basePreview);
+    renderWithProviders(<IsidataImportContent />);
+    await goToPreview();
+
+    await screen.findByTestId('mapping-card');
+
+    // Inizialmente, il bottone "Ricarica" è disabilitato (no delta).
+    const reloadBtn = screen.getByTestId('mapping-reload') as HTMLButtonElement;
+    expect(reloadBtn.disabled).toBe(true);
+
+    // Cambia un select: role da non-mappato a "Nome" (anche se non realistico,
+    // testa la transizione di stato).
+    const roleSelect = screen.getByTestId('mapping-select-role') as HTMLSelectElement;
+    fireEvent.change(roleSelect, { target: { value: 'Nome' } });
+    expect(roleSelect.value).toBe('Nome');
+
+    // Ora il reload è abilitato (mapping dirty).
+    expect(reloadBtn.disabled).toBe(false);
+  });
+
+  it('"Ripristina automatico" riporta i Select ai valori auto-detected', async () => {
+    previewMock.mockResolvedValue(basePreview);
+    renderWithProviders(<IsidataImportContent />);
+    await goToPreview();
+
+    await screen.findByTestId('mapping-card');
+
+    const roleSelect = screen.getByTestId('mapping-select-role') as HTMLSelectElement;
+    // role inizialmente è null nell'autoDetected → option value=""
+    expect(roleSelect.value).toBe('');
+    // Cambia a "Nome"
+    fireEvent.change(roleSelect, { target: { value: 'Nome' } });
+    expect(roleSelect.value).toBe('Nome');
+
+    // Click "Ripristina auto"
+    const resetBtn = screen.getByTestId('mapping-reset-auto');
+    fireEvent.click(resetBtn);
+
+    // role torna a "" (non mappato, valore auto-detected)
+    expect((screen.getByTestId('mapping-select-role') as HTMLSelectElement).value).toBe('');
+  });
+});
+
+describe('<IsidataImportContent /> — confronto con run precedente', () => {
+  beforeEach(() => {
+    previewMock.mockReset();
+    applyMock.mockReset();
+    runsMock.mockReset();
+    compareMock.mockReset();
+  });
+
+  it('click su "Confronta con precedente" apre il dialog', async () => {
+    runsMock.mockResolvedValue({
+      runs: [
+        {
+          id: 42,
+          configId: null,
+          instituteId: null,
+          provider: 'isidata',
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          triggeredBy: 'manual',
+          status: 'success',
+          fetched: 10,
+          created: 3,
+          updated: 5,
+          skipped: 0,
+          orphaned: 2,
+          errors: 0,
+          errorPayload: null,
+          diffSnapshot: null,
+          createdAt: new Date().toISOString(),
+          actor: null,
+        },
+      ],
+    });
+    compareMock.mockResolvedValue({
+      previous: null,
+      current: {
+        id: 42,
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        status: 'success',
+        createdCount: 3,
+        updatedCount: 5,
+        deactivatedCount: 2,
+      },
+      hasPrevious: false,
+      changes: null,
+    });
+
+    renderWithProviders(<IsidataImportContent />);
+    // Aspetta il bottone "compare" del primo run
+    const btn = await screen.findByTestId('compare-run-42');
+    fireEvent.click(btn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('compare-dialog')).toBeInTheDocument();
+    });
+    // hasPrevious=false → mostra messaggio "compare_empty"
+    await waitFor(() => {
+      expect(compareMock).toHaveBeenCalledWith(42);
     });
   });
 });

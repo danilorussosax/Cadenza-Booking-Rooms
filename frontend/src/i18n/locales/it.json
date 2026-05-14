@@ -2054,7 +2054,54 @@
       "run_summary": "Letti {{fetched}} · Creati {{created}} · Aggiornati {{updated}} · Disattivati {{orphaned}} · Errori {{errors}}",
       "toast": {
         "applied": "Sync completata: {{created}} creati, {{updated}} aggiornati, {{orphaned}} disattivati."
-      }
+      },
+      "mapping_upload_hint": "Il mapping degli header (auto-detection) viene calcolato dopo il primo upload. Potrai rivederlo e modificarlo nella schermata di anteprima.",
+      "mapping_title": "Mapping campi",
+      "mapping_hint": "Verifica che ogni campo Cadenza sia collegato all'header corretto del file. Le righe in stato \"manuale\" non saranno toccate da future auto-detection.",
+      "mapping_col": {
+        "target": "Campo Cadenza",
+        "header": "Header file",
+        "status": "Stato"
+      },
+      "mapping_unmapped": "— non mappato —",
+      "mapping_reset_auto": "Ripristina mapping automatico",
+      "mapping_reload": "Ricarica anteprima con questo mapping",
+      "mapping_aria_select": "Header sorgente per il campo {{target}}",
+      "mapping_status": {
+        "auto": "Auto",
+        "manual": "Manuale",
+        "missing": "Mancante",
+        "optional": "Opzionale"
+      },
+      "target": {
+        "matricola": "Matricola",
+        "externalId": "ID esterno",
+        "email": "Email",
+        "firstName": "Nome",
+        "lastName": "Cognome",
+        "role": "Ruolo",
+        "courseCode": "Codice corso",
+        "courseName": "Nome corso",
+        "status": "Stato",
+        "contractType": "Tipo contratto"
+      },
+      "compare_action": "Confronta con precedente",
+      "compare_title": "Confronto run",
+      "compare_subtitle": "Differenze rispetto al run \"success\" precedente dello stesso provider.",
+      "compare_empty": "Nessun run precedente disponibile per il confronto.",
+      "compare_header": "Confronto run #{{current}} con #{{previous}} ({{date}})",
+      "compare_delta_create": "Δ Creati",
+      "compare_delta_update": "Δ Aggiornati",
+      "compare_delta_deactivate": "Δ Disattivati",
+      "compare_newly_created_one": "Nuovo ingresso ({{count}})",
+      "compare_newly_created_other": "Nuovi ingressi ({{count}})",
+      "compare_newly_deactivated_one": "Nuova disattivazione ({{count}})",
+      "compare_newly_deactivated_other": "Nuove disattivazioni ({{count}})",
+      "compare_repeat_updates_one": "Cambio ripetuto ({{count}})",
+      "compare_repeat_updates_other": "Cambi ripetuti ({{count}})",
+      "compare_repeat_updates_hint": "Utenti aggiornati anche nel run precedente: potrebbero essere errori di battitura nel file sorgente, investiga.",
+      "compare_recovered_one": "Utente rientrato ({{count}})",
+      "compare_recovered_other": "Utenti rientrati ({{count}})"
     }
   }
 }

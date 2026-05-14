@@ -2058,7 +2058,54 @@
       "run_summary": "Lus {{fetched}} · Créés {{created}} · Mis à jour {{updated}} · Désactivés {{orphaned}} · Erreurs {{errors}}",
       "toast": {
         "applied": "Sync terminée : {{created}} créés, {{updated}} mis à jour, {{orphaned}} désactivés."
-      }
+      },
+      "mapping_upload_hint": "Le mappage des en-têtes (auto-détection) est calculé après le premier upload. Vous pourrez le revoir et le modifier dans l'écran d'aperçu.",
+      "mapping_title": "Mappage des champs",
+      "mapping_hint": "Vérifiez que chaque champ Cadenza est lié au bon en-tête de fichier. Les lignes en état \"manuel\" ne seront pas modifiées par les futures auto-détections.",
+      "mapping_col": {
+        "target": "Champ Cadenza",
+        "header": "En-tête fichier",
+        "status": "État"
+      },
+      "mapping_unmapped": "— non mappé —",
+      "mapping_reset_auto": "Restaurer le mappage automatique",
+      "mapping_reload": "Recharger l'aperçu avec ce mappage",
+      "mapping_aria_select": "En-tête source pour le champ {{target}}",
+      "mapping_status": {
+        "auto": "Auto",
+        "manual": "Manuel",
+        "missing": "Manquant",
+        "optional": "Optionnel"
+      },
+      "target": {
+        "matricola": "Matricule",
+        "externalId": "ID externe",
+        "email": "Email",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "role": "Rôle",
+        "courseCode": "Code cours",
+        "courseName": "Nom cours",
+        "status": "Statut",
+        "contractType": "Type de contrat"
+      },
+      "compare_action": "Comparer avec précédent",
+      "compare_title": "Comparaison d'exécutions",
+      "compare_subtitle": "Différences par rapport à l'exécution \"success\" précédente du même fournisseur.",
+      "compare_empty": "Aucune exécution précédente disponible pour comparaison.",
+      "compare_header": "Comparaison de l'exécution #{{current}} avec #{{previous}} ({{date}})",
+      "compare_delta_create": "Δ Créés",
+      "compare_delta_update": "Δ Mis à jour",
+      "compare_delta_deactivate": "Δ Désactivés",
+      "compare_newly_created_one": "Nouvelle entrée ({{count}})",
+      "compare_newly_created_other": "Nouvelles entrées ({{count}})",
+      "compare_newly_deactivated_one": "Nouvelle désactivation ({{count}})",
+      "compare_newly_deactivated_other": "Nouvelles désactivations ({{count}})",
+      "compare_repeat_updates_one": "Changement répété ({{count}})",
+      "compare_repeat_updates_other": "Changements répétés ({{count}})",
+      "compare_repeat_updates_hint": "Utilisateurs mis à jour également lors de l'exécution précédente : pourrait s'agir d'erreurs de saisie dans le fichier source — à investiguer.",
+      "compare_recovered_one": "Utilisateur revenu ({{count}})",
+      "compare_recovered_other": "Utilisateurs revenus ({{count}})"
     }
   }
 }
