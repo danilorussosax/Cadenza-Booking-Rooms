@@ -8,7 +8,6 @@ import {
   Building2,
   CalendarPlus,
   ChevronDown,
-  ClipboardCheck,
   ClipboardList,
   Clock,
   GraduationCap,
@@ -20,9 +19,7 @@ import {
   Music4,
   Package,
   PackageOpen,
-  Scale,
   Server,
-  Tag,
   Users,
   UserRound,
 } from 'lucide-react';
@@ -83,21 +80,16 @@ const ADMIN_NAV: NavItem[] = [
   // approva le proposte annuali dei docenti, riassegna le aule e genera
   // le prenotazioni ricorrenti.
   { to: '/admin/monte-ore', labelKey: 'nav.admin_monte_ore', icon: Clock, roles: ['admin'] },
-  { to: '/admin/rules', labelKey: 'nav.admin_rules', icon: Scale, roles: ['admin'] },
-  // Tipi prenotazione (catalog admin) — sotto Regole, semanticamente è
-  // configurazione del catalogo che alimenta il dropdown del booking form.
+  // Macro pagina "Gestione prenotazioni" — raggruppa in 3 tab interni le voci
+  // precedentemente separate: Regole, Tipi prenotazione, Approvazione
+  // prenotazioni. Riduce il rumore in sidebar e mantiene coerenza con il
+  // pattern già usato per "Impostazioni Server".
+  // I vecchi URL /admin/rules, /admin/booking-types, /admin/approvals sono
+  // redirezionati ai rispettivi tab (vedi App.tsx).
   {
-    to: '/admin/booking-types',
-    labelKey: 'nav.admin_booking_types',
-    icon: Tag,
-    roles: ['admin'],
-  },
-  // "Approvazioni" sotto "Regole" (richiesto dall'utente):
-  // semanticamente l'approvazione è un'estensione delle regole.
-  {
-    to: '/admin/approvals',
-    labelKey: 'nav.admin_approvals',
-    icon: ClipboardCheck,
+    to: '/admin/bookings-management',
+    labelKey: 'nav.admin_bookings_management',
+    icon: ClipboardList,
     roles: ['admin'],
   },
   // "Registro attività" — promossa da sub-tab di /admin/audit-log a voce
@@ -496,7 +488,11 @@ function AdminNavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: ()
           key={item.to}
           item={item}
           onNavigate={onNavigate}
-          badge={item.to === '/admin/approvals' && pendingCount > 0 ? pendingCount : undefined}
+          badge={
+            item.to === '/admin/bookings-management' && pendingCount > 0
+              ? pendingCount
+              : undefined
+          }
         />
       ))}
     </ul>

@@ -35,6 +35,7 @@ const AdminAnalytics = lazy(() => import('@/pages/admin/Analytics'));
 const AdminInstruments = lazy(() => import('@/pages/admin/Instruments'));
 const AdminAnnouncements = lazy(() => import('@/pages/admin/Announcements'));
 const AdminApprovals = lazy(() => import('@/pages/admin/Approvals'));
+const AdminBookingsManagement = lazy(() => import('@/pages/admin/BookingsManagement'));
 const AdminBookings = lazy(() => import('@/pages/admin/Bookings'));
 const AdminMessagingSettings = lazy(() => import('@/pages/admin/MessagingSettings'));
 const AdminBackups = lazy(() => import('@/pages/admin/Backups'));
@@ -125,8 +126,21 @@ export default function App() {
               <Route path="monte-ore/settings" element={adminPage(<AdminMonteOreSettings />)} />
               <Route path="structure" element={adminPage(<AdminStructure />)} />
               <Route path="instruments" element={adminPage(<AdminInstruments />)} />
-              <Route path="rules" element={adminPage(<AdminRules />)} />
-              <Route path="booking-types" element={adminPage(<AdminBookingTypes />)} />
+              {/* Macro pagina "Gestione prenotazioni" — raggruppa Regole, Tipi
+                  e Approvazioni in 3 tab. I vecchi URL restano funzionanti
+                  via redirect ai tab corrispondenti per non rompere bookmark. */}
+              <Route
+                path="bookings-management"
+                element={adminPage(<AdminBookingsManagement />)}
+              />
+              <Route
+                path="rules"
+                element={<Navigate to="/admin/bookings-management?tab=rules" replace />}
+              />
+              <Route
+                path="booking-types"
+                element={<Navigate to="/admin/bookings-management?tab=booking-types" replace />}
+              />
               {/* /admin/loan-rules è stato unificato in /admin/instruments → tab "Regole prestito".
                   Manteniamo un redirect per gli URL salvati nei browser/bookmark. */}
               <Route path="loan-rules" element={<Navigate to="/admin/instruments" replace />} />
@@ -139,7 +153,10 @@ export default function App() {
               <Route path="activity-log" element={adminPage(<AdminActivityLog />)} />
               <Route path="analytics" element={adminPage(<AdminAnalytics />)} />
               <Route path="announcements" element={adminPage(<AdminAnnouncements />)} />
-              <Route path="approvals" element={adminPage(<AdminApprovals />)} />
+              <Route
+                path="approvals"
+                element={<Navigate to="/admin/bookings-management?tab=approvals" replace />}
+              />
               {/* /admin/bookings (bulk-cancel prenotazioni confermate): ora
                   vive in /admin/activity-log come pagina autonoma. Redirect
                   per chiunque abbia bookmarkato la vecchia rotta. */}
