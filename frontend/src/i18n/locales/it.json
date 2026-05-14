@@ -207,6 +207,18 @@
       "missing_token": "Token di accesso mancante. Riprova ad effettuare l'accesso.",
       "back_to_login": "Torna al login"
     },
+    "oauth_unavailable": {
+      "eyebrow": "Provider non disponibile",
+      "provider_google": "Google",
+      "provider_microsoft": "Microsoft",
+      "title_google": "Accesso con Google non disponibile",
+      "title_microsoft": "Accesso con Microsoft non disponibile",
+      "body_google": "L'amministrazione non ha ancora configurato il login con Google su questo conservatorio. Puoi comunque accedere con email e password, oppure registrarti per richiedere un nuovo account.",
+      "body_microsoft": "L'amministrazione non ha ancora configurato il login con Microsoft su questo conservatorio. Puoi comunque accedere con email e password, oppure registrarti per richiedere un nuovo account.",
+      "hint": "Se sei un amministratore: attiva il provider dalla pagina Impostazioni server → SSO. Se sei un utente, contatta la segreteria didattica per chiedere chiarimenti.",
+      "back_to_login": "Torna al login",
+      "go_home": "Vai alla home"
+    },
     "fields": {
       "first_name": "Nome",
       "last_name": "Cognome",

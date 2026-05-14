@@ -207,6 +207,18 @@
       "missing_token": "Jeton d'accès manquant. Veuillez réessayer de vous connecter.",
       "back_to_login": "Retour à la connexion"
     },
+    "oauth_unavailable": {
+      "eyebrow": "Fournisseur indisponible",
+      "provider_google": "Google",
+      "provider_microsoft": "Microsoft",
+      "title_google": "Connexion avec Google indisponible",
+      "title_microsoft": "Connexion avec Microsoft indisponible",
+      "body_google": "L'administration n'a pas encore configuré la connexion Google sur ce conservatoire. Vous pouvez vous connecter par e-mail et mot de passe, ou créer un compte.",
+      "body_microsoft": "L'administration n'a pas encore configuré la connexion Microsoft sur ce conservatoire. Vous pouvez vous connecter par e-mail et mot de passe, ou créer un compte.",
+      "hint": "Administrateur : activez le fournisseur depuis Paramètres serveur → SSO. Utilisateur : contactez le secrétariat académique.",
+      "back_to_login": "Retour à la connexion",
+      "go_home": "Aller à l'accueil"
+    },
     "fields": {
       "first_name": "Prénom",
       "last_name": "Nom",

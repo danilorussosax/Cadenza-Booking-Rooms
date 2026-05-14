@@ -849,11 +849,13 @@ router.get('/2fa/status', authenticate, (req, res) => {
 // =====================================================
 // OAuth Google
 // =====================================================
+// Se la strategia non è registrata (env mancanti E settings DB inattive),
+// rediriga a una pagina informativa nel frontend invece di rispondere JSON:
+// l'utente arriva qui da un click su <a href>, vuole vedere una pagina,
+// non un payload di errore.
 router.get('/google', (req, res, next) => {
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    return res
-      .status(503)
-      .json({ error: 'Login Google non configurato sul server', code: 'OAUTH_NOT_CONFIGURED' });
+  if (!passport._strategy || !passport._strategy('google')) {
+    return res.redirect(`${FRONTEND_URL}/auth/oauth-unavailable?provider=google`);
   }
   passport.authenticate('google', {
     scope: ['profile', 'email'],
@@ -902,11 +904,10 @@ router.get('/google/callback', oauthCallbackHandler('google'), async (req, res) 
 // =====================================================
 // OAuth Microsoft
 // =====================================================
+// Vedi commento su /google: redirect a pagina frontend invece di JSON 503.
 router.get('/microsoft', (req, res, next) => {
-  if (!process.env.MICROSOFT_CLIENT_ID) {
-    return res
-      .status(503)
-      .json({ error: 'Login Microsoft non configurato sul server', code: 'OAUTH_NOT_CONFIGURED' });
+  if (!passport._strategy || !passport._strategy('microsoft')) {
+    return res.redirect(`${FRONTEND_URL}/auth/oauth-unavailable?provider=microsoft`);
   }
   passport.authenticate('microsoft', { session: false })(req, res, next);
 });

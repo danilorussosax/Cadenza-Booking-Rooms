@@ -207,6 +207,18 @@
       "missing_token": "Missing access token. Please try signing in again.",
       "back_to_login": "Back to sign-in"
     },
+    "oauth_unavailable": {
+      "eyebrow": "Provider not available",
+      "provider_google": "Google",
+      "provider_microsoft": "Microsoft",
+      "title_google": "Sign-in with Google is not available",
+      "title_microsoft": "Sign-in with Microsoft is not available",
+      "body_google": "The administrator has not yet configured Google sign-in for this conservatory. You can still sign in with email and password, or register to request a new account.",
+      "body_microsoft": "The administrator has not yet configured Microsoft sign-in for this conservatory. You can still sign in with email and password, or register to request a new account.",
+      "hint": "If you are an administrator, enable the provider from Server Settings → SSO. If you are a user, please contact the academic office for clarification.",
+      "back_to_login": "Back to sign-in",
+      "go_home": "Go to home"
+    },
     "fields": {
       "first_name": "First name",
       "last_name": "Last name",

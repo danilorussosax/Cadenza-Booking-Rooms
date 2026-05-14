@@ -15,6 +15,7 @@ const Register = lazy(() => import('@/pages/auth/Register'));
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const OAuthCallback = lazy(() => import('@/pages/auth/OAuthCallback'));
+const OAuthUnavailable = lazy(() => import('@/pages/auth/OAuthUnavailable'));
 const CompleteProfile = lazy(() => import('@/pages/auth/CompleteProfile'));
 const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
 const Rooms = lazy(() => import('@/pages/Rooms'));
@@ -77,6 +78,11 @@ export default function App() {
         {/* OAuth callback */}
         <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/oauth-callback.html" element={<OAuthCallback />} />
+
+        {/* OAuth provider non configurato — landing accessibile sia da utente
+            anonimo (click su login Google/Microsoft) sia loggato (per qualche
+            motivo, es. bookmark): pubblica senza guard. */}
+        <Route path="/auth/oauth-unavailable" element={<OAuthUnavailable />} />
 
         {/* Public display (kiosk) — no auth required */}
         <Route path="/display" element={<Display />} />

@@ -207,6 +207,18 @@
       "missing_token": "Zugangstoken fehlt. Bitte versuchen Sie erneut, sich anzumelden.",
       "back_to_login": "Zurück zur Anmeldung"
     },
+    "oauth_unavailable": {
+      "eyebrow": "Anbieter nicht verfügbar",
+      "provider_google": "Google",
+      "provider_microsoft": "Microsoft",
+      "title_google": "Anmeldung mit Google nicht verfügbar",
+      "title_microsoft": "Anmeldung mit Microsoft nicht verfügbar",
+      "body_google": "Die Verwaltung hat die Anmeldung mit Google für dieses Konservatorium noch nicht aktiviert. Sie können sich mit E-Mail und Passwort anmelden oder ein neues Konto anfordern.",
+      "body_microsoft": "Die Verwaltung hat die Anmeldung mit Microsoft für dieses Konservatorium noch nicht aktiviert. Sie können sich mit E-Mail und Passwort anmelden oder ein neues Konto anfordern.",
+      "hint": "Als Administrator: aktivieren Sie den Anbieter unter Servereinstellungen → SSO. Als Benutzer wenden Sie sich an das Studiensekretariat.",
+      "back_to_login": "Zurück zur Anmeldung",
+      "go_home": "Zur Startseite"
+    },
     "fields": {
       "first_name": "Vorname",
       "last_name": "Nachname",
