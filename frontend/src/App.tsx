@@ -25,8 +25,6 @@ const Profile = lazy(() => import('@/pages/Profile'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminCourses = lazy(() => import('@/pages/admin/Courses'));
 const AdminStructure = lazy(() => import('@/pages/admin/Structure'));
-const AdminRules = lazy(() => import('@/pages/admin/Rules'));
-const AdminBookingTypes = lazy(() => import('@/pages/admin/BookingTypes'));
 const AdminDisplayKiosk = lazy(() => import('@/pages/admin/DisplayKiosk'));
 const AdminMail = lazy(() => import('@/pages/admin/MailSettings'));
 const AdminAuditLog = lazy(() => import('@/pages/admin/AuditLog'));
@@ -34,7 +32,6 @@ const AdminActivityLog = lazy(() => import('@/pages/admin/Activity'));
 const AdminAnalytics = lazy(() => import('@/pages/admin/Analytics'));
 const AdminInstruments = lazy(() => import('@/pages/admin/Instruments'));
 const AdminAnnouncements = lazy(() => import('@/pages/admin/Announcements'));
-const AdminApprovals = lazy(() => import('@/pages/admin/Approvals'));
 const AdminBookingsManagement = lazy(() => import('@/pages/admin/BookingsManagement'));
 const AdminBookings = lazy(() => import('@/pages/admin/Bookings'));
 const AdminMessagingSettings = lazy(() => import('@/pages/admin/MessagingSettings'));
@@ -129,10 +126,7 @@ export default function App() {
               {/* Macro pagina "Gestione prenotazioni" — raggruppa Regole, Tipi
                   e Approvazioni in 3 tab. I vecchi URL restano funzionanti
                   via redirect ai tab corrispondenti per non rompere bookmark. */}
-              <Route
-                path="bookings-management"
-                element={adminPage(<AdminBookingsManagement />)}
-              />
+              <Route path="bookings-management" element={adminPage(<AdminBookingsManagement />)} />
               <Route
                 path="rules"
                 element={<Navigate to="/admin/bookings-management?tab=rules" replace />}
