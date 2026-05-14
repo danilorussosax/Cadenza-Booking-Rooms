@@ -60,7 +60,7 @@ function cellLabel(b: PublicBooking): string {
   }
   // Riusa il displayName che il backend ha già normalizzato per privacy
   // ("Prof. {Cognome}" per docenti, ruolo per gli altri).
-  return b.bookedBy?.displayName ?? b.type ?? 'Prenotato';
+  return b.bookedBy?.displayName ?? b.type;
 }
 
 function buildBookingCells(room: PublicRoom, slotCount: number): BookingCell[] {
@@ -199,7 +199,7 @@ export function DailyRoomTimetable({ building, showHeader = true }: Props) {
                               colSpan={block.span}
                               className={cn(
                                 'border-b border-r border-l p-1 align-middle text-center text-xs font-medium leading-tight',
-                                TYPE_CLASSES[block.booking.type] ?? TYPE_CLASSES.altro,
+                                TYPE_CLASSES[block.booking.type],
                               )}
                               title={block.label}
                             >

@@ -74,7 +74,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
       monteOreAdminApi.activateAcademicYearForTeachers(year, active),
     onSuccess: (res, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
+      void queryClient.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
       if (vars.active) {
         toast.success(`AA ${vars.year} attivato per i docenti`);
       } else {

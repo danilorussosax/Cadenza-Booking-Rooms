@@ -657,7 +657,7 @@ export const monteOreAdminApi = {
     const data: unknown = text ? safeJsonParse(text) : null;
     if (!res.ok) {
       const payload =
-        (data && typeof data === 'object' ? (data as { error?: string; code?: string }) : {}) ?? {};
+        data && typeof data === 'object' ? (data as { error?: string; code?: string }) : {};
       throw new HttpError(res.status, {
         error: payload.error ?? `Errore HTTP ${res.status}`,
         code: payload.code,

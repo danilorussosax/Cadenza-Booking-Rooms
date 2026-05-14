@@ -172,7 +172,9 @@ export function ImportExcelDialog({ open, onClose, academicYear }: Props) {
   const onDrop = (e: DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const f = e.dataTransfer.files?.[0] ?? null;
+    // FileList.item() ritorna File | null in modo esplicito: evita di
+    // mentire al type-checker su files[0] quando il drop è vuoto.
+    const f = e.dataTransfer.files.item(0);
     pickFile(f);
   };
 

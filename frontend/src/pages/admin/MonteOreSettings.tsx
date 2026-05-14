@@ -377,7 +377,7 @@ function SuspensionForm({
     name: existing?.name ?? '',
     dateFrom: existing?.dateFrom ?? '',
     dateTo: existing?.dateTo ?? '',
-    kind: (existing?.kind ?? 'partial'),
+    kind: existing?.kind ?? 'partial',
     notes: existing?.notes ?? '',
     // applyToAllBookings ha senso solo in creazione: in edit non lo
     // proponiamo perché toccherebbe anche la BookingRuleException linkata
@@ -404,14 +404,16 @@ function SuspensionForm({
   });
 
   const updateMutation = useMutation({
-    mutationFn: () =>
-      monteOreAdminApi.updateSuspension(existing!.id, {
+    mutationFn: () => {
+      if (!existing) throw new Error('Sospensione non trovata');
+      return monteOreAdminApi.updateSuspension(existing.id, {
         name: form.name,
         dateFrom: form.dateFrom,
         dateTo: form.dateTo,
         kind: form.kind,
         notes: form.notes || null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success('Sospensione aggiornata');
       void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
