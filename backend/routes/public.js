@@ -4,6 +4,8 @@ const express = require('express');
 const { Op } = require('sequelize');
 const dayjs = require('dayjs');
 const isoWeek = require('dayjs/plugin/isoWeek');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const {
   Booking,
   Room,
@@ -28,6 +30,13 @@ function bookedByLabel(user) {
 }
 
 dayjs.extend(isoWeek);
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Widget pubblici (display kiosk + landing istituto): le fasce orarie
+// del giorno e l'identificazione del "prossimo concerto oggi" devono
+// essere in ora italiana, non nel TZ del processo Node.
+const PUBLIC_TZ = 'Europe/Rome';
 
 const router = express.Router();
 
@@ -389,11 +398,12 @@ router.get('/stats', async (req, res) => {
     .map(([type, count]) => ({ type, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Hour-by-hour booking count today (07-23)
+  // Hour-by-hour booking count today (07-23) — fasce orarie in ora italiana
+  // anche se il processo Node gira in UTC (container/CI/VPS managed).
   const buckets = new Array(24).fill(0);
   for (const bk of todayBookings) {
-    const sh = Math.max(0, new Date(bk.startTime).getHours());
-    const eh = Math.min(24, new Date(bk.endTime).getHours() + 1);
+    const sh = Math.max(0, dayjs(bk.startTime).tz(PUBLIC_TZ).hour());
+    const eh = Math.min(24, dayjs(bk.endTime).tz(PUBLIC_TZ).hour() + 1);
     for (let h = sh; h < eh; h++) buckets[h] += 1;
   }
   const bookingsByHour = buckets

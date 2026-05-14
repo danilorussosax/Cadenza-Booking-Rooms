@@ -29,6 +29,8 @@
 
 const dayjs = require('dayjs');
 const isoWeek = require('dayjs/plugin/isoWeek');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const { Op } = require('sequelize');
 const {
   sequelize,
@@ -43,11 +45,18 @@ const { validateBooking } = require('./bookingValidator');
 const { withTransaction } = require('../lib/withTransaction');
 
 dayjs.extend(isoWeek);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-// Helper: combina YYYY-MM-DD + HH:MM → Date locale
+// TZ istituzionale. Le date scheduli sono in YYYY-MM-DD (Europe/Rome)
+// e le finestre orarie HH:MM sono ora locale italiana: senza .tz()
+// esplicito un VPS UTC produrrebbe Date sfasate di 1-2h (CET/CEST).
+const DEFAULT_TZ = 'Europe/Rome';
+
+// Helper: combina YYYY-MM-DD + HH:MM → Date in Europe/Rome (UTC istante).
 function combine(dateOnly, hhmm) {
-  const [h, m] = String(hhmm).split(':').map(Number);
-  return dayjs(dateOnly).hour(h).minute(m).second(0).millisecond(0).toDate();
+  const day = dayjs(dateOnly).format('YYYY-MM-DD');
+  return dayjs.tz(`${day} ${hhmm}`, DEFAULT_TZ).toDate();
 }
 
 /**

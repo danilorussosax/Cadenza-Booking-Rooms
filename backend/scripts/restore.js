@@ -23,6 +23,16 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const { spawn } = require('child_process');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Timestamp filename pre-restore in Europe/Rome (allineato all'orario
+// locale dell'admin che esegue il restore).
+const TS_TZ = 'Europe/Rome';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -37,17 +47,7 @@ function spawnPromise(cmd, args, opts = {}) {
 }
 
 function ts() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return (
-    d.getFullYear() +
-    pad(d.getMonth() + 1) +
-    pad(d.getDate()) +
-    '-' +
-    pad(d.getHours()) +
-    pad(d.getMinutes()) +
-    pad(d.getSeconds())
-  );
+  return dayjs().tz(TS_TZ).format('YYYYMMDD-HHmmss');
 }
 
 async function confirm(msg) {

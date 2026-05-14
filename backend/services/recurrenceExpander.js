@@ -23,6 +23,16 @@
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Le ore del template (es. "10:00") sono ORA LOCALE istituzionale: senza
+// .tz('Europe/Rome') esplicito, su un VPS con TZ=UTC `t0.hour()` ritorna
+// 10 UTC (= 12 CEST) e la ricorrenza nasce con orari sfasati di 1-2h.
+const DEFAULT_TZ = 'Europe/Rome';
 
 const MAX_OCCURRENCES = 52;
 const MAX_RANGE_DAYS = 366;
@@ -175,8 +185,12 @@ function expandDates(rule) {
  */
 function expandOccurrences(rule, templateStartTime, templateEndTime) {
   const dates = expandDates(rule);
-  const t0 = dayjs(templateStartTime);
-  const t1 = dayjs(templateEndTime);
+  // Leggiamo ore/minuti del template in TZ istituzionale: il template
+  // proviene dal Booking (timestamp UTC) ma l'ora "vista" dall'utente è
+  // quella italiana. Senza .tz() su VPS UTC l'utente che ha prenotato
+  // 10:00 vedrebbe la ricorrenza nascere alle 08:00 d'estate.
+  const t0 = dayjs(templateStartTime).tz(DEFAULT_TZ);
+  const t1 = dayjs(templateEndTime).tz(DEFAULT_TZ);
   if (!t0.isValid() || !t1.isValid()) {
     throw new RecurrenceError(
       'templateStartTime/templateEndTime non validi',
@@ -197,13 +211,20 @@ function expandOccurrences(rule, templateStartTime, templateEndTime) {
   const crossesMidnight = t1.isAfter(t0.endOf('day'));
 
   return dates.map((iso) => {
-    const d = dayjs(iso);
-    const startTime = d.hour(startHour).minute(startMinute).second(0).millisecond(0).toDate();
-    let endDay = d;
-    if (crossesMidnight) endDay = endDay.add(1, 'day');
-    const endTime = endDay.hour(endHour).minute(endMinute).second(0).millisecond(0).toDate();
+    // Ricostruiamo la data del Booking come HH:MM in Europe/Rome del
+    // giorno-occorrenza. dayjs.tz risolve correttamente l'offset
+    // (CET/CEST) e produce un istante UTC stabile per il DB.
+    const startTime = dayjs
+      .tz(`${iso} ${pad2(startHour)}:${pad2(startMinute)}`, DEFAULT_TZ)
+      .toDate();
+    const endIso = crossesMidnight ? dayjs(iso).add(1, 'day').format('YYYY-MM-DD') : iso;
+    const endTime = dayjs.tz(`${endIso} ${pad2(endHour)}:${pad2(endMinute)}`, DEFAULT_TZ).toDate();
     return { startTime, endTime };
   });
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
 }
 
 module.exports = {

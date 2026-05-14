@@ -17,6 +17,13 @@
 
 const dayjs = require('dayjs');
 require('dayjs/locale/it');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Email user-facing: ora italiana indipendente dal TZ del processo.
+const DEFAULT_TZ = 'Europe/Rome';
 dayjs.locale('it');
 const { render, renderText } = require('./templateRenderer');
 const { getTemplate, buildBookingContext: _unused } = require('./emailService');
@@ -52,7 +59,10 @@ async function buildLoanContext({ user, loan }) {
   const instrument = loan.instrument || {};
   const start = dayjs(loan.fromDate);
   const end = dayjs(loan.toDate);
-  const daysToReturn = Math.max(0, end.diff(dayjs().startOf('day'), 'day'));
+  // "Oggi" calcolato in Europe/Rome: vicino a mezzanotte italiana su VPS
+  // UTC il daysToReturn potrebbe essere off-by-one per i prestiti che
+  // scadono oggi.
+  const daysToReturn = Math.max(0, end.diff(dayjs().tz(DEFAULT_TZ).startOf('day'), 'day'));
 
   return {
     user: {
@@ -83,7 +93,7 @@ async function buildLoanContext({ user, loan }) {
       copyright:
         inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
     },
-    now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
+    now: { dateTime: dayjs().tz(DEFAULT_TZ).format('DD MMM YYYY · HH:mm') },
   };
 }
 

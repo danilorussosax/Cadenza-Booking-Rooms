@@ -21,6 +21,13 @@ const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// "03:00 locali" = ora italiana, indipendente dal TZ del processo.
+const SCHEDULER_TZ = 'Europe/Rome';
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
 const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });
@@ -37,7 +44,8 @@ let timer = null;
 
 function nextRunDelayMs() {
   const now = dayjs();
-  let next = now.startOf('day').add(TICK_HOUR, 'hour');
+  // 03:00 in Europe/Rome → riconvertito in delta ms UTC per setTimeout.
+  let next = now.tz(SCHEDULER_TZ).startOf('day').add(TICK_HOUR, 'hour');
   if (!next.isAfter(now)) {
     next = next.add(1, 'day');
   }

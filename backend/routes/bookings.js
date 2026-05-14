@@ -4,6 +4,18 @@ const express = require('express');
 const { Op, Transaction } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+const isoWeek = require('dayjs/plugin/isoWeek');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(isoWeek);
+
+// I conteggi /usage/me e la disponibilità /availability ragionano su
+// "giorno solare" e "settimana ISO" istituzionali (Europe/Rome). Su un
+// VPS UTC vicino a mezzanotte italiana il dayStart può cadere il giorno
+// prima/dopo, falsando i totali ora.
+const DEFAULT_TZ = 'Europe/Rome';
 const ics = require('ics');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -1133,10 +1145,11 @@ router.post(
 router.get('/usage/me', authenticate, async (req, res, next) => {
   try {
     const rule = await BookingRule.findOne({ where: { role: req.user.role } });
-    const weekStart = dayjs().startOf('isoWeek').toDate();
-    const weekEnd = dayjs().endOf('isoWeek').toDate();
-    const dayStart = dayjs().startOf('day').toDate();
-    const dayEnd = dayjs().endOf('day').toDate();
+    const nowLocal = dayjs().tz(DEFAULT_TZ);
+    const weekStart = nowLocal.startOf('isoWeek').toDate();
+    const weekEnd = nowLocal.endOf('isoWeek').toDate();
+    const dayStart = nowLocal.startOf('day').toDate();
+    const dayEnd = nowLocal.endOf('day').toDate();
 
     // P1-3: caricamento booking con `attributes` selettivi (riduce payload
     // ~80% rispetto al fetch dei record completi) + `roomId` invece di
@@ -1321,8 +1334,13 @@ router.get('/availability/:roomId', authenticate, async (req, res) => {
   if (!Number.isInteger(roomId)) {
     return res.status(400).json({ error: 'roomId non valido' });
   }
-  const parsed = req.query.date ? dayjs(req.query.date) : dayjs();
-  const date = parsed.isValid() ? parsed : dayjs();
+  // Il parametro `date` è YYYY-MM-DD (calendario italiano). Il filtro
+  // [dayStart, dayEnd] deve essere il giorno solare Europe/Rome:
+  // un concerto delle 22:30 italiane = 20:30 UTC, su VPS UTC sarebbe
+  // fuori da [00:00 UTC, 23:59 UTC] di "ieri".
+  const dateStr = req.query.date ? String(req.query.date) : null;
+  const parsed = dateStr ? dayjs.tz(dateStr, DEFAULT_TZ) : dayjs().tz(DEFAULT_TZ);
+  const date = parsed.isValid() ? parsed : dayjs().tz(DEFAULT_TZ);
   const dayStart = date.startOf('day').toDate();
   const dayEnd = date.endOf('day').toDate();
 

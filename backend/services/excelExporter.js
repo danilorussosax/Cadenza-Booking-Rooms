@@ -31,7 +31,17 @@
 const fs = require('fs');
 const path = require('path');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const logger = require('../lib/logger').child({ scope: 'excelExport' });
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// L'export Excel filtra per "giorno solare" italiano e indicizza
+// gli slot 30-min su ora locale. Senza .tz() su VPS UTC il "today"
+// è sfasato vicino a mezzanotte e gli indici slot vanno fuori riga.
+const REPORT_TZ = 'Europe/Rome';
 
 // Lazy-load di exceljs: la libreria pesa ~20 MB unpacked. Se manca sul VPS
 // (npm ci non eseguito), il backend deve partire lo stesso finché il modulo
@@ -221,7 +231,9 @@ function softBorder(argb) {
  *   - header sticky (freeze pane su riga 1 + colonne A-B)
  */
 function buildPerBuildingGrids(workbook, buildings) {
-  const today = dayjs().startOf('day');
+  // "Oggi" istituzionale: vicino a mezzanotte su VPS UTC il filtro
+  // del foglio "Giornata" prenderebbe ieri/domani.
+  const today = dayjs().tz(REPORT_TZ).startOf('day');
   const slots = buildDaySlots();
   const FIRST_SLOT_COL = 3; // A=Piano, B=Aula, C=primo slot
   const usedNames = new Set();
@@ -285,12 +297,15 @@ function buildPerBuildingGrids(workbook, buildings) {
       const rowIdx = roomToRowIndex.get(room.id);
       if (!rowIdx) continue;
       const bookings = (room.bookings || [])
-        .filter((b) => dayjs(b.startTime).isSame(today, 'day'))
+        // "Stesso giorno" letto in ora italiana: un concerto delle 23:00
+        // CEST = 21:00 UTC, su VPS UTC `isSame(today, 'day')` confronta
+        // 21:00 UTC con 00:00 UTC del giorno scelto → mismatch.
+        .filter((b) => dayjs(b.startTime).tz(REPORT_TZ).isSame(today, 'day'))
         .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
       for (const b of bookings) {
-        const start = dayjs(b.startTime);
-        const end = dayjs(b.endTime);
+        const start = dayjs(b.startTime).tz(REPORT_TZ);
+        const end = dayjs(b.endTime).tz(REPORT_TZ);
         let startSlot = (start.hour() - DAY_HOUR_START) * 2 + (start.minute() >= 30 ? 1 : 0);
         let endSlot = (end.hour() - DAY_HOUR_START) * 2 + (end.minute() > 0 ? 1 : 0);
         // Clamp dentro la finestra visibile
@@ -380,10 +395,12 @@ async function buildWorkbook() {
   const { Booking, Room, Building, User, ConcertInfo } = models;
   const { Op } = require('sequelize');
   const lookaheadDays = getLookaheadDays();
-  const todayStart = dayjs().startOf('day').toDate();
-  const todayEnd = dayjs().endOf('day').toDate();
+  // Finestra "oggi → +N giorni" calcolata in Europe/Rome così l'export
+  // notturno italiano non scivola al giorno precedente UTC.
+  const todayStart = dayjs().tz(REPORT_TZ).startOf('day').toDate();
+  const todayEnd = dayjs().tz(REPORT_TZ).endOf('day').toDate();
   const fromAll = todayStart;
-  const toAll = dayjs().add(lookaheadDays, 'day').endOf('day').toDate();
+  const toAll = dayjs().tz(REPORT_TZ).add(lookaheadDays, 'day').endOf('day').toDate();
 
   // Foglio "Prenotazioni": lista flat finestra lookahead
   const bookings = await Booking.findAll({

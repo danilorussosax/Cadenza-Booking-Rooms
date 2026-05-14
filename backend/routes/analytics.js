@@ -71,10 +71,14 @@ const ROOM_MINUTES_DIFF_LITERAL = literal(
 async function gatherAnalytics(range) {
   // 1) Heatmap 7×24 — count di booking confermati / fascia (giorno settimana × ora di start).
   //    Postgres: EXTRACT(DOW) → 0=Sunday, 1=Monday, …, 6=Saturday
+  //    AT TIME ZONE 'Europe/Rome' fa l'extract in ora italiana: un concerto
+  //    lunedì 00:30 (= dom 22:30 UTC) finisce sulla riga lunedì-00 invece
+  //    che domenica-22. Senza questo, su VPS UTC la heatmap è sfasata di
+  //    1-2h e occasionalmente sbaglia anche il giorno.
   const heatmapRows = await Booking.findAll({
     attributes: [
-      [literal(`EXTRACT(DOW FROM "startTime")::int`), 'dow'],
-      [literal(`EXTRACT(HOUR FROM "startTime")::int`), 'hour'],
+      [literal(`EXTRACT(DOW FROM "startTime" AT TIME ZONE 'Europe/Rome')::int`), 'dow'],
+      [literal(`EXTRACT(HOUR FROM "startTime" AT TIME ZONE 'Europe/Rome')::int`), 'hour'],
       [fn('COUNT', col('id')), 'count'],
       [fn('SUM', MINUTES_DIFF_LITERAL), 'minutes'],
     ],
@@ -194,9 +198,13 @@ async function gatherAnalytics(range) {
       : 0;
 
   // 5) Trend ultimi 8 settimane indipendentemente dal range (vista "memoria storica")
+  //    date_trunc('week') con AT TIME ZONE 'Europe/Rome': la "settimana"
+  //    inizia il lunedì italiano. Senza la conversione, su VPS UTC i
+  //    booking notturni di domenica italiana finiscono nella settimana
+  //    precedente UTC, falsando il trend.
   const trendRows = await sequelize.query(
     `SELECT
-         date_trunc('week', "startTime") AS week_start,
+         date_trunc('week', "startTime" AT TIME ZONE 'Europe/Rome') AS week_start,
          COUNT(*)::int AS count,
          (SUM(EXTRACT(EPOCH FROM ("endTime" - "startTime")) / 60))::float AS minutes
        FROM bookings

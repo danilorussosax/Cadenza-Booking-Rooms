@@ -29,6 +29,16 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Nomi-file backup in Europe/Rome: i tarball devono allinearsi all'orario
+// locale italiano mostrato dall'admin in UI/log, non al TZ del processo.
+const TS_TZ = 'Europe/Rome';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -53,16 +63,7 @@ function pad(n) {
 }
 
 function timestamp(date = new Date()) {
-  return (
-    date.getFullYear() +
-    '-' +
-    pad(date.getMonth() + 1) +
-    '-' +
-    pad(date.getDate()) +
-    '-' +
-    pad(date.getHours()) +
-    pad(date.getMinutes())
-  );
+  return dayjs(date).tz(TS_TZ).format('YYYY-MM-DD-HHmm');
 }
 
 function ensureDir(p) {

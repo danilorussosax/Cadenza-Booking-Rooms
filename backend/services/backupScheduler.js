@@ -27,6 +27,15 @@
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// L'orario configurato (default 02:30) è inteso come ora italiana. Su un
+// VPS UTC il tick partirebbe alle 02:30 UTC = 04:30 CEST, un'ora prima
+// del previsto.
+const SCHEDULER_TZ = 'Europe/Rome';
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,
@@ -135,7 +144,13 @@ function getCachedConfig() {
 function nextRunDelayMs() {
   const cfg = getCachedConfig();
   const now = dayjs();
-  let next = now.startOf('day').hour(cfg.scheduledHour).minute(cfg.scheduledMinute);
+  // Calcoliamo il prossimo HH:MM in TZ istituzionale, poi torniamo al
+  // sistema in millisecondi UTC per setTimeout.
+  let next = now
+    .tz(SCHEDULER_TZ)
+    .startOf('day')
+    .hour(cfg.scheduledHour)
+    .minute(cfg.scheduledMinute);
   if (!next.isAfter(now)) next = next.add(1, 'day');
   return next.diff(now);
 }

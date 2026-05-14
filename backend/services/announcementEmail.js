@@ -17,6 +17,14 @@
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// L'email mostra date/orari all'utente: ora italiana indipendentemente
+// dal TZ del processo (container/UTC). Allinea pattern di emailService.
+const DEFAULT_TZ = 'Europe/Rome';
 const { Op } = require('sequelize');
 const { User, Announcement, Institute } = require('../models');
 const { audienceMatchesUserWhere } = require('./audienceMatcher');
@@ -101,9 +109,9 @@ async function buildAnnouncementContext({ user, announcement }) {
     announcement: {
       title: announcement.title,
       body: announcement.body,
-      publishedAtLong: dayjs(announcement.publishedAt).format('dddd D MMMM YYYY'),
+      publishedAtLong: dayjs(announcement.publishedAt).tz(DEFAULT_TZ).format('dddd D MMMM YYYY'),
       expiresAtLong: announcement.expiresAt
-        ? dayjs(announcement.expiresAt).format('dddd D MMMM YYYY')
+        ? dayjs(announcement.expiresAt).tz(DEFAULT_TZ).format('dddd D MMMM YYYY')
         : '',
     },
     institute: {
@@ -111,7 +119,7 @@ async function buildAnnouncementContext({ user, announcement }) {
       copyright:
         inst?.copyright || 'Cadenza · Per disattivare le notifiche avvisi vai sul tuo profilo.',
     },
-    now: { dateTime: dayjs().format('DD MMM YYYY · HH:mm') },
+    now: { dateTime: dayjs().tz(DEFAULT_TZ).format('DD MMM YYYY · HH:mm') },
   };
 }
 

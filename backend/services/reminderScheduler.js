@@ -18,6 +18,16 @@
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// I prestiti hanno `toDate` (DATEONLY) e la nozione di "oggi" è giornata
+// solare italiana, non UTC. Su un VPS UTC alle 01:30 italiane (= 23:30
+// UTC del giorno prima) dayjs().startOf('day') ritornerebbe ieri →
+// reminder/overdue calcolati su un giorno sbagliato.
+const DEFAULT_TZ = 'Europe/Rome';
 const { Op } = require('sequelize');
 const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('../models');
 // Riferimento via oggetto-modulo (non destrutturato) per consentire ai test
@@ -79,7 +89,10 @@ async function tick() {
 // =========================================================
 async function tickLoans() {
   if (!(await emailService.emailEnabled())) return;
-  const today = dayjs().startOf('day');
+  // "Oggi" istituzionale Europe/Rome: indipendente dal TZ del processo
+  // così il tick non parte un giorno fuori vicino a mezzanotte italiana
+  // su un VPS UTC.
+  const today = dayjs().tz(DEFAULT_TZ).startOf('day');
   const minRemind = today.add(1, 'day').format('YYYY-MM-DD'); // domani
   const maxRemind = today.add(LOAN_REMINDER_DAYS_AHEAD, 'day').format('YYYY-MM-DD');
   const todayStr = today.format('YYYY-MM-DD');
