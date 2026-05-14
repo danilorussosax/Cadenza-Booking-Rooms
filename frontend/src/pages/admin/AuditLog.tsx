@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, ClipboardList, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { auditLogApi, type AuditLogListParams } from '@/api/auditLog';
 import { dayjs } from '@/lib/date';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,55 +20,29 @@ import {
 import { Label } from '@/components/ui/label';
 import type { AuditLogEntry } from '@/types';
 
-const ACTION_VARIANT: Record<
-  AuditLogEntry['action'],
-  'success' | 'secondary' | 'muted' | 'default'
-> = {
+const PAGE_SIZE = 50;
+
+const ACTION_VARIANT: Record<AuditLogEntry['action'], 'success' | 'secondary' | 'destructive'> = {
   POST: 'success',
   PUT: 'secondary',
   PATCH: 'secondary',
-  DELETE: 'default',
+  DELETE: 'destructive',
 };
 
-const PAGE_SIZE = 50;
-
-// =============================================================================
-// /admin/audit-log — Registro Log: tabella append-only delle azioni
-// amministrative su utenti/struttura/configurazioni. Filtri + paginazione.
-//
-// La gestione delle prenotazioni confermate (bulk-cancel) è stata estratta
-// nella pagina indipendente /admin/activity-log ("Registro attività"),
-// linkata in sidebar dopo "Approvazioni prenotazioni".
-// =============================================================================
-export default function AdminAuditLog() {
-  const { t } = useTranslation();
-  return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="space-y-1.5">
-        <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
-          <ClipboardList className="h-6 w-6 text-violet-600 dark:text-violet-400" />
-          {t('admin.audit_log.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('admin.audit_log.subtitle')}</p>
-      </header>
-      <AuditLogTab />
-    </div>
-  );
-}
-
-// Logica audit log estratta come componente per essere usata come tab.
-function AuditLogTab() {
+// Contenuto della pagina senza header: filtri + tabella + paginazione.
+// Riutilizzato come tab dentro /admin/server-settings.
+export function AuditLogPanel() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<AuditLogListParams>({});
-  const [draftFilters, setDraftFilters] = useState<AuditLogListParams>({});
+  const [draft, setDraft] = useState<AuditLogListParams>({});
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const query = useQuery({
     queryKey: ['admin', 'audit-log', page, filters],
     queryFn: () => auditLogApi.list({ ...filters, page, pageSize: PAGE_SIZE }),
     staleTime: 15_000,
-    placeholderData: (prev) => prev, // mantiene la lista durante refetch
+    placeholderData: (prev) => prev,
   });
 
   const targetTypesQuery = useQuery({
@@ -79,15 +52,22 @@ function AuditLogTab() {
   });
 
   const totalPages = query.data?.totalPages ?? 1;
+  const total = query.data?.total ?? 0;
+  const entries = query.data?.entries ?? [];
+
+  const hasActiveFilters = useMemo(
+    () => Object.values(filters).some((v) => v !== undefined && v !== '' && v !== null),
+    [filters],
+  );
 
   const applyFilters = () => {
-    setFilters(draftFilters);
+    setFilters(draft);
     setPage(1);
   };
 
   const resetFilters = () => {
+    setDraft({});
     setFilters({});
-    setDraftFilters({});
     setPage(1);
   };
 
@@ -100,14 +80,8 @@ function AuditLogTab() {
     });
   };
 
-  const hasActiveFilters = useMemo(
-    () => Object.values(filters).some((v) => v !== undefined && v !== '' && v !== null),
-    [filters],
-  );
-
   return (
     <div className="space-y-6">
-      {/* Filtri */}
       <Card>
         <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <div>
@@ -115,9 +89,9 @@ function AuditLogTab() {
               {t('admin.audit_log.filter.action')}
             </Label>
             <Select
-              value={draftFilters.action ?? 'all'}
+              value={draft.action ?? 'all'}
               onValueChange={(v) => {
-                setDraftFilters((d) => ({
+                setDraft((d) => ({
                   ...d,
                   action: v === 'all' ? undefined : (v as AuditLogEntry['action']),
                 }));
@@ -141,12 +115,9 @@ function AuditLogTab() {
               {t('admin.audit_log.filter.target_type')}
             </Label>
             <Select
-              value={draftFilters.targetType ?? 'all'}
+              value={draft.targetType ?? 'all'}
               onValueChange={(v) => {
-                setDraftFilters((d) => ({
-                  ...d,
-                  targetType: v === 'all' ? undefined : v,
-                }));
+                setDraft((d) => ({ ...d, targetType: v === 'all' ? undefined : v }));
               }}
             >
               <SelectTrigger>
@@ -171,9 +142,9 @@ function AuditLogTab() {
               type="number"
               min={1}
               placeholder={t('admin.audit_log.filter.actor_id_placeholder')}
-              value={draftFilters.actorId ?? ''}
+              value={draft.actorId ?? ''}
               onChange={(e) => {
-                setDraftFilters((d) => ({
+                setDraft((d) => ({
                   ...d,
                   actorId: e.target.value ? Number(e.target.value) : undefined,
                 }));
@@ -187,9 +158,9 @@ function AuditLogTab() {
             </Label>
             <Input
               type="datetime-local"
-              value={draftFilters.dateFrom ?? ''}
+              value={draft.dateFrom ?? ''}
               onChange={(e) => {
-                setDraftFilters((d) => ({ ...d, dateFrom: e.target.value || undefined }));
+                setDraft((d) => ({ ...d, dateFrom: e.target.value || undefined }));
               }}
             />
           </div>
@@ -200,9 +171,9 @@ function AuditLogTab() {
             </Label>
             <Input
               type="datetime-local"
-              value={draftFilters.dateTo ?? ''}
+              value={draft.dateTo ?? ''}
               onChange={(e) => {
-                setDraftFilters((d) => ({ ...d, dateTo: e.target.value || undefined }));
+                setDraft((d) => ({ ...d, dateTo: e.target.value || undefined }));
               }}
             />
           </div>
@@ -214,9 +185,9 @@ function AuditLogTab() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                value={draftFilters.q ?? ''}
+                value={draft.q ?? ''}
                 onChange={(e) => {
-                  setDraftFilters((d) => ({ ...d, q: e.target.value || undefined }));
+                  setDraft((d) => ({ ...d, q: e.target.value || undefined }));
                 }}
                 placeholder={t('admin.audit_log.filter.path_placeholder')}
                 className="pl-9"
@@ -237,7 +208,6 @@ function AuditLogTab() {
         </CardContent>
       </Card>
 
-      {/* Tabella */}
       {query.isLoading && (
         <div className="space-y-2">
           {[0, 1, 2, 3].map((i) => (
@@ -246,7 +216,7 @@ function AuditLogTab() {
         </div>
       )}
 
-      {!query.isLoading && (query.data?.entries.length ?? 0) === 0 && (
+      {!query.isLoading && entries.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <ClipboardList className="h-10 w-10 text-muted-foreground" />
@@ -256,7 +226,7 @@ function AuditLogTab() {
         </Card>
       )}
 
-      {!query.isLoading && (query.data?.entries.length ?? 0) > 0 && (
+      {!query.isLoading && entries.length > 0 && (
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -273,7 +243,7 @@ function AuditLogTab() {
                 </tr>
               </thead>
               <tbody>
-                {query.data?.entries.map((e) => (
+                {entries.map((e) => (
                   <AuditRow
                     key={e.id}
                     entry={e}
@@ -289,14 +259,13 @@ function AuditLogTab() {
         </Card>
       )}
 
-      {/* Paginazione */}
-      {!query.isLoading && (query.data?.total ?? 0) > 0 && (
+      {!query.isLoading && total > 0 && (
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">
             {t('admin.audit_log.pagination_summary', {
               from: (page - 1) * PAGE_SIZE + 1,
-              to: Math.min(page * PAGE_SIZE, query.data?.total ?? 0),
-              total: query.data?.total,
+              to: Math.min(page * PAGE_SIZE, total),
+              total,
             })}
           </span>
           <div className="flex items-center gap-1">
@@ -334,6 +303,23 @@ function AuditLogTab() {
   );
 }
 
+// Pagina standalone /admin/audit-log: aggiunge l'header al pannello.
+export default function AdminAuditLog() {
+  const { t } = useTranslation();
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="space-y-1.5">
+        <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
+          <ClipboardList className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+          {t('admin.audit_log.title')}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t('admin.audit_log.subtitle')}</p>
+      </header>
+      <AuditLogPanel />
+    </div>
+  );
+}
+
 function AuditRow({
   entry,
   expanded,
@@ -348,6 +334,11 @@ function AuditRow({
     : entry.actorId != null
       ? `#${entry.actorId}`
       : '—';
+  const hasPayload =
+    entry.payload != null &&
+    typeof entry.payload === 'object' &&
+    Object.keys(entry.payload).length > 0;
+  const hasResponse = entry.response != null && Object.keys(entry.response).length > 0;
   return (
     <>
       <motion.tr
@@ -379,24 +370,15 @@ function AuditRow({
         <td className="px-4 py-3">
           <span className="truncate font-mono text-[11px]">{entry.path}</span>
         </td>
-        <td className="px-4 py-3 text-center">
-          <span
-            className={cn(
-              'tabular-nums font-mono text-xs',
-              entry.statusCode >= 400
-                ? 'text-destructive'
-                : 'text-emerald-700 dark:text-emerald-400',
-            )}
-          >
-            {entry.statusCode}
-          </span>
+        <td className="px-4 py-3 text-center font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
+          {entry.statusCode}
         </td>
       </motion.tr>
       {expanded && (
         <tr className="border-b bg-muted/20">
           <td colSpan={6} className="px-4 py-3">
             <div className="space-y-2 text-xs">
-              {entry.payload != null && Object.keys(entry.payload).length > 0 && (
+              {hasPayload && (
                 <div>
                   <span className="font-semibold uppercase tracking-wider text-muted-foreground">
                     payload
@@ -406,7 +388,7 @@ function AuditRow({
                   </pre>
                 </div>
               )}
-              {entry.response && Object.keys(entry.response).length > 0 && (
+              {hasResponse && (
                 <div>
                   <span className="font-semibold uppercase tracking-wider text-muted-foreground">
                     response
@@ -421,7 +403,7 @@ function AuditRow({
                   IP: <span className="font-mono">{entry.ip ?? '—'}</span>
                 </div>
                 <div>
-                  UA: <span className="font-mono truncate">{entry.userAgent ?? '—'}</span>
+                  UA: <span className="truncate font-mono">{entry.userAgent ?? '—'}</span>
                 </div>
               </div>
             </div>

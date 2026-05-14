@@ -23,7 +23,7 @@ import AdminMailOutbox from '@/pages/admin/MailOutbox';
 import AdminMessagingSettings from '@/pages/admin/MessagingSettings';
 import AdminDisplayKiosk from '@/pages/admin/DisplayKiosk';
 import AdminQrCodes from '@/pages/admin/QrCodes';
-import AdminAuditLog from '@/pages/admin/AuditLog';
+import { AuditLogPanel } from '@/pages/admin/AuditLog';
 import AdminBackups from '@/pages/admin/Backups';
 import AdminExcelExport from '@/pages/admin/ExcelExport';
 import AdminModules from '@/pages/admin/Modules';
@@ -164,7 +164,7 @@ const SERVER_MACROS: MacroDef[] = [
     icon: ClipboardList,
     iconColor: 'text-violet-600 dark:text-violet-400',
     iconBg: 'bg-violet-100 dark:bg-violet-500/15',
-    Component: AdminAuditLog,
+    Component: AuditLogPanel,
   },
   {
     value: 'modules',
