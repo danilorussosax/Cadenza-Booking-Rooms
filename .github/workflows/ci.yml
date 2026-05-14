@@ -30,7 +30,18 @@ jobs:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
 
   backend:
-    name: Backend · lint + test + coverage
+    # Matrice TZ: il sistema gira in produzione con TZ=Europe/Rome ma deve
+    # essere robusto anche su VPS managed / container UTC. La generazione
+    # ricorrenze Monte Ore, le finestre orarie delle exception, gli scheduler
+    # e le query analytics sono tutti TZ-sensitive: testarli su entrambi i
+    # fusi assicura che i fix dell'audit TZ (commit 4a0e905) non si rompano
+    # silenziosamente. Se UTC fallisce, è un bug reale anche in produzione
+    # quando si sposta hosting o si abilita un secondo cliente in container.
+    strategy:
+      fail-fast: false
+      matrix:
+        tz: [Europe/Rome, UTC]
+    name: "Backend · lint + test + coverage (TZ=${{ matrix.tz }})"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,9 +62,13 @@ jobs:
         run: npm run test:coverage
         env:
           NODE_ENV: test
+          TZ: ${{ matrix.tz }}
 
       - name: Upload coverage report
-        if: always()
+        # Carichiamo l'artifact solo dal job Europe/Rome per evitare collisioni
+        # (entrambi userebbero lo stesso nome `backend-coverage`). UTC viene
+        # eseguito comunque, ma il report di copertura è uno solo.
+        if: always() && matrix.tz == 'Europe/Rome'
         uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
