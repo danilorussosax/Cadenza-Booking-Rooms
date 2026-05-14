@@ -92,10 +92,10 @@ Le copertura sono rilevate da `c8` per il backend e dal coverage v8 di Vitest pe
 Backend:
 
 ```
-Statements   73.18 %     (soglia 72)
-Lines        74.45 %     (soglia 73)
-Functions    79.90 %     (soglia 78)
-Branches     61.71 %     (soglia 60)
+Statements   72.99 %     (soglia 72)
+Lines        74.25 %     (soglia 73)
+Functions    79.46 %     (soglia 78)
+Branches     61.50 %     (soglia 60)
 ```
 
 Frontend:
@@ -109,7 +109,9 @@ Branches     60.06 %     (soglia 50)
 
 Tutti e otto gli assi sono sopra soglia, con margini comodi. La copertura cresce per accrezione: ogni nuovo test alza il pavimento perché la soglia si autoaggiorna a "valore misurato meno un punto e mezzo". Questo evita regressioni silenziose.
 
-Alcuni file restano sotto al sessanta per cento sui rami: tipicamente sono gli handler di errori (foreign-key violation in cascata, validatori nested) o gli adapter esterni che richiederebbero fixture pesanti per essere triggerati. Per ognuno la copertura su statement e lines è comunque sopra il sessanta per cento: il percorso felice è testato, gli edge case di rottura del database lo sono meno.
+Alcuni file restano sotto al sessanta per cento sui rami: tipicamente sono gli handler di errori (foreign-key violation in cascata, validatori nested) o gli adapter esterni che richiederebbero fixture pesanti per essere triggerati. Per la maggior parte di questi file statement e lines restano comodamente sopra il sessanta per cento — il percorso felice è ben esercitato, sono gli edge case di rottura del database a essere meno coperti.
+
+Restano alcune eccezioni che scendono sotto soglia anche sugli assi principali e che vale la pena nominare: in `lib/` ci sono `mainPolicy.js` e `preSyncMigrations.js`, due moduli che contengono logica di bootstrap e backfill idempotenti chiamata solo in specifiche condizioni del DB esistente; in `services/` ci sono `backupRestore.js`, `backupScheduler.js`, `multiSlotService.js` e `retentionScheduler.js`, che dipendono da spawn di processi (`tar`, `pg_dump`) o da configurazioni runtime difficili da indurre in unit test; in `routes/` `auth.js` ha rami OAuth/OIDC che richiedono i provider Google/Microsoft configurati, mentre `monteOre.js` e `backups.js` hanno percorsi specifici (settings monte-ore, restore manuale) che oggi sono coperti più dai test integration end-to-end che dai test sui singoli file. Sono tutti gap conosciuti e gestiti: l'aggregato resta sopra le soglie su tutti e quattro gli assi.
 
 ### 3.3 Le garanzie a runtime
 
@@ -317,7 +319,7 @@ v1.5.1 — closed-source proprietary
 41 modelli Sequelize, 15 con soft-delete
 34 route, 38 services, 5 lingue UI
 1.913 test unit+integration (1.655 backend + 258 frontend) + 1 E2E + soak harness
-73.18 / 74.45 / 79.90 / 61.71 backend coverage (stmts/lines/funcs/branches)
+72.99 / 74.25 / 79.46 / 61.50 backend coverage (stmts/lines/funcs/branches)
 71.87 / 74.32 / 63.83 / 60.06 frontend coverage
 0 vulnerabilità npm audit · 0 errori lint/typecheck · TS strict
 2FA admin obbligatorio · audit log immutabile firmato HMAC · AES-256-GCM secrets
