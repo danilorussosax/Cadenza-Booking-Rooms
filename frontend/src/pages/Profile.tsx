@@ -92,7 +92,7 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium">{t('profile.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('profile.subtitle')}</p>
@@ -330,9 +330,7 @@ function PersonalSection({
                 aria-describedby={errors.firstName ? 'p-firstName-error' : undefined}
                 {...register('firstName')}
               />
-              <FieldError id="p-firstName-error">
-                {errors.firstName?.message}
-              </FieldError>
+              <FieldError id="p-firstName-error">{errors.firstName?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-lastName">Cognome</Label>
@@ -342,9 +340,7 @@ function PersonalSection({
                 aria-describedby={errors.lastName ? 'p-lastName-error' : undefined}
                 {...register('lastName')}
               />
-              <FieldError id="p-lastName-error">
-                {errors.lastName?.message}
-              </FieldError>
+              <FieldError id="p-lastName-error">{errors.lastName?.message}</FieldError>
             </div>
           </div>
 
@@ -531,9 +527,7 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
                 aria-describedby={errors.newPassword ? 'new-pw-error' : undefined}
                 {...register('newPassword')}
               />
-              <FieldError id="new-pw-error">
-                {errors.newPassword?.message}
-              </FieldError>
+              <FieldError id="new-pw-error">{errors.newPassword?.message}</FieldError>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-pw">Conferma nuova password</Label>
@@ -546,9 +540,7 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
                 aria-describedby={errors.confirmPassword ? 'confirm-pw-error' : undefined}
                 {...register('confirmPassword')}
               />
-              <FieldError id="confirm-pw-error">
-                {errors.confirmPassword?.message}
-              </FieldError>
+              <FieldError id="confirm-pw-error">{errors.confirmPassword?.message}</FieldError>
             </div>
           </div>
 

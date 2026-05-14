@@ -147,7 +147,7 @@ export default function HelpPage() {
   const showSwitch = user?.role === 'admin';
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="inline-flex items-center gap-2 font-display text-3xl font-medium">

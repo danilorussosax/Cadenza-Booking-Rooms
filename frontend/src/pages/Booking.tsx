@@ -105,7 +105,7 @@ export default function BookingPage() {
   const isToday = dayjs(date).isSame(dayjs(), 'day');
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
           <h1 className="font-display text-3xl font-medium">{t('booking.title')}</h1>

@@ -170,7 +170,7 @@ export default function MonteOre() {
 
   if (targetYearQuery.isLoading || proposalQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="mx-auto max-w-7xl space-y-4">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -187,7 +187,7 @@ export default function MonteOre() {
 
   if (!proposal) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>Impossibile caricare la proposta.</AlertDescription>
@@ -197,7 +197,7 @@ export default function MonteOre() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">

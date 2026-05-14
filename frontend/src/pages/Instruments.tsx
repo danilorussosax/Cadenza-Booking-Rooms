@@ -79,7 +79,7 @@ export default function Instruments() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium">{t('instruments.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('instruments.subtitle')}</p>

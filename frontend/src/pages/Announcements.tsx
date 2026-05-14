@@ -23,7 +23,7 @@ export default function AnnouncementsPage() {
   const all = query.data?.announcements ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-1.5">
         <h1 className="inline-flex items-center gap-2 font-display text-3xl font-medium">
           <Megaphone className="h-7 w-7 text-rose-600 dark:text-rose-400" />

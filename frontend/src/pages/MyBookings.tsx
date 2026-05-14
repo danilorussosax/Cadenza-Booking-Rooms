@@ -102,7 +102,7 @@ export default function MyBookings() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
           <h1 className="font-display text-3xl font-medium">{t('my_bookings.title')}</h1>
