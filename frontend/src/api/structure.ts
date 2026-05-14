@@ -41,6 +41,8 @@ export interface UpsertBuildingPayload {
   displayAnnouncementsIntervalSec?: number;
   displayAnnouncementsPinnedOnly?: boolean;
   displayViewMode?: 'weekly' | 'daily';
+  /** Toggle "check-in per edificio": impostazione generale per tutte le aule. */
+  checkInDefault?: boolean;
 }
 
 export interface UpsertRoomPayload {
@@ -53,7 +55,8 @@ export interface UpsertRoomPayload {
   allowedRoles: Role[];
   allowedCourseIds: number[];
   isBookable: boolean;
-  requireCheckIn?: boolean;
+  /** null = eredita Building.checkInDefault. true/false = override esplicito. */
+  requireCheckIn?: boolean | null;
   requiresApproval?: boolean;
   notes?: string | null;
 }

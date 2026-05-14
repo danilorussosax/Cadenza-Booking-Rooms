@@ -166,6 +166,10 @@ export interface Building {
    *   - 'daily' : matrice aule × orari del giorno corrente
    */
   displayViewMode?: 'weekly' | 'daily';
+  /** Toggle "check-in per edificio" (impostazione generale).
+   *  Se true, tutte le aule senza override esplicito (Room.requireCheckIn=null)
+   *  richiedono il check-in QR. */
+  checkInDefault?: boolean;
   rooms?: Room[];
 }
 
@@ -199,10 +203,12 @@ export interface Room {
   allowedRoles: Role[];
   allowedCourseIds: number[];
   isBookable: boolean;
-  /** Toggle check-in QR per aula. Quando false, lo scheduler ghost-cancel non
-   *  agisce su questa aula e la UI nasconde il pulsante "Stampa QR" e il badge
-   *  "senza check-in". Default true. */
-  requireCheckIn?: boolean;
+  /** Toggle check-in QR per aula con cascata Building → Room:
+   *   - null       → eredita Building.checkInDefault (impostazione generale)
+   *   - true/false → override esplicito su questa aula
+   *  Quando il valore risolto è false, lo scheduler ghost-cancel non agisce
+   *  e la UI nasconde il pulsante "Stampa QR" e il badge "senza check-in". */
+  requireCheckIn?: boolean | null;
   /** Aula "high-impact" (sala concerti, auditorium): le prenotazioni di
    *  non-admin nascono in 'pending_approval' e devono essere approvate da
    *  un admin. Default false. */

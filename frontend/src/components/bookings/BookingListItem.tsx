@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { dayjs, formatDate, formatDuration, formatTime } from '@/lib/date';
 import { BOOKING_TYPE_STYLES } from '@/lib/bookings';
+import { isCheckInRequired } from '@/lib/checkInPolicy';
 import { TypeBadge } from './TypeBadge';
 import { StatusBadge } from './StatusBadge';
 import { ConcertInfoDialog } from './ConcertInfoDialog';
@@ -33,9 +34,11 @@ export function BookingListItem({ booking, onCancel, cancelling, onDuplicate }: 
   const showConcertAction = booking.type === 'concerto' && booking.status !== 'cancelled';
   // Check-in mancato: prenotazione iniziata in passato senza checkedInAt.
   // Mostra il badge ambra (informativo) anche dopo l'auto-cancel.
-  // Skip se l'aula ha requireCheckIn=false (admin ha disattivato la feature).
+  // Skip se per l'aula il check-in non è effettivamente richiesto (cascata
+  // Room.requireCheckIn → Building.checkInDefault).
   const missedCheckin =
-    room?.requireCheckIn !== false &&
+    !!room &&
+    isCheckInRequired(room) &&
     !booking.checkedInAt &&
     dayjs(booking.startTime).isBefore(dayjs());
 

@@ -19,6 +19,7 @@ const DEFAULT_TZ = 'Europe/Rome';
 const { decrypt } = require('../lib/crypto');
 const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');
+const { isCheckInRequired } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger');
 
 let cache = null; // { transporter, from, replyTo, expiresAt }
@@ -351,8 +352,10 @@ async function sendBookingEmail({ user, booking, kind, extra }) {
   if (prefField && user[prefField] === false) return;
   // Hard guard: ghost_cancellation parla esplicitamente di check-in mancato
   // ("ricordati di scansionare il QR..."). Non deve mai partire per aule
-  // che hanno requireCheckIn=false, anche se un caller la invocasse per errore.
-  if (kind === 'ghost_cancellation' && booking?.room?.requireCheckIn === false) return;
+  // dove il check-in non è effettivamente richiesto (room.requireCheckIn=false
+  // o eredita da building.checkInDefault=false), anche se un caller la
+  // invocasse per errore.
+  if (kind === 'ghost_cancellation' && booking?.room && !isCheckInRequired(booking.room)) return;
   const tpl = await getTemplate(kind);
   if (!tpl) return;
   const ctx = await buildBookingContext({ user, booking, extra });

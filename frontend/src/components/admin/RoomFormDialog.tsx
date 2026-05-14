@@ -40,6 +40,12 @@ const ROLES: { value: Role; label: string }[] = [
   { value: 'studente', label: 'Studenti' },
 ];
 
+// Stato a 3 valori per il check-in dell'aula:
+//   'inherit' → null (eredita Building.checkInDefault)
+//   'on'      → true (forza check-in attivo)
+//   'off'     → false (forza check-in disattivato)
+type CheckInMode = 'inherit' | 'on' | 'off';
+
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
   code: z.string().max(50).optional(),
@@ -47,12 +53,24 @@ const schema = z.object({
   capacity: z.number().int().min(1, 'Capienza minima 1'),
   type: z.enum(['studio', 'sala_prove', 'aula_concerti', 'classe', 'aula_didattica', 'altro']),
   isBookable: z.boolean(),
-  requireCheckIn: z.boolean(),
+  requireCheckInMode: z.enum(['inherit', 'on', 'off']),
   requiresApproval: z.boolean(),
   notes: z.string().max(2000).optional(),
   allowedRoles: z.array(z.enum(['admin', 'docente', 'studente'])),
   allowedCourseIds: z.array(z.number()),
 });
+
+function checkInModeFromValue(v: boolean | null | undefined): CheckInMode {
+  if (v === true) return 'on';
+  if (v === false) return 'off';
+  return 'inherit';
+}
+
+function checkInModeToValue(m: CheckInMode): boolean | null {
+  if (m === 'on') return true;
+  if (m === 'off') return false;
+  return null;
+}
 
 type FormValues = z.infer<typeof schema>;
 
@@ -94,7 +112,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       capacity: 1,
       type: 'studio',
       isBookable: true,
-      requireCheckIn: true,
+      requireCheckInMode: 'inherit',
       requiresApproval: false,
       notes: '',
       allowedRoles: ['admin', 'docente', 'studente'],
@@ -112,7 +130,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
         capacity: room?.capacity ?? 1,
         type: room?.type ?? 'studio',
         isBookable: room?.isBookable ?? true,
-        requireCheckIn: room?.requireCheckIn ?? true,
+        requireCheckInMode: checkInModeFromValue(room?.requireCheckIn),
         requiresApproval: room?.requiresApproval ?? false,
         notes: room?.notes ?? '',
         allowedRoles: room?.allowedRoles ?? ['admin', 'docente', 'studente'],
@@ -125,7 +143,13 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
 
   const type = watch('type');
   const isBookable = watch('isBookable');
-  const requireCheckIn = watch('requireCheckIn');
+  const requireCheckInMode = watch('requireCheckInMode');
+  // True quando l'aula richiede effettivamente il check-in:
+  //   - 'on' → sempre
+  //   - 'off' → mai
+  //   - 'inherit' → eredita Building.checkInDefault (impostazione generale)
+  const effectiveCheckInRequired =
+    requireCheckInMode === 'on' || (requireCheckInMode === 'inherit' && !!building.checkInDefault);
   const requiresApproval = watch('requiresApproval');
   const floor = watch('floor');
   const allowedRoles = watch('allowedRoles');
@@ -200,7 +224,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
         capacity: values.capacity,
         type: values.type,
         isBookable: values.isBookable,
-        requireCheckIn: values.requireCheckIn,
+        requireCheckIn: checkInModeToValue(values.requireCheckInMode),
         requiresApproval: values.requiresApproval,
         notes: values.notes?.trim() ?? null,
         allowedRoles: values.allowedRoles,
@@ -458,19 +482,41 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
+          <div className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <p className="text-sm font-medium">{t('admin.structure.require_checkin')}</p>
               <p className="text-xs text-muted-foreground">
                 {t('admin.structure.require_checkin_help')}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Edificio attualmente:{' '}
+                <span className="font-medium">
+                  {building.checkInDefault
+                    ? 'check-in attivo per default'
+                    : 'check-in disattivo per default'}
+                </span>
+                .
+              </p>
             </div>
-            <Switch
-              checked={requireCheckIn}
-              onCheckedChange={(v) => {
-                setValue('requireCheckIn', v);
-              }}
-            />
+            <div className="w-full sm:w-56">
+              <Select
+                value={requireCheckInMode}
+                onValueChange={(v) => {
+                  setValue('requireCheckInMode', v as CheckInMode);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inherit">
+                    Eredita da edificio ({building.checkInDefault ? 'attivo' : 'disattivo'})
+                  </SelectItem>
+                  <SelectItem value="on">Forza attivo</SelectItem>
+                  <SelectItem value="off">Forza disattivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -488,8 +534,9 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
             />
           </div>
 
-          {/* QR check-in: disponibile solo dopo aver creato l'aula e con check-in attivo */}
-          {isEdit && requireCheckIn && (
+          {/* QR check-in: disponibile solo dopo aver creato l'aula e quando
+              il check-in è effettivamente richiesto (esplicito o ereditato). */}
+          {isEdit && effectiveCheckInRequired && (
             <div className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium">{t('admin_structure_qr.print_qr')}</p>

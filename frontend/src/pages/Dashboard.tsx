@@ -26,6 +26,7 @@ import { loansApi } from '@/api/instruments';
 import { monteOreAdminApi, monteOreApi } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { dayjs, formatDate } from '@/lib/date';
+import { isCheckInRequired } from '@/lib/checkInPolicy';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
 import { bookingsToBlocks } from '@/lib/weeklyBlocks';
 import { Badge } from '@/components/ui/badge';
@@ -423,7 +424,8 @@ export default function Dashboard() {
     return all.filter(
       (b) =>
         b.status === 'confirmed' &&
-        b.room?.requireCheckIn !== false &&
+        !!b.room &&
+        isCheckInRequired(b.room) &&
         !b.checkedInAt &&
         dayjs(b.startTime).isAfter(earliest) &&
         dayjs(b.startTime).isBefore(latest),

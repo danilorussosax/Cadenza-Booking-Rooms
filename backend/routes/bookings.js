@@ -40,6 +40,7 @@ const {
 const { sendBookingEmail } = require('../services/emailService');
 const { buildIcs } = require('../services/icalService');
 const { extractClientIp, isIpInCidrList, normalizeIp } = require('../lib/network');
+const { isCheckInRequired } = require('../lib/checkInPolicy');
 
 const router = express.Router();
 
@@ -240,12 +241,16 @@ router.get('/checkin-candidates', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'roomId mancante', code: 'VALIDATION_FAILED' });
   }
 
-  // Se l'admin ha disattivato il check-in per questa aula non restituiamo
-  // candidati: la pagina /check-in/room/:id mostra il banner "non richiesto"
-  // e l'utente non viene indotto a tentare un check-in che il POST /:id/checkin
+  // Se l'admin ha disattivato il check-in per questa aula (esplicitamente o
+  // ereditando da Building.checkInDefault=false) non restituiamo candidati:
+  // la pagina /check-in/room/:id mostra il banner "non richiesto" e l'utente
+  // non viene indotto a tentare un check-in che il POST /:id/checkin
   // rifiuterebbe comunque.
-  const room = await Room.findByPk(roomId, { attributes: ['id', 'requireCheckIn'] });
-  if (room && room.requireCheckIn === false) {
+  const room = await Room.findByPk(roomId, {
+    attributes: ['id', 'requireCheckIn'],
+    include: [{ model: Building, as: 'building', attributes: ['id', 'checkInDefault'] }],
+  });
+  if (room && !isCheckInRequired(room)) {
     return res.json({
       bookings: [],
       roomCheckInDisabled: true,
@@ -1367,14 +1372,16 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     });
   }
 
-  // Se l'admin ha disabilitato il check-in per questa aula, rifiutiamo a monte:
-  // il ghost-cancel sweep già skippa queste booking, ma senza questo guard un
+  // Se l'admin ha disabilitato il check-in per questa aula (esplicitamente o
+  // ereditando da Building.checkInDefault=false), rifiutiamo a monte: il
+  // ghost-cancel sweep già skippa queste booking, ma senza questo guard un
   // client potrebbe comunque chiamare l'endpoint direttamente (es. via QR
   // scansionato prima della disabilitazione).
   const roomMeta = await Room.findByPk(booking.roomId, {
     attributes: ['id', 'qrToken', 'requireCheckIn'],
+    include: [{ model: Building, as: 'building', attributes: ['id', 'checkInDefault'] }],
   });
-  if (roomMeta && roomMeta.requireCheckIn === false) {
+  if (roomMeta && !isCheckInRequired(roomMeta)) {
     return res.status(400).json({
       error: 'Il check-in non è richiesto per questa aula',
       code: 'CHECKIN_NOT_REQUIRED',

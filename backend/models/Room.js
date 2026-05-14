@@ -58,16 +58,20 @@ module.exports = (sequelize) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
-      // Toggle check-in QR per aula. Quando false:
+      // Toggle check-in QR per aula con cascata Building → Room:
+      //   - NULL       → eredita Building.checkInDefault (impostazione generale)
+      //   - true/false → override esplicito su questa aula
+      // Quando il valore risolto (vedi backend/lib/checkInPolicy.js) è false:
       //   - lo scheduler ghost-cancel NON cancella le booking di questa aula
       //     anche se l'utente non ha effettuato il check-in
       //   - la UI nasconde badge "senza check-in" e card "Check-in richiesto"
       //   - il pulsante "Stampa QR aula" viene nascosto
-      // Default true: la feature anti-ghost è attiva di base sulle nuove aule.
+      // Default null: l'aula eredita dall'edificio (che a sua volta default
+      // false → "tutte le aule senza check-in" come stato iniziale).
       requireCheckIn: {
         type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
+        allowNull: true,
+        defaultValue: null,
       },
       // Toggle "high-impact": quando true, le prenotazioni di non-admin nascono
       // con status='pending_approval' e devono essere approvate o rifiutate da

@@ -130,6 +130,16 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 'weekly',
       },
+      // Toggle "check-in per edificio" (impostazione generale): se true, tutte
+      // le aule dell'edificio richiedono il check-in QR salvo override
+      // esplicito su Room.requireCheckIn. Vedi backend/lib/checkInPolicy.js
+      // per la cascata di risoluzione.
+      // Default false: stato iniziale "tutte le aule senza check-in".
+      checkInDefault: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'buildings',

@@ -5,9 +5,26 @@ export interface QrRoomEntry {
   name: string;
   code: string | null;
   building: { id: number; name: string } | null;
-  requireCheckIn: boolean;
+  /** null = eredita Building.checkInDefault. true/false = override esplicito. */
+  requireCheckIn: boolean | null;
+  /** Valore risolto dalla cascata Room → Building (sempre boolean). */
+  effectiveCheckIn: boolean;
+  /** true se requireCheckIn è null (l'aula sta ereditando dall'edificio). */
+  inheritedFromBuilding: boolean;
   hasQrToken: boolean;
   qrTokenUpdatedAt: string | null;
+}
+
+export interface BuildingCheckInEntry {
+  id: number;
+  name: string;
+  code: string | null;
+  /** Impostazione generale: se true, tutte le aule senza override richiedono check-in. */
+  checkInDefault: boolean;
+  /** Numero totale di aule dell'edificio. */
+  roomsTotal: number;
+  /** Numero di aule che hanno un override esplicito (requireCheckIn !== null). */
+  roomsWithOverride: number;
 }
 
 export interface CheckInSettings {
@@ -47,5 +64,14 @@ export const qrcodesApi = {
     api<CheckInSettings & { warnings: string[] }>('/api/structure/checkin-settings', {
       method: 'PUT',
       body,
+    }),
+
+  // Toggle check-in per edificio (impostazione generale)
+  listBuildingCheckIn: () =>
+    api<{ items: BuildingCheckInEntry[] }>('/api/structure/buildings/checkin-defaults'),
+  setBuildingCheckIn: (id: number, enabled: boolean) =>
+    api<{ building: BuildingCheckInEntry }>(`/api/structure/buildings/${id}/checkin-default`, {
+      method: 'PATCH',
+      body: { enabled },
     }),
 };

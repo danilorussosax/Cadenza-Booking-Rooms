@@ -19,6 +19,7 @@ const {
 const { authenticate, requireRole } = require('../middleware/auth');
 const { importStructure } = require('../services/structureImporter');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { isCheckInRequired } = require('../lib/checkInPolicy');
 
 // Whitelist dei campi assegnabili da admin via REST (anti mass-assignment).
 // Esclude esplicitamente: id, deletedAt, createdAt, updatedAt, qrToken (gestito
@@ -42,6 +43,8 @@ const BUILDING_ALLOWED = {
   displayAnnouncementsIntervalSec: { type: 'integer', min: 1, max: 600 },
   displayAnnouncementsPinnedOnly: 'boolean',
   displayViewMode: { type: 'enum', values: ['weekly', 'daily'] },
+  // Toggle "check-in per edificio" (impostazione generale).
+  checkInDefault: 'boolean',
 };
 
 const ROOM_ALLOWED = {
@@ -61,7 +64,9 @@ const ROOM_ALLOWED = {
   allowedRoles: 'json',
   allowedCourseIds: 'json',
   isBookable: 'boolean',
-  requireCheckIn: 'boolean',
+  // null = eredita Building.checkInDefault (impostazione generale)
+  // true/false = override esplicito. Vedi backend/lib/checkInPolicy.js.
+  requireCheckIn: { type: 'boolean', nullable: true },
   requiresApproval: 'boolean',
   notes: { type: 'string', nullable: true },
   // photoUrl: gestito da POST /rooms/:id/photo, NON da PUT
@@ -714,6 +719,83 @@ router.get('/buildings', authenticate, async (req, res) => {
   res.json({ buildings });
 });
 
+// =========================================================
+// Toggle check-in per edificio (impostazione generale)
+// =========================================================
+//   GET   /buildings/checkin-defaults            lista + statistiche override
+//   PATCH /buildings/:id/checkin-default         on/off generale per edificio
+//
+// Registrate PRIMA di /buildings/:id (GET) per evitare il match dinamico:
+// :id="checkin-defaults" farebbe esplodere findByPk con un cast intero.
+router.get(
+  '/buildings/checkin-defaults',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const buildings = await Building.findAll({
+        attributes: ['id', 'name', 'code', 'checkInDefault'],
+        order: [['name', 'ASC']],
+      });
+      const items = await Promise.all(
+        buildings.map(async (b) => {
+          const roomsTotal = await Room.count({ where: { buildingId: b.id } });
+          const roomsWithOverride = await Room.count({
+            where: { buildingId: b.id, requireCheckIn: { [Op.ne]: null } },
+          });
+          return {
+            id: b.id,
+            name: b.name,
+            code: b.code,
+            checkInDefault: b.checkInDefault,
+            roomsTotal,
+            roomsWithOverride,
+          };
+        }),
+      );
+      res.json({ items });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.patch(
+  '/buildings/:id/checkin-default',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const b = await Building.findByPk(req.params.id);
+      if (!b) return res.status(404).json({ error: 'Edificio non trovato', code: 'NOT_FOUND' });
+      const raw = req.body?.enabled;
+      if (typeof raw !== 'boolean') {
+        return res.status(400).json({
+          error: 'Campo "enabled" deve essere boolean',
+          code: 'VALIDATION_FAILED',
+        });
+      }
+      await b.update({ checkInDefault: raw });
+      const roomsTotal = await Room.count({ where: { buildingId: b.id } });
+      const roomsWithOverride = await Room.count({
+        where: { buildingId: b.id, requireCheckIn: { [Op.ne]: null } },
+      });
+      res.json({
+        building: {
+          id: b.id,
+          name: b.name,
+          code: b.code,
+          checkInDefault: b.checkInDefault,
+          roomsTotal,
+          roomsWithOverride,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.get('/buildings/:id', authenticate, async (req, res) => {
   const building = await Building.findByPk(req.params.id, {
     include: [
@@ -1136,11 +1218,18 @@ router.get('/rooms/:id/qr', authenticate, requireRole('admin'), async (req, res,
 });
 
 // Lista aule con metadati QR per il pannello admin (no PNG, solo JSON).
+// Espone anche lo stato effettivo del check-in risolto dalla cascata
+// Room.requireCheckIn → Building.checkInDefault (vedi lib/checkInPolicy.js).
 router.get('/rooms/qr-overview', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const rooms = await Room.findAll({
       attributes: ['id', 'name', 'code', 'requireCheckIn', 'qrToken', 'updatedAt'],
-      include: [{ association: 'building', attributes: ['id', 'name'] }],
+      include: [
+        {
+          association: 'building',
+          attributes: ['id', 'name', 'checkInDefault'],
+        },
+      ],
       order: [
         [{ model: require('../models').Building, as: 'building' }, 'name', 'ASC'],
         ['name', 'ASC'],
@@ -1153,6 +1242,8 @@ router.get('/rooms/qr-overview', authenticate, requireRole('admin'), async (req,
         code: r.code,
         building: r.building ? { id: r.building.id, name: r.building.name } : null,
         requireCheckIn: r.requireCheckIn,
+        effectiveCheckIn: isCheckInRequired(r),
+        inheritedFromBuilding: r.requireCheckIn === null || r.requireCheckIn === undefined,
         hasQrToken: !!r.qrToken,
         qrTokenUpdatedAt: r.qrToken ? r.updatedAt : null,
       })),

@@ -400,9 +400,17 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna bookings.autoCancelledAt aggiunta');
   }
 
-  // Toggle check-in QR per aula
+  // Toggle check-in QR per aula. Nota: dalla migration
+  // 20260514083454-building-checkin-default la colonna è nullable e default
+  // null (eredita Building.checkInDefault). Il preSync è solo per DB che non
+  // hanno mai avuto la colonna: la migration stessa effettua il relax di
+  // allowNull/default e il reset dei valori esistenti.
   if (await ensureBooleanColumn('rooms', 'requireCheckIn', true)) {
     logger.info('  ✓ Colonna rooms.requireCheckIn aggiunta (default = true)');
+  }
+  // Default check-in per edificio (impostazione generale).
+  if (await ensureBooleanColumn('buildings', 'checkInDefault', false)) {
+    logger.info('  ✓ Colonna buildings.checkInDefault aggiunta (default = false)');
   }
 
   // QR-code token per aula. Generato lazy al primo download/regenerate via
