@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarRange, Save, Plus, Trash2, ArrowLeft, AlertCircle, Download } from 'lucide-react';
+import {
+  CalendarRange,
+  Save,
+  Plus,
+  Trash2,
+  Pencil,
+  ArrowLeft,
+  AlertCircle,
+  Download,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   monteOreAdminApi,
@@ -256,6 +265,7 @@ function SuspensionsCard({
 }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<MonteOreSuspension | null>(null);
 
   const removeMutation = useMutation({
     mutationFn: (id: number) => monteOreAdminApi.removeSuspension(id),
@@ -311,16 +321,27 @@ function SuspensionsCard({
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (confirm(`Eliminare "${s.name}"?`)) removeMutation.mutate(s.id);
-                        }}
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditing(s)}
+                          title="Modifica sospensione"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(`Eliminare "${s.name}"?`)) removeMutation.mutate(s.id);
+                          }}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          title="Elimina sospensione"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -329,23 +350,51 @@ function SuspensionsCard({
           </div>
         )}
         {adding && <SuspensionForm academicYear={academicYear} onClose={() => setAdding(false)} />}
+        {editing && (
+          <SuspensionForm
+            academicYear={academicYear}
+            existing={editing}
+            onClose={() => setEditing(null)}
+          />
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClose: () => void }) {
+function SuspensionForm({
+  academicYear,
+  existing,
+  onClose,
+}: {
+  academicYear: string;
+  existing?: MonteOreSuspension;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
+  const isEdit = !!existing;
   const [form, setForm] = useState({
-    name: '',
-    dateFrom: '',
-    dateTo: '',
-    kind: 'partial' as SuspensionKind,
+    name: existing?.name ?? '',
+    dateFrom: existing?.dateFrom ?? '',
+    dateTo: existing?.dateTo ?? '',
+    kind: (existing?.kind ?? 'partial'),
+    notes: existing?.notes ?? '',
+    // applyToAllBookings ha senso solo in creazione: in edit non lo
+    // proponiamo perché toccherebbe anche la BookingRuleException linkata
+    // con logica più complessa (delete+recreate).
     applyToAllBookings: false,
   });
 
   const createMutation = useMutation({
-    mutationFn: () => monteOreAdminApi.createSuspension({ academicYear, ...form }),
+    mutationFn: () =>
+      monteOreAdminApi.createSuspension({
+        academicYear,
+        name: form.name,
+        dateFrom: form.dateFrom,
+        dateTo: form.dateTo,
+        kind: form.kind,
+        applyToAllBookings: form.applyToAllBookings,
+      }),
     onSuccess: () => {
       toast.success('Sospensione creata');
       void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
@@ -354,12 +403,32 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      monteOreAdminApi.updateSuspension(existing!.id, {
+        name: form.name,
+        dateFrom: form.dateFrom,
+        dateTo: form.dateTo,
+        kind: form.kind,
+        notes: form.notes || null,
+      }),
+    onSuccess: () => {
+      toast.success('Sospensione aggiornata');
+      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
+      onClose();
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const pending = isEdit ? updateMutation.isPending : createMutation.isPending;
+
   return (
     <form
       className="mt-4 grid gap-3 rounded-lg border bg-muted/10 p-4 sm:grid-cols-5"
       onSubmit={(e) => {
         e.preventDefault();
-        createMutation.mutate();
+        if (isEdit) updateMutation.mutate();
+        else createMutation.mutate();
       }}
     >
       <div className="sm:col-span-2">
@@ -414,7 +483,7 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
           </SelectContent>
         </Select>
       </div>
-      {form.kind === 'partial' && (
+      {!isEdit && form.kind === 'partial' && (
         <label className="sm:col-span-5 flex items-start gap-2 rounded-lg border border-dashed bg-background p-3 cursor-pointer hover:bg-muted/30">
           <input
             type="checkbox"
@@ -438,8 +507,8 @@ function SuspensionForm({ academicYear, onClose }: { academicYear: string; onClo
         <Button type="button" variant="outline" onClick={onClose}>
           Annulla
         </Button>
-        <Button type="submit" disabled={createMutation.isPending}>
-          Crea
+        <Button type="submit" disabled={pending}>
+          {isEdit ? 'Salva modifiche' : 'Crea'}
         </Button>
       </div>
     </form>
