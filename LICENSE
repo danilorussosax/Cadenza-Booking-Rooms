@@ -1,0 +1,94 @@
+CADENZA — PROPRIETARY LICENSE
+Copyright © 2026 Danilo Russo. All rights reserved.
+
+================================================================================
+
+This software ("Cadenza"), including all its source code, documentation,
+configuration files, assets and accompanying materials, is the exclusive
+property of Danilo Russo (the "Author") and is protected by Italian and
+international copyright laws, the EU Database Directive, and applicable
+treaties.
+
+NO PART of this software may be used, copied, modified, merged, published,
+distributed, sublicensed, sold, exposed as a service, reverse-engineered,
+or otherwise exploited — in whole or in part, in any form or by any means
+— WITHOUT a prior, explicit, written license agreement signed by the Author.
+
+This includes but is not limited to:
+
+  - Cloning, forking, mirroring or redistributing the source code,
+    in original or modified form, on any platform (Git hosting, archives,
+    package registries, etc.).
+
+  - Running the software in production, staging, demo or development
+    environments outside the boundaries of an active license agreement.
+
+  - Extracting, training, fine-tuning, or otherwise using the source code,
+    documentation or generated artifacts to build, train or evaluate any
+    machine learning model, dataset or derived work.
+
+  - Removing or altering any copyright, license or attribution notice.
+
+================================================================================
+
+DISTRIBUTION MODEL
+
+Cadenza is commercially licensed under TWO distinct models:
+
+  1. HOSTED SaaS — Starter, Professional and Enterprise PA plans.
+     The customer accesses the software as a service hosted by the Author
+     or an authorised reseller, under the SaaS Terms of Service signed
+     at subscription.
+
+  2. SELF-HOST — on-premise installation, with source code access,
+     periodic updates and documentation, under a per-institution license
+     agreement signed separately.
+
+Pricing, plan details and competitive benchmarks are documented in the
+commercial deliverables "Proposta.md" (v2.2) and "Cadenza_Presentazione_
+Direzione.pdf", which are kept outside this repository and made available
+on request.
+
+To obtain a license, contact:
+
+  Danilo Russo
+  Email: danilorussosax@gmail.com
+  Subject: "Cadenza — License request"
+
+================================================================================
+
+NO WARRANTY
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED, except
+to the extent required by mandatory provisions of Italian and EU law
+(Codice del Consumo, GDPR, eCommerce Directive). The license agreement
+signed by each customer governs warranties, SLAs and remedies applicable
+to that engagement.
+
+================================================================================
+
+THIRD-PARTY DEPENDENCIES
+
+Cadenza relies on third-party open-source software whose licenses remain
+unaffected by this notice. The respective licenses (MIT, Apache-2.0,
+BSD-3-Clause, ISC and others) are bundled inside the `node_modules`
+directories produced by `npm install`, and apply solely to the
+corresponding upstream packages — NOT to Cadenza source code.
+
+================================================================================
+
+GOVERNING LAW AND JURISDICTION
+
+This license is governed by the laws of the Italian Republic.
+Any dispute arising in connection with this license shall be subject to
+the exclusive jurisdiction of the courts of the Author's place of
+residence, without prejudice to mandatory consumer-protection rules
+applicable to natural persons resident in the European Union.
+
+================================================================================
+
+Unauthorised use of this software constitutes copyright infringement
+and may be prosecuted under articles 171-ter and 174-bis of the Italian
+copyright law (L. 633/1941) and Directive 2001/29/EC.

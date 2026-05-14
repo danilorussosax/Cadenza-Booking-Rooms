@@ -508,12 +508,25 @@ Full detail in [`develop.md`](develop.md) (versioned) and `develop-enterprise.md
 
 ## 10. License
 
-Cadenza is distributed under a dual model:
+**Cadenza is proprietary closed-source software. Copyright © 2026 Danilo Russo. All rights reserved.**
+
+The source code, documentation, assets and accompanying materials are the exclusive property of the Author and are protected by Italian and international copyright laws (L. 633/1941 art. 171-ter and 174-bis, Directive 2001/29/EC).
+
+**Forbidden without prior written agreement of the Author**:
+
+- Cloning, forking, mirroring or redistributing the source code (also modified), on any platform
+- Running the software in production, staging or demo outside the terms of an active license
+- Extracting the source code or documentation to train or evaluate machine learning models
+- Removing or altering copyright notices
+
+Cadenza is distributed under two commercial models:
 
 - **Hosted SaaS** — Starter / Professional / Enterprise PA plans, commercial license
-- **Self-host** — source + updates + documentation, on-premise license
+- **Self-host** — source + updates + documentation, per-institution on-premise license
 
-For plan details, pricing and competitive benchmarks, see `Proposta.md` v2.2 (technical-commercial, kept out of the public repo) and `Cadenza_Presentazione_Direzione.pdf` (18-slide commercial deck). Available on request.
+To obtain a license: email `danilorussosax@gmail.com` with subject "Cadenza — License request".
+
+Full license text in the [`LICENSE`](LICENSE) file at the root of the repository. Pricing, commercial plans and competitive benchmarks in `Proposta.md` v2.2 and `Cadenza_Presentazione_Direzione.pdf` (18-slide deck) — kept outside the repository and available on request.
 
 ---
 

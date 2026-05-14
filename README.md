@@ -513,12 +513,25 @@ Dettaglio completo in [`develop.md`](develop.md) (versionato) e `develop-enterpr
 
 ## 10. Licenza
 
-Cadenza è distribuita con un modello duale:
+**Cadenza è software proprietario closed-source. Copyright © 2026 Danilo Russo. Tutti i diritti riservati.**
+
+Il codice sorgente, la documentazione, gli asset e i materiali allegati sono proprietà esclusiva dell'Autore e sono protetti dalle leggi italiane e internazionali sul diritto d'autore (L. 633/1941 art. 171-ter e 174-bis, Direttiva 2001/29/CE).
+
+**Vietato senza accordo scritto preventivo dell'Autore**:
+
+- Clonare, forkare, mirrorare o ridistribuire il codice (anche modificato), su qualsiasi piattaforma
+- Eseguire il software in produzione, staging o demo al di fuori dei termini di una licenza attiva
+- Estrarre il codice/documentazione per addestrare o valutare modelli di machine learning
+- Rimuovere o alterare le note di copyright
+
+Cadenza è distribuita con due modelli commerciali:
 
 - **SaaS hosted** — piani Starter / Professional / Enterprise PA, licenza commerciale
-- **Self-host** — sorgente + aggiornamenti + documentazione, licenza on-premise
+- **Self-host** — sorgente + aggiornamenti + documentazione, licenza on-premise per istituto
 
-Per il dettaglio dei piani, pricing e benchmark competitivo, vedi `Proposta.md` v2.2 (tecnico-commerciale, mantenuto fuori dal repo pubblico) e `Cadenza_Presentazione_Direzione.pdf` (deck commerciale, 18 slide). Disponibili su richiesta.
+Per ottenere una licenza: scrivi a `danilorussosax@gmail.com` con oggetto "Cadenza — Richiesta licenza".
+
+Testo integrale della licenza nel file [`LICENSE`](LICENSE) alla root del repository. Pricing dettagliato, piani commerciali e benchmark competitivo in `Proposta.md` v2.2 e `Cadenza_Presentazione_Direzione.pdf` (deck 18 slide) — mantenuti fuori dal repository e disponibili su richiesta.
 
 ---
 
