@@ -88,7 +88,13 @@ module.exports = (sequelize) => {
     {
       tableName: 'monte_ore_schedules',
       paranoid: false,
-      indexes: [{ fields: ['proposalId'] }, { fields: ['roomId'] }, { fields: ['dayOfWeek'] }],
+      indexes: [
+        // Composito (proposalId, dayOfWeek): copre l'expander ricorrenza e
+        // le query del calendario monte ore. dayOfWeek da solo era poco
+        // selettivo (7 valori), inutile come index singolo.
+        { fields: ['proposalId', 'dayOfWeek'], name: 'monte_ore_schedules_proposal_day_idx' },
+        { fields: ['roomId'] },
+      ],
     },
   );
 

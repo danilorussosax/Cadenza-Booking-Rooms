@@ -831,6 +831,57 @@ async function runPreSyncMigrations() {
   if (await ensureNullableIntColumn('bookings', 'recurrenceId')) {
     logger.info('  ✓ Colonna bookings.recurrenceId aggiunta (F2 ricorrenze)');
   }
+
+  // SSO — Whitelist domini email autorizzati al login OAuth (Google/Microsoft).
+  // Senza questa colonna ogni GET /api/admin/oauth-settings esploderebbe sui
+  // DB che non hanno eseguito la migration 20260514100000-oauth-allowed-domains.
+  if (await ensureNullableStringColumn('oauth_settings', 'allowedEmailDomains', 1000)) {
+    logger.info('  ✓ Colonna oauth_settings.allowedEmailDomains aggiunta (SSO whitelist)');
+  }
+
+  // Indici compositi additivi su tabelle ad alta lettura. I model dichiarano
+  // gli stessi indici per le installazioni fresche; qui li aggiungiamo a DB
+  // esistenti che hanno solo i vecchi indici a colonna singola. CREATE INDEX
+  // IF NOT EXISTS è idempotente: no-op se l'indice esiste già.
+  // I vecchi indici single-column non vengono droppati in automatico (write
+  // overhead trascurabile sulle tabelle interessate); per consolidare basta
+  // una migration manuale una tantum.
+  if (sequelize.getDialect() === 'postgres') {
+    const compositeIndexes = [
+      {
+        name: 'announcements_active_feed_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS announcements_active_feed_idx ON announcements ("isActive", "publishedAt", "expiresAt")',
+        table: 'announcements',
+      },
+      {
+        name: 'monte_ore_schedules_proposal_day_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS monte_ore_schedules_proposal_day_idx ON monte_ore_schedules ("proposalId", "dayOfWeek")',
+        table: 'monte_ore_schedules',
+      },
+      {
+        name: 'integration_sync_runs_config_created_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS integration_sync_runs_config_created_idx ON integration_sync_runs ("configId", "createdAt")',
+        table: 'integration_sync_runs',
+      },
+      {
+        name: 'integration_sync_runs_provider_status_started_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS integration_sync_runs_provider_status_started_idx ON integration_sync_runs ("provider", "status", "startedAt")',
+        table: 'integration_sync_runs',
+      },
+    ];
+    for (const idx of compositeIndexes) {
+      try {
+        const [existing] = await sequelize.query(
+          `SELECT 1 FROM pg_class WHERE relname = '${idx.name}' AND relkind = 'i'`,
+        );
+        if (existing.length > 0) continue;
+        await sequelize.query(idx.sql);
+        logger.info(`  ✓ Indice composito ${idx.name} creato su ${idx.table}`);
+      } catch (err) {
+        logger.warn(`  ⚠ Indice ${idx.name} non creato: ${err.message}`);
+      }
+    }
+  }
 }
 
 // Helpers locali per Monte Ore (no-op se le tabelle non esistono ancora).

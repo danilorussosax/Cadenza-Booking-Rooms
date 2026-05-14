@@ -87,11 +87,17 @@ module.exports = (sequelize) => {
       tableName: 'integration_sync_runs',
       paranoid: false,
       indexes: [
-        { fields: ['configId'] },
+        // Composito (configId, createdAt): copre la listing admin che ordina
+        // per createdAt DESC con filtri opzionali su configId/provider.
+        // Vedi routes/integrations.js (GET /api/admin/integrations/runs).
+        { fields: ['configId', 'createdAt'], name: 'integration_sync_runs_config_created_idx' },
+        // Composito (provider, status, startedAt): copre la "diff vs run
+        // precedente success" (routes/integrations.js GET /:id/diff-prev).
+        {
+          fields: ['provider', 'status', 'startedAt'],
+          name: 'integration_sync_runs_provider_status_started_idx',
+        },
         { fields: ['instituteId'] },
-        { fields: ['provider'] },
-        { fields: ['status'] },
-        { fields: ['createdAt'] },
       ],
     },
   );

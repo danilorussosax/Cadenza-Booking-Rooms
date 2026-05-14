@@ -83,11 +83,12 @@ module.exports = (sequelize) => {
     {
       tableName: 'announcements',
       paranoid: true,
+      // Indice composito sul feed pubblico: WHERE isActive=true AND
+      // publishedAt<=now AND (expiresAt IS NULL OR expiresAt>now)
+      // ORDER BY isPinned DESC, publishedAt DESC.
+      // Vedi routes/announcements.js (GET /api/announcements).
       indexes: [
-        { fields: ['publishedAt'] },
-        { fields: ['expiresAt'] },
-        { fields: ['isPinned'] },
-        { fields: ['isActive'] },
+        { fields: ['isActive', 'publishedAt', 'expiresAt'], name: 'announcements_active_feed_idx' },
       ],
     },
   );
