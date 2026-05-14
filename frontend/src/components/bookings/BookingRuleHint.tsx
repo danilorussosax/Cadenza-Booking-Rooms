@@ -60,6 +60,13 @@ export function BookingRuleHint({ role }: { role: Role }) {
       `Pausa minima tra prenotazioni: ${formatDuration(r.minIntervalBetweenBookingsMinutes)}`,
     );
   }
+  // Le ricorrenze settimanali sono permesse di default solo a docente/admin
+  // (lo studente ha allowRecurring=false nella seed). Lo segnaliamo
+  // esplicitamente per chi le ha così l'utente sa di poter usare il toggle
+  // "Ripeti settimanalmente" del form.
+  if (r.allowRecurring) {
+    items.push('Ricorrenze settimanali ammesse');
+  }
 
   return (
     <Alert variant="info">
