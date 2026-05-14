@@ -129,10 +129,16 @@ async function clearGeneratedBookings(proposalId, { transaction = null } = {}) {
   }
   // Stesso ragionamento per gli slot fuori-pattern: azzeriamo bookingId per
   // i booking effettivamente cancellati (non per quelli sopravvissuti).
-  for (const slot of orphanSlots) {
-    if (!survivorSet.has(slot.bookingId)) {
-      await slot.update({ bookingId: null }, { transaction });
-    }
+  // Bulk update: tutti gli slot rimossi ricevono lo stesso valore (null),
+  // quindi una sola query basta — evitiamo N round-trip.
+  const slotIdsToOrphan = orphanSlots
+    .filter((slot) => !survivorSet.has(slot.bookingId))
+    .map((slot) => slot.id);
+  if (slotIdsToOrphan.length > 0) {
+    await MonteOreSlot.update(
+      { bookingId: null },
+      { where: { id: { [Op.in]: slotIdsToOrphan } }, ...tx },
+    );
   }
   return { cleared: cleared[0] || 0 };
 }

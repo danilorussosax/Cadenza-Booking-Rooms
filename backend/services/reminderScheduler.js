@@ -128,15 +128,9 @@ async function tickLoans() {
     for (const loan of overdue) {
       await loan.update({ status: 'overdue', overdueNotifiedAt: new Date() });
       if (!loan.user) continue;
-      const refreshed = await InstrumentLoan.findByPk(loan.id, {
-        include: [
-          { model: User, as: 'user' },
-          { model: Instrument, as: 'instrument' },
-        ],
-      });
       await instrumentLoanEmail.sendInstrumentLoanEmail({
-        user: refreshed.user,
-        loan: refreshed,
+        user: loan.user,
+        loan,
         kind: 'loan_overdue',
       });
     }

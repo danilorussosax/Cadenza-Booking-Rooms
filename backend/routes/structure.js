@@ -737,22 +737,31 @@ router.get(
         attributes: ['id', 'name', 'code', 'checkInDefault'],
         order: [['name', 'ASC']],
       });
-      const items = await Promise.all(
-        buildings.map(async (b) => {
-          const roomsTotal = await Room.count({ where: { buildingId: b.id } });
-          const roomsWithOverride = await Room.count({
-            where: { buildingId: b.id, requireCheckIn: { [Op.ne]: null } },
-          });
-          return {
-            id: b.id,
-            name: b.name,
-            code: b.code,
-            checkInDefault: b.checkInDefault,
-            roomsTotal,
-            roomsWithOverride,
-          };
-        }),
-      );
+      // Conteggio per-edificio in un'unica query: si bucketizza in JS
+      // invece di fare 2 Room.count per ogni building (era 2N+1 round-trip).
+      const rooms = await Room.findAll({
+        attributes: ['buildingId', 'requireCheckIn'],
+        where: { buildingId: buildings.map((b) => b.id) },
+        raw: true,
+      });
+      const counts = new Map();
+      for (const r of rooms) {
+        const entry = counts.get(r.buildingId) || { total: 0, overrides: 0 };
+        entry.total += 1;
+        if (r.requireCheckIn !== null) entry.overrides += 1;
+        counts.set(r.buildingId, entry);
+      }
+      const items = buildings.map((b) => {
+        const c = counts.get(b.id) || { total: 0, overrides: 0 };
+        return {
+          id: b.id,
+          name: b.name,
+          code: b.code,
+          checkInDefault: b.checkInDefault,
+          roomsTotal: c.total,
+          roomsWithOverride: c.overrides,
+        };
+      });
       res.json({ items });
     } catch (err) {
       next(err);
@@ -776,10 +785,13 @@ router.patch(
         });
       }
       await b.update({ checkInDefault: raw });
-      const roomsTotal = await Room.count({ where: { buildingId: b.id } });
-      const roomsWithOverride = await Room.count({
-        where: { buildingId: b.id, requireCheckIn: { [Op.ne]: null } },
+      const rooms = await Room.findAll({
+        attributes: ['requireCheckIn'],
+        where: { buildingId: b.id },
+        raw: true,
       });
+      const roomsTotal = rooms.length;
+      const roomsWithOverride = rooms.filter((r) => r.requireCheckIn !== null).length;
       res.json({
         building: {
           id: b.id,
