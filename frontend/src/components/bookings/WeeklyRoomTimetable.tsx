@@ -38,6 +38,11 @@ export interface WeeklyBlock {
   label: string;
   /** Tooltip esteso (mostra orari + dettagli se serve). */
   tooltip?: string;
+  /** Owner della prenotazione. Quando uguale a `currentUserId` passato al
+   *  WeeklyRoomTimetable, il blocco viene reso con uno stile distintivo
+   *  (ring oro). Undefined per le viste pubbliche (kiosk) dove l'owner
+   *  è anonimizzato. */
+  userId?: number | null;
 }
 
 export interface WeeklyRoom {
@@ -90,6 +95,12 @@ interface Props {
    *  espandere a 1h di default quando end-start === slotMinutes (singolo slot). */
   onSlotRangeSelect?: (room: WeeklyRoom, start: Date, end: Date) => void;
   onBlockClick?: (block: WeeklyBlock) => void;
+  /** Quando valorizzato, i blocchi con `block.userId === currentUserId` vengono
+   *  evidenziati con un ring oro (matching brand) per distinguerli dalle
+   *  prenotazioni altrui. Usato in Dashboard per dare riconoscibilità immediata
+   *  alle proprie prenotazioni in una griglia che mostra anche quelle degli
+   *  altri utenti (admin, docenti, studenti). */
+  currentUserId?: number | null;
 }
 
 export function WeeklyRoomTimetable({
@@ -107,6 +118,7 @@ export function WeeklyRoomTimetable({
   minRowRem = 1.25,
   onSlotRangeSelect,
   onBlockClick,
+  currentUserId,
 }: Props) {
   const { t } = useTranslation();
   const totalMinutes = (endHour - startHour) * 60;
@@ -453,6 +465,15 @@ export function WeeklyRoomTimetable({
                       sull'asse orizzontale (left/width). Altezza = riga piena. */}
                     {cellBlocks.map(({ block, left, width }) => {
                       const styles = BOOKING_TYPE_STYLES[block.type];
+                      // Riconoscimento immediato delle proprie prenotazioni nella
+                      // griglia condivisa: ring oro matching brand. Per i blocchi
+                      // del kiosk pubblico (publicBookingToBlock) `userId` è
+                      // undefined e currentUserId è null/undefined → mai marcato
+                      // come "mio", comportamento corretto.
+                      const isOwn =
+                        currentUserId != null &&
+                        block.userId != null &&
+                        block.userId === currentUserId;
                       return (
                         <button
                           key={block.id}
@@ -468,6 +489,8 @@ export function WeeklyRoomTimetable({
                             // adiacenti dello stesso slot senza rotture stilistiche.
                             'absolute z-10 flex flex-col items-center justify-center overflow-hidden px-1 text-center text-[0.625rem] font-semibold leading-tight',
                             styles.solid,
+                            isOwn &&
+                              'ring-2 ring-inset ring-amber-400 dark:ring-amber-300 brightness-110',
                             onBlockClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default',
                           )}
                           style={{
@@ -478,8 +501,9 @@ export function WeeklyRoomTimetable({
                             minWidth: '0.5rem',
                           }}
                           title={
-                            block.tooltip ??
-                            `${formatTime(block.startTime)}–${formatTime(block.endTime)} · ${t(BOOKING_TYPE_LABEL[block.type])} · ${block.label}`
+                            (isOwn ? `${t('booking.your_booking')} · ` : '') +
+                            (block.tooltip ??
+                              `${formatTime(block.startTime)}–${formatTime(block.endTime)} · ${t(BOOKING_TYPE_LABEL[block.type])} · ${block.label}`)
                           }
                         >
                           <span className="block w-full truncate">{block.label}</span>

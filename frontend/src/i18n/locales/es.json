@@ -431,6 +431,18 @@
     "subtitle": "Elige un aula y una fecha: haz clic en una franja libre para reservarla.",
     "select_room_first": "Selecciona un aula para ver la disponibilidad.",
     "click_help": "Haz clic en una franja libre · Haz clic en tu reserva para cancelarla",
+    "your_booking": "Tu reserva",
+    "info_dialog": {
+      "title": "Detalles de la reserva",
+      "subtitle": "Solo lectura — no puedes modificar reservas de otros usuarios.",
+      "when": "Cuándo",
+      "room": "Aula",
+      "booked_by": "Reservada por",
+      "type": "Tipo",
+      "purpose": "Título",
+      "unknown_user": "Usuario no disponible",
+      "readonly_note": "Para modificar o cancelar esta reserva, contacta con el usuario que la creó o con la administración."
+    },
     "action_duplicate": "Duplicar",
     "action_duplicate_help": "Crea una nueva reserva copiando aula, tipo y detalles (fecha desplazada 7 días)",
     "form_validation": {

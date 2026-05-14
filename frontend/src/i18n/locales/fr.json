@@ -431,6 +431,18 @@
     "subtitle": "Choisissez une salle et une date : cliquez sur un créneau libre pour réserver.",
     "select_room_first": "Sélectionnez une salle pour afficher la disponibilité.",
     "click_help": "Cliquez sur un créneau libre · Cliquez sur l'une de vos réservations pour l'annuler",
+    "your_booking": "Votre réservation",
+    "info_dialog": {
+      "title": "Détails de la réservation",
+      "subtitle": "Lecture seule — vous ne pouvez pas modifier les réservations d'autres utilisateurs.",
+      "when": "Quand",
+      "room": "Salle",
+      "booked_by": "Réservée par",
+      "type": "Type",
+      "purpose": "Titre",
+      "unknown_user": "Utilisateur non disponible",
+      "readonly_note": "Pour modifier ou annuler cette réservation, contactez l'utilisateur qui l'a créée ou l'administration."
+    },
     "action_duplicate": "Dupliquer",
     "action_duplicate_help": "Crée une nouvelle réservation en copiant la salle, le type et les détails (date décalée de 7 jours)",
     "form_validation": {

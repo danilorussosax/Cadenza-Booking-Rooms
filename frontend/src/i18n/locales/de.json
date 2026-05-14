@@ -431,6 +431,18 @@
     "subtitle": "Wählen Sie einen Raum und ein Datum: Klicken Sie auf einen freien Zeitraum, um zu buchen.",
     "select_room_first": "Wählen Sie einen Raum, um die Verfügbarkeit anzuzeigen.",
     "click_help": "Klicken Sie auf einen freien Zeitraum · Klicken Sie auf eine Ihrer Buchungen, um sie zu stornieren",
+    "your_booking": "Ihre Buchung",
+    "info_dialog": {
+      "title": "Buchungsdetails",
+      "subtitle": "Nur lesen — Sie können Buchungen anderer Benutzer nicht ändern.",
+      "when": "Wann",
+      "room": "Raum",
+      "booked_by": "Gebucht von",
+      "type": "Typ",
+      "purpose": "Titel",
+      "unknown_user": "Benutzer nicht verfügbar",
+      "readonly_note": "Um diese Buchung zu ändern oder zu stornieren, wenden Sie sich an den Ersteller oder die Verwaltung."
+    },
     "action_duplicate": "Duplizieren",
     "action_duplicate_help": "Erstellt eine neue Buchung mit Kopie von Raum, Typ und Details (Datum um 7 Tage verschoben)",
     "form_validation": {

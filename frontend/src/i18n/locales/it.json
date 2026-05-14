@@ -431,6 +431,18 @@
     "subtitle": "Scegli un'aula e una data: clicca su una fascia oraria libera per prenotare.",
     "select_room_first": "Seleziona un'aula per visualizzare la disponibilità.",
     "click_help": "Clicca su una fascia libera · Clicca su una tua prenotazione per annullarla",
+    "your_booking": "Tua prenotazione",
+    "info_dialog": {
+      "title": "Dettagli prenotazione",
+      "subtitle": "Sola lettura — non puoi modificare le prenotazioni di altri utenti.",
+      "when": "Quando",
+      "room": "Aula",
+      "booked_by": "Prenotata da",
+      "type": "Tipo",
+      "purpose": "Titolo",
+      "unknown_user": "Utente non disponibile",
+      "readonly_note": "Per modificare o cancellare questa prenotazione contatta direttamente l'utente che l'ha creata oppure l'amministrazione."
+    },
     "action_duplicate": "Duplica",
     "action_duplicate_help": "Crea una nuova prenotazione copiando aula, tipo e dettagli (data spostata di 7 giorni)",
     "form_validation": {

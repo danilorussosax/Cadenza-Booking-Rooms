@@ -431,6 +431,18 @@
     "subtitle": "Choose a room and date: click an empty time slot to book it.",
     "select_room_first": "Select a room to view availability.",
     "click_help": "Click an empty slot · Click your own booking to cancel it",
+    "your_booking": "Your booking",
+    "info_dialog": {
+      "title": "Booking details",
+      "subtitle": "Read-only — you cannot modify other users' bookings.",
+      "when": "When",
+      "room": "Room",
+      "booked_by": "Booked by",
+      "type": "Type",
+      "purpose": "Title",
+      "unknown_user": "User not available",
+      "readonly_note": "To change or cancel this booking, contact the user who created it or the administration."
+    },
     "action_duplicate": "Duplicate",
     "action_duplicate_help": "Create a new booking copying room, type and details (date shifted by 7 days)",
     "form_validation": {

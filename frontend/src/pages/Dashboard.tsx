@@ -38,6 +38,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookingListItem } from '@/components/bookings/BookingListItem';
 import { BookingFormDialog } from '@/components/bookings/BookingFormDialog';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
+import { BookingInfoDialog } from '@/components/bookings/BookingInfoDialog';
 import { WeeklyRoomTimetable } from '@/components/bookings/WeeklyRoomTimetable';
 import { WeeklyExportPrintView } from '@/components/bookings/WeeklyExportPrintView';
 import { WaitlistDashboardCard } from '@/components/bookings/WaitlistDashboardCard';
@@ -97,6 +98,7 @@ export default function Dashboard() {
     end?: Date;
   }>({ open: false });
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  const [infoTarget, setInfoTarget] = useState<Booking | null>(null);
   // Quick-action "Duplica" (gap #1 EasyRoom parity).
   const [duplicateTarget, setDuplicateTarget] = useState<Booking | null>(null);
   // Edit booking dialog target — admin può modificare qualsiasi prenotazione,
@@ -392,7 +394,13 @@ export default function Dashboard() {
     // Owner non-admin: clic sulla propria prenotazione apre l'annullamento.
     if (b.userId === user?.id) {
       setCancelTarget(b);
+      return;
     }
+    // Prenotazione altrui (docente / studente vede una prenotazione di un
+    // collega): apre un dialog read-only con i dettagli. Niente azioni di
+    // modifica/cancellazione, solo info ("chi ha l'aula prenotata in questo
+    // slot"). Le info sensibili (email, matricola) non vengono mostrate.
+    setInfoTarget(b);
   };
 
   const today = dayjs().format('YYYY-MM-DD');
@@ -688,6 +696,7 @@ export default function Dashboard() {
               daysCount={calendarDaysCount}
               rooms={calendarRooms}
               blocks={weeklyBlocks.filter((blk) => calendarRooms.some((r) => r.id === blk.roomId))}
+              currentUserId={user?.id ?? null}
               onSlotRangeSelect={handleSlotRangeSelect}
               onBlockClick={(blk) => {
                 const found = calendarBookingsQuery.data?.bookings.find((b) => b.id === blk.id);
@@ -812,6 +821,13 @@ export default function Dashboard() {
         booking={cancelTarget}
         onClose={() => {
           setCancelTarget(null);
+        }}
+      />
+      {/* Click su prenotazione altrui (non admin, non owner): dialog read-only. */}
+      <BookingInfoDialog
+        booking={infoTarget}
+        onClose={() => {
+          setInfoTarget(null);
         }}
       />
     </div>

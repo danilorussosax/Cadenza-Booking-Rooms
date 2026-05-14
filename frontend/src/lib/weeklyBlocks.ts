@@ -192,6 +192,7 @@ export function bookingToBlock(
     tooltip: b.user
       ? `${b.user.firstName} ${b.user.lastName}${b.purpose ? ` · ${b.purpose}` : ''}`
       : (b.purpose ?? undefined),
+    userId: b.userId,
   };
 }
 
