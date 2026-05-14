@@ -149,7 +149,9 @@
       "forgot_password": "Password dimenticata?",
       "back_to_options": "Torna alle opzioni",
       "continue_google": "Continua con Google",
-      "continue_microsoft": "Continua con Microsoft"
+      "continue_microsoft": "Continua con Microsoft",
+      "resend_setup_link": "Rinvia il link di benvenuto",
+      "setup_link_resent": "Se l'email è registrata, ti abbiamo rinviato il link di primo accesso. Controlla la tua casella."
     },
     "forgot": {
       "title": "Reimposta la password",
@@ -824,15 +826,19 @@
         "approve": "Approva selezionati",
         "reject": "Rifiuta selezionati",
         "delete": "Elimina selezionati",
+        "setup_link": "Invia link primo accesso",
         "approved_toast": "{{count}} utenti approvati ({{skipped}} ignorati)",
         "rejected_toast": "{{count}} utenti rifiutati ({{skipped}} ignorati)",
         "deleted_toast": "{{count}} utenti eliminati ({{removedBookings}} prenotazioni rimosse)",
+        "setup_links_sent_toast": "{{sent}} link inviati ({{skipped}} ignorati)",
         "confirm": {
           "approve_title": "Approvare gli utenti selezionati?",
           "reject_title": "Rifiutare gli utenti selezionati?",
           "delete_title": "Eliminare {{count}} utenti?",
+          "setup_link_title": "Inviare il link di primo accesso?",
           "approve_reject_description": "Verranno aggiornati {{count}} utenti in attesa. {{skipped}} utenti già approvati o rifiutati verranno saltati.",
-          "delete_description": "Stai per eliminare {{count}} utenti e tutte le loro prenotazioni. L'operazione è irreversibile."
+          "delete_description": "Stai per eliminare {{count}} utenti e tutte le loro prenotazioni. L'operazione è irreversibile.",
+          "setup_link_description": "Verrà inviato un magic-link \"imposta password\" ai {{count}} utenti selezionati. Gli utenti che hanno già una password verranno saltati automaticamente."
         }
       },
       "form": {
@@ -2077,7 +2083,21 @@
       "history_empty": "Nessuna esecuzione registrata.",
       "run_summary": "Letti {{fetched}} · Creati {{created}} · Aggiornati {{updated}} · Disattivati {{orphaned}} · Errori {{errors}}",
       "toast": {
-        "applied": "Sync completata: {{created}} creati, {{updated}} aggiornati, {{orphaned}} disattivati."
+        "applied": "Sync completata: {{created}} creati, {{updated}} aggiornati, {{orphaned}} disattivati.",
+        "setup_links_sent": "{{sent}} link di primo accesso inviati. {{skipped}} saltati."
+      },
+      "setup_banner": {
+        "title": "{{count}} utenti creati senza password",
+        "subtitle": "Puoi inviare loro via email un link per impostare la propria password al primo accesso.",
+        "cta": "Invia link di primo accesso ({{count}})"
+      },
+      "setup_dialog": {
+        "title": "Conferma invio link di primo accesso",
+        "description": "Stai per inviare a {{count}} utenti un'email di benvenuto con il link per impostare la loro password.",
+        "bullet_skip_existing": "Gli utenti che hanno già una password vengono saltati automaticamente",
+        "bullet_invalidate_previous": "Eventuali link precedenti vengono invalidati per ciascun destinatario",
+        "bullet_one_link": "Per ogni utente sarà valido un solo link alla volta",
+        "confirm": "Invia {{count}} mail"
       },
       "mapping_upload_hint": "Il mapping degli header (auto-detection) viene calcolato dopo il primo upload. Potrai rivederlo e modificarlo nella schermata di anteprima.",
       "mapping_title": "Mapping campi",

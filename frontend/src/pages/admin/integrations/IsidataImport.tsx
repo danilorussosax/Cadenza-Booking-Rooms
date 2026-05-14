@@ -12,6 +12,7 @@ import {
   GitCompare,
   History,
   Loader2,
+  Mail,
   RotateCcw,
   ShieldAlert,
   Upload,
@@ -20,8 +21,11 @@ import {
   UserX,
 } from 'lucide-react';
 import { httpErrorMessage } from '@/lib/api';
+import { usersApi } from '@/api/users';
+import { IsidataLogo } from '@/components/icons/IsidataLogo';
 import {
   integrationsApi,
+  type ApplyResponse,
   type CompareRunsResponse,
   type EffectiveMapping,
   type ExternalUser,
@@ -37,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -151,9 +156,12 @@ export default function IsidataImport() {
   const { t } = useTranslation();
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-medium">{t('integrations.isidata.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('integrations.isidata.subtitle')}</p>
+      <div className="flex items-center gap-3">
+        <IsidataLogo className="h-10 w-10 shrink-0" />
+        <div>
+          <h1 className="font-display text-3xl font-medium">{t('integrations.isidata.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('integrations.isidata.subtitle')}</p>
+        </div>
       </div>
       <IsidataImportContent />
     </div>
@@ -176,6 +184,10 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
+  // Risultato dell'ultimo apply: serve a propagare `createdUserIds` al
+  // banner post-import che propone il bulk-invio del magic-link.
+  const [lastApply, setLastApply] = useState<ApplyResponse | null>(null);
+  const [setupDialogOpen, setSetupDialogOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'create' | 'update' | 'orphan'>('all');
   // Mapping "live" — può essere ≠ da preview.effectiveMapping quando l'admin
   // ha modificato il dropdown ma non ha ancora rilanciato la preview. Una
@@ -241,7 +253,30 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
       );
       void qc.invalidateQueries({ queryKey: ['users'] });
       void qc.invalidateQueries({ queryKey: ['admin', 'integrations'] });
+      setLastApply(data);
       setStep('done');
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  // Bulk-invio del magic-link "imposta password" agli utenti appena creati
+  // dall'import. Servito da POST /api/users/send-setup-links-bulk: il
+  // service backend si occupa di invalidare token precedenti + enqueue
+  // outbox idempotente.
+  const setupLinksMutation = useMutation({
+    mutationFn: (userIds: number[]) =>
+      usersApi.sendSetupLinksBulk({ userIds, onlyMissingPassword: true }),
+    onSuccess: (data) => {
+      setSetupDialogOpen(false);
+      toast.success(
+        t('integrations.isidata.toast.setup_links_sent', {
+          sent: data.sent,
+          skipped: data.skipped,
+        }),
+      );
+      // Dopo l'invio, "spegniamo" il banner per evitare doppio invio:
+      // un re-click non triggera più la modale fino a un nuovo apply.
+      setLastApply((prev) => (prev ? { ...prev, createdUserIds: [] } : prev));
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -372,14 +407,91 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
       )}
 
       {step === 'done' && (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-            <p className="text-xl font-medium">{t('integrations.isidata.done_title')}</p>
-            <p className="text-sm text-muted-foreground">{t('integrations.isidata.done_hint')}</p>
-            <Button onClick={reset}>{t('integrations.isidata.import_another')}</Button>
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+              <p className="text-xl font-medium">{t('integrations.isidata.done_title')}</p>
+              <p className="text-sm text-muted-foreground">{t('integrations.isidata.done_hint')}</p>
+              <Button onClick={reset}>{t('integrations.isidata.import_another')}</Button>
+            </CardContent>
+          </Card>
+
+          {/* Banner CTA per il bulk-invio del magic-link "primo accesso" agli
+              utenti appena creati. Compare solo se l'apply ha effettivamente
+              creato utenti (createdUserIds non vuoto). L'admin può chiudere
+              la modale per saltare: l'invio resta disponibile da pagina
+              Utenti con la bulk action manuale. */}
+          {(lastApply?.createdUserIds?.length ?? 0) > 0 && (
+            <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+              <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <Mail className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {t('integrations.isidata.setup_banner.title', {
+                        count: lastApply?.createdUserIds?.length ?? 0,
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('integrations.isidata.setup_banner.subtitle')}
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={() => setSetupDialogOpen(true)} className="shrink-0">
+                  <Mail className="h-4 w-4" />
+                  {t('integrations.isidata.setup_banner.cta', {
+                    count: lastApply?.createdUserIds?.length ?? 0,
+                  })}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Modale di conferma bulk-invio */}
+          <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{t('integrations.isidata.setup_dialog.title')}</DialogTitle>
+                <DialogDescription>
+                  {t('integrations.isidata.setup_dialog.description', {
+                    count: lastApply?.createdUserIds?.length ?? 0,
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li>· {t('integrations.isidata.setup_dialog.bullet_skip_existing')}</li>
+                <li>· {t('integrations.isidata.setup_dialog.bullet_invalidate_previous')}</li>
+                <li>· {t('integrations.isidata.setup_dialog.bullet_one_link')}</li>
+              </ul>
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={() => setSetupDialogOpen(false)}
+                  disabled={setupLinksMutation.isPending}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  onClick={() => {
+                    const ids = lastApply?.createdUserIds ?? [];
+                    if (ids.length > 0) setupLinksMutation.mutate(ids);
+                  }}
+                  disabled={setupLinksMutation.isPending}
+                >
+                  {setupLinksMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {t('integrations.isidata.setup_dialog.confirm', {
+                    count: lastApply?.createdUserIds?.length ?? 0,
+                  })}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       <CompareRunDialog runId={compareRunId} onClose={() => setCompareRunId(null)} />

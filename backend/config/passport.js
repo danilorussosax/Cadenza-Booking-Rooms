@@ -26,8 +26,22 @@ passport.use(
         if (!user) return done(null, false, { message: 'Credenziali non valide' });
         if (!user.isActive) return done(null, false, { message: 'Account disabilitato' });
         if (!user.passwordHash) {
+          // Distinguiamo tra: (a) utente che ha solo OAuth associato vs
+          // (b) utente importato (es. Isidata) che non ha ancora impostato
+          // la password. Il frontend usa `code` per mostrare l'azione giusta
+          // ("usa Google/Microsoft" vs "controlla la mail di benvenuto").
+          const isOAuthOnly = !!(user.googleId || user.microsoftId);
+          if (isOAuthOnly) {
+            return done(null, false, {
+              message: 'Questo account è collegato solo a OAuth. Usa Google/Microsoft.',
+              code: 'OAUTH_ONLY',
+            });
+          }
           return done(null, false, {
-            message: 'Questo account è collegato solo a OAuth. Usa Google/Microsoft.',
+            message:
+              'Imposta la password tramite il link che hai ricevuto via email. ' +
+              "Se non l'hai ricevuto, contatta l'amministrazione.",
+            code: 'PASSWORD_NOT_SET',
           });
         }
         const ok = await user.verifyPassword(password);

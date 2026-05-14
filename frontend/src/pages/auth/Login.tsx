@@ -17,7 +17,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { User } from '@/types';
-import { httpErrorMessage } from '@/lib/api';
+import { httpErrorMessage, HttpError } from '@/lib/api';
+import { passwordResetApi } from '@/api/passwordReset';
+import { toast } from 'sonner';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +49,11 @@ export default function Login() {
   const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Code dell'ultimo errore di login: usato per mostrare un CTA dedicato
+  // quando l'utente non ha ancora impostato la password (importato da
+  // Isidata o altro sistema esterno).
+  const [serverErrorCode, setServerErrorCode] = useState<string | null>(null);
+  const [resendingSetup, setResendingSetup] = useState(false);
   // Step 2 del login con 2FA: salviamo tempToken + info email in stato locale.
   const [twoFa, setTwoFa] = useState<{
     tempToken: string;
@@ -62,11 +69,13 @@ export default function Login() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   });
+  const currentEmail = watch('email');
 
   const proceedAfterLogin = (user: User) => {
     const redirectTo =
@@ -83,6 +92,7 @@ export default function Login() {
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
+    setServerErrorCode(null);
     try {
       const result = await loginWithCredentials(values.email, values.password);
       if (result.kind === 'twofa') {
@@ -99,6 +109,28 @@ export default function Login() {
       proceedAfterLogin(result.user);
     } catch (err) {
       setServerError(httpErrorMessage(err));
+      if (err instanceof HttpError) {
+        const code = err.payload?.code;
+        if (code === 'PASSWORD_NOT_SET' || code === 'OAUTH_ONLY') {
+          setServerErrorCode(code);
+        }
+      }
+    }
+  };
+
+  // Re-invio self-service del magic-link "imposta password" per utenti
+  // importati che hanno perso la mail di benvenuto. Riusa l'endpoint
+  // pubblico /auth/forgot-password (anti-enumeration: risponde sempre OK).
+  const resendSetupLink = async (email: string) => {
+    if (!email) return;
+    setResendingSetup(true);
+    try {
+      await passwordResetApi.forgot(email);
+      toast.success(t('auth.login.setup_link_resent'));
+    } catch (err) {
+      toast.error(httpErrorMessage(err));
+    } finally {
+      setResendingSetup(false);
     }
   };
 
@@ -176,6 +208,12 @@ export default function Login() {
             errors={errors}
             isSubmitting={isSubmitting}
             serverError={serverError}
+            serverErrorCode={serverErrorCode}
+            currentEmail={currentEmail}
+            onResendSetupLink={(email) => {
+              void resendSetupLink(email);
+            }}
+            resendingSetup={resendingSetup}
             showPassword={showPassword}
             onTogglePassword={() => {
               setShowPassword((s) => !s);
@@ -288,6 +326,10 @@ interface EmailViewProps {
   errors: ReturnType<typeof useForm<FormValues>>['formState']['errors'];
   isSubmitting: boolean;
   serverError: string | null;
+  serverErrorCode: string | null;
+  currentEmail: string;
+  onResendSetupLink: (email: string) => void;
+  resendingSetup: boolean;
   showPassword: boolean;
   onTogglePassword: () => void;
 }
@@ -299,6 +341,10 @@ function EmailView({
   errors,
   isSubmitting,
   serverError,
+  serverErrorCode,
+  currentEmail,
+  onResendSetupLink,
+  resendingSetup,
   showPassword,
   onTogglePassword,
 }: EmailViewProps) {
@@ -334,8 +380,29 @@ function EmailView({
       </div>
 
       {serverError && (
-        <Alert variant="destructive">
-          <AlertDescription>{serverError}</AlertDescription>
+        <Alert variant={serverErrorCode === 'PASSWORD_NOT_SET' ? 'default' : 'destructive'}>
+          <AlertDescription className="space-y-2">
+            <p>{serverError}</p>
+            {/* CTA self-service: l'utente importato che ha perso la mail di
+                benvenuto chiede un nuovo magic-link senza passare per la
+                Segreteria. Riusa l'endpoint /api/auth/forgot-password
+                (anti-enumeration: risponde sempre OK). */}
+            {serverErrorCode === 'PASSWORD_NOT_SET' && currentEmail && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={resendingSetup}
+                onClick={() => onResendSetupLink(currentEmail)}
+              >
+                {resendingSetup ? (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <span>{t('auth.login.resend_setup_link')}</span>
+                )}
+              </Button>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

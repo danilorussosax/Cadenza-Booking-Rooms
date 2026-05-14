@@ -69,6 +69,32 @@ export const usersApi = {
       body: payload,
     }),
 
+  /** Invia un magic-link "imposta password" a un singolo utente che non ha
+   *  ancora una password (tipicamente importato da Isidata). Invalida i
+   *  token precedenti dello stesso utente e ne emette uno nuovo. */
+  sendSetupLink: (id: number, ttlDays?: number) =>
+    api<{ sent: true; expiresAt: string }>(`/api/users/${id}/send-setup-link`, {
+      method: 'POST',
+      body: ttlDays != null ? { ttlDays } : {},
+    }),
+
+  /** Bulk-invio del magic-link a N utenti (post-import Isidata o azione
+   *  manuale dalla pagina Utenti). `onlyMissingPassword` default true
+   *  salta automaticamente gli utenti che hanno già una password. */
+  sendSetupLinksBulk: (params: {
+    userIds: number[];
+    ttlDays?: number;
+    onlyMissingPassword?: boolean;
+  }) =>
+    api<{
+      sent: number;
+      skipped: number;
+      skippedReasons: Record<string, number>;
+    }>('/api/users/send-setup-links-bulk', {
+      method: 'POST',
+      body: params,
+    }),
+
   /** Esporta gli utenti in CSV. NON include password/2FA — solo email,
    *  anagrafica, ruolo, matricola, codice corso, stato e flag attivo.
    *  Bearer richiesto: scarica via fetch+blob (un <a href> non manda l'header). */

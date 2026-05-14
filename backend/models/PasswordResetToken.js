@@ -57,6 +57,19 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(512),
         allowNull: true,
       },
+      // Distingue il flusso:
+      //   - 'reset'          → password dimenticata, TTL ~1h, l'utente già
+      //                        ha una password e la sta rigenerando
+      //   - 'initial_setup'  → primo accesso post-import (es. Isidata),
+      //                        TTL configurabile (default 14gg), l'utente
+      //                        non ha mai impostato una password
+      // Permette anche di tracciare in audit l'origine del token e di
+      // mostrare email con copy diverso.
+      purpose: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'reset',
+      },
     },
     {
       tableName: 'password_reset_tokens',

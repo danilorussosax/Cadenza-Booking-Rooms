@@ -569,6 +569,7 @@ function makeApplyHandler(source) {
           orphaned = 0,
           errors = 0;
         const errorPayload = [];
+        const createdUserIds = [];
         const now = new Date();
 
         // CREATE
@@ -612,7 +613,8 @@ function makeApplyHandler(source) {
             // contractType: presente solo per docenti con qualifica riconosciuta
             // (Miglioria 2). Per gli studenti il campo non è nel payload.
             if (ext.contractType) createData.contractType = ext.contractType;
-            await User.create(createData, { transaction: t });
+            const createdUser = await User.create(createData, { transaction: t });
+            createdUserIds.push(createdUser.id);
             created++;
           } catch (err) {
             errors++;
@@ -689,10 +691,10 @@ function makeApplyHandler(source) {
           }
         }
 
-        return { created, updated, orphaned, errors, errorPayload, diff };
+        return { created, updated, orphaned, errors, errorPayload, diff, createdUserIds };
       });
 
-      const { created, updated, orphaned, errors, errorPayload, diff } = result;
+      const { created, updated, orphaned, errors, errorPayload, diff, createdUserIds } = result;
       const finalStatus =
         errors === 0 ? 'success' : created + updated + orphaned > 0 ? 'partial' : 'failed';
 
@@ -767,6 +769,10 @@ function makeApplyHandler(source) {
         runId: run.id,
         status: finalStatus,
         summary: { fetched: externals.length, created, updated, orphaned, errors, warnings },
+        // ID degli utenti appena creati: il frontend li passa a
+        // POST /api/users/send-setup-links-bulk per spedire il magic-link
+        // di primo accesso. Vuoto se nessuno creato in questo run.
+        createdUserIds,
       });
     } catch (err) {
       // Best-effort: marca il run come failed e propaga.

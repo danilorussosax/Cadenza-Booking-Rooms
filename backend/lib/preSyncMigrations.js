@@ -839,6 +839,22 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna oauth_settings.allowedEmailDomains aggiunta (SSO whitelist)');
   }
 
+  // Magic-link primo accesso (import Isidata / bulk admin).
+  // - password_reset_tokens.purpose: distingue 'reset' (TTL 1h) da
+  //   'initial_setup' (TTL configurabile, default 14gg).
+  // - institutes.initialSetupLinkTtlDays: durata in giorni del token
+  //   di setup, configurabile da admin in Server Settings.
+  if (await ensureNullableStringColumn('password_reset_tokens', 'purpose', 20)) {
+    // Backfill: tutti i token esistenti sono reset (default storico).
+    await sequelize.query(
+      `UPDATE password_reset_tokens SET purpose = 'reset' WHERE purpose IS NULL`,
+    );
+    logger.info('  ✓ Colonna password_reset_tokens.purpose aggiunta (default reset)');
+  }
+  if (await ensureIntColumn('institutes', 'initialSetupLinkTtlDays', 14)) {
+    logger.info('  ✓ Colonna institutes.initialSetupLinkTtlDays aggiunta (default 14gg)');
+  }
+
   // Indici compositi additivi su tabelle ad alta lettura. I model dichiarano
   // gli stessi indici per le installazioni fresche; qui li aggiungiamo a DB
   // esistenti che hanno solo i vecchi indici a colonna singola. CREATE INDEX

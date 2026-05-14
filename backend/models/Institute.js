@@ -145,6 +145,16 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: true,
       },
+      // ===== Magic-link primo accesso (post-import Isidata / bulk admin) =====
+      // Durata in giorni del token email di "imposta la tua password" inviato
+      // agli utenti appena importati o senza passwordHash. Range 1-90 gg
+      // (validato a livello applicativo). Default 14 gg: gli studenti aprono
+      // la mail con calma. Il reset password "tradizionale" resta a 1h.
+      initialSetupLinkTtlDays: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 14,
+      },
     },
     {
       tableName: 'institutes',

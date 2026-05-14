@@ -176,6 +176,10 @@ export interface ApplyResponse {
     errors: number;
     warnings: { row?: number; msg: string }[];
   };
+  /** ID degli utenti creati in questo run. Usato per innescare il bulk-invio
+   *  del magic-link "imposta password" subito dopo l'apply. Array vuoto se
+   *  nessuno è stato creato. */
+  createdUserIds: number[];
 }
 
 export interface SyncRun {

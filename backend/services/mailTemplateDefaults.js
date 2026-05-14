@@ -220,6 +220,24 @@ const DEFAULTS = {
       </p>`,
     ),
   },
+  initial_setup: {
+    subject: 'Benvenuto in Cadenza — Gestione aule e prenotazioni — {{institute.name}}',
+    bodyHtml: wrap(
+      '<span class="pill pill-info">PRIMO ACCESSO</span>',
+      'Benvenuto, {{user.firstName}}',
+      "L'amministrazione di {{institute.name}} ha creato il tuo account su Cadenza, la piattaforma per la gestione delle aule e delle prenotazioni del Conservatorio. Per iniziare, scegli la tua password cliccando il pulsante qui sotto.",
+      `<div class="row" style="border:0; padding:16px 0">
+        <a href="{{reset.url}}" style="display:inline-block; background:#3762aa; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:600; font-size:14px;">Imposta la mia password</a>
+      </div>
+      <div class="row"><div class="label">Account</div><div class="val">{{user.email}}</div></div>
+      <div class="row"><div class="label">Scadenza link</div><div class="val">{{reset.expiresAtLong}}</div></div>
+      <p class="meta" style="margin-top: 16px; font-size: 12px; color: #6b7a90;">
+        Il link è valido fino alla data indicata e può essere usato una sola volta. Se è scaduto, contatta la
+        Segreteria del Conservatorio per riceverne uno nuovo. Una volta impostata la password potrai accedere
+        con la tua email.
+      </p>`,
+    ),
+  },
 };
 
 const KINDS = Object.keys(DEFAULTS);
@@ -240,6 +258,7 @@ const KIND_LABELS = {
   booking_approved: 'Approvazione · prenotazione approvata',
   booking_rejected: 'Approvazione · prenotazione non approvata',
   password_reset: 'Sicurezza · reimposta password',
+  initial_setup: 'Primo accesso · imposta password',
 };
 
 module.exports = { DEFAULTS, KINDS, KIND_LABELS };

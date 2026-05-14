@@ -261,14 +261,20 @@ router.post('/login', loginLimiter, (req, res, next) => {
       }
     }
 
-    passport.authenticate('local', { session: false }, async (err, user, _info) => {
+    passport.authenticate('local', { session: false }, async (err, user, info) => {
       if (err) return res.status(500).json({ error: 'Errore interno' });
       if (!user) {
         // Risposta uniforme per tutti i casi di failure (password sbagliata,
-        // email non registrata, account disabilitato, account OAuth-only):
-        // codici/messaggi distinti permettevano di enumerare email registrate
-        // e account SSO (target per phishing). Lato server l'esito reale viene
-        // comunque loggato dal passport-local strategy.
+        // email non registrata, account disabilitato): codici/messaggi
+        // distinti permettevano di enumerare email registrate.
+        //
+        // Eccezione deliberata: i due code PASSWORD_NOT_SET (utente importato
+        // da Isidata che non ha ancora completato il setup tramite magic-link)
+        // e OAUTH_ONLY (account che usa solo Google/Microsoft) vengono
+        // propagati al frontend per mostrare il CTA giusto. Rilassano
+        // l'anti-enumeration ma per il target Conservatorio (perimetro
+        // chiuso, ~500 utenti noti) il rischio è basso e il guadagno UX
+        // elevato (gli studenti capiscono perché non possono entrare).
         //
         // Account lockout: incrementa il contatore SOLO se l'email matcha un
         // utente esistente (con password locale). Altrimenti chiunque potrebbe
@@ -290,6 +296,12 @@ router.post('/login', loginLimiter, (req, res, next) => {
             }
             await User.update(update, { where: { id: target.id } });
           }
+        }
+        if (info?.code === 'PASSWORD_NOT_SET' || info?.code === 'OAUTH_ONLY') {
+          return res.status(401).json({
+            error: info.message || 'Email o password non validi',
+            code: info.code,
+          });
         }
         return res.status(401).json({
           error: 'Email o password non validi',

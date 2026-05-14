@@ -11,6 +11,13 @@ const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
 const { importUsersFromFile } = require('../services/users/csvImport');
+const {
+  sendSetupLink,
+  PURPOSE_INITIAL_SETUP,
+  TTL_SETUP_MIN_DAYS,
+  TTL_SETUP_MAX_DAYS,
+} = require('../services/auth/sendSetupLink');
+const logger = require('../lib/logger');
 
 /**
  * Anti-lockout: previene la trasformazione dell'ULTIMO admin in non-admin
@@ -646,6 +653,146 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
       });
     }
     next(err);
+  }
+});
+
+// =====================================================
+// Magic-link primo accesso (post-import Isidata / bulk admin)
+// =====================================================
+//
+// Pattern d'uso:
+//   1) Post-apply Isidata: il frontend riceve `createdUserIds` e chiama
+//      `send-setup-links-bulk` per spedire a tutti i nuovi un email con
+//      link "imposta la tua password".
+//   2) Manuale: l'admin in pagina Utenti seleziona N righe e clicca
+//      "Invia link di primo accesso" (stesso endpoint bulk).
+//   3) Singolo (`POST /:id/send-setup-link`): ricerca puntuale per un utente
+//      specifico, es. "ha perso la mail, rimandagliela".
+//
+// Il service `sendSetupLink` invalida i token precedenti dello stesso
+// purpose e ne emette uno nuovo (single-valid-link). Idempotency outbox
+// previene doppi invii accidentali entro il minuto.
+
+function validateTtlDays(raw) {
+  if (raw == null) return { ok: true, value: null };
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < TTL_SETUP_MIN_DAYS || n > TTL_SETUP_MAX_DAYS) {
+    return {
+      ok: false,
+      error: `ttlDays deve essere tra ${TTL_SETUP_MIN_DAYS} e ${TTL_SETUP_MAX_DAYS}`,
+      code: 'INVALID_TTL',
+    };
+  }
+  return { ok: true, value: Math.round(n) };
+}
+
+// POST /api/users/:id/send-setup-link
+// Body: { ttlDays?: 1..90 }
+router.post('/:id/send-setup-link', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id non valido', code: 'INVALID_ID' });
+    }
+    const ttlCheck = validateTtlDays(req.body?.ttlDays);
+    if (!ttlCheck.ok) return res.status(400).json({ error: ttlCheck.error, code: ttlCheck.code });
+
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'NOT_FOUND' });
+    if (user.passwordHash) {
+      return res.status(400).json({
+        error: 'Utente con password già impostata: usa il flusso reset',
+        code: 'USER_HAS_PASSWORD',
+      });
+    }
+
+    const r = await sendSetupLink({
+      user,
+      purpose: PURPOSE_INITIAL_SETUP,
+      ttlDays: ttlCheck.value,
+      requestIp: req.ip,
+      requestUserAgent: req.get('user-agent'),
+    });
+    if (!r.ok) {
+      logger.warn({ userId: id, err: r.error, scope: 'admin.send_setup_link' }, 'send fallito');
+      return res.status(502).json({ error: r.error, code: r.code || 'SEND_FAILED' });
+    }
+    return res.json({ sent: true, expiresAt: r.expiresAt });
+  } catch (err) {
+    logger.error({ err: err.message, scope: 'admin.send_setup_link' }, 'errore');
+    return res.status(500).json({ error: 'Errore invio link', code: 'INTERNAL' });
+  }
+});
+
+// POST /api/users/send-setup-links-bulk
+// Body: { userIds: number[], ttlDays?: number, onlyMissingPassword?: boolean }
+const BULK_MAX = 1000;
+router.post('/send-setup-links-bulk', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const userIds = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+    const onlyMissingPassword = req.body?.onlyMissingPassword !== false; // default true
+    if (userIds.length === 0) {
+      return res.status(400).json({ error: 'userIds vuoto', code: 'EMPTY_LIST' });
+    }
+    if (userIds.length > BULK_MAX) {
+      return res
+        .status(400)
+        .json({ error: `userIds supera il massimo (${BULK_MAX})`, code: 'TOO_MANY' });
+    }
+    const ids = userIds.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'userIds non validi', code: 'INVALID_LIST' });
+    }
+    const ttlCheck = validateTtlDays(req.body?.ttlDays);
+    if (!ttlCheck.ok) return res.status(400).json({ error: ttlCheck.error, code: ttlCheck.code });
+
+    const users = await User.findAll({ where: { id: { [Op.in]: ids } } });
+    const reasons = { USER_HAS_PASSWORD: 0, INVALID_EMAIL: 0, SEND_FAILED: 0, NOT_FOUND: 0 };
+    let sent = 0;
+    let skipped = 0;
+
+    const foundIds = new Set(users.map((u) => u.id));
+    for (const id of ids) {
+      if (!foundIds.has(id)) {
+        reasons.NOT_FOUND += 1;
+        skipped += 1;
+      }
+    }
+
+    for (const user of users) {
+      if (onlyMissingPassword && user.passwordHash) {
+        reasons.USER_HAS_PASSWORD += 1;
+        skipped += 1;
+        continue;
+      }
+      if (!user.email) {
+        reasons.INVALID_EMAIL += 1;
+        skipped += 1;
+        continue;
+      }
+      const r = await sendSetupLink({
+        user,
+        purpose: PURPOSE_INITIAL_SETUP,
+        ttlDays: ttlCheck.value,
+        requestIp: req.ip,
+        requestUserAgent: req.get('user-agent'),
+      });
+      if (r.ok) {
+        sent += 1;
+      } else {
+        reasons.SEND_FAILED += 1;
+        skipped += 1;
+      }
+    }
+
+    logger.info(
+      { sent, skipped, ids: ids.length, scope: 'admin.send_setup_link_bulk' },
+      'bulk setup link completato',
+    );
+    return res.json({ sent, skipped, skippedReasons: reasons });
+  } catch (err) {
+    logger.error({ err: err.message, scope: 'admin.send_setup_link_bulk' }, 'errore');
+    return res.status(500).json({ error: 'Errore invio bulk', code: 'INTERNAL' });
   }
 });
 

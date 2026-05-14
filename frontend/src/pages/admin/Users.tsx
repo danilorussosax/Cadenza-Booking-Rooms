@@ -15,6 +15,7 @@ import {
   Globe,
   KeyRound,
   LoaderCircle,
+  Mail,
   Pencil,
   Plus,
   Save,
@@ -65,6 +66,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { IsidataImportContent } from '@/pages/admin/integrations/IsidataImport';
+import { IsidataLogo } from '@/components/icons/IsidataLogo';
 import type { Role, User, UserStatus } from '@/types';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
@@ -122,7 +124,9 @@ export default function AdminUsers() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // Bulk selection (su utenti pending). Reset al cambio filtro.
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | 'delete' | null>(null);
+  const [bulkAction, setBulkAction] = useState<
+    'approve' | 'reject' | 'delete' | 'setup_link' | null
+  >(null);
 
   const query = useQuery({
     queryKey: ['users', { role: roleFilter, active: activeFilter, status: statusFilter }],
@@ -227,6 +231,23 @@ export default function AdminUsers() {
     onSuccess: ({ deleted, removedBookings }) => {
       toast.success(t('admin.users.bulk.deleted_toast', { count: deleted, removedBookings }));
       void qc.invalidateQueries({ queryKey: ['users'] });
+      setSelected(new Set());
+      setBulkAction(null);
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  // Invio massivo del magic-link "imposta password" agli utenti selezionati.
+  // Il backend skippa automaticamente chi ha già una password (onlyMissingPassword:
+  // true di default). Riportiamo nel toast il delta sent/skipped.
+  const bulkSetupLinksMutation = useMutation({
+    mutationFn: () =>
+      usersApi.sendSetupLinksBulk({
+        userIds: Array.from(selected),
+        onlyMissingPassword: true,
+      }),
+    onSuccess: ({ sent, skipped }) => {
+      toast.success(t('admin.users.bulk.setup_links_sent_toast', { sent, skipped }));
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -405,6 +426,16 @@ export default function AdminUsers() {
                     >
                       <X className="h-4 w-4" />
                       {t('admin.users.bulk.reject')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBulkAction('setup_link');
+                      }}
+                    >
+                      <Mail className="h-4 w-4" />
+                      {t('admin.users.bulk.setup_link')}
                     </Button>
                     <Button
                       variant="destructive"
@@ -653,29 +684,42 @@ export default function AdminUsers() {
             ? t('admin.users.bulk.confirm.approve_title')
             : bulkAction === 'reject'
               ? t('admin.users.bulk.confirm.reject_title')
-              : t('admin.users.bulk.confirm.delete_title')
+              : bulkAction === 'setup_link'
+                ? t('admin.users.bulk.confirm.setup_link_title')
+                : t('admin.users.bulk.confirm.delete_title')
         }
         description={
           bulkAction === 'delete'
             ? t('admin.users.bulk.confirm.delete_description', { count: selected.size })
-            : t('admin.users.bulk.confirm.approve_reject_description', {
-                count: pendingSelected.length,
-                skipped: selected.size - pendingSelected.length,
-              })
+            : bulkAction === 'setup_link'
+              ? t('admin.users.bulk.confirm.setup_link_description', { count: selected.size })
+              : t('admin.users.bulk.confirm.approve_reject_description', {
+                  count: pendingSelected.length,
+                  skipped: selected.size - pendingSelected.length,
+                })
         }
         confirmLabel={
           bulkAction === 'approve'
             ? t('admin.users.bulk.approve')
             : bulkAction === 'reject'
               ? t('admin.users.bulk.reject')
-              : t('admin.users.bulk.delete')
+              : bulkAction === 'setup_link'
+                ? t('admin.users.bulk.setup_link')
+                : t('admin.users.bulk.delete')
         }
-        variant={bulkAction === 'approve' ? 'default' : 'destructive'}
-        loading={bulkApproveMutation.isPending || bulkDeleteMutation.isPending}
+        variant={
+          bulkAction === 'approve' || bulkAction === 'setup_link' ? 'default' : 'destructive'
+        }
+        loading={
+          bulkApproveMutation.isPending ||
+          bulkDeleteMutation.isPending ||
+          bulkSetupLinksMutation.isPending
+        }
         onConfirm={() => {
           if (bulkAction === 'approve') bulkApproveMutation.mutate('approve');
           else if (bulkAction === 'reject') bulkApproveMutation.mutate('reject');
           else if (bulkAction === 'delete') bulkDeleteMutation.mutate();
+          else if (bulkAction === 'setup_link') bulkSetupLinksMutation.mutate();
         }}
       />
 
@@ -1147,7 +1191,7 @@ function IsidataImportCard() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-3 font-display text-lg">
             <span className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <IsidataLogo className="h-6 w-6" />
               Isidata
             </span>
           </CardTitle>
