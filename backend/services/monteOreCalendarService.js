@@ -50,26 +50,44 @@ function suspensionContainsDate(susp, dateIso) {
 }
 
 /**
- * Una settimana è "full_week sospesa" se TUTTI i giorni Lun..Sab cadono
- * dentro almeno una sospensione `full_week`. Basta che una singola
- * sospensione full_week copra l'intera settimana.
+ * Una settimana è "completamente sospesa" se TUTTI i 6 giorni Lun..Sab
+ * cadono dentro almeno una sospensione (qualsiasi kind/category).
+ *
+ * Storicamente il check filtrava solo `kind='full_week'`, presumendo che
+ * fosse l'admin a marcare esplicitamente le vacanze lunghe. In pratica
+ * vacanze di Natale o di Pasqua inserite come `partial` con range che
+ * coprivano 2-3 settimane intere restavano comunque visibili nella griglia
+ * (riga con tutti i 6 giorni rossi). Più pulito: l'UNIONE di tutte le
+ * sospensioni che intersecano la settimana deve coprire interamente Lun-Sab.
+ *
+ * Approccio: scorri i 6 giorni; se ogni giorno è coperto da almeno una
+ * sospensione, la settimana viene nascosta. Costa O(6 * suspensions.length)
+ * per settimana, irrilevante anche con 100 sospensioni.
  */
 function isWeekFullySuspended(weekStart, weekEnd, suspensions) {
-  const fullWeeks = (suspensions || []).filter((s) => s.kind === 'full_week');
-  // Modello "single suspension che copre l'intera settimana"
-  return fullWeeks.some(
-    (s) =>
-      dayjs(s.dateFrom).isSameOrBefore(dayjs(weekStart)) &&
-      dayjs(s.dateTo).isSameOrAfter(dayjs(weekEnd)),
-  );
+  const list = suspensions || [];
+  if (list.length === 0) return false;
+  let cursor = dayjs(weekStart);
+  const end = dayjs(weekEnd);
+  while (cursor.isSameOrBefore(end, 'day')) {
+    const dIso = cursor.format('YYYY-MM-DD');
+    if (!list.some((s) => suspensionContainsDate(s, dIso))) {
+      return false;
+    }
+    cursor = cursor.add(1, 'day');
+  }
+  return true;
 }
 
 /**
- * Trova la sospensione `partial` che copre il giorno; ritorna {name} o null.
+ * Trova la sospensione che copre il giorno specifico; ritorna l'oggetto
+ * sospensione o null. Considera tutte le sospensioni (qualunque `kind`):
+ * il dato `kind` indica solo come rendere la settimana intera, ma a livello
+ * di singolo giorno una `full_week` mal-coverta o una `partial` devono
+ * comunque bloccare il giorno con il proprio `name` come motivo.
  */
 function findPartialLock(dateIso, suspensions) {
-  const partials = (suspensions || []).filter((s) => s.kind === 'partial');
-  for (const s of partials) {
+  for (const s of suspensions || []) {
     if (suspensionContainsDate(s, dateIso)) return s;
   }
   return null;
