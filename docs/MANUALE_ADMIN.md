@@ -1,10 +1,23 @@
 # Cadenza · Manuale Amministratore
 
-> **Versione**: 1.6 · **Data**: 13 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.6 · **Data**: 14 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: Direttori, DSGA e coordinatori didattici dei Conservatori
 > **Prerequisiti**: account con ruolo `admin` su una installazione Cadenza già attiva
 
 ---
+
+## ⭐ Cosa c'è di nuovo nell'update v1.5.1 (14 maggio 2026)
+
+> Update di stabilità e usabilità della sidebar admin. Tre aree coinvolte: **navigazione**, **Isidata** e **qualità interna**. Nessuna migrazione richiesta.
+
+- ⭐ **Macro pagina "Gestione prenotazioni"** (`/admin/bookings-management`): un'unica voce di sidebar che raggruppa Regole / Tipi prenotazione / Approvazioni in 3 tab "card grandi" (ambra/verde/blu) con badge counter sulle approvazioni in attesa. I vecchi URL (`/admin/rules`, `/admin/booking-types`, `/admin/approvals`) restano funzionanti tramite redirect ai tab corrispondenti. Vedi §6bis.
+- ⭐ **Isidata — mapping UI guidata**: niente più JSON in textarea per personalizzare le colonne. Ora ogni colonna del file ha una dropdown con i target Cadenza (matricola, email, role, courseCode, contractType, ecc.) e un bottone "Ricarica anteprima con questo mapping" + "Ripristina mapping automatico". Persistenza opzionale in `localStorage` per istituto. Vedi §13.3.
+- ⭐ **Isidata — soglie di sicurezza pre-apply**: banner ambra (warning) sopra il diff quando le disattivazioni superano il **10%** degli utenti collegati, banner rosso (critical) oltre il **20%**. Su critical serve confermare con una seconda checkbox "Confermo i warning critici" prima di poter premere _Applica_. Protegge dagli import distrofici (file Excel sbagliato, foglio salvato a metà). Vedi §13.4.
+- ⭐ **Isidata — import tipo contratto docenti**: la colonna "Qualifica" / "Ruolo" del file Isidata viene auto-mappata su `User.contractType` (`titolare` / `contratto_orario` / `supplente`) e imposta correttamente la **soglia Monte Ore predefinita** (324h per titolare, `null` per gli altri due — soglia individuale da inserire poi dal form utente). Vedi §13.5.
+- ⭐ **Isidata — lookup courseCode → Course**: se la colonna `courseCode` del file contiene un codice corso che esiste in Cadenza (es. `DCPL34`), lo studente viene assegnato automaticamente a quel `courseId` durante l'import. Codici sconosciuti → soft warning nel diff, non blocca l'apply. Vedi §13.5.
+- ⭐ **Isidata — diff "ultimi 2 run"**: nella cronologia import, ogni run ha ora un bottone _Confronta con precedente_ (icona ⟷ GitCompare) che apre un dialog con quattro sezioni colorate: 🟢 nuovi rientri, 🔴 nuove disattivazioni, 🟡 cambi ripetuti (potenziali errori di battitura della segretaria), 🟣 utenti rientrati. Utile per audit retrospettivi. Vedi §13.6.
+- **4 nuove suite di test di stabilità**: backup roundtrip, time-travel calendario didattico, Playwright E2E smoke (golden path login → booking → list → logout) e soak test 4h con metriche di sistema. Per i dettagli vedi `docs/TESTING.md`.
+- **Licenza esplicitata**: il file `LICENSE` alla root del repo dichiara ora chiaramente che Cadenza è **software proprietario closed-source** (era già così legalmente, ora è scritto a chiare lettere).
 
 ## Cosa c'è di nuovo in v1.6 (13 maggio 2026)
 
@@ -47,6 +60,7 @@ Per le note tecniche di rilascio (changelog di versione 2.x della piattaforma) v
 - [§4. Corsi e Livelli](#4-corsi-e-livelli)
 - [§5. Struttura: Istituti, Edifici, Aule, Dotazioni](#5-struttura-istituti-edifici-aule-dotazioni)
 - [§6. Regole prenotazione](#6-regole-prenotazione)
+- [§6bis. ⭐ Gestione prenotazioni (macro pagina)](#6bis-gestione-prenotazioni-macro-pagina)
 - [§7. Approvazioni · Registro attività · Bookings](#7-approvazioni--registro-attivit-bookings)
 - [§8. Gestione Monte Ore](#8-gestione-monte-ore)
 - [§9. Inventario strumenti](#9-inventario-strumenti)
@@ -102,15 +116,16 @@ AMMINISTRAZIONE
 ├─ Utenti                   ← §3
 ├─ Corsi                    ← §4
 ├─ Gestione Monte Ore       ← §8
-├─ Regole prenotazioni      ← §6
-├─ Approvazioni             ← §7.1   (badge se ci sono richieste in sospeso)
-├─ Registro attività        ← §7.2   (cancellazioni in blocco + scambio aula)
+├─ Gestione prenotazioni    ← §6bis   ⭐ macro pagina con 3 tab (Regole · Tipi · Approvazioni — badge counter)
+├─ Registro attività        ← §7.2    (cancellazioni in blocco + scambio aula)
 ├─ Struttura                ← §5
 ├─ Inventario strumenti     ← §9
 ├─ Statistiche              ← §10
 ├─ Annunci                  ← §11
 └─ Impostazioni Server      ← §12
 ```
+
+> **Cambiato in v1.5.1**: le tre voci separate _Regole prenotazioni_, _Approvazioni_ e _Tipi prenotazione_ sono confluite in un'unica macro pagina **Gestione prenotazioni**, con 3 tab a card grandi. Apre di default sul tab "Regole". I vecchi URL `/admin/rules`, `/admin/booking-types` e `/admin/approvals` redirezionano al tab corrispondente, quindi i bookmark esistenti continuano a funzionare. Dettaglio in §6bis.
 
 Le voci **Monte Ore** e **Inventario strumenti** sono nascondibili da _Impostazioni Server → Moduli_ se il Conservatorio non li usa (vedi §12.9).
 
@@ -738,6 +753,55 @@ Il "minimo comune multiplo" temporale del sistema è **30 minuti**. Tutte le quo
 | Eccezione non applicata                                                   | Date invertite (`Dal > Al`), oppure interruttore "Attivo" disattivato        | Controlla nella tab Eccezioni l'icona verde/grigia e le date                                                                     |
 | Errore "intervallo minimo violato" su prenotazioni back-to-back legittime | Cooldown troppo alto sul ruolo docente                                       | Rivedi il cooldown in §6.1, valuta se metterlo solo su studente                                                                  |
 | Errore "conflitto logico utente" durante generazione Monte Ore            | Pattern Monte Ore con slot concentrici legittimi (es. masterclass in 2 aule) | Il generator di Monte Ore lo bypassa correttamente; se il blocco persiste leggi la nota nello "Stato generazione" della proposta |
+
+---
+
+## 6bis. ⭐ Gestione prenotazioni (macro pagina)
+
+URL: `/admin/bookings-management` — voce di sidebar **Gestione prenotazioni**.
+
+> **Novità v1.5.1**: una sola pagina che concentra tutto ciò che concerne le _regole e l'amministrazione delle prenotazioni quotidiane_. Sostituisce le tre voci di sidebar separate _Regole prenotazioni_, _Tipi prenotazione_ e _Approvazioni_ che da v1.5.0 erano già un trio logico ma erano spezzettate su 3 URL.
+
+<!-- TODO screenshot: pagina /admin/bookings-management con i 3 tab visibili in alto a card grandi -->
+
+### 6bis.1 Layout
+
+La pagina ha la stessa larghezza delle altre pagine admin (`max-w-6xl`) e ospita **3 tab** stilizzati come card grandi, ciascuno con icona colorata, titolo e sottotitolo. La card del tab attivo è evidenziata.
+
+| Tab                   | Icona / Colore         | Cosa contiene                                                                                                  | Vecchio URL            |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **Regole**            | ⚖️ Scale, ambra        | Policy di prenotazione, finestre orarie consentite, quote per ruolo / corso / utente, eccezioni (vedi §6)      | `/admin/rules`         |
+| **Tipi prenotazione** | 🏷️ Tag, verde          | Catalogo dei tipi (`lezione`, `prova`, `concerto`, `studio_individuale`, `altro`, ...) con label e colore card | `/admin/booking-types` |
+| **Approvazioni**      | 📋 ClipboardCheck, blu | Coda richieste in attesa (`pending_approval`), con **badge counter `N`** quando ci sono richieste in sospeso   | `/admin/approvals`     |
+
+> **Backward compatibility**: i tre vecchi URL (`/admin/rules`, `/admin/booking-types`, `/admin/approvals`) sono **redirect 301** al tab corrispondente della macro pagina. I bookmark salvati dagli admin continuano quindi a funzionare senza intervento.
+
+### 6bis.2 Tab "Regole"
+
+Contenuto identico a quanto descritto in §6 (Regole per ruolo, Quote, Eccezioni). Quando entri nella macro pagina da `/admin/bookings-management` senza specificare il tab nell'URL (`?tab=`), parte di default su questo.
+
+### 6bis.3 Tab "Tipi prenotazione"
+
+Catalogo dei tipi che lo studente / docente vede nel dropdown "Tipo prenotazione" del form `BookingFormDialog`. Per ciascun tipo:
+
+- **Codice tecnico** (immutabile dopo creazione, usato in API e nelle relazioni — es. `studio_individuale`, `lezione`).
+- **Etichetta italiana** (visibile nel dropdown — es. "Studio individuale", "Lezione").
+- **Colore card** (riprodotto sul calendario, sul Display kiosk e sul Mirror Excel — vedi §12.4bis per la mappatura cromatica).
+- **Ruoli abilitati** (chi può scegliere questo tipo: studente / docente / admin).
+
+> **Attenzione**: spegnere un tipo prenotazione lo rende invisibile nei form futuri, ma **non** modifica le prenotazioni storiche già taggate con quel tipo, che restano nel DB con il loro `bookingType` originale.
+
+### 6bis.4 Tab "Approvazioni"
+
+Contenuto identico a §7.1 (coda `pending_approval`). Il badge sul tab si aggiorna in real-time (poll ogni 30s) — comodo per la prima cosa al lunedì mattina.
+
+### 6bis.5 Perché una macro pagina
+
+Dal feedback raccolto da 4 Conservatori pilota, le tre voci separate generavano confusione (gli admin pensavano che "Approvazioni" fosse un'altra cosa rispetto alle prenotazioni). Il raggruppamento aiuta a:
+
+1. **Ridurre il rumore in sidebar** — meno voci, meno tempo a cercare.
+2. **Spostare il focus dalla "funzione" alla "macroarea di gestione"** — un admin che apre _Gestione prenotazioni_ trova in 1 click tutto ciò che serve per amministrare le prenotazioni.
+3. **Mantenere il flusso lunedì-mattina senza change-context** — badge counter ben visibile sul tab Approvazioni, click, processi, torni al tab Regole se serve cambiare una quota.
 
 ---
 
@@ -1956,19 +2020,80 @@ L'import è in **due fasi distinte**, per dare a chi lo lancia il tempo di rived
 
 I nuovi utenti nascono in stato **`pending`** (vanno approvati esplicitamente dalla pagina Approvazioni). Gli utenti orfani non vengono mai cancellati fisicamente: solo `isActive=false` con nota "Non più presente nell'export Isidata del YYYY-MM-DD". Riapparire in un export futuro li riattiva.
 
-### 13.3 Mapping personalizzato per istituto
+### 13.3 ⭐ Mapping UI guidata (v1.5.1)
 
-Se il vostro export Isidata ha header diversi da quelli auto-riconosciuti, scrivi un piccolo JSON nella textarea "Override colonne" durante l'upload. Esempio:
+> **Novità v1.5.1**: niente più JSON da scrivere a mano. Il mapping per istituto si fa con dropdown nella stessa pagina della preview.
 
-```json
-{
-  "externalId": "Numero Matricola",
-  "email": "Email Istituzionale",
-  "courseCode": "Codice Indirizzo"
-}
-```
+Quando carichi un file Isidata, Cadenza tenta un **auto-mapping** confrontando gli header del file con i nomi noti (`Numero Matricola → externalId`, `Email Istituzionale → email`, ecc.). Sopra la preview compare ora una card **"Mapping colonne"** con:
 
-I target consentiti sono: `externalId`, `email`, `firstName`, `lastName`, `role`, `matricola`, `courseCode`, `courseName`, `status`, `birthDate`. Altri target vengono ignorati.
+- Una riga per ogni colonna del file caricato (es. "Qualifica", "Indirizzo Studi", ...).
+- Una **dropdown** accanto a ciascuna colonna con i target Cadenza disponibili: `externalId`, `email`, `firstName`, `lastName`, `role`, `matricola`, `courseCode`, `courseName`, `status`, `birthDate`, `contractType` ⭐, _Ignora colonna_.
+- Un'icona ✓ verde se il target è stato auto-riconosciuto correttamente, ⚠ ambra se Cadenza ha indovinato a senso ma vuole conferma.
+
+Sotto la card 3 bottoni:
+
+| Bottone                                   | Cosa fa                                                                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ricarica anteprima con questo mapping** | Riparses il file con il mapping corretto e ricalcola le 4 KPI tile + le sezioni filtrabili                                                  |
+| **Ripristina mapping automatico**         | Torna all'auto-mapping iniziale (utile dopo aver fatto pasticci)                                                                            |
+| **Salva mapping come predefinito**        | Persiste il mapping in `localStorage` (per browser, per istituto). Al prossimo upload con file dello stesso layout, parte già pre-compilato |
+
+> **Nota**: il mapping salvato vive nel **browser dell'admin che l'ha creato**, non sul server. Se più admin lavorano su Isidata da PC diversi, conviene allinearsi sul layout del file Isidata.
+
+### 13.4 ⭐ Soglie di sicurezza pre-apply (v1.5.1)
+
+Prima di permetterti di premere _Applica import_, Cadenza calcola il **rapporto tra utenti che verranno disattivati e utenti totali collegati a Isidata** e mostra un banner sopra il diff:
+
+| Soglia                | Banner              | Comportamento                                                                                                                                                                                                                                                                      |
+| --------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| < 10 % disattivazioni | _(nessuno)_         | Apply abilitato normalmente                                                                                                                                                                                                                                                        |
+| ≥ 10 % e < 20 %       | ⚠ Ambra (warning)   | Mostrato testo "Attenzione: questo import disattiverà il `N%` degli utenti collegati a Isidata. Verifica che il file sia corretto". Apply abilitato                                                                                                                                |
+| ≥ 20 %                | 🛑 Rosso (critical) | Mostrato testo "Soglia critica superata: disattivazioni `N%` ≥ 20%. Confermo che il file Isidata è aggiornato e corretto". Compare una **seconda checkbox** "Confermo i warning critici" che va spuntata insieme al consueto checkbox di conferma prima di poter premere _Applica_ |
+
+> **Perché serve**: scenario tipico → la segretaria esporta da Isidata solo un anno accademico per errore (es. solo i biennali), e il file contiene il 60% in meno di studenti rispetto al precedente. Senza soglia, l'apply avrebbe disattivato 400 studenti regolari in transazione. Con la soglia, l'admin vede il banner rosso, riapre il file, ricarica quello corretto.
+
+<!-- TODO screenshot: banner rosso critical "Soglia disattivazioni > 20%" con seconda checkbox -->
+
+### 13.5 ⭐ Auto-mapping campi avanzati (v1.5.1)
+
+#### 13.5.1 Tipo contratto docenti → `User.contractType`
+
+Il campo Isidata "Qualifica" / "Ruolo" / "Tipo Contratto" viene mappato automaticamente sul campo Cadenza `User.contractType`, con i seguenti valori:
+
+| Valore Isidata (case-insensitive)                       | `User.contractType` Cadenza | Soglia Monte Ore default |
+| ------------------------------------------------------- | --------------------------- | ------------------------ |
+| `titolare`, `ruolo`, `ordinario`                        | `titolare`                  | **324 h** (CCNL)         |
+| `contratto orario`, `co.co.co.`, `precario`, `incarico` | `contratto_orario`          | `null` (da impostare)    |
+| `supplente`, `supplenza`, `sostituto`, `temporaneo`     | `supplente`                 | `null` (da impostare)    |
+
+Per `contratto_orario` e `supplente`, l'admin dovrà poi inserire manualmente la soglia monte ore individuale dal form utente (sezione "Monte Ore — Override individuale", vedi §3.7 e §8.10). Il valore `null` significa "soglia da concordare", non "soglia zero".
+
+#### 13.5.2 Lookup `courseCode` → `Course`
+
+Se la colonna `courseCode` del file Isidata contiene un codice corso esistente in Cadenza (`Course.code`), lo studente viene assegnato automaticamente a quel `courseId` durante l'import.
+
+- **Codice riconosciuto** (es. `DCPL34` = Pianoforte): assegnazione automatica, nessun warning.
+- **Codice sconosciuto** (es. `XXX99`): nel diff compare un **soft warning** ambra accanto alla riga ("Codice corso non riconosciuto, lo studente verrà creato senza assegnazione corso"). **Non blocca** l'apply: lo studente entra in Cadenza con `courseId=null` e l'admin potrà assegnarlo manualmente dopo dalla pagina Utenti.
+- **Codice presente in più corsi** (raro, ma capita con i Conservatorio che riusano codici tra dipartimenti): preferisce il corso `active=true` più recente. Riporta il match nel diff per trasparenza.
+
+### 13.6 ⭐ Diff "ultimi 2 run" (v1.5.1)
+
+Nella **cronologia dei run** di import Isidata (sezione bassa della pagina), ogni run ha ora un bottone **Confronta con precedente** (icona ⟷ _GitCompare_). Cliccandolo si apre un dialog che confronta riga per riga gli utenti coinvolti nei due ultimi run, raggruppando le differenze in 4 sezioni colorate:
+
+| Sezione                     | Colore badge | Cosa contiene                                                                                                                                                       |
+| --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🟢 **Nuovi rientri**        | Verde        | Utenti che il run precedente aveva creato come nuovi, ora ancora attivi (cresce la base dati)                                                                       |
+| 🔴 **Nuove disattivazioni** | Rosso        | Utenti che il run precedente aveva linkato, ora marcati come `isActive=false` (cessati)                                                                             |
+| 🟡 **Cambi ripetuti**       | Ambra        | Utenti con **lo stesso campo** modificato in entrambi i run (es. email cambiata 2 volte) — potenziale errore di battitura della segretaria che alterna due varianti |
+| 🟣 **Utenti rientrati**     | Viola        | Utenti già marcati `isActive=false` in passato che ricompaiono nell'export attuale (riattivati automaticamente)                                                     |
+
+Usi tipici:
+
+- **Audit retrospettivo**: "Perché lunedì scorso 30 studenti sono spariti?" → confronto run di lunedì vs run di martedì, sezione 🔴 Nuove disattivazioni.
+- **Caccia agli errori di battitura**: la sezione 🟡 evidenzia i cambi ripetuti, tipo "Mario Rossi email mariorossi@conservatorio.it → mariorossi83@conservatorio.it → mariorossi@conservatorio.it". Spesso la segretaria sta correggendo qualcosa che era a posto.
+- **Ripristino post-blocchi**: se la sezione 🟣 Utenti rientrati è grande, vuol dire che un run precedente aveva disattivato erroneamente persone che andavano lasciate attive (ora rientrate automaticamente).
+
+<!-- TODO screenshot: dialog "Confronta con precedente" con 4 sezioni colorate e badge counter per sezione -->
 
 > Per la procedura dettagliata (creazione export Isidata, esempi di mapping per ogni Conservatorio, audit trail) vedi `docs/INTEGRATIONS-ISIDATA.md`.
 
@@ -2096,4 +2221,5 @@ Vede l'errore "ore sotto la soglia" (es. "324 ore richieste") oppure "giorni fuo
 ---
 
 _Cadenza · Manuale Amministratore v1.5.1 · 14 maggio 2026 · Danilo Russo, docente del Conservatorio._
+_v1.5.1: macro pagina "Gestione prenotazioni" (3 tab: Regole / Tipi / Approvazioni — §6bis), Isidata con mapping UI guidata (§13.3), soglie di sicurezza pre-apply (§13.4), import `contractType` + lookup `courseCode→Course` (§13.5), diff "ultimi 2 run" (§13.6). 4 nuove suite di test stabilità — vedi `docs/TESTING.md`._
 _v1.5: pulizia delle parti tecniche (API, codici errore, SQL, comandi shell), eliminazione dei mockup ASCII duplicati, semplificazione dei form e del linguaggio, aggiornamento delle nuove feature (Eccezioni con scope per aula §6.3, toggle calendario 1/3 giorni §2). I contenuti per il personale IT sono stati spostati nei documenti tecnici di riferimento (`SECURITY.md`, `AUDIT_QUALITA_PRODUZIONE.md`, `ARCHITECTURE.md`)._

@@ -192,3 +192,72 @@ Le soglie crescono con il coverage: floor = misurato − ~1.5 punti, così nuovi
 Stato 2026-05-12: **1.386 test backend** (12 skipped postgres-only, 70 file) + **177 frontend** (2 skipped, 19 file) + **5 spec E2E** = 1.568 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`, `fieldMapping`) e `twoFa` al 100 % / 88 % / 100 % / 100 %. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E). Esclusioni motivate backend: adapter messaging I/O esterno (telegram, signal_cli, email_imap, whatsapp_cloud), `routes/analytics.js` (coperto da job CI Postgres-only dedicato), `services/announcementEmail.js` (SMTP transporter).
 
 Per area frontend i test componenti coprono i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.
+
+---
+
+## Test di stabilità (v1.5.1)
+
+In v1.5.1 sono state aggiunte **4 nuove suite di stabilità** che vanno oltre lo unit/integration classico e verificano comportamenti emergenti del sistema (backup integrity, time-travel, smoke E2E, soak in lungo).
+
+### 1. Backup roundtrip
+
+- **File**: `backend/tests/integration/backupRoundtrip.test.js`
+- **Cosa fa**: chiama `performBackup()`, estrae il tar.gz prodotto in una dir temporanea, apre la copia SQLite snapshottata con una **connessione Sequelize separata**, e verifica che i conteggi delle tabelle principali (`Users`, `Bookings`, `Rooms`, `Buildings`, `Institutes`, ...) e i join nominativi (`Booking → User → Room`) corrispondano riga-per-riga al DB vivo del test. Garantisce che il backup non perda dati silenziosamente per via di lock, race condition o tabelle dimenticate.
+- **Skip**: la suite è skippata automaticamente se `DB_DIALECT !== 'sqlite'` o se l'eseguibile `tar` non è disponibile (es. Windows CI senza WSL).
+- **Comando**: `npm --prefix backend test -- backupRoundtrip`
+
+### 2. Time-travel calendario didattico
+
+- **File**: `backend/tests/unit/timeTravel.test.js`
+- **Cosa fa**: 20 test sui calcoli temporali del calendario didattico — rollover anno accademico (transizione 31 ottobre → 1 novembre), finestra di submission delle proposte Monte Ore (settembre-ottobre), Computus pasquale per gli anni 2024-2033, comportamento degli override admin sulle finestre. Tutti i test usano `vi.useFakeTimers()` per simulare il salto di data.
+- **Comando**: `npm --prefix backend test -- timeTravel`
+
+### 3. Playwright E2E smoke
+
+- **File**: `frontend/tests/e2e/smoke.spec.ts`
+- **Cosa fa**: golden path utente end-to-end — login UI con un utente seedato → creazione di una `Booking` via API (saltando la UI per velocità) → verifica che compaia nella lista `Le mie prenotazioni` → logout. Il backend gira con **SQLite in-memory** e serve anche la SPA buildata dal `backend/lib/serveStaticSpa.js`, in modo che il test giri come "monolite" senza nginx.
+- **Setup**: `npx playwright install chromium` la prima volta (~150 MB di binari). Va fatto una sola volta per workstation; in CI è cached per workflow.
+- **Comandi**:
+
+  ```bash
+  npm run e2e              # headless, ~3s, da CI o local
+  npm run e2e:ui           # UI mode di Playwright, per debug interattivo
+  npm run e2e:headed       # vede il browser Chromium aprirsi (utile in local quando il test sembra "non fare nulla")
+  ```
+
+- **CI**: job **separato** dagli unit test perché i binari Playwright sono pesanti e i tempi di setup peggiorerebbero la latenza del feedback. Triggered su `main`/`develop` o su PR con label `e2e`.
+
+### 4. Soak test harness
+
+- **Directory**: `loadtest/` (vedi `loadtest/SOAK.md` per i dettagli)
+- **Script principale**: `loadtest/soak.sh` — orchestra tre processi in parallelo per N ore (default 4):
+  1. **k6** (`loadtest/soak.js`) — 5 RPS costanti su un mix di endpoint realistici (read-heavy: 60% GET, 30% POST/PUT, 10% delete su test data).
+  2. **Node sampler** (`loadtest/sampler.js`) — campiona ogni 30s: memoria del processo `cadenza-backend` da `pm2 jlist`, file descriptors aperti (`lsof | wc -l`), latenza di `/api/ready` (curl), CPU.
+  3. **Tail di pm2 logs** per catturare crash o warning.
+- **Output**: report aggregato in Markdown (`loadtest/reports/soak-YYYYMMDD-HHmm.md`) con grafici ASCII unicode (`▁▂▃▄▅▆▇█`) per RSS heap nel tempo, percentili p95/p99 di latenza per endpoint, **verdict leak** automatico (`HEALTHY` / `SUSPECT` / `LEAK_CONFIRMED`) basato sulla pendenza della curva RSS.
+- **Pre-requisito**: `k6` installato — `brew install k6` su Mac, `apt install k6` su Linux.
+- **Comandi**:
+
+  ```bash
+  npm run soak                # alias per "bash loadtest/soak.sh", durata di default
+  ./loadtest/soak.sh 4        # 4 ore esplicite
+  ./loadtest/soak.sh 8        # 8 ore (overnight)
+  ```
+
+- **Quando lanciarlo**: la **notte prima** di un rollout maggiore, su **staging** (mai in CI — è un test attivo da ore, non da secondi). Apri il report al mattino, controlla il verdict.
+
+### Sommario comandi rapidi
+
+```bash
+# Singole suite di stabilità
+npm --prefix backend test -- backupRoundtrip
+npm --prefix backend test -- timeTravel
+
+# E2E (richiede una volta: npx playwright install chromium)
+npm run e2e
+npm run e2e:ui          # debug
+npm run e2e:headed      # vede il browser
+
+# Soak (4h default, staging only, k6 richiesto)
+npm run soak
+```

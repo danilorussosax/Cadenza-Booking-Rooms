@@ -99,6 +99,28 @@ Lo step `[5/8]` previene sia regressioni sia recupera da stati pregressi rotti.
 ./deploy.sh --help         # mostra l'header dello script
 ```
 
+### 0.4bis ⭐ Test pre-rollout consigliati (v1.5.1)
+
+Per i rollout maggiori (cambi schema, refactor estesi, prima volta in produzione di un servizio), affianca al deploy due **gate di stabilità** in più rispetto agli unit test che girano già in CI:
+
+| Test                     | Quando                                    | Dove                   | Durata          | Cosa cattura                                                                                   |
+| ------------------------ | ----------------------------------------- | ---------------------- | --------------- | ---------------------------------------------------------------------------------------------- |
+| **E2E smoke** Playwright | A ogni PR su `main`, prima del deploy     | CI GitHub Actions      | ~3 s            | Regression sul golden path (login → booking → list → logout). Catastrofi UI / API              |
+| **Soak test 4h**         | La **notte prima** di un rollout maggiore | Staging (k6 + sampler) | 4 h (overnight) | Memory leak, FD leak, latenza in degradazione lenta, race condition emergenti dopo N richieste |
+
+**Comandi** (vedi `docs/TESTING.md` § _Test di stabilità_ per i dettagli):
+
+```bash
+# E2E smoke — gira in CI ma puoi forzarlo in locale prima di un deploy delicato
+npm run e2e
+
+# Soak test sulla staging — lancialo a fine giornata, leggi il report la mattina
+npm run soak                # 4h di default
+./loadtest/soak.sh 8        # overnight (8h)
+```
+
+Il soak test produce un report Markdown in `loadtest/reports/soak-YYYYMMDD-HHmm.md` con grafici ASCII di RSS heap nel tempo, percentili p95/p99 di latenza per endpoint, e un **verdict** (`HEALTHY` / `SUSPECT` / `LEAK_CONFIRMED`). Se è `SUSPECT` o peggio: rimanda il rollout, indaga.
+
 ### 0.5 Comandi post-deploy (manuali sul VPS)
 
 In caso di deploy manuale (senza `./deploy.sh`, es. CI/CD esterna o intervento d'urgenza), questi sono i comandi consigliati dopo un `git pull` sul VPS:

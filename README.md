@@ -156,7 +156,16 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 ### 📥 Integrazioni gestionali
 
 - **Import Isidata** (Liv A — manuale CSV/XLSX): allineamento anagrafica utenti via export del registro elettronico più diffuso nei conservatori italiani. Diff engine con preview + apply transazionale.
+- **Mapping UI guidata** (v1.5.1): dropdown per target (`externalId`, `email`, `role`, `courseCode`, `contractType`, ...) — niente più JSON manuale. Persistenza opzionale per browser.
+- **Soglie di sicurezza pre-apply** (v1.5.1): banner ambra ≥ 10 % disattivazioni, banner rosso critical ≥ 20 % con seconda checkbox di conferma. Protegge dagli import distrofici (file Excel sbagliato).
+- **Import `contractType` docenti + lookup `courseCode → Course`** (v1.5.1): la colonna "Qualifica" Isidata mappa su `User.contractType` (titolare / contratto_orario / supplente) e imposta la soglia Monte Ore default; gli studenti vengono assegnati al corso Cadenza tramite codice.
+- **Diff "ultimi 2 run"** (v1.5.1): icona ⟷ nella cronologia import che apre un dialog con 4 sezioni colorate — 🟢 nuovi rientri / 🔴 nuove disattivazioni / 🟡 cambi ripetuti (potenziali typo) / 🟣 utenti rientrati. Per audit retrospettivi.
 - Roadmap: sync bidirezionale Esse3/Isidata, export ANIS/MIUR.
+
+### 🛡️ Admin UX
+
+- **Macro pagina "Gestione prenotazioni"** (v1.5.1): una sola voce di sidebar (`/admin/bookings-management`) con 3 tab a card grandi — **Regole** (⚖️ ambra) · **Tipi prenotazione** (🏷️ verde) · **Approvazioni** (📋 blu, badge counter `N`). I vecchi URL `/admin/rules`, `/admin/booking-types`, `/admin/approvals` restano funzionanti come redirect.
+- Larghezza coerente con le altre pagine admin (`max-w-6xl`), badge in tempo reale sulle richieste in attesa.
 
 ---
 
@@ -459,6 +468,13 @@ npm run test:e2e
 ```
 
 **Copertura attuale**: **1.386** test backend (70 file integration + unit) + **177** component test frontend (19 file, 10 dei quali a11y `vitest-axe`) + **5 spec** E2E Playwright (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve) — **1.568 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
+
+**Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico, ognuna documentata in [`docs/TESTING.md`](docs/TESTING.md):
+
+- **Backup roundtrip** (`backend/tests/integration/backupRoundtrip.test.js`): `performBackup()` → estrae tar.gz → riapre lo snapshot con connessione separata → verifica conteggi e join nominativi vs DB vivo.
+- **Time-travel calendario** (`backend/tests/unit/timeTravel.test.js`): 20 test su rollover AA, finestra submission Monte Ore, Computus pasquale 2024-2033, override admin (fake timers).
+- **Playwright E2E smoke** (`frontend/tests/e2e/smoke.spec.ts`): golden path login UI → booking via API → lista → logout, su backend SQLite in-memory che serve anche la SPA. Comandi: `npm run e2e` / `npm run e2e:ui` / `npm run e2e:headed`.
+- **Soak test harness** (`loadtest/soak.sh` + `loadtest/SOAK.md`): k6 5 RPS costanti per N ore + sampler Node (memoria pm2, FD count, latenza `/api/ready`) + tail logs. Report Markdown con grafici ASCII unicode e verdict leak automatico. `brew install k6` richiesto. `npm run soak` (default 4h). Lancia su **staging** la notte prima di un rollout maggiore — non in CI.
 
 ---
 

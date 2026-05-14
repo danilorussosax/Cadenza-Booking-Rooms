@@ -151,7 +151,16 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 ### 📥 Management-system integrations
 
 - **Isidata import** (Tier A — manual CSV/XLSX): roster alignment via export from the electronic register most widely used in Italian conservatories. Diff engine with preview + transactional apply.
+- **Guided UI mapping** (v1.5.1): a dropdown per file column lets you map to Cadenza targets (`externalId`, `email`, `role`, `courseCode`, `contractType`, ...) — no more hand-written JSON. Optional per-browser persistence.
+- **Pre-apply safety thresholds** (v1.5.1): amber banner above the diff when deactivations exceed 10 % of linked users, critical red banner above 20 % with a second confirmation checkbox before _Apply_ is unlocked. Protects against distrophic imports (wrong Excel file, partial export).
+- **`contractType` import + `courseCode → Course` lookup** (v1.5.1): the Isidata "Qualifica" column maps to `User.contractType` (titolare / contratto_orario / supplente) and sets the Monte Ore default threshold; students are auto-assigned to a Cadenza course via code match.
+- **"Last 2 runs" diff** (v1.5.1): a ⟷ icon in the import history opens a dialog with 4 colour-coded sections — 🟢 new joiners / 🔴 new deactivations / 🟡 repeated changes (potential typos) / 🟣 returning users. Useful for retrospective audits.
 - Roadmap: bidirectional Esse3/Isidata sync, ANIS/MIUR export.
+
+### 🛡️ Admin UX
+
+- **"Booking management" macro page** (v1.5.1): a single sidebar entry (`/admin/bookings-management`) with 3 large-card tabs — **Rules** (⚖️ amber) · **Booking types** (🏷️ green) · **Approvals** (📋 blue, with `N` counter badge). Legacy URLs `/admin/rules`, `/admin/booking-types`, `/admin/approvals` still work as redirects to the corresponding tab.
+- Width aligned with the other admin pages (`max-w-6xl`), real-time badge on pending requests.
 
 ---
 
@@ -454,6 +463,13 @@ npm run test:e2e
 ```
 
 **Current coverage**: **1,386** backend tests (70 integration + unit files) + **177** frontend component tests (19 files, 10 of which a11y via `vitest-axe`) + **5 specs** Playwright E2E (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve) — **1,568 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
+
+**Stability suites (v1.5.1)** — beyond the classic unit/integration scope, each documented in [`docs/TESTING.md`](docs/TESTING.md):
+
+- **Backup roundtrip** (`backend/tests/integration/backupRoundtrip.test.js`): `performBackup()` → extract tar.gz → reopen the snapshot with a separate connection → verify counts and named joins against the live DB.
+- **Calendar time-travel** (`backend/tests/unit/timeTravel.test.js`): 20 tests on AY rollover, Monte Ore submission window, Easter Computus 2024-2033, admin overrides (fake timers).
+- **Playwright E2E smoke** (`frontend/tests/e2e/smoke.spec.ts`): golden path login UI → booking via API → list → logout, on a backend with in-memory SQLite that also serves the built SPA. Commands: `npm run e2e` / `npm run e2e:ui` / `npm run e2e:headed`.
+- **Soak test harness** (`loadtest/soak.sh` + `loadtest/SOAK.md`): k6 5 RPS sustained for N hours + Node sampler (pm2 memory, FD count, `/api/ready` latency) + log tail. Markdown report with unicode ASCII charts and an automated leak verdict. Requires `brew install k6`. `npm run soak` (4h default). Run on **staging** the night before a major rollout — never in CI.
 
 ---
 
