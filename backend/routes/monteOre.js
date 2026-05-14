@@ -1079,6 +1079,24 @@ function sanitizeSuspension(body) {
   return out;
 }
 
+/**
+ * Verifica se esiste già una sospensione equivalente (stesso istituto, AA,
+ * nome case-insensitive trimmed, e range date identici). Usato dai POST per
+ * impedire duplicati su double-click o retry HTTP.
+ */
+async function findExistingSuspension({ instituteId, academicYear, name, dateFrom, dateTo }) {
+  if (!name) return null;
+  return MonteOreSuspension.findOne({
+    where: sequelize.and(
+      { instituteId, academicYear, dateFrom, dateTo },
+      sequelize.where(
+        sequelize.fn('LOWER', sequelize.col('name')),
+        sequelize.fn('LOWER', name.trim()),
+      ),
+    ),
+  });
+}
+
 // IMPORTANTE: le route concrete (/settings, /suspensions, /amendments) DEVONO
 // stare PRIMA delle route param /:id, altrimenti Express matcha "settings"
 // come parametro :id e ritorna 404 dal handler proposta.
@@ -1205,6 +1223,21 @@ adminRouter.post('/exam-sessions', authenticate, requireRole('admin'), async (re
     const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
     if (settings) instituteId = settings.instituteId;
     else instituteId = await resolveDefaultInstituteId();
+
+    const existing = await findExistingSuspension({
+      instituteId,
+      academicYear: year,
+      name: data.name,
+      dateFrom: data.dateFrom,
+      dateTo: data.dateTo,
+    });
+    if (existing) {
+      return res.status(409).json({
+        error: 'Sessione esame già presente con stesso nome e date',
+        code: 'DUPLICATE',
+        examSession: existing.toJSON(),
+      });
+    }
 
     const susp = await MonteOreSuspension.create({
       instituteId,
@@ -1614,6 +1647,21 @@ adminRouter.post('/suspensions', authenticate, requireRole('admin'), async (req,
     const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
     if (settings) instituteId = settings.instituteId;
     else instituteId = await resolveDefaultInstituteId();
+
+    const existing = await findExistingSuspension({
+      instituteId,
+      academicYear: year,
+      name: data.name,
+      dateFrom: data.dateFrom,
+      dateTo: data.dateTo,
+    });
+    if (existing) {
+      return res.status(409).json({
+        error: 'Sospensione già presente con stesso nome e date',
+        code: 'DUPLICATE',
+        suspension: existing.toJSON(),
+      });
+    }
 
     // Atomico: o entrambi (exception + suspension) sono creati, o nessuno —
     // così non restano BookingRuleException orfane se la suspension fallisce.
