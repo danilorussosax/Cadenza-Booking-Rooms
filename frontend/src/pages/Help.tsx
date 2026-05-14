@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
-import { BookOpen, GraduationCap, ShieldCheck, AlertCircle } from 'lucide-react';
+import { BookOpen, GraduationCap, ShieldCheck, AlertCircle, User } from 'lucide-react';
 import { docsApi, screenshotUrl, type ManualSlug } from '@/api/docs';
 import { httpErrorMessage } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Role } from '@/types';
 
 const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: typeof BookOpen }> =
   {
@@ -25,7 +26,33 @@ const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: t
       subtitle: 'Guida pratica per docenti, contrattisti e collaboratori',
       icon: GraduationCap,
     },
+    studente: {
+      title: 'Manuale Studente',
+      subtitle: 'Guida pratica per studenti iscritti al Conservatorio',
+      icon: User,
+    },
   };
+
+// Manuale "naturale" per ogni ruolo: quello che si apre quando l'utente
+// clicca "Aiuto" in sidebar o quando arriva a /help senza slug.
+const NATURAL_MANUAL: Record<Role, ManualSlug> = {
+  admin: 'docente', // l'admin si trova spesso a controllare la guida docente
+  docente: 'docente',
+  studente: 'studente',
+};
+
+// Visibilità: chi può leggere un certo manuale. Allineato con backend
+// routes/docs.js. Modifichi qui se cambi un guard sul server.
+const VISIBILITY: Record<ManualSlug, Role[]> = {
+  admin: ['admin'],
+  docente: ['admin', 'docente'],
+  studente: ['admin', 'studente'],
+};
+
+function canSee(slug: ManualSlug, role: Role | undefined): boolean {
+  if (!role) return false;
+  return VISIBILITY[slug].includes(role);
+}
 
 /**
  * Pagina "Aiuto" — renderizza il manuale Markdown caricato dall'API.
@@ -39,19 +66,20 @@ const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: t
  *    metadata destinato al converter LaTeX, non leggibile in UI.
  */
 function isValidSlug(s: string | undefined): s is ManualSlug {
-  return s === 'admin' || s === 'docente';
+  return s === 'admin' || s === 'docente' || s === 'studente';
 }
 
 export default function HelpPage() {
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const { user } = useAuth();
 
-  // Normalizziamo lo slug PRIMA dei hook: se invalido o admin senza permessi
-  // ricadiamo su 'docente' (l'effettivo redirect avviene dopo i hook tramite
-  // <Navigate />). Questo è cruciale per non chiamare useQuery/useMemo
-  // condizionalmente — react-hooks/rules-of-hooks lo vieta.
-  const slug: ManualSlug = isValidSlug(rawSlug) ? rawSlug : 'docente';
-  const needsRedirect = !isValidSlug(rawSlug) || (slug === 'admin' && user?.role !== 'admin');
+  // Normalizziamo lo slug PRIMA dei hook (rules-of-hooks). Se invalido o se
+  // il ruolo non può vederlo, ricadiamo sul "manuale naturale" del ruolo,
+  // poi facciamo il redirect dopo i hook. L'admin vede tutto, gli altri
+  // ruoli solo il proprio manuale.
+  const fallback: ManualSlug = user?.role ? NATURAL_MANUAL[user.role] : 'docente';
+  const slug: ManualSlug = isValidSlug(rawSlug) && canSee(rawSlug, user?.role) ? rawSlug : fallback;
+  const needsRedirect = !isValidSlug(rawSlug) || !canSee(rawSlug, user?.role);
 
   const query = useQuery({
     queryKey: ['docs', slug],
@@ -108,14 +136,14 @@ export default function HelpPage() {
   // Tutti i hook sono stati chiamati: ora possiamo gestire il redirect senza
   // violare le rules-of-hooks.
   if (needsRedirect) {
-    return <Navigate to="/help/docente" replace />;
+    return <Navigate to={`/help/${fallback}`} replace />;
   }
 
   const meta = SLUG_LABELS[slug];
   const Icon = meta.icon;
 
   // L'utente vede UN solo manuale alla volta, ma se è admin diamo un toggle
-  // discreto per saltare all'altro manuale senza tornare alla sidebar.
+  // discreto per saltare tra tutti i manuali senza tornare alla sidebar.
   const showSwitch = user?.role === 'admin';
 
   return (
@@ -129,7 +157,16 @@ export default function HelpPage() {
           <p className="text-sm text-muted-foreground">{meta.subtitle}</p>
         </div>
         {showSwitch && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/help/studente"
+              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs ${
+                slug === 'studente' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              }`}
+            >
+              <User className="h-3.5 w-3.5" />
+              Studente
+            </Link>
             <Link
               to="/help/docente"
               className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs ${

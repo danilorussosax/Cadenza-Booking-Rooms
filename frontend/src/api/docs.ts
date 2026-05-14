@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 
-export type ManualSlug = 'admin' | 'docente';
+export type ManualSlug = 'admin' | 'docente' | 'studente';
 
 export interface ManualEntry {
   slug: ManualSlug;

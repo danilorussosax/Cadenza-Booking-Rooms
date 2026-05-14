@@ -60,9 +60,12 @@ const NAV: NavItem[] = [
   { to: '/rooms', labelKey: 'nav.rooms', icon: Music4 },
   { to: '/instruments', labelKey: 'nav.instruments', icon: Guitar },
   { to: '/my-loans', labelKey: 'nav.my_loans', icon: PackageOpen },
-  // Manuale in-app: ogni utente vede il manuale docente (la pagina filtra
-  // poi se l'utente è admin per offrire il toggle al manuale admin).
-  { to: '/help/docente', labelKey: 'nav.help', icon: BookOpen },
+  // Manuale in-app: punta a /help (senza slug). La pagina Help redirige al
+  // manuale "naturale" del ruolo (studente → /help/studente, docente →
+  // /help/docente, admin → /help/docente con switcher per saltare tra tutti
+  // i manuali, incluso quello studente). Mantiene una sola voce di sidebar
+  // indipendente dal ruolo.
+  { to: '/help', labelKey: 'nav.help', icon: BookOpen },
 ];
 
 // Sidebar admin riorganizzata nell'ordine logico richiesto:

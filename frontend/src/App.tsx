@@ -114,10 +114,13 @@ export default function App() {
             <Route path="/monte-ore" element={<MonteOre />} />
             <Route path="/profile" element={<Profile />} />
 
-            {/* Manuali in-app (Help). /help redirige al manuale docente
-                (visibile a tutti gli auth). /help/admin: route esistente,
-                la pagina applica internamente la guard role=admin. */}
-            <Route path="/help" element={<Navigate to="/help/docente" replace />} />
+            {/* Manuali in-app (Help). /help (senza slug) e qualsiasi slug
+                non autorizzato per il ruolo corrente sono gestiti da
+                Help.tsx, che redirige al manuale "naturale" del ruolo:
+                studente → /help/studente, docente → /help/docente,
+                admin → /help/docente con switcher interno per accedere
+                anche al manuale studente e admin. */}
+            <Route path="/help" element={<Help />} />
             <Route path="/help/:slug" element={<Help />} />
 
             {/* Admin section — RequireAdmin guard inside the same layout */}

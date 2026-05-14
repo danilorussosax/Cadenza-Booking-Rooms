@@ -5,8 +5,10 @@
  *
  * Verifica:
  *   - GET /api/docs (lista) restituisce voci filtrate per ruolo
- *   - GET /api/docs/docente accessibile a tutti gli auth
+ *   - GET /api/docs/docente riservato a docente + admin
+ *   - GET /api/docs/studente riservato a studente + admin
  *   - GET /api/docs/admin riservato agli admin
+ *   - Manuali "altrui" tornano 403 (es. studente non legge docente)
  *   - Filename screenshot validato (no path traversal)
  *   - Manuale inesistente → 404
  */
@@ -22,24 +24,32 @@ describe('GET /api/docs', () => {
     await globalThis.resetDatabase();
   });
 
-  it('lista pubblica per docente contiene solo "docente"', async () => {
+  it('lista per docente: solo "docente"', async () => {
     const { authHeader } = await createAuthedUser({ role: 'docente' });
     const res = await request(app).get('/api/docs').set('Authorization', authHeader);
     expect(res.status).toBe(200);
     const slugs = res.body.manuals.map((m) => m.slug);
-    expect(slugs).toContain('docente');
-    expect(slugs).not.toContain('admin');
+    expect(slugs).toEqual(['docente']);
   });
 
-  it('lista per admin contiene entrambi', async () => {
+  it('lista per studente: solo "studente"', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
+    const res = await request(app).get('/api/docs').set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    const slugs = res.body.manuals.map((m) => m.slug);
+    expect(slugs).toEqual(['studente']);
+  });
+
+  it('lista per admin: tutti e tre i manuali', async () => {
     const { authHeader } = await createAdmin();
     const res = await request(app).get('/api/docs').set('Authorization', authHeader);
     expect(res.status).toBe(200);
     const slugs = res.body.manuals.map((m) => m.slug);
-    expect(slugs).toEqual(expect.arrayContaining(['admin', 'docente']));
+    expect(slugs).toEqual(expect.arrayContaining(['admin', 'docente', 'studente']));
+    expect(slugs).toHaveLength(3);
   });
 
-  it('GET /api/docs/docente accessibile al docente', async () => {
+  it('GET /api/docs/docente OK per docente', async () => {
     const { authHeader } = await createAuthedUser({ role: 'docente' });
     const res = await request(app).get('/api/docs/docente').set('Authorization', authHeader);
     expect(res.status).toBe(200);
@@ -47,8 +57,34 @@ describe('GET /api/docs', () => {
     expect(res.text).toContain('Cadenza · Manuale Docente');
   });
 
+  it('GET /api/docs/studente OK per studente', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
+    const res = await request(app).get('/api/docs/studente').set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/markdown/);
+    expect(res.text).toContain('Cadenza · Manuale Studente');
+  });
+
+  it('GET /api/docs/studente negato al docente (403)', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'docente' });
+    const res = await request(app).get('/api/docs/studente').set('Authorization', authHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/docs/docente negato allo studente (403)', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
+    const res = await request(app).get('/api/docs/docente').set('Authorization', authHeader);
+    expect(res.status).toBe(403);
+  });
+
   it('GET /api/docs/admin negato al docente (403)', async () => {
     const { authHeader } = await createAuthedUser({ role: 'docente' });
+    const res = await request(app).get('/api/docs/admin').set('Authorization', authHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/docs/admin negato allo studente (403)', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
     const res = await request(app).get('/api/docs/admin').set('Authorization', authHeader);
     expect(res.status).toBe(403);
   });
@@ -58,6 +94,20 @@ describe('GET /api/docs', () => {
     const res = await request(app).get('/api/docs/admin').set('Authorization', authHeader);
     expect(res.status).toBe(200);
     expect(res.text).toContain('Manuale Amministratore');
+  });
+
+  it('admin può leggere il manuale studente', async () => {
+    const { authHeader } = await createAdmin();
+    const res = await request(app).get('/api/docs/studente').set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Cadenza · Manuale Studente');
+  });
+
+  it('admin può leggere il manuale docente', async () => {
+    const { authHeader } = await createAdmin();
+    const res = await request(app).get('/api/docs/docente').set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Cadenza · Manuale Docente');
   });
 
   it('GET /api/docs/inesistente → 404', async () => {

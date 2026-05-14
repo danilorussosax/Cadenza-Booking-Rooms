@@ -8,11 +8,14 @@
  *   GET  /api/docs/:slug                — content del manuale (text/markdown)
  *   GET  /api/docs/:slug/screenshots/:f — singolo PNG dalla cartella screenshots
  *
- * Slug ammessi (whitelist): `admin`, `docente`.
+ * Slug ammessi (whitelist): `admin`, `docente`, `studente`.
  *
- * Guard
- *   - `admin` richiede role=admin
- *   - `docente` accessibile a chiunque sia autenticato (anche admin)
+ * Guard per ruolo:
+ *   - `admin`    → solo admin
+ *   - `docente`  → solo docente (e admin)
+ *   - `studente` → solo studente (e admin)
+ * Un docente NON vede il manuale studente e viceversa: contenuti diversi
+ * per le rispettive funzioni dell'app. L'admin vede tutto.
  *
  * Anti path-traversal: il nome dello screenshot è ristretto a [a-z0-9._-]+\.png
  * e il path viene risolto e validato per stare dentro DOCS_DIR.
@@ -21,21 +24,40 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
 const DOCS_DIR = path.resolve(__dirname, '..', '..', 'docs');
 const SCREENSHOTS_DIR = path.join(DOCS_DIR, 'screenshots');
 
-// Mappa slug → { file, requireAdmin }. Aggiungere altri manuali qui.
+// Mappa slug → { file, allowedRoles, title }.
+// allowedRoles è il set di ruoli che possono leggere il manuale. admin è
+// sempre presente in ogni elenco perché admin può leggere tutto.
 const MANUALS = {
-  admin: { file: 'MANUALE_ADMIN.md', requireAdmin: true, title: 'Manuale Amministratore' },
-  docente: { file: 'MANUALE_DOCENTE.md', requireAdmin: false, title: 'Manuale Docente' },
+  admin: {
+    file: 'MANUALE_ADMIN.md',
+    allowedRoles: ['admin'],
+    title: 'Manuale Amministratore',
+  },
+  docente: {
+    file: 'MANUALE_DOCENTE.md',
+    allowedRoles: ['admin', 'docente'],
+    title: 'Manuale Docente',
+  },
+  studente: {
+    file: 'MANUALE_STUDENTE.md',
+    allowedRoles: ['admin', 'studente'],
+    title: 'Manuale Studente',
+  },
 };
 
 function isValidSlug(slug) {
   return Object.prototype.hasOwnProperty.call(MANUALS, slug);
+}
+
+function canRead(def, role) {
+  return Array.isArray(def.allowedRoles) && def.allowedRoles.includes(role);
 }
 
 /**
@@ -50,8 +72,10 @@ router.get('/:slug', authenticate, async (req, res, next) => {
       return res.status(404).json({ error: 'Manuale non trovato', code: 'NOT_FOUND' });
     }
     const def = MANUALS[slug];
-    if (def.requireAdmin && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Accesso riservato agli amministratori', code: 'FORBIDDEN' });
+    if (!canRead(def, req.user.role)) {
+      return res
+        .status(403)
+        .json({ error: 'Manuale non disponibile per il tuo ruolo', code: 'FORBIDDEN' });
     }
     const filePath = path.join(DOCS_DIR, def.file);
     let content;
@@ -110,7 +134,7 @@ router.get('/:slug/screenshots/:file', sendScreenshot);
  */
 router.get('/', authenticate, async (req, res) => {
   const items = Object.entries(MANUALS)
-    .filter(([, def]) => !def.requireAdmin || req.user.role === 'admin')
+    .filter(([, def]) => canRead(def, req.user.role))
     .map(([slug, def]) => ({ slug, title: def.title }));
   res.json({ manuals: items });
 });
