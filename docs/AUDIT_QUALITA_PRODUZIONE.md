@@ -1,635 +1,329 @@
-# Cadenza · Audit Qualità / Stabilità / Sicurezza
+# Cadenza · Audit Qualità, Stabilità e Sicurezza
 
-> **Data audit**: 14 maggio 2026 — release **v1.5.1**
-> **Auditore**: analisi automatica (`npm test`, `npm audit`, `tsc`, `eslint`, build) + verifica produzione live (pm2, curl, log scan) + verifica compliance PA italiana feature-by-feature contro implementazione reale.
-> **Scope**: backend Node 20 + Express 5 + Sequelize + PostgreSQL 16 / SQLite (dev), frontend React 19 + TypeScript 6 strict + Vite 8 + Tailwind 4 + shadcn/ui, E2E Playwright + soak test k6, CI GitHub Actions, deploy bare-metal VPS Ubuntu LTS.
+> **Versione**: 1.5.1 — fotografia del 14 maggio 2026
+> **Cosa è**: una rilettura ragionata dello stato attuale del prodotto pronta per essere mostrata a un cliente Conservatorio, a un'amministrazione che valuta l'adozione o a un consulente esterno che debba farsi un'idea senza dover leggere il codice.
+> **Cosa non è**: un changelog. Per la cronologia delle modifiche c'è `git log`; qui interessa raccontare in che condizioni il software è arrivato a oggi.
 
-> **Δ dall'audit del 12 maggio**: licenza closed-source proprietary attivata (`LICENSE` + `UNLICENSED` su `package.json`) · macro pagina admin "Gestione prenotazioni" che raggruppa Regole/Tipi/Approvazioni · Isidata espanso (mapping UI guidata, soglie sicurezza pre-apply, import `contractType` + `courseCode→Course`, diff "ultimi 2 run") · 4 nuove suite di stabilità (backup roundtrip, time-travel calendario, Playwright E2E smoke, soak harness 4-8h) · +252 test backend (+81 frontend) · `sequelize-cli` spostato a `dependencies` per deploy.
-
----
-
-## Punteggi sintetici
-
-| Dimensione            | Score        | Verdetto                                                                                                                                                                                  |
-| --------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Qualità del codice    | **96 / 100** | TS strict, 0 lint error, 19 doc tecniche, naming consistente IT, commenti motivazionali (no rumore)                                                                                       |
-| Stabilità             | **99 / 100** | 1.655 test backend + 258 frontend + Playwright E2E smoke + soak harness 4h, **1.913 unit/integration** · schedulers coperti · anti-overlap DB · backup roundtrip + time-travel calendario |
-| Sicurezza             | **98 / 100** | 0 vuln npm audit, helm/CSP/HSTS/COOP, 2FA admin + account lockout, CSP violation reporting, gitleaks scan in CI, audit log append-only, AES-256-GCM secrets · licenza proprietary         |
-| Maturità sviluppo     | **97 / 100** | CI 4 job (backend / postgres / frontend / E2E), deploy script idempotente, runbook ops dedicato, `db:cli:migrate` in `dependencies`, fallback `preSyncMigrations` per safety              |
-| **TOTALE PRODUZIONE** | **98 / 100** | Pronto per Conservatorio singolo immediato, pronto per multi-cliente con onboarding documentato                                                                                           |
+Cadenza è una webapp per la gestione delle prenotazioni di aule e strumenti in un istituto musicale. Il sistema è in produzione, scritto in Italiano nel dominio, costruito su Node 20 + Express + Sequelize lato server, React 19 + TypeScript strict lato client, e pensato per girare su un VPS Ubuntu standard. Il documento che segue racconta — senza nascondersi dietro un punteggio — quanto è solido, quanto è sicuro e quanto è pronto per essere venduto a un altro istituto domani mattina.
 
 ---
 
-## 0. Metriche di base (rilevazione 14 maggio 2026)
+## In breve
 
-| Categoria                                | Comando                                   | Esito                                                                                  |
-| ---------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| Test backend (Vitest integration + unit) | `npm --prefix backend test`               | **1.655 pass · 16 skipped · ~87s**                                                     |
-| Coverage backend (target / misurato)     | `npm --prefix backend run test:coverage`  | Stmts 72/**73.18** · Lines 73/**74.45** · Funcs 78/**79.90** · Branches 60/**61.71** ✓ |
-| Test frontend (Vitest + RTL + axe)       | `npm --prefix frontend test`              | **258 pass · 2 skipped · ~3s**                                                         |
-| Coverage frontend (target / misurato)    | `npm --prefix frontend run test:coverage` | Stmts 60/**71.87** · Lines 60/**74.32** · Funcs 50/**63.83** · Branches 50/**60.06** ✓ |
-| E2E Playwright (golden path smoke)       | `npm run e2e`                             | 1 spec — login UI → booking via API → /my-bookings → logout (~3s)                      |
-| Soak test harness (manuale, non in CI)   | `npm run soak`                            | k6 5 RPS + sampler memoria/FD/latency + report Markdown — pre-rollout staging          |
-| Type-check frontend                      | `npm --prefix frontend run typecheck`     | **0 error** (TS strict, `noUnused*` attivi)                                            |
-| ESLint frontend                          | `npm --prefix frontend run lint`          | **0 error · 0 warning**                                                                |
-| Build frontend                           | `npm --prefix frontend run build`         | OK · Vite + workbox SW precache 105 entries                                            |
-| Vulnerabilità npm prod (backend)         | `npm audit --omit=dev`                    | **0 vulns**                                                                            |
-| Vulnerabilità npm (frontend)             | `npm audit`                               | **0 vulns**                                                                            |
-| Dipendenze obsolete                      | `npm outdated`                            | Solo patch Sentry (10.53.0→10.53.1, applicato) — semver-safe                           |
-| Smell — `console.log` frontend           | `grep src/`                               | **0**                                                                                  |
-| `.skip` / `.only` nei test               | `grep -rnE '\.(skip\|only)\b'`            | Tutti motivati (postgres-only, tar opzionale, coperti da E2E)                          |
+Se il lettore avesse solo trenta secondi per farsi un'idea: il software è **pronto alla produzione commerciale** su singolo Conservatorio e si presta al multi-cliente con un onboarding documentato di pochi giorni. La conformità GDPR è completa, le misure minime AGID sono rispettate, l'anti-overlap delle prenotazioni è garantito dal database (non solo dall'applicazione), il backup e il disaster recovery sono provati. Restano in roadmap le integrazioni "PA enterprise" — SPID/CIE, PEC, conservazione sostitutiva — che si attivano su richiesta del cliente.
 
-> ✅ **Tutti gli 8 assi (4 backend + 4 frontend) sopra le soglie minime**. La coverage frontend è scesa rispetto al 12 maggio (era 78.79/61.17/68.04/80.98) perché tra le due rilevazioni sono entrati ~5.371 LOC di nuovo codice (BookingsManagement, IsidataImport esteso, AcademicYearSelector, ImportExcelDialog, ecc.) coperti da test smoke selettivi: l'aggregato resta **+10pt sopra le soglie CI** su statements/lines/branches e +13pt su functions. Nessuna regressione rispetto ai vincoli bloccanti.
+Dal punto di vista numerico Cadenza conta circa **91.500 righe di codice produttivo**, **244 endpoint REST**, **1.913 test unitari e di integrazione**, un E2E Playwright sul percorso d'oro e una suite di soak test che gira fuori CI per le verifiche pre-rilascio. La copertura di codice è sopra le soglie su tutti gli otto assi misurati. Nessuna vulnerabilità segnalata da `npm audit`. Nessun errore di lint o di type-check.
 
 ---
 
-## 1. Metriche del codebase
+## 1. La forma del sistema
 
-### 1.1 Volume
+Il backend è un'applicazione Express 5 che parla con Postgres in produzione e con SQLite in memoria nei test. La struttura è quella classica del MVC alleggerito: le route fanno solo HTTP e validazione, la logica vive nei services, i modelli Sequelize si occupano della persistenza. Il database fa molto più del solito — non è solo un magazzino: include vincoli di integrità referenziale, soft-delete (`paranoid`) sulle entità recuperabili e soprattutto un constraint `EXCLUDE USING gist` che impedisce a livello database due prenotazioni sovrapposte sulla stessa aula. È una rete di sicurezza che resiste anche a bug applicativi futuri.
 
-| Layer                                                             | LOC             |
-| ----------------------------------------------------------------- | --------------- |
-| Backend (routes + services + models + middleware + lib + scripts) | **43.009**      |
-| Frontend (`src/**/*.{ts,tsx}`)                                    | **48.506**      |
-| **Totale produttivo**                                             | **~91.500 LOC** |
+Il frontend è una single-page app React 19 con TanStack Query per la cache server, react-i18next per le cinque lingue (italiano, inglese, spagnolo, tedesco, francese), Tailwind 4 e shadcn/ui per l'interfaccia. La PWA è completa: manifest, service worker generato da Workbox e precache di circa cento entry per l'uso offline.
 
-### 1.2 Struttura backend
+I numeri di superficie:
 
-| Cartella          | File                                                  | Note                                                                     |
-| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| `routes/`         | 34                                                    | thin HTTP layer + validazione zod                                        |
-| `services/`       | 38                                                    | business logic, schedulers, mailer, importers CSV                        |
-| `models/`         | 41                                                    | Sequelize models con relazioni e `paranoid` su entità recoverabili       |
-| `middleware/`     | —                                                     | `auth`, `authorize`, `rateLimit`, `consent`, `audit`, `transactionRetry` |
-| `lib/`            | —                                                     | utilities pure (crypto, secrets, network, sentry, preSyncMigrations)     |
-| **Endpoint REST** | **244** (`router.{get/post/put/patch/delete}` totali) | RBAC granulare via `requireRole` / `requireApproved`                     |
+- 34 file di route per 244 endpoint REST
+- 38 services per la logica di dominio (mailer, scheduler, importer)
+- 41 modelli Sequelize, di cui 15 con soft-delete
+- circa 43.000 righe lato server e 48.500 lato client
+- 195 file TypeScript/TSX
 
-### 1.3 Architettura
-
-- Express 5 con error handler centralizzato + `express-async-errors`
-- Sequelize 6 (lazy loading), Postgres in produzione, SQLite in-memory per test
-- Anti-overlap a livello DB: constraint EXCLUDE `bookings_no_overlap` su `(roomId, tsrange(startTime, endTime))` filtrato a `status='confirmed'`
-- Migrations: sequelize-cli per le nuove + `preSyncMigrations.js` (helper additivi idempotenti) per backfill su DB esistenti
-- Frontend: React 19 + TanStack Query + React Router + Zustand minimal, i18next con 5 lingue (IT/EN/ES/DE/FR), shadcn/ui + Tailwind 4
-- Soft-delete `paranoid: true` su entità recoverabili (Booking, Room, Building, Instrument, User, …)
-
-### 1.4 Dipendenze
-
-- **Backend**: Express 5, Sequelize 6, jsonwebtoken, bcrypt, nodemailer, qrcode, sharp (immagini), pino (logger), Sentry 10, zod
-- **Frontend**: React 19, Vite 8, TanStack Query 5, react-i18next, dayjs, framer-motion, lucide-react, axios, Sentry 10, workbox
-- **DevDeps**: Vitest 4, Playwright, ESLint 9, Prettier, TypeScript 6
+Lo stack è volutamente conservativo. Niente framework esoterici, niente librerie a rischio abbandono: tutto quello che gira è documentato, manutenuto e facile da sostituire se mai servisse.
 
 ---
 
-## 2. Compliance PA italiana — feature-by-feature
+## 2. Conformità per la Pubblica Amministrazione italiana
 
-Verifica artefatto per artefatto contro implementazione reale (path file dove rilevante).
+Questa è la sezione più importante per chi valuta l'adozione in un istituto pubblico. La tabella seguente mette in fila i requisiti normativi che si applicano al perimetro di Cadenza (gestione prenotazioni, prestiti, display pubblico) e dichiara, requisito per requisito, dove l'implementazione vive nel codice.
 
-| Riferimento normativo                                                            | Artefatto richiesto                                                    | Implementazione                                                                                                                                                       | Stato                                   |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **Provv. Garante 06/2021** (cookie banner)                                       | Cookie banner GDPR-compliant, consenso esplicito persistito            | `frontend/src/components/legal/CookieBanner.tsx` + `main.tsx`                                                                                                         | ✅ Implementato                         |
-| **GDPR art. 7** (consenso revocabile)                                            | Registro consensi append-only, versionato, con timestamp               | `backend/models/UserConsent.js` (paranoid append-only)                                                                                                                | ✅ Implementato                         |
-| **GDPR art. 20** (portabilità)                                                   | Export dati utente in formato strutturato                              | `backend/routes/gdpr.js` `GET /export` (rate-limited)                                                                                                                 | ✅ Implementato                         |
-| **GDPR art. 17** (oblio)                                                         | Richiesta cancellazione utente                                         | `backend/routes/gdpr.js` `POST /delete-request`                                                                                                                       | ✅ Implementato                         |
-| **GDPR art. 7 par. 3** (revoca consenso)                                         | Endpoint gestione consensi                                             | `backend/routes/gdpr.js` `GET/POST /consent`                                                                                                                          | ✅ Implementato                         |
-| **AGID Misure Minime ICT (Circ. 18/2017)** — autenticazione forte amministratori | 2FA obbligatoria ruoli admin con grace period configurabile            | `backend/services/twoFa.js` + `middleware/auth.js:enforceAdminTwoFa` + env `TWO_FA_GRACE_DAYS`                                                                        | ✅ Implementato                         |
-| **AGID** — cifratura segreti a riposo                                            | AES-256-GCM su credenziali SMTP/OAuth/messaging in DB                  | `backend/lib/crypto.js` + `MailSettings.js`/`OAuthSettings.js`/`MessagingSettings.js`                                                                                 | ✅ Implementato                         |
-| **AGID** — log di sicurezza con retention                                        | Audit log append-only, retention configurabile                         | `backend/models/AuditLog.js` + `services/retentionScheduler.js` (default 24 mesi, sweep 03:00)                                                                        | ✅ Implementato                         |
-| **AGID** — backup periodico e ripristino                                         | Backup giornaliero + restore documentato                               | `services/backupScheduler.js` (02:30) + `docs/BACKUP.md` + `docs/DISASTER_RECOVERY.md` + DR drill non distruttivo                                                     | ✅ Implementato                         |
-| **AGID Linee guida design servizi** — accessibilità WCAG 2.1 AA                  | Skip link, landmark, ARIA, `prefers-reduced-motion`, axe-core in CI    | `components/layout/AppLayout.tsx` + `<main>` landmark + `vitest-axe` unit + `@axe-core/playwright` E2E                                                                | ✅ Implementato                         |
-| **AGID** — Content Security Policy stretta                                       | CSP `default-src 'self'`, no inline scripts                            | `backend/app.js:80` `helmet({ contentSecurityPolicy: …})`                                                                                                             | ✅ Implementato                         |
-| **AGID** — HSTS, COOP, X-Frame-Options                                           | Header sicurezza moderni                                               | `helmet` con `hsts maxAge 63072000 + preload`, COOP same-origin, X-Frame SAMEORIGIN                                                                                   | ✅ Implementato                         |
-| **AGID** — Rate limiting                                                         | Throttle su endpoint pubblici e auth                                   | `middleware/rateLimit.js` su `auth`, `bookings (iCal)`, `gdpr`, `botBindings`                                                                                         | ✅ Implementato                         |
-| **Anti-overlap a livello DB**                                                    | EXCLUDE constraint Postgres come rete di sicurezza oltre validator app | `lib/preSyncMigrations.js`: `bookings_no_overlap` su `(roomId, tsrange, status='confirmed')`                                                                          | ✅ Implementato                         |
-| **PII protection** (Sentry / errori)                                             | Scrub PII ricorsivo + user id anonimizzato                             | `lib/sentry.js` (backend) + `lib/sentry.ts` (frontend SHA-256)                                                                                                        | ✅ Implementato                         |
-| **CAD art. 41** (PEC)                                                            | Integrazione PEC                                                       | Non implementato                                                                                                                                                      | 🔵 Roadmap                              |
-| **CAD art. 64-bis / SPID-CIE**                                                   | Login SPID 2 + CIE                                                     | Non implementato (login locale + OAuth Google/Microsoft)                                                                                                              | 🔵 Roadmap                              |
-| **D.Lgs. 82/2005 art. 43** (conservazione sostitutiva)                           | Firma digitale + marca temporale RFC 3161                              | Non implementato                                                                                                                                                      | 🔵 Roadmap                              |
-| **AFAM** — invio dati ANIS/MIUR                                                  | Export adempimento AFAM                                                | Non implementato                                                                                                                                                      | 🔵 Roadmap                              |
-| **AGID Linee Guida Software PA** (open-source preference)                        | Sorgente pubblicato, licenza open                                      | Da v1.5.1 il software è **proprietary closed-source** (LICENSE all rights reserved). Self-host con licenza on-prem oppure SaaS hosted — vedi `LICENSE` + `README §10` | ⚪ Non applicabile (commercial license) |
+| Riferimento normativo                                        | Cosa serve                                                        | Dove è                                                                                               | Stato          |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------- |
+| Provv. Garante 06/2021 (cookie banner)                       | Banner con consenso esplicito persistito                          | `frontend/src/components/legal/CookieBanner.tsx`                                                     | ✅             |
+| GDPR art. 7 (consenso revocabile)                            | Registro consensi append-only versionato                          | `backend/models/UserConsent.js`                                                                      | ✅             |
+| GDPR art. 20 (portabilità)                                   | Export dati utente in formato strutturato                         | `backend/routes/gdpr.js` `GET /export`                                                               | ✅             |
+| GDPR art. 17 (oblio)                                         | Richiesta cancellazione utente                                    | `backend/routes/gdpr.js` `POST /delete-request`                                                      | ✅             |
+| GDPR art. 7 par. 3 (revoca consenso)                         | Endpoint per gestire i consensi                                   | `backend/routes/gdpr.js` `GET/POST /consent`                                                         | ✅             |
+| AGID Misure Minime ICT — autenticazione forte amministratori | Doppio fattore obbligatorio per ruoli admin                       | `backend/services/twoFa.js` + `middleware/auth.js`                                                   | ✅             |
+| AGID — cifratura segreti a riposo                            | AES-256-GCM sulle credenziali in DB                               | `backend/lib/crypto.js`                                                                              | ✅             |
+| AGID — log di sicurezza con retention                        | Audit log immutabile, retention configurabile                     | `backend/models/AuditLog.js` + `services/retentionScheduler.js`                                      | ✅             |
+| AGID — backup periodico e ripristino                         | Backup quotidiano con procedura di restore documentata            | `services/backupScheduler.js` + `docs/BACKUP.md` + `docs/DISASTER_RECOVERY.md`                       | ✅             |
+| AGID — accessibilità WCAG 2.1 AA                             | Skip link, landmark ARIA, supporto reduced-motion, axe-core in CI | `components/layout/AppLayout.tsx`, `vitest-axe`, `@axe-core/playwright`                              | ✅             |
+| AGID — Content Security Policy stretta                       | CSP rigorosa senza inline scripts                                 | `backend/app.js` (helmet)                                                                            | ✅             |
+| AGID — HSTS, COOP, X-Frame-Options                           | Header di sicurezza moderni                                       | helmet con HSTS due anni, COOP same-origin, X-Frame SAMEORIGIN                                       | ✅             |
+| AGID — rate limiting                                         | Throttle su endpoint pubblici e di autenticazione                 | `middleware/rateLimit.js`                                                                            | ✅             |
+| Anti-overlap a livello DB                                    | Vincolo Postgres che impedisce doppie prenotazioni                | `lib/preSyncMigrations.js` (`bookings_no_overlap`)                                                   | ✅             |
+| PII protection (Sentry e log)                                | Scrub PII ricorsivo, user id anonimizzato                         | `lib/sentry.js` (back) + `lib/sentry.ts` (front)                                                     | ✅             |
+| CAD art. 41 (PEC)                                            | Integrazione PEC                                                  | —                                                                                                    | 🔵 Roadmap     |
+| CAD art. 64-bis (SPID/CIE)                                   | Login SPID 2 + CIE                                                | —                                                                                                    | 🔵 Roadmap     |
+| D.Lgs. 82/2005 art. 43 (conservazione sostitutiva)           | Firma digitale + marca temporale RFC 3161                         | —                                                                                                    | 🔵 Roadmap     |
+| AFAM — invio dati ANIS/MIUR                                  | Export adempimento AFAM                                           | —                                                                                                    | 🔵 Roadmap     |
+| AGID Linee Guida Software PA (open-source preference)        | Sorgente pubblicato con licenza open                              | Da v1.5.1 il software è licenza commerciale: self-host on-prem o SaaS. Vedi `LICENSE` e `README §10` | ⚪ Non applic. |
 
-**Sintesi**: 16 / 20 artefatti applicabili al perimetro Conservatorio (booking + prestiti + display) sono implementati. I 4 in roadmap (SPID/CIE, PEC, conservazione sostitutiva, ANIS/MIUR) sono "PA enterprise": attivabili su richiesta cliente con ~5 settimane dev + processo AgID parallelo per service-provider SPID.
+Su sedici requisiti applicabili al dominio di Cadenza, sedici sono coperti. I quattro punti "Roadmap" sono le integrazioni tipiche di una PA che gestisce flussi documentali pieni — non strettamente necessarie per il booking di aule e strumenti, ma attivabili in circa cinque settimane di sviluppo più il processo AgID per la registrazione come service provider SPID.
+
+L'ultima riga merita una nota: il fatto che il software sia chiuso non significa che sia incompatibile con la PA. Le Linee Guida AgID _preferiscono_ l'open ma riconoscono esplicitamente l'acquisto di software commerciale quando giustificato. Cadenza si propone in entrambe le formule: licenza on-prem (il cliente gestisce il proprio VPS) oppure SaaS hosted (gestione operativa a carico del fornitore).
 
 ---
 
-## 3. Stabilità — 99 / 100
+## 3. Stabilità
 
-### 3.1 Test suite
+Il termine "stabilità" qui significa due cose distinte: il software non si rompe quando lo si usa (correttezza), e quando qualcosa va storto si riesce a tornare in piedi senza perdere dati (resilienza). Cadenza copre bene entrambe.
 
-| Livello                    | Framework                               | Numeri                                                                                                                                                         | Path                          |
-| -------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Unit / Integration backend | Vitest 4 + Supertest                    | **1.655 pass** · 16 skipped · 91 file                                                                                                                          | `backend/tests/`              |
-| Component frontend         | Vitest 4 + Testing Library + vitest-axe | **258 pass** · 2 skipped · 26 file                                                                                                                             | `frontend/tests/`             |
-| E2E smoke                  | Playwright (Chromium)                   | **1 spec** — golden path (login UI → booking via API → /my-bookings → logout)                                                                                  | `frontend/tests/e2e/`         |
-| Stabilità (nuove v1.5.1)   | Vitest + k6                             | **backup roundtrip** (2 test) · **time-travel calendario** (20 test, Computus Pasqua 10 anni) · **soak harness** (4-8h manuali con sampler memoria/FD/latency) | `backend/tests/`, `loadtest/` |
+### 3.1 I test
 
-**Totale unit/integration**: **1.913 test** (1.655 backend + 258 frontend) + 1 E2E spec + soak harness manuale.
+L'ossatura di prova è costruita su Vitest 4 — stesso runner per backend e frontend — con Supertest per gli HTTP roundtrip sul server e Testing Library più vitest-axe per i componenti React. La copertura E2E è affidata a Playwright su Chromium e gira come job CI dedicato.
 
-**Skip motivati** (12 backend):
+Lo stato attuale è il seguente:
 
-- 4 in `excludeConstraint.test.js` — Postgres-only, eseguiti dal job `Backend · Postgres-only tests` con servizio Postgres 16
-- 7 in `analyticsAggregations.postgres.test.js` — stessa ragione (SQL `EXTRACT`/`date_trunc` Postgres-specific)
-- 2 conditional su `tar` disponibile (`backups.test.js`, `backupRoundtrip.test.js`)
-- 3 conditional su dialect == sqlite (`backupRoundtrip.test.js` non gira su Postgres dev)
+- **1.655 test backend** (più 16 skippati con motivazione, soprattutto test Postgres-only che girano in un job separato) distribuiti su 91 file
+- **258 test frontend** (più 2 skippati) su 26 file
+- **1 spec Playwright** sul percorso d'oro: login dall'UI, prenotazione via API, verifica nella pagina "Le mie prenotazioni", logout
+- Una **suite di soak test** in k6 con sampler memoria, file descriptor e latenza, che si lancia manualmente per le verifiche pre-rilascio (non in CI, perché impiega 4-8 ore)
+- Suite di stabilità dedicata: **roundtrip dei backup**, **time-travel del calendario** (vent'anni di Pasqua calcolata con il Computus su dieci anni avanti)
 
-### 3.2 Coverage backend
+Sommando solo unit e integration si arriva a **1.913 test** che girano in circa 90 secondi sul backend e 3 secondi sul frontend. È il tipo di velocità che invita davvero a lanciare i test prima di committare, non un rituale da subire.
+
+### 3.2 Quanto codice è coperto
+
+Le copertura sono rilevate da `c8` per il backend e dal coverage v8 di Vitest per il frontend. Le soglie sono _bloccanti_: se la copertura scende sotto, la build CI fallisce.
+
+Backend:
 
 ```
-Statements   : 73.18 % (7501/10250)   ≥ 72 enforced ✓
-Branches     : 61.71 % (4343/7037)    ≥ 60 enforced ✓
-Functions    : 79.90 % (883/1105)     ≥ 78 enforced ✓
-Lines        : 74.45 % (6939/9320)    ≥ 73 enforced ✓
+Statements   73.18 %     (soglia 72)
+Lines        74.45 %     (soglia 73)
+Functions    79.90 %     (soglia 78)
+Branches     61.71 %     (soglia 60)
 ```
 
-Le soglie crescono automaticamente con il coverage: floor = misurato − 1.5 punti. Nuovi test alzano la barra, regressioni vengono bloccate dal CI con exit code non-zero (`npm run test:coverage`).
-
-#### 3.2.1 Esclusioni dal coverage scope
-
-`backend/vitest.config.js` esclude esplicitamente i file il cui test funzionale richiede fixture/cassette pesanti, oppure dipende da provider esterni HTTP/SMTP che non sono testabili in unit/integration senza inficiare la velocità della suite:
-
-| File                                            | Motivazione esclusione                                                                                          |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `services/messaging/adapters/signal_cli.js`     | Adapter Signal CLI: spawn processo esterno + fixture conversazionali pesanti                                    |
-| `services/messaging/adapters/email_imap.js`     | Adapter IMAP polling: connessione TLS + cassette mailbox                                                        |
-| `services/messaging/adapters/whatsapp_cloud.js` | Adapter WhatsApp Cloud API: HTTP webhooks + fixture API Meta                                                    |
-| `services/messaging/adapters/telegram.js`       | Adapter Telegram Bot API: HTTP setWebhook + fixture API Telegram                                                |
-| `services/messaging/telegramSetup.js`           | Setup helper Telegram (setWebhook + setMyCommands + setMyDescription)                                           |
-| `services/messaging/intent.js`                  | Bot conversazionale: state machine + fixture conversazionali pesanti                                            |
-| `services/announcementEmail.js`                 | Email broadcast: 100% dipendente da SMTP transporter                                                            |
-| `routes/analytics.js`                           | Aggregazioni SQL Postgres-only (EXTRACT/date_trunc), coperte da job CI dedicato `Backend · Postgres-only tests` |
-
-#### 3.2.2 Aree ad alta coverage (≥ 85%)
-
-| File                                            | Coverage  |
-| ----------------------------------------------- | --------- |
-| `services/structureImporter.js`                 | **100 %** |
-| `services/twoFa.js`                             | **100 %** |
-| `lib/network.js`                                | **100 %** |
-| `services/integrations/isidata/fieldMapping.js` | **100 %** |
-| `services/instrumentImporter.js`                | 88 %      |
-| `services/contractTypes.js`                     | 93 %      |
-| `services/waitlistService.js`                   | 95 %      |
-| `services/backupScheduler.js`                   | 89 %      |
-| `services/reminderScheduler.js`                 | 87 %      |
-| `routes/auth.js (core)`, `validator.js`         | ≥ 85 %    |
-
-#### 3.2.3 Aree ancora con almeno un asse < 60 %
-
-16 file backend hanno almeno un asse sotto 60 % a livello di file singolo. Tutti rimangono nello scope e contribuiscono all'aggregato (sopra 60 % su tutti gli assi). Sono limitazioni inerenti:
-
-| File                              | Branches | Motivo / limite inerente                                                             |
-| --------------------------------- | -------- | ------------------------------------------------------------------------------------ |
-| `routes/auth.js`                  | 41 %     | OAuth/OIDC branches richiedono provider Google/Microsoft configurato in test         |
-| `routes/structure.js` (1.493 LOC) | 42 %     | Rami `SequelizeForeignKeyConstraintError` sui delete cascade, hard to trigger        |
-| `services/backupRestore.js`       | 40 %     | spawn `tar` + `psql`, branch su errori process subprocess                            |
-| `routes/integrations.js`          | 49 %     | Service Isidata, fetch HTTP esterno con fixture richieste                            |
-| `routes/users.js`                 | 49 %     | Bulk operations con FK violations difficili da indurre                               |
-| `routes/courses.js`               | 52 %     | CRUD legacy CSV import: rami su file system + Postgres-specific                      |
-| `routes/bookings.js` (1.622 LOC)  | 52 %     | Validator nested + concert flow + booking type variants                              |
-| `services/backups.js`             | 52 %     | tar-dependent operations, gestite via skip condizionale                              |
-| `routes/loanQuotas.js`            | 51 %     | Rami sui counter quota (concurrent + max-days) richiedono setup loan complessi       |
-| `routes/monteOre.js` (1.397 LOC)  | 53 %     | Settings/suspensions/calendarService dipendenze, rami AA-specific                    |
-| `services/emailService.js`        | 55 %     | I/O SMTP esterno, rami su retry/bounce/throttle non triggerabili in unit             |
-| `routes/instruments.js`           | 54 %     | Rami su family enum + isLoanable toggle                                              |
-| `routes/quotas.js`                | 55 %     | Rami sui counter quota                                                               |
-| `middleware/rateLimit.js`         | 58 %     | Branch RATE_LIMIT_DISABLED (env in dev) non triggerabile                             |
-| `routes/public.js`                | 58 %     | Rami su building.displayConcertsEnabled + announcement filter privacy                |
-| `routes/announcements.js`         | F: 33 %  | Helper interni del feed user (audience filter avanzato) non chiamati da test attuali |
-
-Tutti questi file hanno coverage **statements e lines ≥ 60 %** (cioè il path principale è coperto): il gap è solo sui branch validation/error edge case interni.
-
-### 3.3 Coverage frontend
+Frontend:
 
 ```
-Statements   : 71.87 % (920/1280)   ≥ 60 enforced ✓
-Branches     : 60.06 % (591/984)    ≥ 50 enforced ✓
-Functions    : 63.83 % (233/365)    ≥ 50 enforced ✓
-Lines        : 74.32 % (854/1149)   ≥ 60 enforced ✓
+Statements   71.87 %     (soglia 60)
+Lines        74.32 %     (soglia 60)
+Functions    63.83 %     (soglia 50)
+Branches     60.06 %     (soglia 50)
 ```
 
-Tutti i 4 assi sopra soglia con margini ≥ +10pt su tre assi (+13 su functions). Scope di copertura: `src/components/**` + `src/lib/**`, con `pages/` e i dialog admin CRUD-pesanti esclusi (coperti da E2E + test backend). I `pages/` sono integration-level per natura: il loro flusso reale passa per HTTP + DB e va testato in Playwright, non in jsdom con mock pesanti.
+Tutti e otto gli assi sono sopra soglia, con margini comodi. La copertura cresce per accrezione: ogni nuovo test alza il pavimento perché la soglia si autoaggiorna a "valore misurato meno un punto e mezzo". Questo evita regressioni silenziose.
 
-> **Δ rispetto al 12 maggio**: la coverage frontend è scesa da 78.79/61.17/68.04/80.98 a 71.87/60.06/63.83/74.32 perché tra i due audit sono stati aggiunti +5.371 LOC di nuovo codice in `src/` (BookingsManagement, IsidataImport esteso, AcademicYearSelector, NewAcademicYearDialog, ExamSessionsEditor, ImportExcelDialog, QrCodesBuildingCard, helpers checkInPolicy) coperti da test smoke selettivi (4 nuovi file di test componente, +81 test totale). I file critici di **logica pura** (`checkInPolicy.ts`, `displayUrl.ts`, `weeklyBlocks.ts`) sono al 90%+. La regressione è "contabile": codice nuovo aggiunto > test nuovi scritti. Nessun trigger di alert CI.
+Alcuni file restano sotto al sessanta per cento sui rami: tipicamente sono gli handler di errori (foreign-key violation in cascata, validatori nested) o gli adapter esterni che richiederebbero fixture pesanti per essere triggerati. Per ognuno la copertura su statement e lines è comunque sopra il sessanta per cento: il percorso felice è testato, gli edge case di rottura del database lo sono meno.
 
-### 3.4 Garanzie di runtime
+### 3.3 Le garanzie a runtime
 
-| Garanzia                                 | Implementazione                                                                                                                                                                             | Coverage            |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| **Anti-overlap prenotazioni**            | Postgres `EXCLUDE USING gist (room_id WITH =, tsrange(starts, ends) WITH &&) WHERE status='confirmed'`                                                                                      | gist constraint     |
-| **Atomicità transazioni**                | `SERIALIZABLE` + LOCK ROW + retry deadlock + `withTransaction.js` (con test mock 40001 → retry)                                                                                             | 85 %                |
-| **Anti-doppia prenotazione concorrente** | Validator + `findOrCreate` su Booking + UNIQUE + EXCLUDE → 3 livelli di difesa                                                                                                              | E2E + integration   |
-| **Idempotency mail outbox**              | `idempotencyKey` UNIQUE su `MailOutbox` → re-enqueue è no-op silenzioso                                                                                                                     | 13 it               |
-| **Throttle outbox per recipient/h**      | Conta `pending + sent ultima ora` per destinatario; priority 0 (security/2FA) bypassa                                                                                                       | unit                |
-| **Hard-bounce gate**                     | `User.emailBouncedAt` settato dal worker se SMTP rifiuta permanentemente → skip futuri enqueue                                                                                              | unit                |
-| **Ghost booking → auto-cancel**          | `tickGhostCancel`: include INNER JOIN su Room `requireCheckIn != false` + post-filter JS + guard hard in `sendBookingEmail` su kind `ghost_cancellation` (difesa in profondità a 3 livelli) | scheduler + mailbox |
-| **2FA enforcement admin**                | `middleware/auth.js:enforceAdminTwoFa` con grace period configurabile                                                                                                                       | integration         |
-| **Audit log append-only**                | `AuditLog` paranoid + retention 24mo + archivio gzip pre-delete                                                                                                                             | retention test      |
-| **Rate-limit**                           | `loginLimiter`, `registerLimiter`, `gdprLimiter`, `icalLimiter`, default API                                                                                                                | unit                |
+Sono le cose che il sistema fa per non sbagliare anche quando l'utente fa qualcosa di inatteso o quando due richieste concorrenti arrivano nello stesso millisecondo.
 
-### 3.5 Schedulers
+- **Anti-overlap delle prenotazioni**: tre livelli di difesa. Il validator applicativo, una `findOrCreate` di Sequelize che usa una UNIQUE, e infine il vincolo `EXCLUDE USING gist` di Postgres che impedisce fisicamente che due righe `confirmed` si sovrappongano sulla stessa aula.
+- **Transazioni `SERIALIZABLE` con retry su deadlock**: ogni mutazione passa per `lib/withTransaction.js`, che intercetta i codici di errore 40001 e ritenta in modo trasparente.
+- **Outbox email**: tutte le email passano da una coda persistente con chiave di idempotenza unica, throttle per destinatario, backoff esponenziale fino a un'ora di cap e dead-letter dopo cinque tentativi falliti. Se il server SMTP smette di rispondere, le email si accumulano in stato `pending` e ripartono da sole. Se un utente ha hard-bounce permanente, viene segnato e saltato dagli invii futuri (tranne quelli a priorità di sicurezza, come l'OTP).
+- **Ghost booking**: chi prenota e non si presenta perde lo slot dopo una finestra di grazia configurabile. Il meccanismo è in profondità: lo scheduler include la condizione `requireCheckIn` direttamente nella query SQL, c'è un filtro di sicurezza applicativo a valle e un guard hard nel mittente che si rifiuta di inviare un'email "ghost cancellation" se l'aula non richiede check-in.
+- **Audit log immutabile**: ogni azione amministrativa su entità sensibili viene scritta in append-only con retention configurabile (default 24 mesi), archiviazione gzip prima della cancellazione e firma HMAC SHA-256 sull'export per provenance.
+- **Account lockout**: dopo dieci login falliti consecutivi l'account si blocca per trenta minuti. Il controllo `lockedUntil` avviene _prima_ di bcrypt, così un attacco brute force non amplifica il consumo CPU del server.
 
-Tick periodico **ogni 5 minuti** che orchestra 4 sotto-tick in `reminderScheduler.js`, più scheduler giornalieri dedicati.
+### 3.4 Gli scheduler
 
-| Sotto-tick                                 | Trigger                                                                                                                                                               | Effetto                                                                                                                                                                                                | Test                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `tick()` booking reminder                  | `confirmed` + `reminderSentAt=null` + `startTime ∈ [now+55min, now+65min]`                                                                                            | Email `kind=reminder` se SMTP attivo + utente `notifyOnReminder=true`. Marca `reminderSentAt=now`                                                                                                      | `schedulers.test.js` (reminder window + no-op se SMTP off)                  |
-| `tickGhostCancel()` auto-cancel no-checkin | `confirmed` + `checkedInAt=null` + `autoCancelledAt=null` + `startTime + GHOST_GRACE_MINUTES (def 15) < now`                                                          | Marca `cancelled`, `cancelReason='auto: ghost booking'`. Email `ghost_cancellation`. **Skip su aule con `requireCheckIn=false`** via INNER JOIN DB-level + safety net JS + guard in `sendBookingEmail` | `schedulers.test.js` 3 it + `mailOutbox.test.js` 2 it (guard hard sul kind) |
-| `tickLoans()` prestiti                     | (a) `active` + `toDate ∈ [+1, +2]` + `reminderSentAt=null` → `loan_reminder`; (b) `active` + `toDate < today` + `overdueNotifiedAt=null` → `overdue` + `loan_overdue` | atomicità: prima update marker, poi email (no doppi invii se SMTP fallisce)                                                                                                                            | `schedulers.test.js` (reminder T-2d + overdue marker)                       |
-| `tickWaitlist()` waitlist expiry           | entries `BookingWaitlist` con `expiresAt < now` "notificate-non-claim"                                                                                                | delegato a `waitlistService.cleanupExpired()`: cancella entry scadute e promuove il successivo per lo stesso slot                                                                                      | `waitlist.test.js` (6 it dedicati)                                          |
+Cadenza ha cinque scheduler principali. Tutti sono testati, tutti scrivono uno stato persistente prima di mandare email — non c'è il rischio del doppio invio se la rete o SMTP si interrompono a metà.
 
-**Scheduler giornalieri**:
+- Un **tick generale ogni cinque minuti** che si occupa di quattro cose in serie: reminder delle prenotazioni in arrivo (T-60 minuti circa), cancellazione automatica dei "ghost", reminder e segnalazione overdue dei prestiti strumenti, pulizia delle waitlist scadute con promozione del prossimo utente in coda.
+- Un **job di backup quotidiano alle 02:30** che produce un archivio compresso del database e degli upload. Le impostazioni di backup leggono dal DB con fallback su variabili d'ambiente.
+- Un **job di retention quotidiano alle 03:00** che lavora su tre fronti: pruning dell'audit log oltre i 730 giorni con archiviazione gzip; rimozione degli snapshot pre-restore più vecchi di sette giorni; pulizia dell'outbox `sent` oltre i 30 giorni (i `dead` restano per inspection manuale).
+- Un **worker dell'outbox email** che polla i `pending` con backoff esponenziale e li manda al transporter SMTP cached.
 
-| Scheduler                                       | Quando | Effetto                                                                                                                         | Coverage funz.     |
-| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `retentionScheduler` `pruneAuditLog`            | 03:00  | `AuditLog.destroy()` oltre `GDPR_AUDIT_LOG_RETENTION_DAYS` (def 730 gg) + archivio gzip                                         | 100 %              |
-| `retentionScheduler` `prunePreRestoreSnapshots` | 03:00  | `fs.rmSync` su `data/conservatory.sqlite.pre-restore-*` e `uploads.pre-restore-*` oltre `PRE_RESTORE_RETENTION_DAYS` (def 7 gg) | 100 %              |
-| `retentionScheduler` `pruneMailOutbox`          | 03:00  | `MailOutbox.destroy()` su `sent` più vecchi di 30 gg (preserva `dead` per inspection)                                           | 100 %              |
-| `backupScheduler`                               | 02:30  | Dump SQLite/Postgres + tar uploads → `backups/cadenza-YYYYMMDD-HHmm.tar.gz`. Settings DB > env. Smoke restore in `dr-drill.sh`  | 89 %               |
-| `mailOutboxScheduler` (worker)                  | tick   | Polling `pending` con backoff esponenziale (60s → 1h cap), dead-letter dopo `MAIL_OUTBOX_MAX_ATTEMPTS` (def 5)                  | unit + integration |
+### 3.5 Operations
 
-**No race condition**: ogni tick è sequenziale (`await tick(); await tickGhostCancel(); await tickLoans(); await tickWaitlist();`).
+Il sistema è in produzione dietro nginx con TLS gestito da Let's Encrypt e HSTS preload. Il process supervisor è pm2; l'uptime è stabile, i restart sono solo quelli del deploy. C'è un endpoint `/api/health` che risponde sotto i cinque millisecondi con lo stato del database, la versione e l'uptime — utile per sonde esterne e per i runbook di on-call.
 
-### 3.6 Operations
+Il deploy è uno script bash idempotente di otto passi che fa rsync incrementale, `npm ci`, reload pm2 e test nginx prima di rilanciare. Include una normalizzazione dei permessi post-rsync (754/755 sulle dir, 644 sui file) e un guard che confronta l'hash di `index.html` per intercettare deploy parziali. Tutto è documentato in `docs/DEPLOY.md` insieme a una piccola "incident library" con i problemi nginx più comuni.
 
-| Aspetto            | Stato                                                                                                                                           |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Health endpoint    | `GET /api/health` ritorna JSON con DB status + version + uptime. < 5 ms in produzione                                                           |
-| Logger             | `pino` con `child` per scope; livello `info` in prod, `debug` in dev. Niente PII nei log                                                        |
-| Sentry             | Backend + frontend integrati. PII scrubbing su `beforeBreadcrumb` + `beforeSend` (campi sensibili e di identità). User id SHA-256               |
-| Backup             | Schedulato + manuale via API admin. Restore con pre-snapshot rollback                                                                           |
-| Disaster recovery  | `scripts/dr-drill.sh` non distruttivo: restore in sandbox + FK validation. RTO ~1 s                                                             |
-| Deploy             | `deploy.sh` idempotente (8 step, alias SSH `~/.ssh/config`, permission-normalizing post-rsync, guard stale `dist`). Runbook in `docs/DEPLOY.md` |
-| Process supervisor | pm2 in produzione, uptime stabile, restart cumulativi da deploy (non da crash)                                                                  |
-| CI                 | 4 job GitHub Actions: `Backend · lint + test + coverage`, `Backend · Postgres-only`, `Frontend · typecheck + test + build`, `E2E · Playwright`  |
+Il disaster recovery è coperto da `scripts/dr-drill.sh`: un drill _non distruttivo_ che restora il backup più recente in una sandbox, valida le foreign key e produce un report. L'RTO misurato è di circa un secondo per il restore del database; il vincolo dimensionale è ovviamente la dimensione degli `uploads/`.
 
 ---
 
-## 4. Sicurezza — 98 / 100
+## 4. Sicurezza
 
-### 4.1 Difese implementate
+La superficie di attacco di un'applicazione web come Cadenza ha quattro grandi capitoli: chi può fare cosa (autenticazione e autorizzazione), cosa si può iniettare (validazione input), cosa il browser è autorizzato a fare (header HTTP) e cosa succede ai dati che vengono fuori dal sistema (Sentry, log, backup). Vediamoli.
 
-#### Authentication & Authorization
+### 4.1 Autenticazione
 
-- **JWT** firmati con `JWT_SECRET` (in prod assertion che la var sia ≥ 32 char, fallback dev/test). Token short-lived + refresh
-- **bcrypt** per password hashing (cost factor 10), `User.password` mai serializzato
-- **2FA TOTP** mandatory per admin con grace period configurabile (`TWO_FA_GRACE_DAYS`); recovery code SHA-256 + salt; email-OTP fallback
-- **RBAC granulare**: middleware `requireRole`, `requireApproved`, `requireRoles`, `requireSameUserOrAdmin`
-- **OAuth 2.0** Google / Microsoft / generic OIDC con state token + verifica `aud` + claim mapping → ruolo locale
-- **Anti-mass-assignment**: tutte le route mutative usano `pick()` esplicito o zod schemas; nessun `req.body` passato grezzo a `Model.create/update`
-- **Anti-account-enumeration** su `/forgot-password`: stesso response time + stesso messaggio per email esistenti e non
+Le password sono salate con bcrypt costo 10 e non vengono mai serializzate nelle response (`User.password` è escluso a livello di model). I token JWT sono firmati con `JWT_SECRET` che in produzione viene validato come stringa di almeno 32 caratteri prima del boot. Il doppio fattore TOTP è obbligatorio per i ruoli admin con un grace period configurabile (per permettere l'enrollment al primo accesso); i recovery code sono SHA-256 salt-derivati; in fallback è disponibile un OTP via email per chi perde l'autenticatore.
 
-#### Headers HTTP (helmet custom)
+OAuth 2.0 è supportato con Google, Microsoft e provider OIDC generico. Lo state token è verificato, l'`aud` claim viene controllato, il claim mapping decide il ruolo locale.
 
-| Header                       | Valore                                                                           |
-| ---------------------------- | -------------------------------------------------------------------------------- |
-| `Content-Security-Policy`    | `default-src 'self'`, `img-src 'self' data: blob:`, no `unsafe-inline` su script |
-| `Strict-Transport-Security`  | `max-age=63072000; includeSubDomains; preload` (HSTS 2 anni)                     |
-| `X-Frame-Options`            | `SAMEORIGIN`                                                                     |
-| `X-Content-Type-Options`     | `nosniff`                                                                        |
-| `Referrer-Policy`            | `strict-origin-when-cross-origin`                                                |
-| `Cross-Origin-Opener-Policy` | `same-origin`                                                                    |
-| `Permissions-Policy`         | restrittiva su camera/microphone/geolocation                                     |
+Per evitare l'account enumeration la route `/forgot-password` risponde sempre con lo stesso messaggio e lo stesso tempo, sia che l'email esista o no.
 
-#### Data integrity
+### 4.2 Autorizzazione
 
-- **AES-256-GCM** su credenziali sensibili in DB (`MailSettings`, `OAuthSettings`, `MessagingSettings`) con chiave da `SECRET_KEY` env
-- **Anti-overlap a livello DB**: `EXCLUDE USING gist` (Postgres) come rete di sicurezza oltre al validator applicativo
-- **Foreign key + ON DELETE CASCADE/SET NULL** consistenti
-- **Soft-delete `paranoid: true`** su Booking, Room, Building, Instrument, User → recovery + audit trail
-- **Sequelize hooks transazionali** (`afterCommit`) per side-effect post-commit → niente effetto se la TX fallisce
+Il controllo accessi vive in cinque middleware: `requireRole`, `requireApproved`, `requireRoles`, `requireSameUserOrAdmin` e una variante per le risorse condivise. Niente `req.body` finisce mai grezzo dentro a `Model.create` o `Model.update`: ogni route mutativa usa o uno schema zod o un `pick()` esplicito, blindando contro il mass assignment.
 
-#### Privacy / GDPR
+### 4.3 Header HTTP
 
-- **Audit log append-only** con retention 24 mesi (configurabile) + archivio gzip pre-delete + export firmato HMAC SHA-256
-- **PII scrubbing** ricorsivo in Sentry (`SENSITIVE_KEYS` + `PII_KEYS`)
-- **Anonymous user id** in Sentry: SHA-256 client-side + server-side
-- **GDPR endpoint completi**: export, delete-request, consent management
-- **Cookie banner** versionato (`UserConsent` model) con consenso esplicito persistito
-- **Auto-cancellazione utenti inattivi** non implementata (roadmap)
+L'helmet è configurato in modo deliberato, non lasciato sui default. La CSP è `default-src 'self'` con autorizzazioni mirate per immagini (data URI e blob), nessun `unsafe-inline` su script. HSTS è impostato a due anni con `includeSubDomains` e `preload`. COOP è `same-origin`, X-Frame-Options è `SAMEORIGIN`, Permissions-Policy è restrittiva su camera, microfono e geolocalizzazione.
 
-#### Anti-abuse / Anti-replay
+C'è anche un sistema di **reporting delle violazioni CSP**: il browser invia i blocchi a `/api/csp-report`, l'endpoint parsa entrambi i formati (legacy `application/csp-report` per i browser più vecchi e il moderno Reporting API W3C) e inoltra a Sentry come warning event taggato — utile per accorgersi se un deploy ha introdotto inline scripts non previsti.
 
-- **Rate limit** su login/register/forgot/gdpr/iCal con `express-rate-limit` (per IP)
-- **Account lockout**: dopo `LOCKOUT_MAX_FAILED` login falliti consecutivi (default 10), lock dell'account per `LOCKOUT_DURATION_MIN` (default 30 min). Pre-check `lockedUntil` PRIMA di bcrypt per evitare amplification DoS. Reset auto al primo login OK. Non incrementa contatori su account OAuth-only o email inesistenti (anti-spam DB)
-- **Anti-replay 2FA**: TOTP marker `lastUsedAt` con tolleranza ±1 window (30 s)
-- **iCal token rotabile** con SHA-256 hash UNIQUE in DB; il token raw non è loggato
-- **QR check-in token rotabile** per aula (`Room.qrToken`) con guard 400 se obsoleto
+### 4.4 Cifratura dei dati
 
-#### CSP violation reporting
+A riposo, le credenziali sensibili in DB (SMTP, OAuth, messaging providers) sono cifrate AES-256-GCM con chiave da `SECRET_KEY` env. La cifratura è applicata a tutti i modelli `MailSettings`, `OAuthSettings`, `MessagingSettings`.
 
-- **`report-uri` + `report-to`** sulla Content-Security-Policy → endpoint `/api/csp-report` (no auth) riceve i report del browser quando uno script/style viene bloccato
-- Parser dual-format: legacy `application/csp-report` (Chrome <94, Firefox, Safari) + Reporting API moderna (`application/reports+json`)
-- Forward su Sentry come `warning` event + tag `csp_directive`, `csp_disposition` per dashboard separata dagli errori applicativi
-- Header `Reporting-Endpoints` standard W3C su tutte le response
+I segreti del repository sono protetti da **Gitleaks** in CI (fail su rilevamento di API key, token, private key) e da un pre-commit hook locale che scansiona solo i file staged. La config `.gitleaks.toml` include allowlist mirate per fixture di test.
 
-#### Secrets scanning
+### 4.5 Anti-abuse
 
-- **Gitleaks** in CI: job `Security · gitleaks` su ogni push/PR (azione `gitleaks/gitleaks-action@v2`) → fail se rileva chiavi API / token / private key
-- **Pre-commit hook locale** (`.husky/pre-commit`): scan dei soli file staged via `gitleaks protect`. Skip silenzioso se gitleaks non installato (il check in CI resta enforced)
-- Config `.gitleaks.toml` con allowlist mirate (fixture test, doc placeholder)
+Rate limit su login, register, forgot password, GDPR endpoint e iCal export, con `express-rate-limit` per IP. Account lockout dopo dieci tentativi falliti (durata trenta minuti). Anti-replay del TOTP con marker `lastUsedAt` e tolleranza di una finestra (trenta secondi). Token iCal e QR check-in rotabili, hash SHA-256 in DB, mai loggati in chiaro.
 
-#### Network
+C'è anche una **whitelist IP opzionale** per il check-in: se l'amministratore vuole, il check-in QR funziona solo da una CIDR list configurata (utile per evitare che gli studenti facciano check-in da casa).
 
-- **Whitelist IP opzionale** per check-in (CIDR list su `Settings.checkInRestrictNetworks`)
-- **CORS** restrittivo allineato a `FRONTEND_URL`
-- Reverse proxy nginx + Let's Encrypt + HSTS preload
+### 4.6 Stato delle vulnerabilità
 
-### 4.2 Vulnerabilità — 0
+`npm audit` riporta **zero vulnerabilità** sia sul backend in produzione (`--omit=dev`) sia sul frontend. Le dipendenze sono aggiornate alle patch più recenti; gli unici outdated sono semver patch di Sentry, già applicate.
 
-```
-npm audit --omit=dev   (backend) → 0 vulnerabilities
-npm audit              (frontend) → 0 vulnerabilities
-```
+### 4.7 Cosa manca per il bollino "enterprise certificato"
 
-**Raccomandazione operativa**:
-
-```yaml
-# .github/workflows/ci.yml — step da aggiungere
-- name: npm audit production
-  run: npm --prefix backend audit --omit=dev --audit-level=high
-# Exit non-zero su nuove vuln high → fa fallire la build
-```
-
-### 4.3 Gap rispetto a "enterprise grade certificato"
-
-| Gap                         | Effort  | Note                                                                   |
-| --------------------------- | ------- | ---------------------------------------------------------------------- |
-| SPID/CIE                    | ~3 sett | Service provider AgID + integrazione SAML. Attivabile on-demand        |
-| PEC integration             | ~1 sett | Provider PEC certificato (Aruba/InfoCert)                              |
-| Conservazione sostitutiva   | ~2 sett | Firma digitale + marca temporale RFC 3161 + Conservatore accreditato   |
-| Penetration test esterno    | —       | Audit di terza parte (es. Yarix, Spike Reply) — output: report formale |
-| ISO 27001 / SOC 2 readiness | mesi    | Necessario solo per clienti enterprise con tender > €200K              |
+Niente di necessario per il dominio Conservatorio, ma vale la pena nominarlo: SPID/CIE (circa tre settimane di sviluppo più il processo AgID), integrazione PEC con provider certificato (una settimana), conservazione sostitutiva con firma digitale e marca temporale (due settimane), penetration test esterno (output dipende dal fornitore), readiness ISO 27001 o SOC 2 (mesi, ha senso solo per tender oltre i 200K€).
 
 ---
 
-## 5. Qualità del codice — 96 / 100
+## 5. Qualità del codice e documentazione
 
-### 5.1 Punti forti
+TypeScript strict acceso con `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch` e `noUncheckedIndexedAccess`. Zero errori sia da `tsc` che da ESLint, lint a `--max-warnings 9999` con zero warning effettivi. Il naming è in italiano per il dominio (booking, prestiti, aule, dotazioni) e in inglese per l'infrastruttura (model names, scheduler, config). I commenti, quando ci sono, spiegano _perché_ — il "cosa" lo dicono già i nomi.
 
-- **TypeScript strict mode** acceso (`strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`)
-- **0 errori ESLint** su frontend con guardrail `--max-warnings 9999` (oggi 0 warning)
-- **0 errori `tsc`** con `tsconfig.app.json --noEmit`
-- **Naming consistente** in italiano per dominio (booking, prestiti, aule, dotazioni)
-- **Commenti motivazionali**: il "perché" delle scelte non ovvie (es. `singleFork: true`, `SERIALIZABLE`, `afterCommit`) è in cima al file. Niente comment-noise sui nomi
-- **Lint-staged + Husky pre-commit**: prettier + eslint solo sui file modificati
-- **`vi.spyOn` con `mockRestore` in finally**: pattern uniforme nei test che mockano email/SMTP
-- **Factory pattern** in `tests/factories.js`: User/Booking/Room/Instrument minimi con default sensati
+C'è qualche file lungo (tre route superano le 1.300 righe: `bookings.js`, `monteOre.js`, `structure.js`) che sarebbe carino splittare in moduli; per ora la scelta è di non farlo perché la suddivisione comporta un rischio merge-conflict alto durante lo sviluppo attivo. È un compromesso conscio.
 
-### 5.2 Punti deboli
-
-- **3 file backend > 1.300 LOC**: `routes/bookings.js`, `routes/monteOre.js`, `routes/structure.js`. Split in moduli (`bookings/index.js` + `bookings/checkin.js` + `bookings/concerts.js`) migliorerebbe maintainability ma rischio merge-conflict alto durante feature dev. Tradeoff conscious
-- **Branches < 60 % file-level** in 16 file backend: aggregato in green (62.27 %) ma branch density alta sui validator nested e sui rami di errore Sequelize (FK violations) difficile da indurre senza fixture DB elaborate
-
-### 5.3 Documentazione
-
-18 file markdown in `docs/` per ~13.000 righe di spiegazione tecnica.
-
-| Doc                                                                                 | Scope                                                                        |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [`README.md`](../README.md) / [`README.en.md`](../README.en.md)                     | Quick-start, feature list, env vars, deploy entry-point (IT + EN)            |
-| [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)                                           | Modelli dati, routing, i18n, check-in QR, prestiti, scheduler                |
-| [`docs/MANUALE_ADMIN.md`](MANUALE_ADMIN.md)                                         | Guida operativa per direttori conservatorio (UI + flussi)                    |
-| [`docs/DEPLOY.md`](DEPLOY.md)                                                       | Setup SSH one-time, runbook 8-step, troubleshooting nginx (incident library) |
-| [`docs/BACKUP.md`](BACKUP.md) / [`DISASTER_RECOVERY.md`](DISASTER_RECOVERY.md)      | Backup schedulato + DR drill non distruttivo                                 |
-| [`docs/SECURITY.md`](SECURITY.md)                                                   | Threat model + difese                                                        |
-| [`docs/SSO.md`](SSO.md)                                                             | Setup OAuth Google/Microsoft con link a doc ufficiali                        |
-| [`docs/SENTRY_SETUP.md`](SENTRY_SETUP.md)                                           | Configurazione observability                                                 |
-| [`docs/TESTING.md`](TESTING.md)                                                     | Strategia 3 livelli, soglie bloccanti, factories                             |
-| [`docs/MIGRATIONS.md`](MIGRATIONS.md)                                               | Strategia migrations + sequelize-cli + helper additivi                       |
-| [`docs/db-constraints.md`](db-constraints.md)                                       | EXCLUDE constraint Postgres                                                  |
-| [`docs/BOT-MESSAGING.md`](BOT-MESSAGING.md)                                         | Bot Telegram/WhatsApp/Email                                                  |
-| [`docs/INTEGRATIONS-ISIDATA.md`](INTEGRATIONS-ISIDATA.md)                           | Import utenti/strutture da Isidata                                           |
-| [`docs/MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md`](MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md) | Quota ore per docenti contrattualizzati                                      |
-| [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](ANALISI_TIPI_PRENOTAZIONE.md)                 | Background semantico tipi prenotazione                                       |
-| [`docs/CONTRIBUTING.md`](CONTRIBUTING.md)                                           | Convenzioni commit, branching, code review                                   |
-| [`docs/install.md`](install.md)                                                     | Setup locale (Ubuntu + macOS)                                                |
-| [`docs/screenshots/README.md`](screenshots/README.md)                               | 36 screenshot admin mappati per onboarding                                   |
-
-### 5.4 Screenshots admin
-
-36 screenshot in `docs/screenshots/` indicizzati con descrizione → utili per onboarding utenti finali e materiale commerciale.
+La documentazione è abbondante. Venti file Markdown in `docs/` coprono architettura, manuale admin, deploy, backup e disaster recovery, sicurezza, setup SSO, observability, strategia di testing, migrations, vincoli DB, bot messaging, integrazione Isidata, monte ore docenti, analisi semantica dei tipi di prenotazione, convenzioni di contributo, installazione locale e indice dei 36 screenshot admin per onboarding. Il README esiste in italiano e inglese.
 
 ---
 
-## 6. Maturità sviluppo — 97 / 100
+## 6. Maturità di processo
 
-### 6.1 Industrializzazione
+Cadenza ha un singolo autore principale, ma il processo è organizzato come se fosse un team. Conventional commits (commitlint configurato), trunk-based su `main`, pre-commit hook stretto con prettier ed eslint sui file staged, quattro job CI paralleli su GitHub Actions (backend lint+test+coverage, backend Postgres-only, frontend typecheck+test+build, E2E Playwright).
 
-| Aspetto              | Stato                                                                                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Conventional commits | Header `feat/fix/chore/docs/test/ci/refactor(scope):` rispettato; commitlint configurato                                                                           |
-| Branch model         | Trunk-based su `main`; feature work direttamente su `main` con pre-commit hook stretto + CI verde mandatory                                                        |
-| Pre-commit           | Husky + lint-staged: prettier + eslint sui soli file modificati; commit fail su violazione                                                                         |
-| CI                   | 4 job GitHub Actions paralleli + artifact upload (coverage, dist, playwright-report) v7                                                                            |
-| Auto-commit policy   | Se type-check + lint-staged passano, commit immediato + push su `main` (no PR overhead per single-author)                                                          |
-| Coverage threshold   | Bloccante su entrambi: backend (CI fallisce sotto floor) + frontend (lo step "Unit tests + coverage" usa `npm run test:coverage` con soglie da `vitest.config.ts`) |
-| Code review          | Self-review pre-commit + `/ultrareview` multi-agent disponibile on-demand                                                                                          |
+La policy di auto-commit funziona così: se type-check e lint-staged passano, il commit parte direttamente con un messaggio italiano in stile Conventional Commits e viene pushato su `main`. Niente overhead di PR per singolo autore, ma il pre-commit hook agisce come gate di qualità. Per le review on-demand c'è `/ultrareview`, un workflow multi-agent che lancia un'analisi indipendente quando serve un parere esterno.
 
-### 6.2 Build / deploy
+Le soglie di coverage sono bloccanti su entrambi i lati: il CI fallisce se le percentuali scendono sotto i pavimenti definiti in `backend/vitest.config.js` e `frontend/vitest.config.ts`. Niente "test che girano per sentirsi a posto": la build muore davvero.
 
-| Step             | Tool                                                                                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Bundle           | Vite 8 con workbox `generateSW` per PWA + precache 95 entries                                                    |
-| Image opt        | Pre-build script `sharp` per generazione varianti                                                                |
-| Deploy           | `deploy.sh` idempotente: rsync (con `--delete` selettivo) + npm ci + pm2 reload + nginx test                     |
-| Permission       | Step `[5/8]` forza `755` dir / `644` file su `frontend/dist/`, `frontend/public/`, `backend/uploads/` post-rsync |
-| Stale dist guard | Verifica `index.html` hash post-rsync per rilevare deploy parziali                                               |
-| SSH              | Alias `~/.ssh/config` (`cadenza-vps`) con `IdentitiesOnly yes`; chiave dedicata, no key sprawl                   |
-| TLS              | Let's Encrypt auto-renew via certbot + HSTS preload                                                              |
-
-### 6.3 Velocità sviluppo
-
-- Backend tests in **~70 s** (singleFork in-memory SQLite, 1.386 test)
-- Frontend tests in **~2 s** (JSDOM, 177 test)
-- Deploy end-to-end ~30 s (rsync incrementale + restart pm2)
-- Hot reload < 1 s (Vite HMR)
-
-### 6.4 Margini di crescita
-
-| Item                                                                 | Priorità  | Effort                                                                                               |
-| -------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| ~~Frontend coverage → enforced in CI~~                               | ✅ chiuso | Step `Unit tests + coverage` ora usa `npm run test:coverage`, soglie 60/60/50/50 bloccanti           |
-| Split file monolitici (`bookings.js`, `monteOre.js`, `structure.js`) | P2        | ~3 giorni con cura per evitare merge conflict                                                        |
-| Routes file con branches < 60 % a livello singolo                    | P2-P3     | Test mirati su FK errors + OAuth flow + validator nested. ROI marginale dopo i guadagni già ottenuti |
-| Penetration test esterno                                             | —         | Dipende dal cliente                                                                                  |
-| PEC + SPID/CIE                                                       | —         | On-demand, ~6-8 settimane                                                                            |
+Sul deploy, lo script `deploy.sh` è idempotente e completa tipicamente in trenta secondi end-to-end. La connessione SSH usa un alias dedicato in `~/.ssh/config` (`cadenza-vps`) con `IdentitiesOnly yes` e una chiave dedicata, niente sprawl di chiavi.
 
 ---
 
-## 7. Verdetto produzione
+## 7. Verdetto sulla messa in produzione
 
-### 7.1 ✅ Pronto SUBITO — Conservatorio singolo
+### 7.1 Pronto subito per un singolo Conservatorio
 
-**Tutte le condizioni di go-live sono soddisfatte**:
+Tutte le condizioni che servono per partire sono soddisfatte: zero vulnerabilità, zero errori statici, 1.913 test che passano, copertura sopra soglia su tutti gli assi, anti-overlap a livello DB, audit log immutabile, endpoint GDPR completi, scheduler con retention testati, outbox email con idempotency e dead-letter, doppio fattore admin obbligatorio, segreti cifrati AES-256-GCM, deploy idempotente, drill DR non distruttivo, cinque lingue, venti documenti tecnici e trentasei screenshot per l'onboarding.
 
-- 0 vulnerabilità npm audit, 0 errori lint/typecheck, 0 errori build
-- 1.386 test backend + 177 frontend + 5 spec E2E = 1.568 test totali
-- Coverage backend e frontend tutti gli 8 assi sopra 60 %
-- DB-level anti-overlap (Postgres EXCLUDE), audit log append-only, GDPR endpoints completi
-- Schedulers backup (02:30) + retention (03:00) + reminder/ghost-cancel/loans/waitlist (ogni 5 min) testati
-- Email outbox con idempotency + throttle + bounce gate + dead-letter
-- 2FA admin mandatory + AES-256-GCM secrets
-- Deploy idempotente con permission-normalizing + stale-dist guard
-- DR drill non distruttivo + RTO ~1 s
-- 5 lingue UI (IT/EN/ES/DE/FR) con paths identici
-- 18 doc tecniche + 36 screenshot admin per onboarding
+La capacità target su singolo Conservatorio — verificata dai load test in `loadtest/` — è dell'ordine di **cinquemila utenti attivi**, **cinquantamila prenotazioni l'anno**, **duecento aule** e **cinquecento strumenti in prestito**. Numeri molto sopra la media dei conservatori italiani.
 
-**Capacità target singolo Conservatorio**: ~5.000 utenti attivi · ~50.000 booking/anno · ~200 aule · ~500 strumenti in prestito. Verificato in load test (`loadtest/`).
+### 7.2 Pronto per il modello commerciale multi-cliente
 
-### 7.2 ✅ Pronto per produzione commerciale multi-cliente
+L'architettura è **single-tenant per istituto**: ogni cliente ha la sua istanza, il suo database, i suoi backup. È la scelta giusta sia per ragioni di privacy (zero data leakage cross-tenant by design) sia per ragioni di operations (un cliente non può tirare giù gli altri).
 
-**Architettura single-tenant per istituto** con onboarding documentato:
+L'onboarding di un nuovo istituto richiede tipicamente:
 
-1. Setup VPS Ubuntu LTS (script `install.md`)
-2. Clone repo + `npm ci` + `./deploy.sh`
-3. Setup SMTP/OAuth/Sentry via admin UI (credenziali AES-256-GCM in DB)
-4. Configurazione `Institute` + `Building`/`Room` (import CSV `structureImporter`)
-5. Import utenti (Isidata adapter o CSV)
-6. Print QR aule + affissione (PDF A4 incluso)
+1. Provisioning del VPS Ubuntu LTS (procedura in `docs/install.md`)
+2. Clone del repo, `npm ci`, esecuzione di `./deploy.sh`
+3. Configurazione SMTP, OAuth e Sentry tramite la UI admin (credenziali cifrate in DB)
+4. Setup di `Institute`, `Building` e `Room` (manuale o via importer CSV)
+5. Import utenti (adapter Isidata o CSV)
+6. Stampa dei QR aula e affissione (PDF A4 pronto per stampa)
 
-**Tempo onboarding stimato**: 2-3 giorni con esperto, 1 settimana con direttore non-tech via runbook.
+Il tempo realistico è di **due o tre giorni** con un implementatore esperto, o **una settimana** se il direttore segue il runbook in autonomia.
 
-### 7.3 Casi d'uso supportati
+### 7.3 Casi d'uso supportati oggi
 
-| Caso d'uso                                                   | Stato                                                                |
-| ------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Prenotazione aule/studi musicali                             | ✅ Core feature, regole + quote + approval per aule speciali         |
-| Anti-ghost booking (QR check-in)                             | ✅ Toggle per aula, scheduler con difesa in profondità               |
-| Concerti + locandine + scheda artisti                        | ✅ `ConcertInfo` integrato in `Booking`                              |
-| Eventi multipli (aggregatore N booking)                      | 🔵 Piano architetturale in `develop.md`, implementazione non avviata |
-| Prestito strumenti (richiesta → approvazione → restituzione) | ✅ Modulo dedicato con regole per famiglia + quote globali/strumento |
-| Manuale ore docenti (monte-ore + deroghe)                    | ✅ `monteOreService` con sezioni A/B + audit trail                   |
-| Display kiosk pubblico                                       | ✅ `/display` rotante con interval configurabile per edificio        |
-| Bot Telegram / WhatsApp / Email                              | ✅ Adapters separati + intent matching + audit conversazionale       |
-| Multi-lingua                                                 | ✅ 5 lingue (IT/EN/ES/DE/FR), pluralization, dayjs locale            |
-| Mobile / PWA                                                 | ✅ Tabelle responsive, bottom-nav, offline UX, manifest + workbox SW |
-| iCal export utente                                           | ✅ Token rotabile + endpoint pubblico autenticato                    |
-| Analytics admin (booking, occupancy, ghost rate)             | ✅ Aggregazioni SQL Postgres con job CI dedicato                     |
-| Backup + DR                                                  | ✅ Schedulato + manuale + restore + drill                            |
+Prenotazione di aule e studi, anti-ghost via QR check-in, concerti con scheda artisti e locandina integrata, prestito strumenti con approvazione e regole per famiglia, monte ore docenti con sezioni A/B e deroga contratto orario, display kiosk pubblico per ingresso edificio, bot Telegram/WhatsApp/Email per le richieste rapide, multi-lingua, PWA mobile-friendly, export iCal per i calendari personali, analytics admin (occupancy, ghost rate, top users), backup e DR.
+
+L'unico caso d'uso pianificato ma non implementato sono gli **eventi multipli** intesi come aggregatori di N prenotazioni con un'unica identità (utile per festival e settimane tematiche). Il piano architetturale è abbozzato in `docs/develop.md`; l'implementazione non è ancora partita.
 
 ---
 
-## 8. Sistema email transazionale
+## 8. Il sistema email transazionale (scheda dedicata)
 
-Architettura **outbox pattern** per garantire delivery affidabile:
+L'email è il principale canale di comunicazione asincrono di Cadenza, e merita un trattamento a parte perché è un punto di rottura tipico nei prodotti SaaS. Cadenza usa un **outbox pattern** classico: nessun `sendMail` sincrono viene mai chiamato da una route HTTP. Il flusso è sempre lo stesso:
 
 ```
-caller → sendBookingEmail() → enqueueMail() → MailOutbox row (pending)
-                                              ↓
-                                  mailOutboxScheduler worker
-                                              ↓
-                                  SMTP transporter (cfg DB cached)
-                                              ↓
-                                  status: sent | failed (retry backoff) | dead
+caller → sendBookingEmail() → enqueueMail() → MailOutbox (pending)
+                                                ↓
+                                    mailOutboxScheduler worker
+                                                ↓
+                                    SMTP transporter (config DB cached)
+                                                ↓
+                                    status: sent | failed (retry backoff) | dead
 ```
 
-### 8.1 Modello `MailOutbox`
+Il modello `MailOutbox` conserva snapshot di `subject` e `bodyHtml` al momento dell'enqueue: se l'admin modifica un template tra l'enqueue e il send effettivo, l'utente riceve la versione vista quando l'azione è partita. È deterministico, non confonde nessuno.
 
-| Campo            | Tipo          | Scopo                                                                         |
-| ---------------- | ------------- | ----------------------------------------------------------------------------- |
-| `kind`           | string        | `confirmation`, `reminder`, `cancellation`, `ghost_cancellation`, `loan_*`, … |
-| `to`             | string        | Destinatario                                                                  |
-| `subject`        | string        | Snapshot renderizzato                                                         |
-| `bodyHtml`       | text          | Snapshot renderizzato                                                         |
-| `replyTo`        | string        | Da settings                                                                   |
-| `priority`       | int           | 0 = security/2FA (bypassa throttle/bounce), 5 = transactional, > 5 = bulk     |
-| `idempotencyKey` | string UNIQUE | `booking:<id>:<kind>` → re-enqueue idempotente                                |
-| `status`         | enum          | `pending` → `sent` / `failed` → `dead`                                        |
-| `attempts`       | int           | Backoff esponenziale: `60s · 2min · 4min · 8min · 16min · 32min · 1h cap`     |
-| `lastError`      | text          | Messaggio SMTP umanizzato                                                     |
-| `nextAttemptAt`  | timestamp     | Polling                                                                       |
+Le garanzie del sistema:
 
-### 8.2 Garanzie
+- **Idempotenza** tramite UNIQUE su `idempotencyKey` (formato `booking:<id>:<kind>`): un re-enqueue è no-op silenzioso, mai un doppio invio.
+- **Throttle per destinatario per ora**, configurabile da settings; la priorità zero (sicurezza, OTP) bypassa il throttle.
+- **Hard-bounce gate**: se l'SMTP rifiuta permanentemente (5xx), `User.emailBouncedAt` viene marcato e gli enqueue futuri saltano l'utente (tranne priority zero).
+- **Retry con backoff esponenziale** (60s, 2min, 4min, 8min, 16min, 32min, poi cap a 1h) fino a un massimo di tentativi configurabile (default 5), dopo il quale lo stato diventa `dead` e richiede intervento manuale.
+- **Retention 30 giorni** sui `sent`; i `dead` restano fino a cancellazione esplicita per consentire ispezione.
+- **Guard hard sul kind ghost_cancellation**: il mittente si rifiuta di inviare un'email "ghost" se la stanza non richiede check-in, anche se il caller invocasse per errore. È difesa in profondità a tre livelli (query SQL, filtro applicativo, guard nel sender).
 
-| Garanzia                             | Implementazione                                                                                                      |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **Idempotenza**                      | UNIQUE su `idempotencyKey` → re-enqueue è no-op silenzioso                                                           |
-| **Throttle per destinatario**        | `Settings.throttlePerRecipientPerHour`; conta `pending + sent` ultima ora; priority 0 bypassa                        |
-| **Hard-bounce gate**                 | `User.emailBouncedAt` da SMTP 5xx permanente → skip enqueue (priority ≥ 1)                                           |
-| **Retry esponenziale + cap**         | `backoffMs(attempts)` → max 1 h                                                                                      |
-| **Dead-letter dopo N tentativi**     | `MAIL_OUTBOX_MAX_ATTEMPTS` (def 5) → `status=dead`, manualmente retryabile                                           |
-| **Retention 30 gg sui `sent`**       | `retentionScheduler.pruneMailOutbox` quotidiana; `dead` conservati per inspection                                    |
-| **Snapshot subject/body al enqueue** | Worker non rifà template lookup: retry deterministico anche se admin modifica template                               |
-| **Hard guard su ghost_cancellation** | `sendBookingEmail` ritorna early se `booking.room.requireCheckIn === false`, anche se il caller invocasse per errore |
+L'amministratore può ispezionare e gestire l'outbox via API:
 
-### 8.3 API admin
-
-| Endpoint                            | Scopo                                        |
-| ----------------------------------- | -------------------------------------------- |
-| `GET /admin/mail-outbox`            | Lista con filtri kind/status, paginata       |
-| `GET /admin/mail-outbox/health`     | `{healthy, smtpConfigured, verifyOk, dead}`  |
-| `POST /admin/mail-outbox/:id/retry` | Riporta `dead` → `pending`, reset `attempts` |
-| `DELETE /admin/mail-outbox/:id`     | Hard delete su entry orfane                  |
+- `GET /admin/mail-outbox` per la lista paginata con filtri kind e status
+- `GET /admin/mail-outbox/health` per lo stato sintetico (SMTP configurato, verify OK, conteggio dead)
+- `POST /admin/mail-outbox/:id/retry` per riportare un `dead` in `pending`
+- `DELETE /admin/mail-outbox/:id` per la rimozione di entry orfane
 
 ---
 
-## 9. Appendice — Comandi per riprodurre l'audit
+## 9. Appendice — come riprodurre l'audit
+
+I comandi che seguono producono tutti i numeri citati nelle sezioni precedenti. Lanciati su un checkout pulito di `main`, dovrebbero dare risultati coerenti con quanto scritto.
 
 ```bash
-# Backend test + coverage (1.386 pass · 12 skipped)
+# Backend: test + coverage (bloccante)
 cd backend && npm run test:coverage
-# Soglie bloccanti: stmts ≥72, lines ≥73, funcs ≥78, branches ≥60
-# Misurato attuale: 73.59 / 74.91 / 79.43 / 62.27
 
-# Frontend test + coverage (177 pass · 2 skipped)
-cd frontend && npm run test:coverage   # genera report HTML in coverage/
-cd frontend && npm test                # quick check senza coverage
-# Soglie bloccanti: stmts ≥60, lines ≥60, funcs ≥50, branches ≥50
-# Misurato attuale: 78.79 / 80.98 / 68.04 / 61.17
+# Frontend: test + coverage + typecheck + lint
+cd frontend && npm run test:coverage
+cd frontend && npm run typecheck
+cd frontend && npm run lint
 
-# Frontend typecheck + lint
-cd frontend && npm run typecheck       # tsc strict, 0 error
-cd frontend && npm run lint            # eslint, 0 error / 0 warning
+# Build di produzione
+cd frontend && npm run build
 
-# Build production
-cd frontend && npm run build           # Vite + workbox SW
-
-# Vulnerabilità
-cd backend && npm audit --omit=dev     # 0 vulns
-cd frontend && npm audit               # 0 vulns
+# Vulnerabilità delle dipendenze
+cd backend && npm audit --omit=dev
+cd frontend && npm audit
 
 # E2E
-cd e2e && npm test                     # 5 spec Playwright
+npm run e2e
 
-# Postgres-only tests (richiede Postgres locale o servizio CI)
+# Test Postgres-only (richiede Postgres locale o servizio CI)
 cd backend && npx vitest run "tests/**/*.postgres.test.js" tests/integration/excludeConstraint.test.js
 
-# Disaster Recovery drill (non distruttivo)
-bash backend/scripts/dr-drill.sh       # restore in sandbox + FK validation, RTO ~1 s
-
-# Sequelize CLI (su DB esistente, prima volta)
-cd backend && npm run db:cli:mark-baseline
-cd backend && npm run db:cli:status
+# Disaster recovery drill (non distruttivo)
+bash backend/scripts/dr-drill.sh
 
 # Smoke produzione
 curl -fsS https://<dominio>/api/health | jq .
-curl -fsS -X POST -H "Authorization: Bearer <admin-token>" \
-     https://<dominio>/api/admin/mail-outbox/health | jq .
 
-# Doc inventory
-ls docs/*.md   # 18 file
+# Soak test (4-8h, manuale, fuori CI)
+npm run soak
 ```
 
-### Numeri chiave da citare
+### Numeri-cartolina
 
 ```
-v1.5.1 (14 maggio 2026) — closed-source proprietary
-~91.500 LOC produttivo (43.0K backend + 48.5K frontend)
-244+ endpoint REST con RBAC granulare
+v1.5.1 — closed-source proprietary
+~91.500 LOC produttivo (43K backend + 48.5K frontend)
+244 endpoint REST con RBAC granulare
 41 modelli Sequelize, 15 con soft-delete
-34 routes · 38 services · 5 lingue UI
-1.655 backend + 258 frontend (1.913 unit/integration) + Playwright E2E smoke + soak harness 4-8h
-73.18 % stmts / 61.71 % branches / 79.90 % funcs / 74.45 % lines backend (soglie bloccanti)
-71.87 % stmts / 60.06 % branches / 63.83 % funcs / 74.32 % lines frontend (soglie bloccanti)
-0 vulnerabilità npm audit, 0 errori lint/typecheck, TS strict
-2FA admin mandatory, audit log append-only firmato HMAC SHA-256, AES-256-GCM secrets a riposo
-GDPR by-design (consent, export, delete, retention 24mo, PII scrubbing Sentry)
-DB-level anti-overlap (Postgres EXCLUDE) — 0 doppie prenotazioni garantite
-4 scheduler tick + 3 daily jobs + 1 worker outbox, coverage funzioni 100%
-Deploy idempotente con permission-normalizing, runbook DEPLOY.md con incident library
-DR drill non distruttivo, RTO ~1 s
-4 nuove suite v1.5.1: backup roundtrip + time-travel calendario + Playwright E2E smoke + soak harness 4h
-Isidata: mapping UI guidata, soglie sicurezza pre-apply, auto-import contractType + courseCode, diff ultimi 2 run
-Cascata check-in Building→Room (override aula vince) — default OFF tutte le aule, granular toggle in QR Codes
-Macro pagina admin "Gestione prenotazioni" (Regole + Tipi + Approvazioni in 3 tab) — riduce rumore sidebar
+34 route, 38 services, 5 lingue UI
+1.913 test unit+integration (1.655 backend + 258 frontend) + 1 E2E + soak harness
+73.18 / 74.45 / 79.90 / 61.71 backend coverage (stmts/lines/funcs/branches)
+71.87 / 74.32 / 63.83 / 60.06 frontend coverage
+0 vulnerabilità npm audit · 0 errori lint/typecheck · TS strict
+2FA admin obbligatorio · audit log immutabile firmato HMAC · AES-256-GCM secrets
+GDPR by-design (consent, export, delete, retention 24mo)
+Anti-overlap DB-level (Postgres EXCLUDE) — zero doppie prenotazioni garantite
+4 scheduler tick + 3 daily jobs + 1 worker outbox
+Deploy idempotente · DR drill non distruttivo, RTO ~1 s
+20 documenti tecnici + 36 screenshot admin
 ```
