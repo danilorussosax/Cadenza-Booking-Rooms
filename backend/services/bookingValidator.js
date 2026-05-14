@@ -4,6 +4,7 @@ const dayjs = require('dayjs');
 const isSameOrAfter = require('dayjs/plugin/isSameOrAfter');
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore');
 const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const { Op } = require('sequelize');
 const {
   Booking,
@@ -17,6 +18,13 @@ const {
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Timezone di default dell'istituzione. Le finestre orarie (rule.allowedStart/EndTime,
+// "08:00"–"22:00") sono espresse in ORA LOCALE ITALIANA, non UTC: senza questa
+// conversione, su server UTC una prenotazione delle 09:00 IT (= 07:00 UTC in DST)
+// veniva rifiutata con "fascia consentita 08:00–22:00" perché start.hour()=7.
+const DEFAULT_TZ = 'Europe/Rome';
 
 /**
  * Valida una richiesta di prenotazione rispetto alle regole del ruolo,
@@ -176,9 +184,17 @@ async function validateBooking({
   }
 
   // ---- Fascia oraria consentita ----
+  // Confronto in ORA LOCALE ISTITUZIONE (Europe/Rome): rule.allowedStartTime
+  // è "08:00" inteso come orario italiano, non UTC. Senza `.tz()` esplicito,
+  // dayjs(...).hour() restituirebbe l'ora del fuso del Node process (es. UTC
+  // su VPS standard), bocciando una prenotazione delle 09:00 IT in DST estiva
+  // (= 07:00 UTC, < 08:00). Vedi emailService.js / icalService.js per
+  // l'analogo pattern.
   if (rule.allowedStartTime && rule.allowedEndTime) {
-    const startMins = start.hour() * 60 + start.minute();
-    const endMins = end.hour() * 60 + end.minute();
+    const startLocal = start.tz(DEFAULT_TZ);
+    const endLocal = end.tz(DEFAULT_TZ);
+    const startMins = startLocal.hour() * 60 + startLocal.minute();
+    const endMins = endLocal.hour() * 60 + endLocal.minute();
     const [aH, aM] = rule.allowedStartTime.split(':').map(Number);
     const [bH, bM] = rule.allowedEndTime.split(':').map(Number);
     const allowedStart = aH * 60 + aM;
@@ -463,11 +479,15 @@ function exceptionAppliesToDate(exception, dateLike) {
 // =====================================================
 // Helper: la prenotazione [start,end] si sovrappone alla finestra HH:mm?
 // Se startTime/endTime mancano, la finestra copre l'intero giorno.
+// La finestra è in ora locale Europe/Rome (vedi DEFAULT_TZ); convertiamo
+// start/end per evitare l'off-by-2h su VPS UTC durante DST estiva.
 // =====================================================
 function overlapsWindow(start, end, winStart, winEnd) {
   if (!winStart || !winEnd) return true;
-  const s = start.hour() * 60 + start.minute();
-  const e = end.hour() * 60 + end.minute();
+  const startLocal = start.tz(DEFAULT_TZ);
+  const endLocal = end.tz(DEFAULT_TZ);
+  const s = startLocal.hour() * 60 + startLocal.minute();
+  const e = endLocal.hour() * 60 + endLocal.minute();
   const ws = parseHHmm(winStart);
   const we = parseHHmm(winEnd);
   return s < we && e > ws;
@@ -475,10 +495,13 @@ function overlapsWindow(start, end, winStart, winEnd) {
 
 // =====================================================
 // Helper: minuti della prenotazione che cadono dentro la finestra HH:mm
+// (stessa logica timezone-aware di overlapsWindow).
 // =====================================================
 function minutesInsideWindow(start, end, winStart, winEnd) {
-  const sM = start.hour() * 60 + start.minute();
-  const eM = end.hour() * 60 + end.minute();
+  const startLocal = start.tz(DEFAULT_TZ);
+  const endLocal = end.tz(DEFAULT_TZ);
+  const sM = startLocal.hour() * 60 + startLocal.minute();
+  const eM = endLocal.hour() * 60 + endLocal.minute();
   const ws = winStart ? parseHHmm(winStart) : 0;
   const we = winEnd ? parseHHmm(winEnd) : 24 * 60;
   const overlapStart = Math.max(sM, ws);
