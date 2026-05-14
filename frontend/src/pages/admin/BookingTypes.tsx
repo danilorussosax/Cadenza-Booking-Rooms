@@ -63,7 +63,7 @@ export default function AdminBookingTypes() {
   const types = query.data?.types ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium">Tipi prenotazione</h1>
         <p className="text-sm text-muted-foreground">

@@ -82,7 +82,7 @@ export default function AdminApprovals() {
   const pending = query.data?.bookings ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
           <ClipboardCheck className="h-6 w-6 text-amber-600 dark:text-amber-400" />

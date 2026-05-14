@@ -56,15 +56,14 @@ export default function AdminBookingsManagement() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <header>
         <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
           <ClipboardList className="h-6 w-6 text-primary" />
           Gestione prenotazioni
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Regole di prenotazione, catalogo tipi e coda di approvazioni — tutto in un unico
-          pannello.
+          Regole di prenotazione, catalogo tipi e coda di approvazioni — tutto in un unico pannello.
         </p>
       </header>
 

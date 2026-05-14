@@ -166,7 +166,7 @@ export default function AdminRules() {
   const ActiveIcon = activeTab.icon;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-3xl font-medium">Regole di prenotazione</h1>
         <p className="text-sm text-muted-foreground">
