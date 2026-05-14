@@ -6,6 +6,7 @@ import {
   BarChart3,
   BookOpen,
   Building2,
+  CalendarCheck,
   CalendarPlus,
   ChevronDown,
   ClipboardList,
@@ -89,7 +90,7 @@ const ADMIN_NAV: NavItem[] = [
   {
     to: '/admin/bookings-management',
     labelKey: 'nav.admin_bookings_management',
-    icon: ClipboardList,
+    icon: CalendarCheck,
     roles: ['admin'],
   },
   // "Registro attività" — promossa da sub-tab di /admin/audit-log a voce
@@ -489,9 +490,7 @@ function AdminNavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: ()
           item={item}
           onNavigate={onNavigate}
           badge={
-            item.to === '/admin/bookings-management' && pendingCount > 0
-              ? pendingCount
-              : undefined
+            item.to === '/admin/bookings-management' && pendingCount > 0 ? pendingCount : undefined
           }
         />
       ))}
