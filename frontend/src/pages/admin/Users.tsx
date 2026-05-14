@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ import {
   Eye,
   EyeOff,
   FileSpreadsheet,
+  Globe,
   KeyRound,
   LoaderCircle,
   Pencil,
@@ -21,6 +23,7 @@ import {
   ShieldX,
   Trash2,
   Upload,
+  Users as UsersIcon,
   UserX,
   X,
 } from 'lucide-react';
@@ -50,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { UserFormDialog } from '@/components/admin/UserFormDialog';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
@@ -82,10 +86,31 @@ const STATUS_LABEL_KEY: Record<UserStatus, string> = {
   rejected: 'user_status.rejected',
 };
 
+type UsersTab = 'users' | 'sso';
+const VALID_USERS_TABS: UsersTab[] = ['users', 'sso'];
+
 export default function AdminUsers() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
+  // Tab attivo persistito in ?tab= (deep-link friendly). Default: "users".
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') as UsersTab | null;
+  const tab: UsersTab =
+    requestedTab && VALID_USERS_TABS.includes(requestedTab) ? requestedTab : 'users';
+  useEffect(() => {
+    if (requestedTab !== tab) {
+      const next = new URLSearchParams(searchParams);
+      next.set('tab', tab);
+      setSearchParams(next, { replace: true });
+    }
+  }, [requestedTab, tab, searchParams, setSearchParams]);
+  const handleTabChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', value);
+    setSearchParams(next, { replace: false });
+  };
+
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -210,356 +235,389 @@ export default function AdminUsers() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1.5">
-          <h1 className="font-display text-3xl font-medium">{t('admin.users.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('admin.users.subtitle')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                const blob = await usersApi.downloadCsv();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `utenti-${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              } catch (err) {
-                toast.error(httpErrorMessage(err));
-              }
-            }}
-            title="Scarica utenti in CSV"
-          >
-            <Download className="h-4 w-4" />
-            Esporta CSV
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setImportingCsv(true);
-            }}
-            title="Importa utenti da CSV"
-          >
-            <Upload className="h-4 w-4" />
-            Importa CSV
-          </Button>
-          <Button
-            onClick={() => {
-              setCreating(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            {t('admin.users.new_user')}
-          </Button>
-        </div>
+      <header className="space-y-1.5">
+        <h1 className="font-display text-3xl font-medium">{t('admin.users.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('admin.users.subtitle')}</p>
       </header>
 
-      <Card>
-        <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto_auto]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-              }}
-              placeholder={t('admin.users.search_placeholder')}
-              className="pl-9"
-            />
-          </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="md:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('admin.users.all_roles')}</SelectItem>
-              <SelectItem value="admin">{t('roles.admin')}</SelectItem>
-              <SelectItem value="docente">{t('roles.docente')}</SelectItem>
-              <SelectItem value="studente">{t('roles.studente')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="md:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('admin.users.all_statuses')}</SelectItem>
-              <SelectItem value="pending">{t('user_status.pending')}</SelectItem>
-              <SelectItem value="approved">{t('user_status.approved')}</SelectItem>
-              <SelectItem value="rejected">{t('user_status.rejected')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={activeFilter} onValueChange={setActiveFilter}>
-            <SelectTrigger className="md:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('admin.users.all_active')}</SelectItem>
-              <SelectItem value="true">{t('admin.users.active_yes')}</SelectItem>
-              <SelectItem value="false">{t('admin.users.active_no')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onValueChange={handleTabChange}>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2">
+          <TabsTrigger
+            value="users"
+            className="group flex h-auto flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left shadow-xs hover:bg-accent data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <UsersIcon className="h-5 w-5 text-primary" />
+              <span className="text-base font-semibold">Utenti</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Lista, ruoli, approvazioni, import/export CSV
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="sso"
+            className="group flex h-auto flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left shadow-xs hover:bg-accent data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-base font-semibold">SSO</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Login Google &amp; Microsoft, domini consentiti, import Isidata
+            </span>
+          </TabsTrigger>
+        </TabsList>
 
-      {selected.size > 0 && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium">
-                {t('admin.users.bulk.selected_count', {
-                  count: selected.size,
-                  pending: pendingSelected.length,
-                })}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelected(new Set());
+        <TabsContent value="users" className="mt-6 space-y-6">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const blob = await usersApi.downloadCsv();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `utenti-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  toast.error(httpErrorMessage(err));
+                }
+              }}
+              title="Scarica utenti in CSV"
+            >
+              <Download className="h-4 w-4" />
+              Esporta CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setImportingCsv(true);
+              }}
+              title="Importa utenti da CSV"
+            >
+              <Upload className="h-4 w-4" />
+              Importa CSV
+            </Button>
+            <Button
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('admin.users.new_user')}
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto_auto]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
                   }}
-                >
-                  {t('admin.users.bulk.clear')}
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={pendingSelected.length === 0}
-                  onClick={() => {
-                    setBulkAction('approve');
-                  }}
-                >
-                  <Check className="h-4 w-4" />
-                  {t('admin.users.bulk.approve')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pendingSelected.length === 0}
-                  onClick={() => {
-                    setBulkAction('reject');
-                  }}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                  {t('admin.users.bulk.reject')}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setBulkAction('delete');
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t('admin.users.bulk.delete')}
-                </Button>
+                  placeholder={t('admin.users.search_placeholder')}
+                  className="pl-9"
+                />
               </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="md:w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('admin.users.all_roles')}</SelectItem>
+                  <SelectItem value="admin">{t('roles.admin')}</SelectItem>
+                  <SelectItem value="docente">{t('roles.docente')}</SelectItem>
+                  <SelectItem value="studente">{t('roles.studente')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="md:w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('admin.users.all_statuses')}</SelectItem>
+                  <SelectItem value="pending">{t('user_status.pending')}</SelectItem>
+                  <SelectItem value="approved">{t('user_status.approved')}</SelectItem>
+                  <SelectItem value="rejected">{t('user_status.rejected')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={activeFilter} onValueChange={setActiveFilter}>
+                <SelectTrigger className="md:w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('admin.users.all_active')}</SelectItem>
+                  <SelectItem value="true">{t('admin.users.active_yes')}</SelectItem>
+                  <SelectItem value="false">{t('admin.users.active_no')}</SelectItem>
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
-        </motion.div>
-      )}
 
-      <Card>
-        {/* Tabella utenti scrollabile internamente: oltre i ~10 utenti
+          {selected.size > 0 && (
+            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium">
+                    {t('admin.users.bulk.selected_count', {
+                      count: selected.size,
+                      pending: pendingSelected.length,
+                    })}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelected(new Set());
+                      }}
+                    >
+                      {t('admin.users.bulk.clear')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={pendingSelected.length === 0}
+                      onClick={() => {
+                        setBulkAction('approve');
+                      }}
+                    >
+                      <Check className="h-4 w-4" />
+                      {t('admin.users.bulk.approve')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingSelected.length === 0}
+                      onClick={() => {
+                        setBulkAction('reject');
+                      }}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                      {t('admin.users.bulk.reject')}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setBulkAction('delete');
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t('admin.users.bulk.delete')}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <Card>
+            {/* Tabella utenti scrollabile internamente: oltre i ~10 utenti
             visibili la lista scorre dentro il card senza far crescere la
             pagina (la sezione OAuth/Isidata in fondo resta sempre visibile).
             sticky thead per non perdere il riferimento delle colonne. */}
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs uppercase tracking-wider text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-muted/70">
-              <tr>
-                <th className="w-10 px-4 py-3">
-                  <Checkbox
-                    checked={allSelected || (someSelected ? 'indeterminate' : false)}
-                    onCheckedChange={(v) => {
-                      toggleAll(v === true);
-                    }}
-                    aria-label={t('common.select')}
-                  />
-                </th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.user')}</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.role')}</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.matricola')}</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.course')}</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.approval')}</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.table.status')}</th>
-                <th className="px-4 py-3 font-medium text-right">
-                  {t('admin.users.table.actions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.isLoading &&
-                [0, 1, 2, 3].map((i) => (
-                  <tr key={i} className="border-b last:border-0">
-                    <td className="px-4 py-3" colSpan={8}>
-                      <Skeleton className="h-8 w-full" />
-                    </td>
+            <div className="max-h-[60vh] overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10 border-b bg-muted/95 text-left text-xs uppercase tracking-wider text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-muted/70">
+                  <tr>
+                    <th className="w-10 px-4 py-3">
+                      <Checkbox
+                        checked={allSelected || (someSelected ? 'indeterminate' : false)}
+                        onCheckedChange={(v) => {
+                          toggleAll(v === true);
+                        }}
+                        aria-label={t('common.select')}
+                      />
+                    </th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.user')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.role')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.matricola')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.course')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.approval')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.users.table.status')}</th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      {t('admin.users.table.actions')}
+                    </th>
                   </tr>
-                ))}
-              {!query.isLoading && filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
-                    <UserX className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">{t('admin.users.empty.title')}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('admin.users.empty.subtitle')}
-                    </p>
-                  </td>
-                </tr>
-              )}
-              {filtered.map((u) => (
-                <motion.tr
-                  key={u.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="border-b last:border-0"
-                >
-                  <td className="px-4 py-3">
-                    <Checkbox
-                      checked={selected.has(u.id)}
-                      onCheckedChange={(v) => {
-                        toggleOne(u.id, v === true);
-                      }}
-                      disabled={u.id === currentUser?.id}
-                      aria-label={t('common.select')}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        {u.profilePhotoUrl && <AvatarImage src={u.profilePhotoUrl} alt="" />}
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                          {`${u.firstName[0]}${u.lastName[0]}`}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {u.firstName} {u.lastName}
-                          {currentUser?.id === u.id && (
-                            <span className="ml-2 text-[10px] uppercase text-primary">
-                              {t('admin.users.you_label')}
-                            </span>
-                          )}
+                </thead>
+                <tbody>
+                  {query.isLoading &&
+                    [0, 1, 2, 3].map((i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="px-4 py-3" colSpan={8}>
+                          <Skeleton className="h-8 w-full" />
+                        </td>
+                      </tr>
+                    ))}
+                  {!query.isLoading && filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center">
+                        <UserX className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm font-medium">{t('admin.users.empty.title')}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t('admin.users.empty.subtitle')}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">{u.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={ROLE_VARIANT[u.role]}>
-                      {u.role === 'admin' && <ShieldCheck className="mr-1 h-3 w-3" />}
-                      {t(ROLE_LABEL_KEY[u.role])}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{u.matricola ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {u.course ? `${u.course.code} — ${u.course.name}` : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {u.role === 'admin' ? (
-                      <Badge variant="success">
-                        <ShieldCheck className="mr-1 h-3 w-3" />
-                        {t(STATUS_LABEL_KEY.approved)}
-                      </Badge>
-                    ) : u.status === 'approved' ? (
-                      <Badge variant="success">
-                        <Check className="mr-1 h-3 w-3" />
-                        {t(STATUS_LABEL_KEY.approved)}
-                      </Badge>
-                    ) : u.status === 'rejected' ? (
-                      <Badge variant="muted" className="text-destructive">
-                        <ShieldX className="mr-1 h-3 w-3" />
-                        {t(STATUS_LABEL_KEY.rejected)}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <Clock className="mr-1 h-3 w-3" />
-                        {t(STATUS_LABEL_KEY.pending)}
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={u.isActive ? 'success' : 'muted'}>
-                      {u.isActive ? t('common.active') : t('common.inactive')}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      {u.role !== 'admin' && u.status === 'pending' && (
-                        <>
+                      </td>
+                    </tr>
+                  )}
+                  {filtered.map((u) => (
+                    <motion.tr
+                      key={u.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="border-b last:border-0"
+                    >
+                      <td className="px-4 py-3">
+                        <Checkbox
+                          checked={selected.has(u.id)}
+                          onCheckedChange={(v) => {
+                            toggleOne(u.id, v === true);
+                          }}
+                          disabled={u.id === currentUser?.id}
+                          aria-label={t('common.select')}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            {u.profilePhotoUrl && <AvatarImage src={u.profilePhotoUrl} alt="" />}
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                              {`${u.firstName[0]}${u.lastName[0]}`}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {u.firstName} {u.lastName}
+                              {currentUser?.id === u.id && (
+                                <span className="ml-2 text-[10px] uppercase text-primary">
+                                  {t('admin.users.you_label')}
+                                </span>
+                              )}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={ROLE_VARIANT[u.role]}>
+                          {u.role === 'admin' && <ShieldCheck className="mr-1 h-3 w-3" />}
+                          {t(ROLE_LABEL_KEY[u.role])}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {u.matricola ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {u.course ? `${u.course.code} — ${u.course.name}` : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.role === 'admin' ? (
+                          <Badge variant="success">
+                            <ShieldCheck className="mr-1 h-3 w-3" />
+                            {t(STATUS_LABEL_KEY.approved)}
+                          </Badge>
+                        ) : u.status === 'approved' ? (
+                          <Badge variant="success">
+                            <Check className="mr-1 h-3 w-3" />
+                            {t(STATUS_LABEL_KEY.approved)}
+                          </Badge>
+                        ) : u.status === 'rejected' ? (
+                          <Badge variant="muted" className="text-destructive">
+                            <ShieldX className="mr-1 h-3 w-3" />
+                            {t(STATUS_LABEL_KEY.rejected)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <Clock className="mr-1 h-3 w-3" />
+                            {t(STATUS_LABEL_KEY.pending)}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={u.isActive ? 'success' : 'muted'}>
+                          {u.isActive ? t('common.active') : t('common.inactive')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {u.role !== 'admin' && u.status === 'pending' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title={t('admin.users.approve')}
+                                disabled={approveMutation.isPending}
+                                onClick={() => {
+                                  approveMutation.mutate(u.id);
+                                }}
+                                className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title={t('admin.users.reject')}
+                                disabled={rejectMutation.isPending}
+                                onClick={() => {
+                                  rejectMutation.mutate(u.id);
+                                }}
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            title={t('admin.users.approve')}
-                            disabled={approveMutation.isPending}
+                            title={t('common.edit')}
                             onClick={() => {
-                              approveMutation.mutate(u.id);
+                              setEditTarget(u);
                             }}
-                            className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
                           >
-                            <Check className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            title={t('admin.users.reject')}
-                            disabled={rejectMutation.isPending}
+                            title={t('common.delete')}
+                            disabled={currentUser?.id === u.id}
                             onClick={() => {
-                              rejectMutation.mutate(u.id);
+                              setDeleteError(null);
+                              setDeleteTarget(u);
                             }}
                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           >
-                            <X className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title={t('common.edit')}
-                        onClick={() => {
-                          setEditTarget(u);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title={t('common.delete')}
-                        disabled={currentUser?.id === u.id}
-                        onClick={() => {
-                          setDeleteError(null);
-                          setDeleteTarget(u);
-                        }}
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </TabsContent>
 
-      {/* Sezione "fonti esterne" in fondo alla pagina: OAuth Google/Microsoft
-          (login) + import anagrafica Isidata. Tre card affiancate sui breakpoint
-          larghi, stacked su mobile/tablet. */}
-      <OAuthSettingsCards />
+        <TabsContent value="sso" className="mt-6">
+          {/* Configurazione SSO (Google/Microsoft), whitelist domini email
+              consentiti al login OAuth e importazione anagrafica Isidata. */}
+          <SsoTabContent />
+        </TabsContent>
+      </Tabs>
 
       <UserFormDialog open={creating} onOpenChange={setCreating} />
       <UserFormDialog
@@ -627,9 +685,12 @@ export default function AdminUsers() {
 }
 
 // =====================================================
-// OAuth settings: due card affiancate per Google e Microsoft.
+// Tab "SSO": configurazione provider OAuth (Google/Microsoft), whitelist
+// domini email consentiti al login OAuth e importazione anagrafica Isidata.
 // I secret sono cifrati a DB; in UI mostriamo solo lo stato "configurato"
-// e un campo per inserirne uno nuovo. Il backend richiede riavvio dopo modifica.
+// e un campo per inserirne uno nuovo. Provider ID/secret/callback richiedono
+// riavvio del backend; la whitelist domini ha invece effetto immediato
+// (verificata a ogni login OAuth via DB read).
 // =====================================================
 interface OAuthFormState {
   // Google
@@ -643,9 +704,11 @@ interface OAuthFormState {
   microsoftClientSecret: string;
   microsoftCallbackUrl: string;
   microsoftTenant: string;
+  // Whitelist domini (CSV editabile dall'admin)
+  allowedEmailDomains: string;
 }
 
-function OAuthSettingsCards() {
+function SsoTabContent() {
   const qc = useQueryClient();
   const [showGoogleSecret, setShowGoogleSecret] = useState(false);
   const [showMsSecret, setShowMsSecret] = useState(false);
@@ -672,6 +735,7 @@ function OAuthSettingsCards() {
         microsoftClientSecret: s.microsoftClientSecretSet ? SECRET_PLACEHOLDER : '',
         microsoftCallbackUrl: s.microsoftCallbackUrl,
         microsoftTenant: s.microsoftTenant || 'common',
+        allowedEmailDomains: s.allowedEmailDomainsList.join(', '),
       };
       setForm(next);
       setInitial(next);
@@ -680,14 +744,43 @@ function OAuthSettingsCards() {
 
   const mutation = useMutation({
     mutationFn: (payload: UpsertOAuthSettings) => oauthSettingsApi.update(payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Impostazioni OAuth salvate');
       void qc.invalidateQueries({ queryKey: ['admin', 'oauth-settings'] });
-      setRestartHint(true);
+      // restartRequired = false solo se ho toccato esclusivamente la whitelist.
+      if (data.restartRequired) setRestartHint(true);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
+  // Anteprima domini normalizzati: utile per dare un feedback all'utente che
+  // virgole/spazi/case verranno comunque ripuliti lato server. Calcolato prima
+  // dell'early return per rispettare le regole degli hook (no chiamate condizionali).
+  const rawDomainsInput = form?.allowedEmailDomains ?? '';
+  const normalizedDomains = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rawDomainsInput
+            .split(/[,\s;]+/)
+            .map((s) => s.trim().toLowerCase().replace(/^@/, ''))
+            .filter(Boolean),
+        ),
+      ),
+    [rawDomainsInput],
+  );
+
+  if (query.isError) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Impossibile caricare le impostazioni SSO: {httpErrorMessage(query.error)}. Verifica che il
+          backend sia stato riavviato dopo l'ultimo aggiornamento.
+        </AlertDescription>
+      </Alert>
+    );
+  }
   if (query.isLoading || !form || !initial) {
     return <Skeleton className="h-72 w-full" />;
   }
@@ -704,6 +797,8 @@ function OAuthSettingsCards() {
     form.microsoftClientSecret !== initial.microsoftClientSecret ||
     form.microsoftCallbackUrl !== initial.microsoftCallbackUrl ||
     form.microsoftTenant !== initial.microsoftTenant;
+
+  const isDomainsDirty = form.allowedEmailDomains !== initial.allowedEmailDomains;
 
   const saveGoogle = () => {
     mutation.mutate({
@@ -724,16 +819,91 @@ function OAuthSettingsCards() {
     });
   };
 
+  const saveDomains = () => {
+    // Inviamo l'array già normalizzato (il backend ri-normalizza comunque).
+    mutation.mutate({ allowedEmailDomains: normalizedDomains });
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {restartHint && (
         <Alert variant="info">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Riavvia il backend per applicare le nuove impostazioni OAuth.
+            Riavvia il backend per applicare le nuove impostazioni OAuth (client ID, secret,
+            callback, tenant). La whitelist domini è invece già attiva.
           </AlertDescription>
         </Alert>
       )}
+
+      {/* DOMINI CONSENTITI: card full-width in cima. Si applica sia a Google
+          che a Microsoft. Lista vuota = nessuna restrizione (qualunque
+          account OAuth viene accettato). Modifiche immediate, no riavvio. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between gap-3 font-display text-lg">
+            <span className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Domini email consentiti
+            </span>
+            {normalizedDomains.length === 0 ? (
+              <Badge variant="muted">Nessuna restrizione</Badge>
+            ) : (
+              <Badge variant="secondary">
+                {normalizedDomains.length} domin{normalizedDomains.length === 1 ? 'io' : 'i'}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Limita il login Google/Microsoft agli utenti la cui email appartiene a uno dei domini
+            indicati. Lascia vuoto per accettare qualunque account.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="allowed-domains">
+              Domini autorizzati (separati da virgola o spazio)
+            </Label>
+            <Input
+              id="allowed-domains"
+              value={form.allowedEmailDomains}
+              onChange={(e) => {
+                setForm({ ...form, allowedEmailDomains: e.target.value });
+              }}
+              placeholder="studenti.unimi.it, docenti.unimi.it"
+            />
+          </div>
+          {normalizedDomains.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {normalizedDomains.map((d) => (
+                <Badge key={d} variant="secondary" className="font-mono text-xs">
+                  @{d}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <p className="text-xs text-muted-foreground">
+              Match esatto, case-insensitive. Le modifiche hanno effetto al prossimo login.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={saveDomains}
+              disabled={!isDomainsDirty || mutation.isPending}
+            >
+              {mutation.isPending ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Salva domini
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {/* GOOGLE */}

@@ -421,6 +421,10 @@ export interface OAuthSettings {
   microsoftClientSecretSet: boolean;
   microsoftCallbackUrl: string;
   microsoftTenant: string;
+  /** CSV canonico (lowercase, dedup) dei domini email consentiti al login OAuth. Empty = nessuna restrizione. */
+  allowedEmailDomains: string;
+  /** Stessa lista, già parsed in array di domini. */
+  allowedEmailDomainsList: string[];
 }
 
 export interface BookingUsage {

@@ -13,6 +13,8 @@ export interface UpsertOAuthSettings {
   microsoftClientSecret?: string;
   microsoftCallbackUrl?: string;
   microsoftTenant?: string;
+  /** CSV o array; backend normalizza (lowercase, trim, dedup). Stringa vuota = rimuovi restrizione. */
+  allowedEmailDomains?: string | string[];
 }
 
 export const oauthSettingsApi = {

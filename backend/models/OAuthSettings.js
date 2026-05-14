@@ -56,6 +56,13 @@ module.exports = (sequelize) => {
         allowNull: true,
         defaultValue: 'common',
       },
+      // Lista CSV di domini email autorizzati al login OAuth (Google/Microsoft).
+      // NULL o stringa vuota = nessuna restrizione. Match esatto, case-insensitive,
+      // sulla parte dopo '@'. Es: "studenti.unimi.it,docenti.unimi.it".
+      allowedEmailDomains: {
+        type: DataTypes.STRING(1000),
+        allowNull: true,
+      },
     },
     { tableName: 'oauth_settings' },
   );

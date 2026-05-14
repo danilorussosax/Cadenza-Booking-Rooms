@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const passport = require('../config/passport');
+const { OAuthDomainNotAllowedError } = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
@@ -860,28 +861,43 @@ router.get('/google', (req, res, next) => {
   })(req, res, next);
 });
 
-router.get(
-  '/google/callback',
-  passport.authenticate('google', {
-    session: false,
-    failureRedirect: `${FRONTEND_URL}/login.html?error=oauth_failed`,
-  }),
-  async (req, res) => {
-    req.user.lastLogin = new Date();
-    await req.user.save();
-    const token = signToken(req.user);
-    // Profilo da completare se: nuovo utente social (status='pending'),
-    // mai associato a un corso, o studente senza matricola.
-    const needsProfile =
-      req.user.status === 'pending' ||
-      !req.user.courseId ||
-      (req.user.role === 'studente' && !req.user.matricola);
-    // Token nel fragment (#) invece che in query string (?): i fragment NON
-    // vengono inviati al server, NON appaiono negli access log, NON sono
-    // inclusi nel header Referer di richieste successive.
-    res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
-  },
-);
+// Wrapper attorno a passport.authenticate per intercettare l'errore di dominio
+// non autorizzato (lanciato dal verify callback) e redirigere con un parametro
+// specifico, così la pagina di login può mostrare il motivo del rifiuto.
+function oauthCallbackHandler(strategy) {
+  return (req, res, next) => {
+    passport.authenticate(strategy, { session: false }, (err, user) => {
+      if (err instanceof OAuthDomainNotAllowedError) {
+        const params = new URLSearchParams({
+          error: 'oauth_domain_not_allowed',
+          domain: err.domain || '',
+        });
+        return res.redirect(`${FRONTEND_URL}/login.html?${params.toString()}`);
+      }
+      if (err || !user) {
+        return res.redirect(`${FRONTEND_URL}/login.html?error=oauth_failed`);
+      }
+      req.user = user;
+      next();
+    })(req, res, next);
+  };
+}
+
+router.get('/google/callback', oauthCallbackHandler('google'), async (req, res) => {
+  req.user.lastLogin = new Date();
+  await req.user.save();
+  const token = signToken(req.user);
+  // Profilo da completare se: nuovo utente social (status='pending'),
+  // mai associato a un corso, o studente senza matricola.
+  const needsProfile =
+    req.user.status === 'pending' ||
+    !req.user.courseId ||
+    (req.user.role === 'studente' && !req.user.matricola);
+  // Token nel fragment (#) invece che in query string (?): i fragment NON
+  // vengono inviati al server, NON appaiono negli access log, NON sono
+  // inclusi nel header Referer di richieste successive.
+  res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
+});
 
 // =====================================================
 // OAuth Microsoft
@@ -895,26 +911,19 @@ router.get('/microsoft', (req, res, next) => {
   passport.authenticate('microsoft', { session: false })(req, res, next);
 });
 
-router.get(
-  '/microsoft/callback',
-  passport.authenticate('microsoft', {
-    session: false,
-    failureRedirect: `${FRONTEND_URL}/login.html?error=oauth_failed`,
-  }),
-  async (req, res) => {
-    req.user.lastLogin = new Date();
-    await req.user.save();
-    const token = signToken(req.user);
-    const needsProfile =
-      req.user.status === 'pending' ||
-      !req.user.courseId ||
-      (req.user.role === 'studente' && !req.user.matricola);
-    // Token nel fragment (#) invece che in query string (?): i fragment NON
-    // vengono inviati al server, NON appaiono negli access log, NON sono
-    // inclusi nel header Referer di richieste successive.
-    res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
-  },
-);
+router.get('/microsoft/callback', oauthCallbackHandler('microsoft'), async (req, res) => {
+  req.user.lastLogin = new Date();
+  await req.user.save();
+  const token = signToken(req.user);
+  const needsProfile =
+    req.user.status === 'pending' ||
+    !req.user.courseId ||
+    (req.user.role === 'studente' && !req.user.matricola);
+  // Token nel fragment (#) invece che in query string (?): i fragment NON
+  // vengono inviati al server, NON appaiono negli access log, NON sono
+  // inclusi nel header Referer di richieste successive.
+  res.redirect(`${FRONTEND_URL}/oauth-callback.html#token=${token}&needsProfile=${needsProfile}`);
+});
 
 // =====================================================
 // Password reset — flusso self-service via email

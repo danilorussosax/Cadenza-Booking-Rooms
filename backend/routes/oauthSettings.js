@@ -4,6 +4,7 @@ const express = require('express');
 const { OAuthSettings } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { encrypt } = require('../lib/crypto');
+const { normalizeAllowedDomainsInput, parseAllowedDomains } = require('../lib/emailDomainPolicy');
 
 const router = express.Router();
 
@@ -35,6 +36,10 @@ function toSafe(settings) {
     microsoftClientSecretSet: !!settings.microsoftClientSecretEncrypted,
     microsoftCallbackUrl: settings.microsoftCallbackUrl || '',
     microsoftTenant: settings.microsoftTenant || 'common',
+    // Whitelist domini per il login OAuth. Esposta sia come stringa "canonica"
+    // (per editing diretto) sia come array già normalizzato (comodo per UI).
+    allowedEmailDomains: settings.allowedEmailDomains || '',
+    allowedEmailDomainsList: parseAllowedDomains(settings.allowedEmailDomains),
   };
 }
 
@@ -82,8 +87,22 @@ router.put('/', authenticate, requireRole('admin'), async (req, res) => {
       : null;
   }
 
+  // Whitelist domini email: il frontend può inviare sia stringa CSV che array.
+  // Normalizziamo sempre (lowercase, trim, dedup, no '@' iniziale).
+  if (body.allowedEmailDomains !== undefined) {
+    const raw = Array.isArray(body.allowedEmailDomains)
+      ? body.allowedEmailDomains.join(',')
+      : body.allowedEmailDomains;
+    updates.allowedEmailDomains = normalizeAllowedDomainsInput(raw);
+  }
+
   await settings.update(updates);
-  res.json({ settings: toSafe(settings), restartRequired: true });
+  // restartRequired: le modifiche a client ID / secret / callback richiedono
+  // il riavvio (strategie passport registrate al boot). La whitelist domini è
+  // applicata dinamicamente nel verify callback (DB read per login), quindi
+  // ha effetto immediato.
+  const restartRequired = Object.keys(updates).some((k) => k !== 'allowedEmailDomains');
+  res.json({ settings: toSafe(settings), restartRequired });
 });
 
 module.exports = router;
