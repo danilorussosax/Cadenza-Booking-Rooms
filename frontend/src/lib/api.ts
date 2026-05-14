@@ -109,17 +109,40 @@ function safeJson(text: string): unknown {
 }
 
 /**
+ * Codici "generici" la cui traduzione i18n è un titolo riassuntivo: per questi
+ * preferiamo SEMPRE il messaggio specifico del backend (`payload.issues` o
+ * `payload.error`), così l'utente vede il motivo reale invece di un'etichetta
+ * vaga tipo "Prenotazione non valida".
+ *
+ * Esempio: il validator booking ritorna code='BOOKING_INVALID' con
+ *   error='Durata massima prenotazione: 120 minuti'
+ *   issues=['Durata massima prenotazione: 120 minuti']
+ * Senza questa lista il dialog mostrava solo la traduzione "Prenotazione non
+ * valida" — informazione zero per lo studente.
+ */
+const GENERIC_CODES_WITH_DETAILS = new Set(['BOOKING_INVALID', 'VALIDATION_FAILED']);
+
+/**
  * Risolve un errore HTTP in una stringa localizzata.
  * Strategia:
- *   1) se il backend ha restituito un `code` univoco (es. 'BOOKING_CONFLICT'),
+ *   1) se il `code` è "generico con dettagli" (es. BOOKING_INVALID), prima
+ *      tenta `issues[]` poi `payload.error` (entrambi specifici e già
+ *      localizzati lato server);
+ *   2) se il backend ha restituito un `code` univoco (es. 'BOOKING_CONFLICT'),
  *      lo si traduce via i18n (`errors.code.<CODE>`) — fallback sul testo backend
  *      se la chiave non esiste;
- *   2) altrimenti usa i `details[].message` (validation errors) o `error`;
- *   3) se non è un HttpError, ricorre al `message` o a un fallback localizzato.
+ *   3) altrimenti usa i `details[].message` (validation errors) o `error`;
+ *   4) se non è un HttpError, ricorre al `message` o a un fallback localizzato.
  */
 export const httpErrorMessage = (err: unknown): string => {
   if (err instanceof HttpError) {
     const code = err.payload.code;
+    if (code && GENERIC_CODES_WITH_DETAILS.has(code)) {
+      if (err.payload.issues?.length) {
+        return err.payload.issues.join(' · ');
+      }
+      if (err.payload.error) return err.payload.error;
+    }
     if (code) {
       const key = `errors.code.${code}`;
       const translated = i18n.t(key);

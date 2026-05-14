@@ -499,6 +499,9 @@ export interface ApiError {
   error: string;
   details?: { field?: string; message: string }[];
   code?: string;
+  /** Lista strutturata di motivi (es. BOOKING_INVALID expone i vincoli falliti
+   *  uno per uno: "Durata massima 120 minuti", "Fuori finestra oraria", ...). */
+  issues?: string[];
 }
 
 // =====================================================
