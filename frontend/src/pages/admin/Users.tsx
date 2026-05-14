@@ -11,7 +11,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  FileSpreadsheet,
   Globe,
   KeyRound,
   LoaderCircle,
@@ -67,6 +66,7 @@ import {
 } from '@/components/ui/dialog';
 import { IsidataImportContent } from '@/pages/admin/integrations/IsidataImport';
 import { IsidataLogo } from '@/components/icons/IsidataLogo';
+import { Esse3Logo } from '@/components/icons/Esse3Logo';
 import type { Role, User, UserStatus } from '@/types';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
@@ -1220,7 +1220,10 @@ function IsidataImportCard() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{t('integrations.isidata.title')}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <IsidataLogo className="h-7 w-7 shrink-0" />
+              {t('integrations.isidata.title')}
+            </DialogTitle>
             <DialogDescription>{t('integrations.isidata.subtitle')}</DialogDescription>
           </DialogHeader>
           <IsidataImportContent />
@@ -1245,7 +1248,7 @@ function Esse3ImportCard() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-3 font-display text-lg">
             <span className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <Esse3Logo className="h-6 w-6" />
               ESSE3 (CINECA)
             </span>
           </CardTitle>
@@ -1278,7 +1281,10 @@ function Esse3ImportCard() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Importazione ESSE3 (CINECA)</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Esse3Logo className="h-7 w-7 shrink-0" />
+              Importazione ESSE3 (CINECA)
+            </DialogTitle>
             <DialogDescription>
               Carica l'export standard ESSE3 (CSV o XLSX). Il sistema riconosce automaticamente gli
               header tipici della Suite Studenti AFAM.
