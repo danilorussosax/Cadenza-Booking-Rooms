@@ -8,6 +8,34 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const { User } = require('../models');
 const { getJwtSecret } = require('../lib/secrets');
+const { isEmailAllowed, parseAllowedDomains } = require('../lib/emailDomainPolicy');
+
+/**
+ * Errore lanciato dai verify callback OAuth quando il dominio dell'email
+ * non rientra nella whitelist amministrativa. La route /callback lo intercetta
+ * e redirige a /login con error=oauth_domain_not_allowed.
+ */
+class OAuthDomainNotAllowedError extends Error {
+  constructor(domain) {
+    super(`Dominio email non autorizzato: ${domain || 'sconosciuto'}`);
+    this.code = 'OAUTH_DOMAIN_NOT_ALLOWED';
+    this.domain = domain || null;
+  }
+}
+
+/**
+ * Legge la whitelist di domini email dalle OAuth settings. In caso di errore DB
+ * (es. tabella non ancora creata al primo avvio) ritorna `[]` = nessuna restrizione.
+ */
+async function getAllowedEmailDomains() {
+  try {
+    const { OAuthSettings } = require('../models');
+    const row = await OAuthSettings.findOne({ where: { id: 1 } });
+    return parseAllowedDomains(row?.allowedEmailDomains);
+  } catch {
+    return [];
+  }
+}
 
 // =============================================
 // Strategy: Local (email + password)
@@ -68,6 +96,16 @@ function googleVerify() {
         profile.emails && profile.emails[0] ? profile.emails[0].value.toLowerCase() : null;
       if (!email) return done(new Error('Email non disponibile dal profilo Google'));
 
+      // Whitelist domini: applicata PRIMA di qualunque creazione/aggiornamento
+      // utente, così l'amministratore può restringere l'accesso senza dover
+      // bonificare account già creati. La lista è letta dal DB ad ogni login
+      // (no caching) per non richiedere riavvio dopo una modifica.
+      const allowed = await getAllowedEmailDomains();
+      if (!isEmailAllowed(email, allowed)) {
+        const domain = email.split('@').pop();
+        return done(new OAuthDomainNotAllowedError(domain));
+      }
+
       let user = await User.findOne({ where: { googleId: profile.id } });
       if (!user) {
         user = await User.findOne({ where: { email } });
@@ -101,6 +139,13 @@ function microsoftVerify() {
         profile._json?.userPrincipalName;
       if (!email) return done(new Error('Email non disponibile dal profilo Microsoft'));
       const lowerEmail = email.toLowerCase();
+
+      // Whitelist domini (vedi commento in googleVerify).
+      const allowed = await getAllowedEmailDomains();
+      if (!isEmailAllowed(lowerEmail, allowed)) {
+        const domain = lowerEmail.split('@').pop();
+        return done(new OAuthDomainNotAllowedError(domain));
+      }
 
       let user = await User.findOne({ where: { microsoftId: profile.id } });
       if (!user) {
@@ -214,15 +259,6 @@ async function initOAuthStrategies() {
   return status;
 }
 
-passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findByPk(id);
-    done(null, user);
-  } catch (err) {
-    done(err);
-  }
-});
-
 module.exports = passport;
 module.exports.initOAuthStrategies = initOAuthStrategies;
+module.exports.OAuthDomainNotAllowedError = OAuthDomainNotAllowedError;

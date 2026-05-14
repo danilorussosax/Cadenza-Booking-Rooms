@@ -96,15 +96,12 @@ function loadConfig() {
   const JWT_SECRET = isProd
     ? asString('JWT_SECRET') // throw se mancante in prod
     : asString('JWT_SECRET', 'cadenza-dev-jwt-secret-NOT-FOR-PROD');
-  const SESSION_SECRET = isProd
-    ? asString('SESSION_SECRET')
-    : asString('SESSION_SECRET', 'cadenza-dev-session-secret-NOT-FOR-PROD');
 
   // JWT timing
   const JWT_EXPIRES_IN = asString('JWT_EXPIRES_IN', '2h');
 
   // Database — DB_DIALECT decide quali altre env servono.
-  const DB_DIALECT = asEnum('DB_DIALECT', ['sqlite', 'postgres', 'mysql', 'mariadb'], 'sqlite');
+  const DB_DIALECT = asEnum('DB_DIALECT', ['sqlite', 'postgres'], 'sqlite');
   const DB_SYNC_MODE = asEnum('DB_SYNC_MODE', ['safe', 'alter', 'force', 'none'], 'safe');
   const DB_SEED = asBool('DB_SEED', !isProd);
 
@@ -133,7 +130,6 @@ function loadConfig() {
     APP_URL,
     FRONTEND_URL,
     JWT_SECRET,
-    SESSION_SECRET,
     JWT_EXPIRES_IN,
     DB_DIALECT,
     DB_SYNC_MODE,

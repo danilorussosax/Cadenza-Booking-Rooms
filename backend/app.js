@@ -13,7 +13,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const session = require('express-session');
 const pinoHttp = require('pino-http');
 const { randomUUID } = require('crypto');
 const passport = require('./config/passport');
@@ -218,16 +217,10 @@ function buildApp({ serveFrontend = true } = {}) {
 
   app.use('/api/', auditMiddleware);
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || 'dev-session-secret',
-      resave: false,
-      saveUninitialized: false,
-      cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 },
-    }),
-  );
+  // Passport solo per le strategie OAuth. Niente express-session / passport.session():
+  // tutte le strategie sono invocate con { session: false } e l'autenticazione
+  // applicativa usa JWT (vedi middleware/auth.js), non i cookie di sessione.
   app.use(passport.initialize());
-  app.use(passport.session());
 
   // Static frontend (saltato quando esplicitamente disattivato — vedi tests/)
   if (serveFrontend) {

@@ -235,7 +235,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
   fi
 
   JWT_SECRET="$(openssl rand -hex 32)"
-  SESSION_SECRET="$(openssl rand -hex 32)"
   ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | head -c 20)"
 
   cat > "$ENV_FILE" <<ENV
@@ -258,7 +257,6 @@ DB_SYNC_MODE=safe
 # Sicurezza
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=2h
-SESSION_SECRET=${SESSION_SECRET}
 BCRYPT_COST=12
 
 # Admin di default (creato dal seeder al primo avvio se non già presente)

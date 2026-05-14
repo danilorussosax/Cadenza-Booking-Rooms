@@ -89,34 +89,28 @@ if (dialect === 'sqlite') {
     await run('PRAGMA temp_store = MEMORY;');
   });
 } else {
-  // postgres | mysql | mariadb
+  // postgres
   const dialectOptions = {};
 
-  if (dialect === 'postgres' && process.env.DB_SSL === 'true') {
+  if (process.env.DB_SSL === 'true') {
     dialectOptions.ssl = {
       require: true,
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
     };
   }
-  if (dialect === 'postgres') {
-    // Timeout server-side per evitare query stuck (planner cattivo, lock
-    // GiST, deadlock SERIALIZABLE) che esauriscano il pool. Override via env.
-    //   statement_timeout: kill della query dopo N ms
-    //   idle_in_transaction_session_timeout: kill se la tx resta idle
-    dialectOptions.statement_timeout = Number(process.env.DB_STATEMENT_TIMEOUT_MS || 30000);
-    dialectOptions.idle_in_transaction_session_timeout = Number(
-      process.env.DB_IDLE_IN_TX_TIMEOUT_MS || 60000,
-    );
-  }
-  if (dialect === 'mysql' || dialect === 'mariadb') {
-    dialectOptions.dateStrings = false;
-    dialectOptions.connectTimeout = Number(process.env.DB_CONNECT_TIMEOUT || 20000);
-  }
+  // Timeout server-side per evitare query stuck (planner cattivo, lock
+  // GiST, deadlock SERIALIZABLE) che esauriscano il pool. Override via env.
+  //   statement_timeout: kill della query dopo N ms
+  //   idle_in_transaction_session_timeout: kill se la tx resta idle
+  dialectOptions.statement_timeout = Number(process.env.DB_STATEMENT_TIMEOUT_MS || 30000);
+  dialectOptions.idle_in_transaction_session_timeout = Number(
+    process.env.DB_IDLE_IN_TX_TIMEOUT_MS || 60000,
+  );
 
   sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
     ...baseOptions,
     host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || (dialect === 'postgres' ? 5432 : 3306),
+    port: Number(process.env.DB_PORT) || 5432,
     dialectOptions,
     timezone: process.env.DB_TIMEZONE || '+00:00',
   });

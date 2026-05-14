@@ -447,7 +447,6 @@ else
   info "Genero backend/.env con valori di sviluppo…"
   if [[ $DRY_RUN -eq 0 ]]; then
     JWT_SECRET="$(openssl rand -hex 32)"
-    SESSION_SECRET="$(openssl rand -hex 32)"
     ENCRYPTION_KEY="$(openssl rand -hex 32)"
     ADMIN_PASSWORD="$(openssl rand -base64 18 | tr -d '=' | head -c 16)"
 
@@ -477,7 +476,6 @@ DB_SYNC_MODE=safe
 # ===================================
 JWT_SECRET=$JWT_SECRET
 JWT_EXPIRES_IN=2h
-SESSION_SECRET=$SESSION_SECRET
 ENCRYPTION_KEY=$ENCRYPTION_KEY
 BCRYPT_COST=10
 

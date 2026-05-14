@@ -227,7 +227,6 @@ Esecuzione: l'app gestisce automaticamente la creazione del nuovo schema su Post
 6. ROTAZIONE delle credenziali (MANDATORIA):
    - JWT_SECRET (forza logout di tutti gli utenti — desiderato)
    - DB_PASSWORD
-   - SESSION_SECRET
    - Tutti i password admin → reset forzato + 2FA enabled
    - Token OAuth Google/Microsoft (revoca da console provider)
    - SENTRY_DSN se sospetti che sia stato esfiltrato (riemetti su sentry.io)

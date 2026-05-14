@@ -184,7 +184,6 @@ SERVER_NAME="${PUBLIC_IP}"
 
 ```bash
 JWT_SECRET="$(openssl rand -hex 32)"
-SESSION_SECRET="$(openssl rand -hex 32)"
 ADMIN_PASSWORD="$(openssl rand -base64 24)"
 
 cat > /opt/cadenza/app/backend/.env <<ENV
@@ -206,7 +205,6 @@ DB_SYNC_MODE=safe
 # Sicurezza
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=2h
-SESSION_SECRET=${SESSION_SECRET}
 BCRYPT_COST=12
 
 # Admin di default (creato dal seeder al primo avvio)
@@ -522,7 +520,7 @@ Lo script:
 - Installa Node 20, Postgres 16, nginx (+ certbot se DOMAIN è valorizzato).
 - Crea utente `cadenza` con DB dedicato + password casuale.
 - Clona il repo, fa `npm ci` + `npm run build`.
-- Genera `JWT_SECRET`, `SESSION_SECRET`, `DEFAULT_ADMIN_PASSWORD` casuali.
+- Genera `JWT_SECRET`, `DEFAULT_ADMIN_PASSWORD` casuali.
 - Configura systemd + vhost nginx (con la modalità giusta).
 - Per dominio: lancia `certbot --nginx` per il certificato Let's Encrypt.
 - Per IP+TLS: genera cert self-signed via openssl.

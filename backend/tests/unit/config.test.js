@@ -62,7 +62,6 @@ describe('lib/config', () => {
     setEnv({
       NODE_ENV: 'production',
       JWT_SECRET: 'production-secret-very-long-and-random-12345',
-      SESSION_SECRET: 'session-secret-also-long-and-random-67890',
     });
     const cfg = reloadConfig();
     expect(cfg.isProd).toBe(true);

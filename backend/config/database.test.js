@@ -25,9 +25,8 @@ if (!process.env.DB_SYNC_MODE) process.env.DB_SYNC_MODE = 'force';
 // Bcrypt più rapido in test (i hook beforeCreate/beforeUpdate di User
 // rispettano la env). 4 è il minimo accettato dalla lib.
 process.env.BCRYPT_COST = '4';
-// Secret deterministici per JWT/sessione
+// Secret deterministico per JWT
 process.env.JWT_SECRET = 'test-jwt-secret';
-process.env.SESSION_SECRET = 'test-session-secret';
 // Disabilita SMTP nei test
 process.env.SMTP_HOST = '';
 process.env.SMTP_USER = '';
