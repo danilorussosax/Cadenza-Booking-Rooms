@@ -26,6 +26,7 @@ import {
 import { DayCalendar } from '@/components/bookings/DayCalendar';
 import { BookingFormDialog } from '@/components/bookings/BookingFormDialog';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
+import { BookingInfoDialog } from '@/components/bookings/BookingInfoDialog';
 import type { Booking } from '@/types';
 
 export default function BookingPage() {
@@ -41,6 +42,8 @@ export default function BookingPage() {
     end?: Date;
   }>({ open: false });
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  const [editTarget, setEditTarget] = useState<Booking | null>(null);
+  const [infoTarget, setInfoTarget] = useState<Booking | null>(null);
 
   const roomsQuery = useQuery({
     queryKey: ['rooms', 'bookable'],
@@ -82,9 +85,20 @@ export default function BookingPage() {
   };
 
   const handleBookingClick = (b: Booking) => {
-    if (b.userId === user?.id && b.status === 'confirmed' && dayjs(b.endTime).isAfter(dayjs())) {
-      setCancelTarget(b);
+    if (b.status !== 'confirmed' || dayjs(b.endTime).isBefore(dayjs())) return;
+    // Stessa logica della Dashboard (handleBookingClick): admin -> modifica
+    // di qualsiasi booking, owner -> cancel della propria, altri -> info
+    // read-only. Le tre vie qui sono necessarie perché /booking mostra il
+    // calendario completo dell'aula con TUTTE le prenotazioni (anche altrui).
+    if (user?.role === 'admin') {
+      setEditTarget(b);
+      return;
     }
+    if (b.userId === user?.id) {
+      setCancelTarget(b);
+      return;
+    }
+    setInfoTarget(b);
   };
 
   const dayLabel = dayjs(date).format('dddd D MMMM YYYY');
@@ -247,6 +261,22 @@ export default function BookingPage() {
         booking={cancelTarget}
         onClose={() => {
           setCancelTarget(null);
+        }}
+      />
+      {/* Admin: modifica di prenotazioni esistenti (anche altrui) — apertura
+          al click sul blocco quando il ruolo è admin. */}
+      <BookingFormDialog
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        booking={editTarget}
+      />
+      {/* Click su prenotazione altrui (non admin, non owner): read-only. */}
+      <BookingInfoDialog
+        booking={infoTarget}
+        onClose={() => {
+          setInfoTarget(null);
         }}
       />
     </div>
