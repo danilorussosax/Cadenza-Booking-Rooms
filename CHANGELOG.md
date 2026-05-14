@@ -119,6 +119,120 @@ e rinforza la robustezza del sistema su fusi orari e hosting diversi.
 TZ-coerente: identici i risultati su Europe/Rome e UTC
 ```
 
+---
+
+### English version
+
+Release "consolidation and onboarding": closes the missing pieces required
+to bring a new Conservatory into production without manual admin
+intervention, and strengthens the system's robustness across time zones
+and hosting environments.
+
+#### New features
+
+##### Student / teacher onboarding
+
+- **Magic-link "first access" after Isidata import** ([`#isidata`](docs/INTEGRATIONS-ISIDATA.md))
+  After applying the Isidata import, the admin can bulk-email all newly
+  created users a welcome link to set their own password. No more CSV
+  files with plaintext passwords, no more "I can't sign in" calls to the
+  Registrar. One-time token with configurable expiry (default 14 days,
+  range 1–90).
+- **Bulk magic-link send from the Users page**
+  Same action available as a bulk action on selected rows (useful for
+  resending the link to users who lost it).
+- **Login page with "Resend welcome link" CTA**
+  When an Isidata user tries to sign in before completing the setup
+  (`PASSWORD_NOT_SET` code), they see a clear message + self-service
+  button to request a new link.
+- **In-app student manual** ([`docs/MANUALE_STUDENTE.md`](docs/MANUALE_STUDENTE.md))
+  ~340 lines dedicated to students. Role-based guard: teachers see only
+  the teacher manual, students only the student manual, admins all three
+  with a switcher.
+
+##### Multi-provider roster import
+
+- **Import wizard extended to ESSE3 (CINECA Student Suite)**
+  Same Isidata wizard parameterized on `source`, with separate history.
+  Identity logos per provider (`IsidataLogo`, `Esse3Logo`) visible in
+  cards, dialogs and headers.
+- **Email-domain allowlist** for Google/Microsoft OAuth login.
+
+##### "Everyone sees everyone" dashboard
+
+- **All bookings visible to every role** (admin, teacher, student) with
+  visual distinction: own bookings ringed in gold, others without.
+- **Click on a third-party booking** → read-only dialog with
+  non-sensitive info (who, where, when), no email or matricola exposed.
+- **/booking page** aligned to the same logic.
+
+##### Public pages
+
+- **"OAuth unavailable" page** styled with the provider's logo (Google
+  4-color or Microsoft 4-square) when the admin hasn't configured the
+  strategy yet. Replaces the old bare JSON 503 response.
+
+#### Substantive fixes
+
+- **Full timezone audit**: ~10 points fixed where the code was reading
+  `hour/minute/day` without converting to `Europe/Rome`, with
+  consequences on Monte Ore recurrence generation, RRULE expander,
+  reminder schedulers, analytics heatmap, kiosk widget, backup
+  filenames, emails. On UTC VPS some persisted dates were born offset
+  by 1-2h; now the system is TZ-coherent across the board.
+- **TZ-aware `exceptionOverlapService`** (day-of-week and time-window
+  filter for exceptions read in Italian local time).
+- **`fix(booking)`**: Europe/Rome in the time-window check of booking
+  rules (no more off-by-2h on UTC VPS).
+- **`fix(monte-ore)`**: suspensions inhibit days and weeks regardless
+  of `kind`.
+
+#### Performance optimizations
+
+- N+1 eliminated in `GET /buildings/checkin-defaults` (was 2N+1 → 2 queries).
+- Redundant refetch removed from `reminderScheduler.tickLoans`.
+- Bulk update of orphan slots in `monteOreService` (single SQL statement).
+- **Composite DB indexes**: `announcements_active_feed_idx`,
+  `monte_ore_schedules_proposal_day_idx`, `integration_sync_runs_*`.
+  Replace 8 single-column indexes with 4 targeted at real queries.
+
+#### Technical cleanup
+
+- Unused dependencies removed: `mysql2`, `express-session`,
+  `passport.session()`. `SESSION_SECRET` no longer required in prod.
+- User-import pipelines refactored into a unified flow (admin CSV +
+  Isidata + ESSE3).
+- Student/Teacher pages aligned to `max-w-7xl` (like the Dashboard) for
+  visual consistency across the entire non-admin navigation.
+- "Quality / Stability / Security Audit" document rewritten in a
+  narrative tone accessible to a non-technical reader.
+
+#### CI / DevOps
+
+- **TZ matrix on the backend job**: every run executes the test suite
+  twice, once with `TZ=Europe/Rome` and once with `TZ=UTC`. TZ-naive
+  regressions are caught before merge.
+- Gitleaks scan on every push and PR (already active, confirmed in
+  matrix).
+
+#### Documentation
+
+- **New**: `docs/MANUALE_STUDENTE.md`, `CHANGELOG.md`.
+- **Updated**: `docs/AUDIT_QUALITA_PRODUZIONE.md` rewritten from
+  scratch in narrative style. Admin manual with "What's new in v1.6.0"
+  section.
+- **Plan**: `~/Desktop/import-isidata.md` operational document of the
+  magic-link flow (work completed).
+
+#### Headline numbers
+
+```
+1.913 unit+integration tests (1.698 backend + 258 frontend) — target unchanged
+73 / 74 / 79 / 62 backend coverage — unchanged above threshold
+0 npm audit vulnerabilities · 0 lint/typecheck errors · TS strict end-to-end
+TZ-coherent: identical results on Europe/Rome and UTC
+```
+
 ## [1.5.1] — pre-changelog (audit del 14 maggio 2026)
 
 Versione storica documentata in [`docs/AUDIT_QUALITA_PRODUZIONE.md`](docs/AUDIT_QUALITA_PRODUZIONE.md)
