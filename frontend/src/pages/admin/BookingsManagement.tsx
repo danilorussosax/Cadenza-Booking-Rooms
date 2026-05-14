@@ -69,23 +69,47 @@ export default function AdminBookingsManagement() {
       </header>
 
       <Tabs value={tab} onValueChange={handleTabChange}>
-        <TabsList className="h-auto flex-wrap justify-start gap-1">
-          <TabsTrigger value="rules" className="gap-1.5">
-            <Scale className="h-4 w-4" />
-            Regole
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-3">
+          <TabsTrigger
+            value="rules"
+            className="group flex h-auto flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left shadow-xs hover:bg-accent data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <span className="text-base font-semibold">Regole</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Policy di prenotazione, finestre, quote
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="booking-types" className="gap-1.5">
-            <Tag className="h-4 w-4" />
-            Tipi prenotazione
+          <TabsTrigger
+            value="booking-types"
+            className="group flex h-auto flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left shadow-xs hover:bg-accent data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-base font-semibold">Tipi prenotazione</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Catalogo dei tipi (lezione, prova, concerto…)
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="approvals" className="gap-1.5">
-            <ClipboardCheck className="h-4 w-4" />
-            Approvazioni
-            {pendingCount > 0 && (
-              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
-                {pendingCount}
-              </Badge>
-            )}
+          <TabsTrigger
+            value="approvals"
+            className="group flex h-auto flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left shadow-xs hover:bg-accent data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-sm"
+          >
+            <div className="flex w-full items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-base font-semibold">Approvazioni</span>
+              {pendingCount > 0 && (
+                <Badge variant="destructive" className="ml-auto px-2 py-0.5 text-xs font-bold">
+                  {pendingCount}
+                </Badge>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Coda richieste in attesa di approvazione admin
+            </span>
           </TabsTrigger>
         </TabsList>
 
