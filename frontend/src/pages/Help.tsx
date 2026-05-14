@@ -35,8 +35,10 @@ const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: t
 
 // Manuale "naturale" per ogni ruolo: quello che si apre quando l'utente
 // clicca "Aiuto" in sidebar o quando arriva a /help senza slug.
+// L'admin atterra sul SUO manuale (era 'docente', troppo controintuitivo);
+// lo switcher in alto a destra consente comunque di saltare agli altri due.
 const NATURAL_MANUAL: Record<Role, ManualSlug> = {
-  admin: 'docente', // l'admin si trova spesso a controllare la guida docente
+  admin: 'admin',
   docente: 'docente',
   studente: 'studente',
 };

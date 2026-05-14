@@ -123,9 +123,10 @@ const ADMIN_NAV: NavItem[] = [
     icon: Server,
     roles: ['admin'],
   },
-  // Manuale Admin in-app — separato dal Manuale (docente) della sidebar
-  // utente. Punta a /help/admin (la pagina filtra anche client-side).
-  { to: '/help/admin', labelKey: 'nav.help_admin', icon: BookOpen, roles: ['admin'] },
+  // Manuale Admin: NON più voce sidebar separata. La voce "Manuale" del
+  // NAV principale porta gli admin direttamente al loro manuale (vedi
+  // NATURAL_MANUAL in Help.tsx) e lo switcher in alto a destra permette
+  // di saltare tra Studente/Docente/Admin. Una sola voce, zero confusione.
   // L'import anagrafica Isidata è esposto come riquadro nella pagina
   // "Utenti" (admin/users), accanto alle card di Google/Microsoft OAuth.
   // Manteniamo la rotta `/admin/integrations/isidata` per accesso diretto
