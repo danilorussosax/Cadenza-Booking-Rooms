@@ -373,7 +373,7 @@ router.post('/me/submit', authenticate, requireApproved, async (req, res, next) 
 // ============================================================
 
 /**
- * Restituisce la griglia delle settimane (Lun-Ven) filtrata da
+ * Restituisce la griglia delle settimane (Lun-Sab) filtrata da
  * lessonsStart/End e dalle suspensions admin. Usata per renderizzare
  * la sezione B della pagina docente.
  */

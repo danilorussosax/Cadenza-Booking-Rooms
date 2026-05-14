@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/select';
 import type { BookingType } from '@/types';
 
-const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
+const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
 function hoursOf(s: MonteOreSlot): number {
   const [sh, sm] = s.startTime.split(':').map(Number);
@@ -79,7 +79,7 @@ interface Props {
  * Sezione B — griglia settimanale di pianificazione monte ore.
  * Renderizza tante righe quante sono le settimane del calendario didattico
  * (al netto delle sospensioni full_week che vengono nascoste a monte).
- * Ogni cella Lun-Ven mostra le ore previste per il pattern del giorno;
+ * Ogni cella Lun-Sab mostra le ore previste per il pattern del giorno;
  * un click attiva/disattiva quella occorrenza.
  */
 export default function MonteOreGrid({
@@ -313,17 +313,31 @@ export default function MonteOreGrid({
 
         {weeks.length > 0 && (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            {/* table-fixed + colgroup: i 6 giorni (Lun-Sab) si dividono in
+                modo identico lo spazio rimanente dopo le colonne S, Settimana
+                e Ore — senza questo, le colonne con celle bloccate si
+                "schiacciavano" più di quelle con slot lunghi. */}
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-12" />
+                <col className="w-32" />
+                {/* I 6 giorni Lun-Sab senza width esplicito si dividono in
+                    parti uguali lo spazio residuo grazie a table-fixed. */}
+                {DAYS_HEAD.map((d) => (
+                  <col key={d} />
+                ))}
+                <col className="w-16" />
+              </colgroup>
               <thead className="border-b bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="w-12 px-2 py-2 text-center">S</th>
-                  <th className="w-32 px-3 py-2 text-left">Settimana</th>
+                  <th className="px-2 py-2 text-center">S</th>
+                  <th className="px-3 py-2 text-left">Settimana</th>
                   {DAYS_HEAD.map((d) => (
                     <th key={d} className="px-2 py-2 text-center">
                       {d}
                     </th>
                   ))}
-                  <th className="w-16 px-2 py-2 text-right">Ore</th>
+                  <th className="px-2 py-2 text-right">Ore</th>
                 </tr>
               </thead>
               <tbody>

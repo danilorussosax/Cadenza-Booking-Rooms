@@ -14,10 +14,10 @@
  *       weekLabel: '03 Nov – 08 Nov',
  *       days: [{
  *         date: 'YYYY-MM-DD',
- *         dayOfWeek: 1..6,
+ *         dayOfWeek: 1..6,  // 1=Lun ... 6=Sab
  *         isLocked: bool,
  *         lockReason: 'Festa della Repubblica' | null,
- *       } × 5]   ← Lun-Ven (sabato escluso dalla pianificazione)
+ *       } × 6]   ← Lun-Sab
  *     }]
  *
  * Logica di filtro (richiesta dalla spec):
@@ -113,9 +113,11 @@ function computeWeeks(settings, suspensions = []) {
       continue;
     }
 
-    // Costruisci 5 giorni Lun-Ven
+    // Costruisci 6 giorni Lun-Sab: il sabato è giorno valido nei conservatori
+    // per recital, prove orchestra, esami pratici. I giorni fuori dal periodo
+    // lezioni o dentro una sospensione `partial` restano marcati `isLocked`.
     const days = [];
-    for (let dow = 1; dow <= 5; dow++) {
+    for (let dow = 1; dow <= 6; dow++) {
       const d = weekStart.add(dow - 1, 'day');
       const dIso = d.format('YYYY-MM-DD');
       // Fuori dal periodo lezioni → lockato

@@ -36,32 +36,18 @@ const COLOR_HEADER = 'FFD9E1F2';
 const COLOR_BLOCK = 'FFC0392B';
 
 /**
- * Per ogni "settimana" prodotta da `computeWeeks` ritorna anche il giorno
- * "sabato" (weekEnd ufficiale del modello è sabato), ma per il template
- * mostriamo la matrice Lun-Sab (6 colonne). Costruiamo quindi i 6 giorni a
- * partire dal lunedì.
+ * Adapter sopra `computeWeeks`: oggi computeWeeks ritorna direttamente 6
+ * giorni (Lun-Sab) con lock corretti. Manteniamo la shape `sixDays` per
+ * non rompere i consumer (worksheet generator e iCal feed).
  */
 function buildSixDayWeeks(weeks) {
   return weeks.map((w) => {
-    const start = dayjs(w.weekStart);
-    const six = [];
-    for (let i = 0; i < 6; i++) {
-      const d = start.add(i, 'day');
-      const dIso = d.format('YYYY-MM-DD');
-      // Mantieni isLocked/lockReason del modello per i primi 5 giorni
-      // (Lun-Ven). Per il sabato proviamo a recuperare un lock da
-      // `partial` o "fuori periodo": riusiamo la struttura di `days`.
-      let locked = null;
-      if (i < 5) {
-        locked = w.days[i] || null;
-      }
-      six.push({
-        date: dIso,
-        dayLabel: DAY_HEADERS[i],
-        isLocked: locked ? locked.isLocked : false,
-        lockReason: locked ? locked.lockReason : null,
-      });
-    }
+    const six = w.days.map((d, i) => ({
+      date: d.date,
+      dayLabel: DAY_HEADERS[i],
+      isLocked: d.isLocked,
+      lockReason: d.lockReason,
+    }));
     return { ...w, sixDays: six };
   });
 }
