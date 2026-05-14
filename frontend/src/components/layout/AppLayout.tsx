@@ -52,10 +52,10 @@ const NAV: NavItem[] = [
   { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { to: '/booking', labelKey: 'nav.booking', icon: CalendarPlus },
   { to: '/my-bookings', labelKey: 'nav.my_bookings', icon: ClipboardList },
-  // Monte Ore — proposta annuale del docente. Voce visibile a tutti i ruoli
-  // approvati: studenti vedranno comunque la pagina (mostra il loro stato
-  // "non applicabile" se non sono docenti). Volendo nasconderla ai soli
-  // studenti basta filtrare con `roles: ['docente', 'admin']`.
+  // Monte Ore — proposta annuale del docente. La voce è riservata a docente +
+  // admin: gli studenti non hanno monte ore proprio (la pagina mostrerebbe
+  // un placeholder "non applicabile"). Il filtro è applicato in `visibleNav`
+  // via `hasRole(...n.roles)`.
   { to: '/monte-ore', labelKey: 'nav.monte_ore', icon: Clock, roles: ['docente', 'admin'] },
   { to: '/rooms', labelKey: 'nav.rooms', icon: Music4 },
   { to: '/instruments', labelKey: 'nav.instruments', icon: Guitar },
@@ -207,12 +207,16 @@ export function AppLayout() {
   const instrumentLoansEnabled = institute?.moduleInstrumentLoansEnabled ?? true;
 
   const visibleNav = NAV.filter((n) => {
+    // Filtro per ruolo: se `roles` è valorizzato sulla voce, l'utente deve
+    // averne almeno uno. Altrimenti la voce è visibile a tutti i ruoli.
+    if (n.roles && !hasRole(...n.roles)) return false;
     if (!monteOreEnabled && n.to === '/monte-ore') return false;
     if (!instrumentLoansEnabled && (n.to === '/instruments' || n.to === '/my-loans')) return false;
     return true;
   });
 
   const visibleAdminNav = ADMIN_NAV.filter((n) => {
+    if (n.roles && !hasRole(...n.roles)) return false;
     if (!monteOreEnabled && n.to === '/admin/monte-ore') return false;
     if (!instrumentLoansEnabled && n.to === '/admin/instruments') return false;
     return true;
