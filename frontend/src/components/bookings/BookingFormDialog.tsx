@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RecurrenceForm } from './RecurrenceForm';
+import { BookingRuleHint } from './BookingRuleHint';
 import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
 import type { Booking, BookingType } from '@/types';
 
@@ -442,6 +443,11 @@ export function BookingFormDialog({
                 <AlertDescription>{serverError}</AlertDescription>
               </Alert>
             )}
+
+            {/* Hint sui limiti del ruolo (durata, anticipo, fascia oraria,
+                quote): nascosto agli admin, fetcha la BookingRule del ruolo
+                dell'utente corrente e la sintetizza in 4-6 bullet point. */}
+            {currentUser && <BookingRuleHint role={currentUser.role} />}
 
             <div className="space-y-2">
               <Label>{t('booking.form.room')}</Label>
