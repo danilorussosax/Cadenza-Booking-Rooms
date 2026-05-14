@@ -56,7 +56,7 @@ export default function AdminBookingsManagement() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <header>
         <h1 className="font-display text-3xl font-medium inline-flex items-center gap-2">
           <ClipboardList className="h-6 w-6 text-primary" />
