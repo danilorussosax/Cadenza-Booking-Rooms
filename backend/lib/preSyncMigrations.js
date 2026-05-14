@@ -97,6 +97,34 @@ async function ensureNotNullIntColumn(table, name, defaultValue) {
  * Aggiunge una colonna boolean NOT NULL con default a una tabella generica.
  * Specializzazione di ensureUserBooleanColumn per altre tabelle.
  */
+/**
+ * Difesa runtime per installazioni che non hanno eseguito `db:cli:migrate`
+ * dopo l'introduzione della cascata Building→Room per il check-in QR.
+ * Verifica `rooms.requireCheckIn`: se è ancora NOT NULL la rilassa a NULLABLE.
+ * Idempotente.
+ */
+async function relaxRoomsRequireCheckInNullable() {
+  const dialect = sequelize.getDialect();
+  if (dialect === 'sqlite') {
+    // SQLite non supporta ALTER COLUMN. Le tabelle test girano già sul
+    // modello aggiornato; nessuna azione necessaria.
+    return false;
+  }
+  try {
+    const [rows] = await sequelize.query(
+      `SELECT is_nullable FROM information_schema.columns
+       WHERE table_name = 'rooms' AND column_name = 'requireCheckIn'`,
+    );
+    if (!rows.length || rows[0].is_nullable !== 'NO') return false;
+    await sequelize.query('ALTER TABLE rooms ALTER COLUMN "requireCheckIn" DROP NOT NULL');
+    await sequelize.query('ALTER TABLE rooms ALTER COLUMN "requireCheckIn" DROP DEFAULT');
+    return true;
+  } catch (err) {
+    logger.warn(`  ⚠ Impossibile rilassare rooms.requireCheckIn a NULLABLE: ${err.message}`);
+    return false;
+  }
+}
+
 async function ensureBooleanColumn(table, name, defaultValue = true) {
   const qi = sequelize.getQueryInterface();
   let desc;
@@ -400,13 +428,18 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna bookings.autoCancelledAt aggiunta');
   }
 
-  // Toggle check-in QR per aula. Nota: dalla migration
-  // 20260514083454-building-checkin-default la colonna è nullable e default
-  // null (eredita Building.checkInDefault). Il preSync è solo per DB che non
-  // hanno mai avuto la colonna: la migration stessa effettua il relax di
-  // allowNull/default e il reset dei valori esistenti.
+  // Toggle check-in QR per aula. Dalla migration
+  // 20260514083454-building-checkin-default la colonna è nullable
+  // (null = eredita Building.checkInDefault).
   if (await ensureBooleanColumn('rooms', 'requireCheckIn', true)) {
     logger.info('  ✓ Colonna rooms.requireCheckIn aggiunta (default = true)');
+  }
+  // Difesa: se la colonna esiste ma è ancora NOT NULL (DB non migrato),
+  // rilassa il vincolo qui al boot così non blocchiamo INSERT con null.
+  // Errore tipico segnalato dagli admin: 'null value in column "requireCheckIn"
+  // violates not-null constraint' su DB che non hanno eseguito db:cli:migrate.
+  if (await relaxRoomsRequireCheckInNullable()) {
+    logger.info('  ✓ Colonna rooms.requireCheckIn rilassata a NULLABLE (preSync)');
   }
   // Default check-in per edificio (impostazione generale).
   if (await ensureBooleanColumn('buildings', 'checkInDefault', false)) {
