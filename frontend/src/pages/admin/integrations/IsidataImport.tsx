@@ -194,7 +194,7 @@ export function IsidataImportContent() {
         // headers, lo usiamo; altrimenti fallback sull'effective.
         const merged: EffectiveMapping = { ...eff };
         for (const k of TARGET_FIELDS) {
-          if (saved[k] !== undefined) merged[k] = saved[k];
+          if (k in saved) merged[k] = saved[k];
         }
         setCurrentMapping(merged);
       } else {
@@ -354,11 +354,9 @@ export function IsidataImportContent() {
             applying={applyMutation.isPending}
             // Blocca l'applicazione se neanche un campo "obbligatorio" è
             // mappato (matricola/email): replica defensive del check backend.
-            mappingValid={
-              REQUIRED_FIELDS.some(
-                (f) => !!(currentMapping ?? preview.effectiveMapping ?? {})[f],
-              )
-            }
+            mappingValid={REQUIRED_FIELDS.some(
+              (f) => !!(currentMapping?.[f] ?? preview.effectiveMapping?.[f]),
+            )}
           />
         </>
       )}
@@ -374,10 +372,7 @@ export function IsidataImportContent() {
         </Card>
       )}
 
-      <CompareRunDialog
-        runId={compareRunId}
-        onClose={() => setCompareRunId(null)}
-      />
+      <CompareRunDialog runId={compareRunId} onClose={() => setCompareRunId(null)} />
 
       <Card>
         <CardHeader>
@@ -955,7 +950,7 @@ function MappingCard({
 }) {
   const { t } = useTranslation();
   const auto = preview.autoDetected ?? emptyMapping();
-  const headers = preview.detectedHeaders ?? preview.headers ?? [];
+  const headers = preview.detectedHeaders ?? preview.headers;
 
   const setField = (target: TargetField, header: string | null) => {
     onChange({ ...currentMapping, [target]: header });
@@ -1040,12 +1035,7 @@ function MappingCard({
           </table>
         </div>
         <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onResetAuto}
-            data-testid="mapping-reset-auto"
-          >
+          <Button variant="ghost" size="sm" onClick={onResetAuto} data-testid="mapping-reset-auto">
             <RotateCcw className="h-4 w-4" /> {t('integrations.isidata.mapping_reset_auto')}
           </Button>
           <Button
@@ -1104,18 +1094,15 @@ function MappingStatusBadge({ status }: { status: MappingRowStatus }) {
 // CompareRunDialog (Miglioria 2): apre un dialog con il diff di
 // "ultimi 2 run". Carica via API on-demand (mount con runId valorizzato).
 // =====================================================
-function CompareRunDialog({
-  runId,
-  onClose,
-}: {
-  runId: number | null;
-  onClose: () => void;
-}) {
+function CompareRunDialog({ runId, onClose }: { runId: number | null; onClose: () => void }) {
   const { t } = useTranslation();
   const open = runId !== null;
   const query = useQuery({
     queryKey: ['admin', 'integrations', 'compare', runId],
-    queryFn: () => integrationsApi.comparePrevious(runId!),
+    queryFn: () => {
+      if (runId === null) throw new Error('runId required');
+      return integrationsApi.comparePrevious(runId);
+    },
     enabled: open,
     // Niente refetch automatico: il run è immutabile, la comparison anche.
     staleTime: Infinity,
@@ -1135,9 +1122,7 @@ function CompareRunDialog({
             <GitCompare className="h-5 w-5" />
             {t('integrations.isidata.compare_title')}
           </DialogTitle>
-          <DialogDescription>
-            {t('integrations.isidata.compare_subtitle')}
-          </DialogDescription>
+          <DialogDescription>{t('integrations.isidata.compare_subtitle')}</DialogDescription>
         </DialogHeader>
         {query.isLoading ? (
           <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
@@ -1178,8 +1163,14 @@ function CompareRunBody({ data }: { data: CompareRunsResponse }) {
         data-testid="compare-delta"
         className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/20 p-3"
       >
-        <DeltaTile label={t('integrations.isidata.compare_delta_create')} value={changes.delta.create} />
-        <DeltaTile label={t('integrations.isidata.compare_delta_update')} value={changes.delta.update} />
+        <DeltaTile
+          label={t('integrations.isidata.compare_delta_create')}
+          value={changes.delta.create}
+        />
+        <DeltaTile
+          label={t('integrations.isidata.compare_delta_update')}
+          value={changes.delta.update}
+        />
         <DeltaTile
           label={t('integrations.isidata.compare_delta_deactivate')}
           value={changes.delta.deactivate}
@@ -1228,8 +1219,8 @@ function DeltaTile({ label, value }: { label: string; value: number }) {
     value > 0
       ? 'text-emerald-700 dark:text-emerald-300'
       : value < 0
-      ? 'text-rose-700 dark:text-rose-300'
-      : 'text-muted-foreground';
+        ? 'text-rose-700 dark:text-rose-300'
+        : 'text-muted-foreground';
   return (
     <div className="rounded-md bg-card p-2 text-center">
       <p className={cn('font-display text-xl font-medium', tone)}>
@@ -1260,12 +1251,9 @@ function MatricolaList({
     rose: 'border-rose-300/60',
     amber: 'border-amber-300/60',
     violet: 'border-violet-300/60',
-  } as Record<typeof accent, string>;
+  };
   return (
-    <section
-      className={cn('rounded-lg border p-3 text-sm', accents[accent])}
-      data-testid={testId}
-    >
+    <section className={cn('rounded-lg border p-3 text-sm', accents[accent])} data-testid={testId}>
       <button
         type="button"
         className="flex w-full items-center justify-between font-medium"
