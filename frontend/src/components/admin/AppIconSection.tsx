@@ -11,7 +11,7 @@ import { useAppIcon } from '@/hooks/useAppIcon';
 import { cn } from '@/lib/utils';
 import { httpErrorMessage } from '@/lib/api';
 
-const DEFAULT_ICON = '/cadenza.png';
+const DEFAULT_ICON = '/logo3.png';
 
 /**
  * Sezione del profilo riservata agli admin: permette di scegliere l'icona

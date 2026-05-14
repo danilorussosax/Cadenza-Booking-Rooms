@@ -27,12 +27,13 @@ const LOGO_APP_DIR = path.resolve(__dirname, '..', '..', 'frontend', 'public', '
 
 const ALLOWED_EXT = new Set(['.png', '.svg', '.webp', '.jpg', '.jpeg']);
 
-// File presenti nel filesystem ma esclusi dalla lista visibile in
-// "Impostazioni server → Aspetto". Restano serviti dallo static mount
-// (`cadenza.png` è ancora il fallback finale referenziato da
-// useAppIcon.ts, Display.tsx, AppIconSection.tsx) ma non vanno mostrati
-// come scelta nella griglia di selezione.
-const EXCLUDED_NAMES = new Set(['cadenza.png', 'cadenza-bars.svg', 'cadenza-classic.png']);
+// File esclusi dalla lista visibile in "Impostazioni server → Aspetto".
+// `logo3.png` è il brand mark canonico dell'app (vive in /public, non in
+// /public/logo-app/) e fa da fallback finale referenziato da useAppIcon.ts,
+// Display.tsx, AppIconSection.tsx. Il blocco qui è una guard difensiva: se
+// per errore una copia finisse in /logo-app/, non deve apparire come
+// "scelta alternativa" perché è già il default applicato implicitamente.
+const EXCLUDED_NAMES = new Set(['logo3.png']);
 
 function listIcons() {
   let names;
@@ -57,7 +58,7 @@ function listIcons() {
     }
     if (!stat.isFile()) continue; // skip sottocartelle
     items.push({
-      name, // es. "cadenza.png"
+      name, // es. "nuovo-logo.png"
       url: `/logo-app/${name}`, // path servito dallo static
       size: stat.size,
       mtime: new Date(stat.mtimeMs).toISOString(),

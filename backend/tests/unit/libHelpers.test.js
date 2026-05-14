@@ -89,11 +89,9 @@ describe('routes/appIcons · GET /api/app-icons', () => {
     }
   });
 
-  it('esclude i file blacklist (cadenza.png, cadenza-bars.svg, cadenza-classic.png) se presenti', async () => {
+  it('esclude logo3.png (brand mark canonico) dal listing se per errore finisce in /logo-app/', async () => {
     const res = await request(app).get('/api/app-icons');
     const names = res.body.icons.map((i) => i.name);
-    expect(names).not.toContain('cadenza.png');
-    expect(names).not.toContain('cadenza-bars.svg');
-    expect(names).not.toContain('cadenza-classic.png');
+    expect(names).not.toContain('logo3.png');
   });
 });

@@ -551,7 +551,7 @@ async function runPreSyncMigrations() {
   }
 
   // App icon scelta dall'admin: TEXT nullable. Idempotente. Default NULL =
-  // l'app ricade su `/cadenza.png` (il brand mark di default).
+  // l'app ricade su `/logo3.png` (il brand mark di default).
   {
     const qi = sequelize.getQueryInterface();
     let desc;

@@ -12,7 +12,7 @@ import { institutesApi } from '@/api/institutes';
  * propaga automaticamente: la scelta dell'admin diventa visibile a chiunque
  * apra/ricarichi l'app, login compreso.
  *
- * Default (`appIconUrl = NULL` o errore di rete): `/cadenza.png`.
+ * Default (`appIconUrl = NULL` o errore di rete): `/logo3.png`.
  *
  * Side-effect: come parte della stessa risoluzione, aggiorna anche
  * `<link rel="icon">` e `<link rel="apple-touch-icon">` nel <head> in
@@ -27,7 +27,7 @@ import { institutesApi } from '@/api/institutes';
  * out of scope qui.
  */
 
-const DEFAULT_ICON = '/cadenza.png';
+const DEFAULT_ICON = '/logo3.png';
 
 export function useAppIcon(): string {
   const { data } = useQuery({

@@ -109,7 +109,7 @@ export interface Institute extends InstituteLegalFields {
   timezone?: string;
   description?: string | null;
   logoUrl?: string | null;
-  /** Icona app scelta dall'admin (file in /logo-app/). NULL = default `/cadenza.png`. */
+  /** Icona app scelta dall'admin (file in /logo-app/). NULL = default `/logo3.png`. */
   appIconUrl?: string | null;
   copyright?: string | null;
 }

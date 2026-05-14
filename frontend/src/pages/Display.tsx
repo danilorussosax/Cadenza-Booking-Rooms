@@ -191,7 +191,7 @@ export default function Display() {
     refetchInterval: 2 * 60 * 1000,
   });
   // Icona app dell'istituto (configurata da admin) come fallback al logo
-  // dell'edificio. Cade su `/cadenza.png` solo in ultima istanza, in modo
+  // dell'edificio. Cade su `/logo3.png` solo in ultima istanza, in modo
   // coerente con AppLayout/AuthLayout. Risolve: "rimuovo il logo istituto
   // → display mostra l'icona Cadenza generica anziché la mia icona app".
   const appIcon = useAppIcon();
@@ -447,13 +447,13 @@ export default function Display() {
               className="h-7 w-7 object-contain 2xl:h-9 2xl:w-9"
               onError={(e) => {
                 // logoUrl rotto/404: cade sull'icona app dell'istituto.
-                // Se anche quella fallisce, l'asset statico /cadenza.png è
+                // Se anche quella fallisce, l'asset statico /logo3.png è
                 // sempre presente in /public. Evita la broken-image al kiosk.
                 const target = e.currentTarget;
                 if (target.src !== window.location.origin + appIcon) {
                   target.src = appIcon;
-                } else if (!target.src.endsWith('/cadenza.png')) {
-                  target.src = '/cadenza.png';
+                } else if (!target.src.endsWith('/logo3.png')) {
+                  target.src = '/logo3.png';
                 }
               }}
             />

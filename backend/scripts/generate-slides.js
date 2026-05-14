@@ -44,11 +44,12 @@ const path = require('path');
 const W = 1280;
 const H = 720;
 
-// Logo ufficiale dell'app — PNG 512×512 con sfondo navy + nota musicale
-// + calendario "AULE" + pianoforte. Esiste in `frontend/public/icon-512.png`
-// (è anche il favicon/PWA icon del software). Caricato una sola volta in
-// memoria e riutilizzato da `logoMark()` in cover, closing, footer e mockup.
-const LOGO_PATH = path.join(__dirname, '..', '..', 'frontend', 'public', 'icon-512.png');
+// Logo ufficiale dell'app — PNG 2048×2048 (metronomo + cattedra + wordmark
+// "Cadenza" su sfondo off-white). Vive in `frontend/public/logo3.png` ed è
+// l'unico brand mark canonico: `icon-192.png`, `icon-512.png` e i maskable
+// derivano tutti da qui. Caricato una sola volta in memoria e riutilizzato
+// da `logoMark()` in cover, closing, footer e mockup.
+const LOGO_PATH = path.join(__dirname, '..', '..', 'frontend', 'public', 'logo3.png');
 const LOGO_AVAILABLE = fs.existsSync(LOGO_PATH);
 
 // Palette esattamente allineata ai token Tailwind della web app
@@ -183,10 +184,11 @@ function pill(
 }
 
 function logoMark(doc, cx, cy, size = 56, _color = null) {
-  // Embed del logo ufficiale Cadenza (icon-512.png — il favicon/PWA icon
-  // del software). Il parametro `color` è ignorato perché il logo PNG ha la
-  // sua identità cromatica fissa (navy + oro + nota musicale crema). Se il
-  // file non è disponibile ricadiamo su un cerchio rose come placeholder.
+  // Embed del logo ufficiale Cadenza (logo3.png — la sorgente da cui
+  // derivano anche i favicon/PWA icon). Il parametro `color` è ignorato
+  // perché il logo PNG ha la sua identità cromatica fissa (metronomo navy
+  // + cattedra blu su sfondo off-white). Se il file non è disponibile
+  // ricadiamo su un cerchio rose come placeholder.
   if (LOGO_AVAILABLE) {
     doc.image(LOGO_PATH, cx - size / 2, cy - size / 2, { width: size, height: size });
     return;

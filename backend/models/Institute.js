@@ -49,7 +49,7 @@ module.exports = (sequelize) => {
       // Icona "app" (brand mark) usata su login, sidebar, schermi di benvenuto.
       // Distinto dal logoUrl: quello è il logo dell'istituto (nel topbar);
       // questo è la marca visiva di Cadenza scelta tra le icone disponibili
-      // in `frontend/public/logo-app/`. NULL = default (`/cadenza.png`).
+      // in `frontend/public/logo-app/`. NULL = default (`/logo3.png`).
       // Solo gli admin possono modificarla (whitelist INSTITUTE_FIELDS).
       appIconUrl: {
         type: DataTypes.TEXT,
