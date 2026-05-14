@@ -31,8 +31,19 @@
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const { Op } = require('sequelize');
 const { Booking, User, Room, Building, MonteOreSlot } = require('../models');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// TZ istituzionale: le finestre orarie delle exception sono espresse in
+// ora locale italiana, non UTC. Senza conversione, su un VPS con TZ=UTC
+// `dayjs(b.startTime).hour()` ritorna l'ora UTC e la finestra 14-17
+// confronta valori sbagliati. Allineato a bookingValidator.DEFAULT_TZ.
+const DEFAULT_TZ = 'Europe/Rome';
 
 function parseHHmm(s) {
   const [h, m] = s.split(':').map(Number);
@@ -107,12 +118,15 @@ async function findOverlappingBookings(excDef, { onlyFuture = true } = {}) {
   const winEnd = excDef.endTime ? parseHHmm(excDef.endTime) : null;
 
   return bookings.filter((b) => {
-    const start = dayjs(b.startTime);
-    const end = dayjs(b.endTime);
-    if (dowSet && !dowSet.has(start.day())) return false;
+    // Lettura day-of-week / ora locale in TZ istituzionale: l'eccezione è
+    // espressa in Europe/Rome, il filtro deve allinearsi indipendentemente
+    // dal TZ del processo Node (locale Mac vs CI/VPS UTC).
+    const startLocal = dayjs(b.startTime).tz(DEFAULT_TZ);
+    const endLocal = dayjs(b.endTime).tz(DEFAULT_TZ);
+    if (dowSet && !dowSet.has(startLocal.day())) return false;
     if (winStart != null && winEnd != null) {
-      const sM = start.hour() * 60 + start.minute();
-      const eM = end.hour() * 60 + end.minute();
+      const sM = startLocal.hour() * 60 + startLocal.minute();
+      const eM = endLocal.hour() * 60 + endLocal.minute();
       if (!(sM < winEnd && eM > winStart)) return false;
     }
     return true;

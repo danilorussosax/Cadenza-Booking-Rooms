@@ -9,9 +9,23 @@
  *   - co-esista con eccezioni globali (roomId=null) senza interferenze.
  *
  * Verifica anche che findOverlappingBookings rispetti il filtro per aula.
+ *
+ * NOTA TZ: le finestre orarie nelle eccezioni sono interpretate in
+ * Europe/Rome (vedi services/bookingValidator.js DEFAULT_TZ). Le date
+ * di test vanno quindi costruite forzando il fuso istituzionale,
+ * altrimenti su CI con TZ=UTC `dayjs().hour(14)` produce 14:00 UTC
+ * = 16:00 CEST → finestra 14:00-16:00 esclusa e il test fallisce
+ * con un off-by-2h.
  */
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TZ = 'Europe/Rome';
+
 const { BookingRuleException } = require('../../models');
 const { validateBooking } = require('../../services/bookingValidator');
 const { findOverlappingBookings } = require('../../services/exceptionOverlapService');
@@ -47,10 +61,12 @@ describe('BookingRuleException — scope per aula', () => {
       roomId: targetRoom.id,
     });
 
-    // Lunedì future a un orario che cade nella finestra (14:30-15:30)
-    const nextMonday = dayjs().add(1, 'week').day(1).hour(14).minute(30).second(0).millisecond(0);
-    const start = nextMonday.toDate();
-    const end = nextMonday.add(1, 'hour').toDate();
+    // Lunedì future a un orario che cade nella finestra (14:30-15:30).
+    // Date costruite in Europe/Rome esplicito: l'eccezione è in ora locale
+    // istituzionale, e su CI con TZ=UTC `dayjs().hour(14)` produrrebbe 14 UTC.
+    const nextMondayDate = dayjs().tz(TZ).add(1, 'week').day(1).format('YYYY-MM-DD');
+    const start = dayjs.tz(`${nextMondayDate} 14:30`, TZ).toDate();
+    const end = dayjs.tz(`${nextMondayDate} 15:30`, TZ).toDate();
 
     // Sull'aula target: BLOCCATA
     const onTarget = await validateBooking({
@@ -104,14 +120,17 @@ describe('BookingRuleException — scope per aula', () => {
       roomId: roomA.id,
     });
 
-    const tue = dayjs().add(1, 'week').day(2);
+    // Stesso pattern: date forzate in Europe/Rome così la finestra
+    // dell'eccezione (13-14, 10-11 locale) viene correttamente colpita
+    // anche con TZ=UTC nel processo Node.
+    const nextTueDate = dayjs().tz(TZ).add(1, 'week').day(2).format('YYYY-MM-DD');
     const slot1310 = {
-      startTime: tue.hour(13).minute(15).second(0).millisecond(0).toDate(),
-      endTime: tue.hour(13).minute(45).second(0).millisecond(0).toDate(),
+      startTime: dayjs.tz(`${nextTueDate} 13:15`, TZ).toDate(),
+      endTime: dayjs.tz(`${nextTueDate} 13:45`, TZ).toDate(),
     };
     const slot1015 = {
-      startTime: tue.hour(10).minute(15).second(0).millisecond(0).toDate(),
-      endTime: tue.hour(10).minute(45).second(0).millisecond(0).toDate(),
+      startTime: dayjs.tz(`${nextTueDate} 10:15`, TZ).toDate(),
+      endTime: dayjs.tz(`${nextTueDate} 10:45`, TZ).toDate(),
     };
 
     // Slot 13:15-13:45 → bloccato OVUNQUE per "Pausa sede" globale
@@ -144,20 +163,23 @@ describe('BookingRuleException — scope per aula', () => {
       matricola: 'B002',
     });
 
-    const nextWed = dayjs().add(1, 'week').day(3).hour(15).minute(0).second(0).millisecond(0);
+    // Mercoledì future, 15:00-16:00 Europe/Rome (rientra nella finestra
+    // 14-17 dell'eccezione che cercheremo).
+    const nextWedDate = dayjs().tz(TZ).add(1, 'week').day(3).format('YYYY-MM-DD');
+    const wedStart = dayjs.tz(`${nextWedDate} 15:00`, TZ);
 
     // Booking su entrambe le aule, stesso orario
     await createBooking({
       user: studentA,
       room: targetRoom,
-      startTime: nextWed.toDate(),
-      endTime: nextWed.add(1, 'hour').toDate(),
+      startTime: wedStart.toDate(),
+      endTime: wedStart.add(1, 'hour').toDate(),
     });
     await createBooking({
       user: studentB,
       room: otherRoom,
-      startTime: nextWed.toDate(),
-      endTime: nextWed.add(1, 'hour').toDate(),
+      startTime: wedStart.toDate(),
+      endTime: wedStart.add(1, 'hour').toDate(),
     });
 
     const dateFrom = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
