@@ -21,6 +21,14 @@ Novità v1.6:
 - §6.2bis aggiornato con screenshot della tab "Quote prestiti".
 - §3.6 aggiornato con screenshot dei Provider OAuth.
 
+Aggiornamenti v1.6.1 (14 maggio 2026):
+
+- ⭐ **§12.6 — Check-in per edificio**: nuova card in Server Settings → QR Codes con toggle on/off **per edificio** e cascata sulle aule. Stato della singola aula a 3 valori (Eredita / Forza ON / Forza OFF). Tutti i punti del backend (ghost-cancel, email di richiamo, badge "check-in mancato") seguono la cascata. Aggiornata anche la riga "Richiedi check-in (QR)" in §5.4.
+- ⭐ **§8.2ter — Gestione AA**: selettore AA nel pannello Monte Ore, dialog "Crea nuovo anno accademico" (`default` o `from_previous`), bootstrap automatico al boot delle 6 festività deterministiche (Immacolata, Natale, Pasqua via Computus, 25 apr, 1 mag, 2 giu) per AA corrente e prossimo.
+- ⭐ **§8.2quater — Override AA attivo per docenti**: bottone "Attiva per docenti" / "Disattiva per docenti" accanto al selettore AA. Massimo 1 AA attivo per istituto (UNIQUE INDEX parziale). Banner docente "attivato dall'amministrazione".
+- ⭐ **§8.4 + §8.4bis — Sospensioni & Sessioni esame**: nuova icona ✎ Modifica inline su ogni riga (PATCH endpoint). Campo `category` (holiday/exam_session/custom). Sessioni d'esame gestite da card separata. UNIQUE INDEX a DB su `(instituteId, academicYear, LOWER(TRIM(name)), dateFrom, dateTo)` + risposta 409 al duplicato.
+- ⭐ **§8.5quater — Import Excel monte ore**: nuovo bottone "Importa Excel" con lookup docente per email. Crea la proposta in stato `submitted` con `source = 'admin_import'`. Template Excel pre-popolato (5 fogli) con sospensioni in rosso unico (anche Pasqua a cavallo, cella per cella).
+
 Modifiche da v1.4 → v1.5 (per chi salta versioni):
 
 - Linguaggio più semplice; rimossi gli accenni tecnici ad API e codici d'errore.
@@ -323,20 +331,20 @@ Nome, Codice, Indirizzo, Piani (lista separata da virgole, es. `Piano Terra, 1º
 
 ### 5.4 Form Aula
 
-| Campo                  | Descrizione                                                                                                                                                                                                                                                                                                                                                                |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nome                   | Es. `Aula 12`                                                                                                                                                                                                                                                                                                                                                              |
-| Codice                 | Es. `A.101` (facoltativo)                                                                                                                                                                                                                                                                                                                                                  |
-| Piano                  | Da scegliere fra i piani definiti per l'edificio                                                                                                                                                                                                                                                                                                                           |
-| Capienza               | Numero di persone                                                                                                                                                                                                                                                                                                                                                          |
-| Tipologia              | `studio`, `aula`, `concerto`, `ufficio`                                                                                                                                                                                                                                                                                                                                    |
-| Ruoli ammessi          | Quali ruoli possono prenotarla                                                                                                                                                                                                                                                                                                                                             |
-| Corsi autorizzati      | Se vuoi limitare l'accesso a specifici corsi (vuoto = tutti)                                                                                                                                                                                                                                                                                                               |
-| Foto aula              | Immagine 16:9 (facoltativa)                                                                                                                                                                                                                                                                                                                                                |
-| Aula prenotabile       | Disattiva temporaneamente l'aula da tutto il sistema                                                                                                                                                                                                                                                                                                                       |
-| Richiedi check-in (QR) | Se attivo, l'utente deve scansionare un QR per "presentarsi" (anti-ghost). Se **disattivato**: niente auto-cancellazione dopo i 15 min di tolleranza, niente email "Prenotazione annullata: nessun check-in", niente badge "Senza check-in" su MyBookings, il bottone "Stampa QR aula" sparisce e la pagina `/check-in/room/:id` mostra il banner "Check-in non richiesto" |
-| Richiede approvazione  | Per le sale concerti / auditorium: ogni prenotazione passa per §7.1                                                                                                                                                                                                                                                                                                        |
-| QR check-in (PDF)      | Bottone per scaricare il foglio A4 da affiggere in aula                                                                                                                                                                                                                                                                                                                    |
+| Campo                  | Descrizione                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nome                   | Es. `Aula 12`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Codice                 | Es. `A.101` (facoltativo)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Piano                  | Da scegliere fra i piani definiti per l'edificio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Capienza               | Numero di persone                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Tipologia              | `studio`, `aula`, `concerto`, `ufficio`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Ruoli ammessi          | Quali ruoli possono prenotarla                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Corsi autorizzati      | Se vuoi limitare l'accesso a specifici corsi (vuoto = tutti)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Foto aula              | Immagine 16:9 (facoltativa)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Aula prenotabile       | Disattiva temporaneamente l'aula da tutto il sistema                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Richiedi check-in (QR) | Campo a **3 stati** (Select): **Eredita dall'edificio** (default), **Forza ON**, **Forza OFF**. La label ricorda il default dell'edificio fra parentesi. La cascata building → room è valutata centralmente (vedi §12.6 → "Check-in per edificio"). Quando il valore effettivo è OFF: niente auto-cancellazione dopo i 15 min di tolleranza, niente email "Prenotazione annullata: nessun check-in", niente badge "Senza check-in" su MyBookings, il bottone "Stampa QR aula" sparisce e la pagina `/check-in/room/:id` mostra il banner "Check-in non richiesto" |
+| Richiede approvazione  | Per le sale concerti / auditorium: ogni prenotazione passa per §7.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| QR check-in (PDF)      | Bottone per scaricare il foglio A4 da affiggere in aula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### 5.5 Form Dotazione (Equipment)
 
@@ -864,6 +872,68 @@ Il Monte Ore copre un intero anno accademico e attraversa **5 fasi**. Sapere in 
 
 > **Differenza tra "approvata" e "generata"**: il primo è la **firma contrattuale** ("ok, il piano è valido"), il secondo è la **materializzazione operativa** ("ho creato 800 prenotazioni nel calendario"). Le tieni separate per poter approvare in batch e poi generare quando il calendario è davvero pronto.
 
+### 8.2ter ⭐ Gestione anno accademico (AA)
+
+> Novità di maggio 2026. Cadenza supporta nativamente **più anni accademici in parallelo**: AA in corso, AA prossimo (per la finestra di inserimento di settembre/ottobre), eventuali AA passati per consultazione/audit.
+
+<!-- TODO screenshot: selettore AA nel pannello Monte Ore con i 3 badge contestuali (corrente, prossimo, attivato per docenti) -->
+
+In testa al pannello `/admin/monte-ore` c'è un **selettore AA** (componente `AcademicYearSelector`): mostra l'elenco degli AA presenti per l'istituto, con **badge contestuali** ("corrente", "prossimo", "attivato per docenti"). La scelta è ricordata in `localStorage`, così la prossima volta riapri la pagina sull'AA che stavi lavorando.
+
+#### Bootstrap automatico delle festività
+
+Al boot del server (`server.js` → `ensureBootstrapForActiveYears()`), **per ogni istituto** Cadenza:
+
+1. Garantisce che esistano i `monte_ore_settings` per l'AA corrente e per quello successivo.
+2. Garantisce che esistano le **6 festività deterministiche** elencate sotto.
+
+L'operazione è **idempotente**: ri-eseguibile ad ogni boot senza duplicare nulla (errori isolati per non bloccare lo startup).
+
+Le 6 festività deterministiche pre-popolate per ogni AA:
+
+| Nome                    | Data / range                        | Calcolo                               |
+| ----------------------- | ----------------------------------- | ------------------------------------- |
+| Immacolata              | 8 dicembre                          | fissa                                 |
+| Vacanze di Natale       | 24 dicembre → 6 gennaio             | fissa (full_week)                     |
+| Vacanze di Pasqua       | Venerdì Santo → Martedì dell'Angelo | Computus di Gauss (`computeEaster()`) |
+| Festa della Liberazione | 25 aprile                           | fissa                                 |
+| Festa dei Lavoratori    | 1 maggio                            | fissa                                 |
+| Festa della Repubblica  | 2 giugno                            | fissa                                 |
+
+Tutte queste righe sono comunque **modificabili e cancellabili** dall'editor Sospensioni come una qualsiasi altra (vedi §8.4): se la tua sede chiude in date diverse, le cambi qui senza dover toccare codice.
+
+> **Festività rimosse vs prima del rollout**: Tutti i Santi (1 nov) e Ferragosto (15 ago) non sono più nel set automatico — fuori dal periodo di lezione, l'admin le aggiunge manualmente solo se servono.
+
+#### Creazione di un nuovo AA
+
+Bottone **"Nuovo anno accademico"** accanto al selettore → apre il dialog `NewAcademicYearDialog`:
+
+| Campo                           | Note                                                                                                                               |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **AA target** (es. `2027/2028`) | Formato validato lato client (`YYYY/YYYY`, secondo anno = primo + 1)                                                               |
+| **Modalità**                    | `default` (festività deterministiche) · `from_previous` (clona AA precedente + shift di 365 giorni su date settings + sospensioni) |
+
+Il dialog mostra una **preview** delle date e delle festività che verranno create prima del conferma. La creazione passa per `POST /api/admin/monte-ore/academic-years`, in transazione.
+
+### 8.2quater ⭐ Override AA attivo per docenti
+
+> Quando i docenti aprono `/monte-ore`, normalmente Cadenza decide da sola quale AA mostrare (AA in corso, oppure prossimo se la finestra di submission è aperta — tipicamente 15 set → 15 ott). Da maggio 2026 l'admin può **forzare esplicitamente** quale AA i docenti vedono, sovrascrivendo questa logica.
+
+Accanto al selettore AA c'è un bottone toggle:
+
+- **"Attiva per docenti"** quando l'AA selezionato non è ancora quello attivo → al click, l'AA diventa l'unico visibile ai docenti.
+- **"Disattiva per docenti"** quando lo era già → rimuove l'override, si torna alla logica automatica della finestra di submission.
+
+Sull'AA attivo per docenti compare un badge **"attivato per docenti"** nel selettore.
+
+**Garanzie**:
+
+- Al massimo **1 AA attivo per istituto** (UNIQUE INDEX parziale a livello DB su `monte_ore_settings.isActiveForTeachers`).
+- L'attivazione è **atomica in transazione**: disattiva tutti gli altri AA dell'istituto, attiva quello indicato (`POST /api/admin/monte-ore/academic-years/:aa/activate-for-teachers`).
+- Quando l'override è attivo, il docente vede in cima alla pagina un banner: _"Stai compilando il monte ore per AA X/X+1 (attivato dall'amministrazione)"_.
+
+> **Quando usarlo**: a inizio settembre vuoi che i docenti compilino subito il 2027/2028 anche se la finestra di submission ufficiale non è ancora aperta. Oppure a fine giugno vuoi che ri-vedano il 2025/2026 in corso per chiudere le ultime variazioni, mentre tu intanto prepari il prossimo. Senza override, la priorità automatica è: AA con finestra di submission aperta > AA in corso.
+
 ### 8.3 Configurazione settings (admin · una volta all'anno)
 
 URL diretto: `/admin/monte-ore/settings`.
@@ -887,23 +957,55 @@ URL diretto: `/admin/monte-ore/settings`.
 
 In coda alla pagina Settings c'è una tabella con tutte le sospensioni dell'anno accademico:
 
-| Colonna  | Contenuto                            |
-| -------- | ------------------------------------ |
-| Nome     | Es. "Vacanze di Natale"              |
-| Dal · Al | Range date                           |
-| Tipo     | "Settimana intera" oppure "Parziale" |
-| Azioni   | 🗑 Elimina (con conferma)            |
+| Colonna   | Contenuto                                                                        |
+| --------- | -------------------------------------------------------------------------------- |
+| Nome      | Es. "Vacanze di Natale"                                                          |
+| Dal · Al  | Range date                                                                       |
+| Tipo      | "Settimana intera" oppure "Parziale"                                             |
+| Categoria | `holiday` (festività deterministica) · `exam_session` · `custom` (creata a mano) |
+| Azioni    | ✎ Modifica · 🗑 Elimina (con conferma)                                           |
 
-Form sospensione (inline): nome, data inizio/fine, tipo, e un interruttore **"Applica alle prenotazioni"** che, se attivo, crea automaticamente un'eccezione `block` nella sezione Regole.
+Da maggio 2026 le sospensioni hanno un campo **`category`** che le distingue per natura:
 
-Sospensioni tipiche da inserire all'inizio dell'anno:
+- **`holiday`** — righe deterministiche create dal bootstrap automatico (vedi §8.2ter). Modificabili come tutte le altre.
+- **`exam_session`** — sessioni d'esame, gestite da una card separata (§8.4bis).
+- **`custom`** — tutto il resto (ponti, ferie istituzionali, saggi straordinari, ecc.) inserito a mano.
 
-- Festività nazionali (1 nov, 8 dic, 25 dic, 1 gen, 6 gen, Pasqua e lunedì dell'angelo, 25 apr, 1 mag, 2 giu, 15 ago)
+Form sospensione (inline): nome, data inizio/fine, tipo, categoria, e un interruttore **"Applica alle prenotazioni"** che, se attivo, crea automaticamente un'eccezione `block` nella sezione Regole.
+
+#### Modifica inline (✎)
+
+Da maggio 2026 ogni riga della tabella ha l'**icona matita** accanto al cestino: apre lo stesso form usato per la creazione, prepopolato con i valori esistenti, e chiama `PATCH /api/admin/monte-ore/suspensions/:id`. È il modo veloce per correggere un range date sbagliato o rinominare una festività senza eliminare e ricreare.
+
+> **Limite noto in edit**: il flag "Applica anche alle prenotazioni regolari" è visibile **solo in modalità creazione**. Aggiornare la `BookingRuleException` linkata richiederebbe un delete+recreate atomico; nel frattempo, se devi cambiare quel flag su una sospensione esistente, eliminala e ricreala (due click).
+
+#### Anti-duplicato
+
+POST `/api/admin/monte-ore/suspensions` e `/exam-sessions` controllano l'esistenza di una riga equivalente prima di crearne una nuova. Doppio click sull'UI o retry HTTP non producono più N copie: il backend risponde **`409 DUPLICATE`** restituendo nel body la riga esistente.
+
+A livello DB c'è anche una **UNIQUE INDEX** su `(instituteId, academicYear, LOWER(TRIM(name)), dateFrom, dateTo)` — safety net per qualsiasi futura via di scrittura (script, import, integrazioni). Una migration di cleanup ha rimosso eventuali duplicati pregressi tenendo la riga con id più basso (così da preservare le `bookingRuleExceptionId` linkate alle righe più vecchie).
+
+Sospensioni tipiche da inserire/verificare all'inizio dell'anno (le prime 6 le crea già il bootstrap automatico):
+
+- Festività nazionali (1 nov, 8 dic, 25 dic, 1 gen, 6 gen, Pasqua e lunedì dell'Angelo, 25 apr, 1 mag, 2 giu, 15 ago)
 - Ferie istituzionali (es. 24 dic – 6 gen, 1–7 settembre)
-- Sessioni esami (es. 10–25 gen, 10–25 giu)
+- Sessioni esami (es. 10–25 gen, 10–25 giu) — preferibile gestirle dalla card dedicata in §8.4bis
 - Eventi straordinari (es. saggi pubblici dell'istituto)
 
 Quando applichi alle prenotazioni esistenti, Cadenza marca gli slot Monte Ore futuri come "sospesi", crea un amendment automatico per ogni proposta toccata e notifica i docenti via email.
+
+### 8.4bis ⭐ Card "Sessioni d'esame"
+
+<!-- TODO screenshot: card sessioni esame con tabella e dialog add/edit -->
+
+Le sessioni d'esame sono semanticamente diverse dalle festività, ma usano la stessa tabella `monte_ore_suspensions` con `category = 'exam_session'`. Per chiarezza, in `/admin/monte-ore/settings` hanno una **card dedicata** (`ExamSessionsEditor`): stesso form add/edit di una sospensione qualsiasi, ma filtrata per categoria, con badge "Sessione esami" sulle righe.
+
+Sono utili per:
+
+- Far apparire i giorni di esame **in rosso nel template Excel** (label "Esame", cella per cella nelle settimane parzialmente coperte; vedi §8.5quater).
+- Escluderli automaticamente dalla generazione slot Monte Ore.
+
+CRUD via endpoint dedicati `GET/POST/PATCH/DELETE /api/admin/monte-ore/exam-sessions`.
 
 ### 8.5 Tab "Proposte" (vista admin)
 
@@ -1000,6 +1102,81 @@ Effetti del click "Riporta in bozza":
 - "Sopra soglia (340h vs 324). Ottimo, ma riduci le ore o aggiorniamo la deroga: contattaci."
 
 Tutte le richieste di modifica passano per il **registro attività** (chi, quando, cosa). Il docente vede il banner rosso finché non re-invia.
+
+### 8.5quater ⭐ Import Excel monte ore (admin)
+
+> Novità di maggio 2026. Permette all'admin di **caricare una proposta monte ore al posto del docente**, importando il template Excel pre-popolato. Utile quando il docente ha consegnato il piano cartaceo/PDF e tu vuoi inserirlo nel sistema senza creargli un account-fantasma o inviargli lo stesso file da compilare online.
+
+<!-- TODO screenshot: bottone "Importa Excel" + dialog drop-zone con esito (docente, AA, fasce create, warnings) -->
+
+#### Template Excel pre-popolato
+
+Bottone **"Scarica template Excel"** nel pannello (`GET /api/admin/monte-ore/import-template.xlsx?academicYear=YYYY/YYYY`). Genera un file `.xlsx` con 5 fogli:
+
+| Foglio      | Contenuto                                                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Istruzioni  | Legenda colori e regole di compilazione                                                                                                                                                           |
+| Anagrafica  | Campi del docente. **Email è la chiave di lookup** — l'admin la pre-compila o il docente la inserisce                                                                                             |
+| Orario      | Griglia settimana × giorno per tutto l'AA. Sospensioni evidenziate in **rosso** (festività + sessioni d'esame, sia full_week sia singoli giorni). Fuori periodo di lezioni resta in grigio chiaro |
+| Sospensioni | Lista delle righe del foglio Orario marcate in rosso (festività + sessioni d'esame), con date e categoria                                                                                         |
+| Settimane   | Lista calendario settimane lavorative dell'AA (numero settimana, lunedì → sabato)                                                                                                                 |
+
+> **Festività a cavallo di due settimane** (es. Pasqua: Ven Santo → Mar dell'Angelo, 5 giorni a cavallo di Lun-Sab): non riempiono mai una settimana intera in modalità full_week. Il template fa rendering **cella per cella in rosso** con label "Festa" / "Esame" e commento col nome — niente più giorni "persi". Settimane interamente sospese (es. Natale full week) restano renderizzate come riga unica merge con label "SOSPENSIONE: …".
+
+#### Compilazione (lato docente o admin)
+
+Nel foglio **Orario**, ogni cella libera (non rossa) accetta una stringa nel formato:
+
+```
+HH:MM-HH:MM
+```
+
+Per più fasce nello stesso giorno, separale con punto e virgola:
+
+```
+09:00-12:00; 14:00-17:00
+```
+
+Si può indicare un'aula opzionale fra parentesi (verrà letta come `roomHint`, ovvero un suggerimento testuale; **l'aula effettiva la assegna l'admin dopo**):
+
+```
+09:00-12:00 (Aula 12); 14:00-17:00 (Aula 5)
+```
+
+Il parser ignora celle che cadono in zone sospensione. Per segmenti malformati produce **warning non bloccanti** che vedi nell'esito del dialog.
+
+#### Caricamento
+
+Bottone **"Importa Excel"** nel pannello admin → apre `ImportExcelDialog` con drop-zone.
+
+- Validazione client: estensione `.xlsx` + max 5 MB.
+- Validazione server (`POST /api/admin/monte-ore/import`, multer memoryStorage, whitelist mime+ext): file/AA validi, ricerca `User` per email (inclusi soft-deleted).
+- Checkbox **"Sovrascrivi se esiste"** (default ON): se il docente ha già una proposta in `bozza`/`in attesa`/`rifiutata` per quell'AA, viene upsertata. Per gli stati `approvata`/`generata` serve `?force=true` (checkbox **"Forza sovrascrittura"** che compare al verificarsi del 409).
+
+#### Risultato
+
+L'import crea la proposta in stato **`submitted`** con:
+
+- `source = 'admin_import'`
+- `importedAt = NOW()`, `importedById = <id admin>`
+- `importSourceRef = <nome file>`
+- Schedule aggregato per `(dayOfWeek, startTime, endTime)`; `roomId = null` (l'admin assegna le aule dopo); `roomHint` come nota se presente fra parentesi.
+
+Nel pannello le proposte importate hanno:
+
+- **Badge "Importata"** sulla card lista
+- **Blocco "Origine"** nel `DetailDialog` con nome admin importatore, data e nome file sorgente
+
+#### Errori comuni
+
+| HTTP | Cosa significa                                                 | Cosa fare                                                                                          |
+| ---- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 400  | File mancante / formato Excel non valido / AA non riconosciuto | Riprova con il template scaricato dalla **stessa pagina** (l'AA è incorporato)                     |
+| 400  | Email mancante nel foglio Anagrafica                           | Compila il campo Email — è la chiave di lookup                                                     |
+| 404  | Docente non trovato per quell'email                            | L'utente deve esistere nel sistema (anche soft-deleted va bene). Crea l'account o correggi l'email |
+| 409  | Conflitto stato (esiste già una proposta approvata/generata)   | Compare la checkbox **"Forza sovrascrittura"** nel dialog → ri-conferma per sovrascrivere          |
+
+> **Workflow consigliato**: import → apri la proposta in tab Proposte → assegna le aule mancanti (le fasce hanno `roomId = null`) → Approva → Crea prenotazioni. Stesso ciclo delle proposte inviate direttamente dai docenti.
 
 ### 8.6 Tab "Richieste variazioni"
 
@@ -1601,6 +1778,36 @@ Banner di aiuto:
 
 - **Loopback warning**: avvisa se l'IP rilevato è `::1` o `127.x.x.x` (sei in localhost, non in rete vera)
 - **Rete vuota + restringi attivo**: configurazione pericolosa, **nessuno** potrebbe fare check-in. Allerta rossa.
+
+#### Card "Check-in per edificio (impostazione generale)" ⭐
+
+<!-- TODO screenshot: card "Check-in per edificio" con tabella edifici e switch on/off -->
+
+Sostituisce il vecchio toggle "Richiedi check-in" presente su ogni singola aula con un'impostazione **a cascata**: ogni edificio ha un proprio default che si propaga a tutte le aule contenute, e la singola aula può eventualmente derogare. Al primo rollout di questa funzione **tutte le aule partono senza check-in** (`requireCheckIn = NULL`, edifici a `checkInDefault = false`): l'admin riattiva le sedi dove serve, una alla volta.
+
+La card mostra una tabella con:
+
+| Colonna                 | Contenuto                                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Edificio                | Nome + codice + dot color                                                                                   |
+| Aule                    | Conteggio totale aule dell'edificio                                                                         |
+| Override individuali    | N. di aule che hanno un valore esplicito (`Forza ON` / `Forza OFF`) — il resto eredita dal default edificio |
+| **Check-in di default** | Switch on/off: applicato a tutte le aule **che non hanno override**                                         |
+
+Lo stato di una singola aula è quindi **a 3 valori** (vedi anche la colonna nel Form Aula in §5.4):
+
+- **Eredita dall'edificio** (`null`, default) — segue il toggle di sede; cambia "automagicamente" quando l'admin tocca lo switch dell'edificio.
+- **Forza ON** (`true`) — check-in obbligatorio anche se l'edificio è OFF.
+- **Forza OFF** (`false`) — niente check-in anche se l'edificio è ON.
+
+La cascata è applicata in modo uniforme da tutto il backend:
+
+- **Ghost-cancel scheduler**: prende solo le aule con check-in effettivamente attivo (override del building incluso), salta quelle a cascata OFF.
+- **Email di richiamo "Ti aspettiamo, fai check-in"**: stesso filtro.
+- **Badge "check-in mancato"** in `/my-bookings` e nel dialog di dettaglio prenotazione: compare solo se l'aula richiede check-in via cascata.
+- **Bottone "Stampa QR aula"** e pagina `/check-in/room/:id`: il banner "Check-in non richiesto" appare quando la cascata risulta OFF.
+
+> **Idiomatica operativa**: per la fase di transizione dal vecchio sistema (tutte aule ON) al nuovo, il consiglio è "accendi per edificio, lascia ereditare alle aule": evita override individuali finché possibile, così quando un giorno l'edificio cambia regime non devi toccare 60 aule a mano.
 
 #### Card "QR-code per aula"
 

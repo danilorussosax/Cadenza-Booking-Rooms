@@ -99,6 +99,34 @@ Lo step `[5/8]` previene sia regressioni sia recupera da stati pregressi rotti.
 ./deploy.sh --help         # mostra l'header dello script
 ```
 
+### 0.5 Comandi post-deploy (manuali sul VPS)
+
+In caso di deploy manuale (senza `./deploy.sh`, es. CI/CD esterna o intervento d'urgenza), questi sono i comandi consigliati dopo un `git pull` sul VPS:
+
+```bash
+cd backend
+npm ci --omit=dev          # installa solo le dependencies di produzione
+npm run db:cli:migrate     # applica eventuali nuove migration
+# poi: riavvia il servizio (pm2/systemd/docker)
+pm2 restart cadenza-backend --update-env
+```
+
+#### `sequelize-cli` ora è in `dependencies`
+
+Da maggio 2026 `sequelize-cli` è stato **spostato da `devDependencies` a `dependencies`** in `backend/package.json`. Questo significa che:
+
+- `npm install --omit=dev` (o `npm ci --omit=dev`) lo installa anche in produzione.
+- `npm run db:cli:migrate` sul server **funziona out-of-the-box**, senza dover installare le devDependencies (cosa che porterebbe a bordo anche tooling pesante: jest, eslint, prettier, ts-node, ecc.).
+- L'eseguibile è disponibile in `node_modules/.bin/sequelize-cli`.
+
+> **Per il deploy via `./deploy.sh`**: lo script esegue già `npm ci --omit=dev` allo step `[6/8]` quando `package-lock.json` cambia, ma **non** esegue automaticamente `db:cli:migrate`. Se la versione che stai deployando contiene nuove migration, lanciale a mano sul VPS subito dopo lo step `[7/8]` (restart pm2), oppure aggiungilo allo script.
+
+#### Fallback automatico al boot
+
+Cadenza esegue un `lib/preSyncMigrations.js` al boot che applica **fallback difensivi** per alcune migration di schema critiche (es. il rilassamento di `rooms.requireCheckIn` a NULLABLE introdotto dalla migration `20260514083454-building-checkin-default`). Sono **idempotenti** e no-op se la migration è già stata applicata.
+
+Questo evita che il backend vada in crash post-deploy se per qualche motivo l'admin si dimentica `db:cli:migrate`. **Non sostituisce** l'esecuzione esplicita della migration: per trasparenza, audit e per non lasciare derive su altri ambienti, **continua a eseguire `npm run db:cli:migrate`** come passo dichiarato del deploy. Vedi `docs/MIGRATIONS.md` per il dettaglio.
+
 ---
 
 ## 1. Cosa serve perché la PWA sia installabile

@@ -338,6 +338,22 @@ La Direzione apre una **finestra di inserimento** ogni anno (es. 15 set – 15 o
 
 Fuori dalla finestra l'invio è bloccato (a meno che la Direzione ti abbia concesso una **deroga individuale** — vedi §8.10).
 
+#### Per quale anno accademico stai compilando?
+
+Cadenza sceglie automaticamente l'AA su cui stai lavorando, secondo questa priorità:
+
+1. **Override dell'amministrazione** — se l'admin ha "attivato per docenti" un AA specifico, è quello che vedi.
+2. **Finestra di submission aperta** — tipicamente settembre/ottobre, in quel periodo la pagina ti mostra **l'AA prossimo** (es. il 20 settembre 2026 vedi `2026/2027`, non `2025/2026`).
+3. **AA in corso** — fuori finestra di submission, default sull'anno didattico in corso.
+
+Quando l'AA target **non coincide** con l'anno in corso (ti capita all'inizio: stai pianificando il prossimo) compare un **banner informativo** in testa alla pagina:
+
+```
+[ i ] Stai compilando il monte ore per l'AA 2026/2027.
+```
+
+Se l'admin ha attivato esplicitamente l'AA, il banner riporta inoltre la dicitura **"attivato dall'amministrazione"**, così sai che la scelta non è quella "automatica" ma una decisione esplicita della Direzione (per esempio per anticipare/posticipare l'inserimento).
+
 ### 8.2 Le due sezioni della pagina
 
 La pagina `/monte-ore` ha due sezioni in cascata:

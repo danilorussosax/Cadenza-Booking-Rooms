@@ -105,6 +105,37 @@ npm run db:cli:generate -- nome # genera scheletro <timestamp>-nome.js
 npm run db:cli:mark-baseline    # one-shot: marca baseline su DB esistente
 ```
 
+## Migration applicate (cronologico)
+
+> Lista delle migration più recenti, in ordine di applicazione. Per il catalogo completo `cd backend && npm run db:cli:status`.
+
+| Timestamp        | File                                               | Cosa fa                                                                                                                                                                                                                 |
+| ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260510063231` | `cleanup-orphan-rooms-and-buildings`               | Soft-delete righe orfane su rooms/buildings. **Fix successivo**: identifier (`deletedAt`, `updatedAt`, `instituteId`, `buildingId`) quotati per case-sensitive Postgres                                                 |
+| `20260513214348` | `add-category-to-monte-ore-suspensions`            | Campo `category` (`holiday` / `exam_session` / `custom`) su `monte_ore_suspensions` + index dedicato                                                                                                                    |
+| `20260513222228` | `add-is-active-for-teachers-to-monte-ore-settings` | Flag `isActiveForTeachers` (override admin AA) + UNIQUE INDEX parziale (max 1 AA attivo per istituto)                                                                                                                   |
+| `20260513225239` | `add-source-to-monte-ore-proposals`                | Tracking proposte da import Excel: `source`, `importedAt`, `importedById`, `importSourceRef` + index `(source, status)`                                                                                                 |
+| `20260514065204` | `uniq-monte-ore-suspensions`                       | UNIQUE INDEX su `(instituteId, academicYear, LOWER(TRIM(name)), dateFrom, dateTo)` + **cleanup** dei duplicati pregressi (tiene la riga con id più basso)                                                               |
+| `20260514083454` | `building-checkin-default`                         | Cascata check-in Building → Room: aggiunge `buildings.checkInDefault BOOLEAN NOT NULL DEFAULT false`; `rooms.requireCheckIn` ora **NULLABLE** (null = eredita dal building); reset di tutte le righe esistenti a `NULL` |
+
+### Note operative per le ultime due migration
+
+**`20260514065204-uniq-monte-ore-suspensions`** — il cleanup è già contenuto nella `up`: viene eseguito **prima** della creazione dell'index, quindi anche su DB con duplicati pregressi la migration passa al primo tentativo.
+
+**`20260514083454-building-checkin-default`** — cambia un vincolo critico (`requireCheckIn` da NOT NULL a NULLABLE). Se per qualche motivo non viene applicata sul DB di produzione (es. deploy che non esegue `db:cli:migrate`), il backend andrebbe in errore al primo INSERT di una room con `requireCheckIn = null`. Cadenza ha un **fallback automatico** per questo caso, vedi sotto.
+
+## Fallback automatico (`preSyncMigrations`)
+
+`backend/lib/preSyncMigrations.js` continua ad eseguire alcuni ALTER difensivi al boot, idempotenti e no-op su DB già allineato:
+
+| Check al boot                                                                                    | Azione se non allineato                                                                         |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Colonna `rooms.requireCheckIn` ancora `NOT NULL` in `information_schema.columns` (solo Postgres) | `ALTER TABLE rooms ALTER COLUMN "requireCheckIn" DROP NOT NULL` + `DROP DEFAULT` (no-op SQLite) |
+
+Il fallback si attiva **solo** se la migration `20260514083454-building-checkin-default` non è stata ancora applicata. È pensato per evitare crash post-deploy nel caso in cui l'operatore aggiorni il codice ma dimentichi `db:cli:migrate`. **Non sostituisce** la migration: appena `db:cli:migrate` viene eseguito, il check diventa no-op.
+
+> Convenzione: nuove migration di schema con effetti runtime "rumorosi" (cambio di NOT NULL, rinomine, drop colonna) accompagnale con un check difensivo in `preSyncMigrations.js` per la durata della finestra di rollout (3-6 mesi). Quando tutti gli ambienti sono allineati, il check si rimuove insieme alla pulizia generale del file (§ "Quando rimuovere `preSyncMigrations.js`").
+
 ## CI/CD
 
 In produzione, gli step del deploy sono:
