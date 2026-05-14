@@ -2220,6 +2220,7 @@ Vede l'errore "ore sotto la soglia" (es. "324 ore richieste") oppure "giorni fuo
 
 ---
 
-_Cadenza · Manuale Amministratore v1.5.1 · 14 maggio 2026 · Danilo Russo, docente del Conservatorio._
+_Cadenza · Manuale Amministratore v1.6.0 · 14 maggio 2026 · Danilo Russo, docente del Conservatorio._
+_v1.6.0: magic-link "primo accesso" automatico dopo import Isidata (mail di benvenuto agli utenti creati, niente più CSV con password in chiaro), wizard import esteso a ESSE3 (Suite Studenti CINECA) con logo proprio, manuale Studente in-app riservato per ruolo, dashboard "vedi tutti" su prenotazioni di tutti gli utenti (proprie in evidenza, altrui read-only), audit TZ completo (sistema robusto anche su VPS UTC), CI matrice TZ (Europe/Rome + UTC), pagina dedicata quando un provider OAuth non è configurato, ottimizzazioni perf (anti N+1 + indici DB compositi + rimozione middleware morti). Cambiamento dettagli in `CHANGELOG.md`._
 _v1.5.1: macro pagina "Gestione prenotazioni" (3 tab: Regole / Tipi / Approvazioni — §6bis), Isidata con mapping UI guidata (§13.3), soglie di sicurezza pre-apply (§13.4), import `contractType` + lookup `courseCode→Course` (§13.5), diff "ultimi 2 run" (§13.6). 4 nuove suite di test stabilità — vedi `docs/TESTING.md`._
 _v1.5: pulizia delle parti tecniche (API, codici errore, SQL, comandi shell), eliminazione dei mockup ASCII duplicati, semplificazione dei form e del linguaggio, aggiornamento delle nuove feature (Eccezioni con scope per aula §6.3, toggle calendario 1/3 giorni §2). I contenuti per il personale IT sono stati spostati nei documenti tecnici di riferimento (`SECURITY.md`, `AUDIT_QUALITA_PRODUZIONE.md`, `ARCHITECTURE.md`)._

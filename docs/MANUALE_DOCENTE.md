@@ -25,7 +25,7 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small Cadenza · Manuale Docente v1.5.1}
+  - \fancyhead[L]{\small Cadenza · Manuale Docente v1.6.0}
   - \fancyhead[R]{\small 14 maggio 2026}
   - \fancyfoot[C]{\small\thepage\ / \pageref*{LastPage}}
   - \renewcommand{\headrulewidth}{0.4pt}
@@ -806,6 +806,6 @@ Solo tu, gli admin e — limitatamente — il coordinatore della didattica. Ness
 
 **Cadenza · La musica merita il software migliore**
 
-_© 2026 Danilo Russo · Manuale Docente v1.5.1 · 14 maggio 2026_
+_© 2026 Danilo Russo · Manuale Docente v1.6.0 · 14 maggio 2026_
 
 </div>

@@ -25,7 +25,7 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small Cadenza · Manuale Studente v1.5.1}
+  - \fancyhead[L]{\small Cadenza · Manuale Studente v1.6.0}
   - \fancyhead[R]{\small 14 maggio 2026}
   - \fancyfoot[C]{\small\thepage\ / \pageref*{LastPage}}
   - \renewcommand{\headrulewidth}{0.4pt}
