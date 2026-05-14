@@ -1,7 +1,7 @@
 {
   "name": "cadenza-monorepo",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Cadenza — root meta-package per devtools condivisi (husky, lint-staged, commitlint, prettier).",
   "engines": {
     "node": ">=20.0.0"

@@ -2095,5 +2095,5 @@ Vede l'errore "ore sotto la soglia" (es. "324 ore richieste") oppure "giorni fuo
 
 ---
 
-_Cadenza · Manuale Amministratore v1.5 · 14 maggio 2026 · Danilo Russo, docente del Conservatorio._
+_Cadenza · Manuale Amministratore v1.5.1 · 14 maggio 2026 · Danilo Russo, docente del Conservatorio._
 _v1.5: pulizia delle parti tecniche (API, codici errore, SQL, comandi shell), eliminazione dei mockup ASCII duplicati, semplificazione dei form e del linguaggio, aggiornamento delle nuove feature (Eccezioni con scope per aula §6.3, toggle calendario 1/3 giorni §2). I contenuti per il personale IT sono stati spostati nei documenti tecnici di riferimento (`SECURITY.md`, `AUDIT_QUALITA_PRODUZIONE.md`, `ARCHITECTURE.md`)._

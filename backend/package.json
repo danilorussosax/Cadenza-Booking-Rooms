@@ -1,6 +1,6 @@
 {
   "name": "cadenza-backend",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Cadenza — backend Express+Sequelize per la gestione e prenotazione aule del conservatorio.",
   "main": "server.js",
   "scripts": {
