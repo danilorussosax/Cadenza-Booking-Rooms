@@ -199,31 +199,41 @@ export interface SyncRun {
   actor?: { id: number; firstName: string; lastName: string; email: string } | null;
 }
 
+/** Provider supportati: lato backend è la stessa pipeline parametrica su `source`. */
+export type IntegrationSource = 'isidata' | 'esse3';
+
 export const integrationsApi = {
-  /** Carica un file XLSX/CSV di Isidata e ottiene il diff senza modificare il DB. */
-  preview: (file: File, mappingOverrides?: Record<string, string>) => {
+  /** Carica un file XLSX/CSV (Isidata o ESSE3) e ottiene il diff senza modificare il DB. */
+  preview: (
+    file: File,
+    mappingOverrides?: Record<string, string>,
+    source: IntegrationSource = 'isidata',
+  ) => {
     const fd = new FormData();
     fd.append('file', file);
     if (mappingOverrides) fd.append('mappingOverrides', JSON.stringify(mappingOverrides));
-    return api<PreviewResponse>('/api/admin/integrations/isidata-csv/preview', {
+    return api<PreviewResponse>(`/api/admin/integrations/${source}-csv/preview`, {
       method: 'POST',
       body: fd,
     });
   },
 
   /** Conferma e applica il diff. Usa il token+hash ottenuti dalla preview. */
-  apply: (payload: {
-    token: string;
-    confirmedDiffHash: string;
-    mappingOverrides?: Record<string, string>;
-    /**
-     * Se la preview ha emesso `safetyChecks.warnings` di livello `critical`,
-     * il backend rifiuta l'apply con 409 `CRITICAL_WARNINGS_PRESENT` finché
-     * il client non manda esplicitamente `confirmCriticalWarnings: true`.
-     */
-    confirmCriticalWarnings?: boolean;
-  }) =>
-    api<ApplyResponse>('/api/admin/integrations/isidata-csv/apply', {
+  apply: (
+    payload: {
+      token: string;
+      confirmedDiffHash: string;
+      mappingOverrides?: Record<string, string>;
+      /**
+       * Se la preview ha emesso `safetyChecks.warnings` di livello `critical`,
+       * il backend rifiuta l'apply con 409 `CRITICAL_WARNINGS_PRESENT` finché
+       * il client non manda esplicitamente `confirmCriticalWarnings: true`.
+       */
+      confirmCriticalWarnings?: boolean;
+    },
+    source: IntegrationSource = 'isidata',
+  ) =>
+    api<ApplyResponse>(`/api/admin/integrations/${source}-csv/apply`, {
       method: 'POST',
       body: payload,
     }),

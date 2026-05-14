@@ -19,6 +19,10 @@ import {
 // header). I dati sensibili (password) non sono mai in CSV: un nuovo
 // utente importato riceve una password temporanea casuale che l'admin
 // deve far resettare al primo login.
+//
+// Stesso schema usato dall'export Isidata (riconosce sia delimitatore `;`
+// sia `,`, sia accenti/case nelle intestazioni). Il backend riusa il parser
+// di services/integrations/isidata/csvImporter (XLSX + CSV multidelimiter).
 const SAMPLE_CSV = `Email;Cognome;Nome;Ruolo;Matricola;CodiceCorso;Stato;Attivo
 mario.rossi@example.it;Rossi;Mario;studente;STU2026001;AFAM003;approved;si
 laura.bianchi@example.it;Bianchi;Laura;docente;DOC42;;approved;si
@@ -34,20 +38,21 @@ export function UsersCsvImportDialog({
 }) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [csv, setCsv] = useState('');
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof usersApi.importCsv>> | null>(null);
 
-  const handleFile = async (file: File) => {
-    setFileName(file.name);
-    setCsv(await file.text());
+  const handleFile = (selected: File) => {
+    setFile(selected);
     setResult(null);
     setServerError(null);
   };
 
   const importMutation = useMutation({
-    mutationFn: () => usersApi.importCsv(csv),
+    mutationFn: () => {
+      if (!file) throw new Error('Nessun file selezionato');
+      return usersApi.importCsv(file);
+    },
     onSuccess: (data) => {
       setResult(data);
       void qc.invalidateQueries({ queryKey: ['users'] });
@@ -73,8 +78,7 @@ export function UsersCsvImportDialog({
   };
 
   const reset = () => {
-    setCsv('');
-    setFileName(null);
+    setFile(null);
     setResult(null);
     setServerError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -90,9 +94,10 @@ export function UsersCsvImportDialog({
     >
       <DialogContent className="max-w-[95vw] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importa utenti da CSV</DialogTitle>
+          <DialogTitle>Importa utenti da CSV o XLSX</DialogTitle>
           <DialogDescription className="wrap-break-word">
-            Carica un CSV con le colonne <strong>Email · Cognome · Nome · Ruolo</strong>{' '}
+            Carica un file <strong>CSV</strong> (delimitatore <code>;</code> o <code>,</code>) o{' '}
+            <strong>XLSX</strong> con le colonne <strong>Email · Cognome · Nome · Ruolo</strong>{' '}
             (obbligatorie) più <em>Matricola · CodiceCorso · Stato · Attivo</em> (facoltative).
             Idempotente per email: gli utenti esistenti vengono aggiornati, i nuovi creati con una
             password temporanea casuale (l&rsquo;admin invita poi al reset).
@@ -139,21 +144,21 @@ export function UsersCsvImportDialog({
 
           <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center">
             <FileUp className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-2 break-all text-sm" title={fileName ?? undefined}>
-              {fileName ? (
-                <strong className="break-all">{fileName}</strong>
+            <p className="mt-2 break-all text-sm" title={file?.name ?? undefined}>
+              {file ? (
+                <strong className="break-all">{file.name}</strong>
               ) : (
-                'Trascina qui il CSV oppure'
+                'Scegli un file CSV o XLSX'
               )}
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void handleFile(f);
+                if (f) handleFile(f);
               }}
             />
             <Button
@@ -188,7 +193,7 @@ export function UsersCsvImportDialog({
             onClick={() => {
               importMutation.mutate();
             }}
-            disabled={!csv || importMutation.isPending}
+            disabled={!file || importMutation.isPending}
           >
             {importMutation.isPending && <LoaderCircle className="h-4 w-4 animate-spin" />}
             Importa

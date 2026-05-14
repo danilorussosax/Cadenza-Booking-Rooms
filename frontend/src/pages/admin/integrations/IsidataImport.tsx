@@ -25,6 +25,7 @@ import {
   type CompareRunsResponse,
   type EffectiveMapping,
   type ExternalUser,
+  type IntegrationSource,
   type PreviewResponse,
   type ToOrphanItem,
   type ToUpdateItem,
@@ -162,8 +163,14 @@ export default function IsidataImport() {
 /**
  * Contenuto del wizard senza header — riusabile sia come pagina sia
  * dentro un Dialog/Sheet (vedi IsidataImportCard nella pagina Utenti).
+ *
+ * Il prop `source` permette di riusare lo stesso wizard per altri provider
+ * (es. ESSE3 CINECA): il backend è parametrico su `source` e l'unica
+ * differenza visibile è la URL chiamata (`/api/admin/integrations/{source}-csv/...`)
+ * e il filtro `provider` per la sezione storico run. Le etichette i18n
+ * rimangono "Isidata" — futuro: tradurre quando ESSE3 sarà GA.
  */
-export function IsidataImportContent() {
+export function IsidataImportContent({ source = 'isidata' }: { source?: IntegrationSource } = {}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>('upload');
@@ -181,7 +188,7 @@ export function IsidataImportContent() {
 
   const previewMutation = useMutation({
     mutationFn: (input: { file: File; overrides?: Record<string, string> }) =>
-      integrationsApi.preview(input.file, input.overrides),
+      integrationsApi.preview(input.file, input.overrides, source),
     onSuccess: (data) => {
       setPreview(data);
       // Sincronizza il mapping "live" con la response più recente. Se in
@@ -215,11 +222,14 @@ export function IsidataImportContent() {
       const hasCritical = (preview.safetyChecks?.warnings ?? []).some(
         (w) => w.level === 'critical',
       );
-      return integrationsApi.apply({
-        token: preview.token,
-        confirmedDiffHash: preview.hash,
-        ...(hasCritical ? { confirmCriticalWarnings: true } : {}),
-      });
+      return integrationsApi.apply(
+        {
+          token: preview.token,
+          confirmedDiffHash: preview.hash,
+          ...(hasCritical ? { confirmCriticalWarnings: true } : {}),
+        },
+        source,
+      );
     },
     onSuccess: (data) => {
       toast.success(
@@ -237,8 +247,8 @@ export function IsidataImportContent() {
   });
 
   const runsQuery = useQuery({
-    queryKey: ['admin', 'integrations', 'runs', 'isidata'],
-    queryFn: () => integrationsApi.runs({ provider: 'isidata', limit: 20 }),
+    queryKey: ['admin', 'integrations', 'runs', source],
+    queryFn: () => integrationsApi.runs({ provider: source, limit: 20 }),
   });
 
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {

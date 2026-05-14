@@ -1119,6 +1119,11 @@ function SsoTabContent() {
             d'ingresso compatto: il wizard completo (drop file → preview →
             apply) si apre dentro un Dialog modale (vedi IsidataImportCard). */}
         <IsidataImportCard />
+
+        {/* ESSE3 (CINECA): stesso wizard, parametrizzato sul `source`. Riusa
+            l'engine Isidata con alias header CINECA (CodiceCdS, DescrizioneCdS,
+            StatoIscrizione) ed externalSource='esse3' separato. */}
+        <Esse3ImportCard />
       </div>
     </div>
   );
@@ -1175,6 +1180,67 @@ function IsidataImportCard() {
             <DialogDescription>{t('integrations.isidata.subtitle')}</DialogDescription>
           </DialogHeader>
           <IsidataImportContent />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// =====================================================
+// Card "import ESSE3" — gemella di IsidataImportCard ma chiama l'engine
+// con source='esse3'. Pensata per i conservatori che usano la Suite Studenti
+// CINECA (ESSE3 + UP) come sistema di segreteria: Cadenza importa l'export
+// standard ESSE3 (Matricola, CodiceCdS, StatoIscrizione, ...) e mantiene
+// gli utenti separati dal pool Isidata (externalSource='esse3').
+// =====================================================
+function Esse3ImportCard() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between gap-3 font-display text-lg">
+            <span className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              ESSE3 (CINECA)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Import anagrafica dagli export standard ESSE3 CINECA. Riconosce header "CodiceCdS",
+            "DescrizioneCdS", "StatoIscrizione" e mappa gli stati "Laureato/Trasferito/Cessato" come
+            utenti disattivati.
+          </p>
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            <li>· XLSX o CSV, max 10 MB / 5000 record</li>
+            <li>· Anteprima diff prima dell'apply (no side-effect)</li>
+            <li>· Storico run separato dal pool Isidata</li>
+          </ul>
+          <Button
+            type="button"
+            onClick={() => {
+              setOpen(true);
+            }}
+            className="w-full"
+          >
+            <Upload className="h-4 w-4" />
+            Apri importazione ESSE3
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Importazione ESSE3 (CINECA)</DialogTitle>
+            <DialogDescription>
+              Carica l'export standard ESSE3 (CSV o XLSX). Il sistema riconosce automaticamente gli
+              header tipici della Suite Studenti AFAM.
+            </DialogDescription>
+          </DialogHeader>
+          <IsidataImportContent source="esse3" />
         </DialogContent>
       </Dialog>
     </>

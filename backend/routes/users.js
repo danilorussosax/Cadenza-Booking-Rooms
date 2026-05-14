@@ -1,16 +1,16 @@
 'use strict';
 
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
+const multer = require('multer');
 const { Op } = require('sequelize');
 const { stringify: csvStringify } = require('csv-stringify/sync');
 const { sequelize, User, Course, Booking, MonteOreProposal, ContractType } = require('../models');
 const { currentAcademicYear } = require('../services/monteOreCalendarService');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { parseCSV } = require('../services/structureImporter');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
+const csvImporter = require('../services/integrations/isidata/csvImporter');
+const { importUsersFromFile } = require('../services/users/csvImport');
 
 /**
  * Anti-lockout: previene la trasformazione dell'ULTIMO admin in non-admin
@@ -94,180 +94,69 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
 });
 
 // =====================================================
-// IMPORT CSV utenti (admin)
-// Body: { csv: string }
-// Colonne riconosciute (case-insensitive): Email*, Cognome*, Nome*, Ruolo*
-// (admin/docente/studente), Matricola, CodiceCorso (SAD lookup → courseId),
-// Stato (pending/approved/rejected; default approved), Attivo (si/no).
-// L'import imposta una password temporanea casuale (32 byte hex) per ogni
-// nuovo utente: l'admin deve comunicare reset password / 2FA email.
-// Idempotente: upsert su email. Per utenti esistenti aggiorna solo i campi
-// presenti nel CSV, NON tocca password.
+// IMPORT CSV/XLSX utenti (admin)
+//
+// Multipart upload (campo `file`). Accetta sia CSV (delimitatore `;` o `,`,
+// auto-detect) sia XLSX. Colonne riconosciute (case e accenti indifferenti,
+// stesso schema dell'export Isidata):
+//   Email*, Cognome*, Nome*, Ruolo* (admin/docente/studente), Matricola,
+//   CodiceCorso (SAD lookup → courseId), Stato (pending/approved/rejected;
+//   default approved), Attivo (si/no; default si).
+//
+// Per ogni nuovo utente viene generata una password temporanea casuale: l'admin
+// deve invitare l'utente al reset password (o consentire il primo login via
+// 2FA email/SSO). Idempotente: upsert su email; per utenti esistenti aggiorna
+// solo i campi presenti nel file, NON tocca password.
+//
+// L'implementazione vive in `services/users/csvImport.js` e riusa il parser
+// di `services/integrations/isidata/csvImporter` (XLSX + CSV multidelimiter).
 // =====================================================
-const HEADER_MAP_USERS = {
-  email: 'email',
-  'e-mail': 'email',
-  mail: 'email',
-  cognome: 'lastName',
-  'last name': 'lastName',
-  lastname: 'lastName',
-  surname: 'lastName',
-  nome: 'firstName',
-  'first name': 'firstName',
-  firstname: 'firstName',
-  ruolo: 'role',
-  role: 'role',
-  matricola: 'matricola',
-  badge: 'matricola',
-  codicecorso: 'courseCode',
-  'codice corso': 'courseCode',
-  corso: 'courseCode',
-  sad: 'courseCode',
-  stato: 'status',
-  status: 'status',
-  attivo: 'isActive',
-  active: 'isActive',
-  'is active': 'isActive',
-};
 const VALID_ROLES = ['admin', 'docente', 'studente'];
 const VALID_STATUSES = ['pending', 'approved', 'rejected'];
 
-function parseBoolUser(v, def = true) {
-  if (v == null || v === '') return def;
-  const s = String(v).trim().toLowerCase();
-  if (['no', 'false', '0', 'n', 'off'].includes(s)) return false;
-  if (['si', 'sì', 'yes', 'true', '1', 'y', 'on', 'x'].includes(s)) return true;
-  return def;
-}
-
-router.post('/import', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const csv = typeof req.body?.csv === 'string' ? req.body.csv : '';
-    if (!csv.trim()) return res.status(400).json({ error: 'Body "csv" mancante' });
-
-    const matrix = parseCSV(csv);
-    if (matrix.length < 2) {
-      return res
-        .status(400)
-        .json({ error: "CSV deve contenere almeno una riga oltre all'intestazione" });
+const userImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: csvImporter.MAX_BYTES },
+  fileFilter(req, file, cb) {
+    const okMime = /(spreadsheetml|excel|csv|text\/plain|octet-stream)/i.test(file.mimetype || '');
+    const okExt = /\.(xlsx|xls|csv|tsv|txt)$/i.test(file.originalname || '');
+    if (!okMime && !okExt) {
+      return cb(new Error('Tipo file non supportato (atteso .xlsx o .csv)'));
     }
-    const headers = matrix[0].map((h) =>
-      String(h || '')
-        .trim()
-        .toLowerCase(),
-    );
-    const dataRows = matrix.slice(1).map((cells, idx) => {
-      const obj = { _line: idx + 2 };
-      headers.forEach((h, i) => {
-        const key = HEADER_MAP_USERS[h] || h;
-        const val = (cells[i] || '').trim();
-        if (val !== '') obj[key] = val;
-      });
-      return obj;
-    });
-
-    // Cache courses per SAD lookup
-    const courses = await Course.findAll({ attributes: ['id', 'code'] });
-    const courseByCode = new Map(courses.map((c) => [c.code.toLowerCase(), c.id]));
-
-    const result = {
-      parsed: dataRows.length,
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      errors: [],
-    };
-
-    for (const r of dataRows) {
-      const lineMsg = (msg) => result.errors.push({ line: r._line, msg });
-      if (!r.email) {
-        lineMsg('email mancante');
-        result.skipped++;
-        continue;
-      }
-      if (!r.firstName || !r.lastName) {
-        lineMsg('nome o cognome mancante');
-        result.skipped++;
-        continue;
-      }
-      const role = (r.role || '').toLowerCase();
-      if (!VALID_ROLES.includes(role)) {
-        lineMsg(`ruolo "${r.role}" non valido (admin/docente/studente)`);
-        result.skipped++;
-        continue;
-      }
-      const status =
-        r.status && VALID_STATUSES.includes(r.status.toLowerCase())
-          ? r.status.toLowerCase()
-          : 'approved';
-      const courseId = r.courseCode ? (courseByCode.get(r.courseCode.toLowerCase()) ?? null) : null;
-      if (r.courseCode && courseId == null) {
-        lineMsg(`codice corso "${r.courseCode}" non trovato (utente importato senza corso)`);
-      }
-      const email = r.email.toLowerCase().trim();
-
-      try {
-        // paranoid:false → trova anche utenti soft-deleted con stessa email
-        // (altrimenti scatta unique violation sull'INSERT successivo).
-        const existing = await User.findOne({ where: { email }, paranoid: false });
-        if (existing) {
-          if (existing.deletedAt) await existing.restore();
-          await existing.update({
-            firstName: r.firstName,
-            lastName: r.lastName,
-            role,
-            matricola: r.matricola || existing.matricola,
-            courseId,
-            status,
-            isActive: parseBoolUser(r.isActive, existing.isActive),
-          });
-          result.updated++;
-        } else {
-          // Password temporanea casuale: l'admin DEVE invitare l'utente al
-          // reset password (oppure usare 2FA email per primo accesso).
-          const tempPassword = crypto.randomBytes(16).toString('hex');
-          const hash = await bcrypt.hash(tempPassword, 12);
-          await User.create({
-            email,
-            firstName: r.firstName,
-            lastName: r.lastName,
-            role,
-            matricola: r.matricola || null,
-            courseId,
-            status,
-            isActive: parseBoolUser(r.isActive, true),
-            // Il modello User ha campo `passwordHash` (non `password`). Bug
-            // pre-esistente: gli utenti importati avevano passwordHash NULL
-            // e non potevano loggare nemmeno con reset.
-            passwordHash: hash,
-          });
-          result.created++;
-        }
-      } catch (err) {
-        // Estrai dettagli da errori Sequelize per non mostrare solo "Validation error"
-        let msg = err?.message || 'Errore creazione/aggiornamento';
-        if (
-          err?.name === 'SequelizeValidationError' &&
-          Array.isArray(err.errors) &&
-          err.errors.length
-        ) {
-          msg = err.errors.map((e) => `${e.path}: ${e.message}`).join('; ');
-        } else if (err?.name === 'SequelizeUniqueConstraintError') {
-          const fields = Array.isArray(err.errors)
-            ? err.errors.map((e) => e.path).join(', ')
-            : Object.keys(err.fields || {}).join(', ');
-          msg = `Vincolo unique violato (${fields || '?'})`;
-        }
-        lineMsg(msg);
-        result.skipped++;
-      }
-    }
-
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+    cb(null, true);
+  },
 });
+
+router.post(
+  '/import',
+  authenticate,
+  requireRole('admin'),
+  userImportUpload.single('file'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ error: 'File mancante (campo "file")', code: 'FILE_REQUIRED' });
+      }
+      const result = await importUsersFromFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+      );
+      res.json(result);
+    } catch (err) {
+      if (
+        err.code === 'FILE_TOO_LARGE' ||
+        err.code === 'PARSE_FAILED' ||
+        err.code === 'EMPTY_FILE'
+      ) {
+        return res.status(400).json({ error: err.message, code: err.code });
+      }
+      next(err);
+    }
+  },
+);
 
 // Crea utente manualmente (admin) — sempre creato come 'approved'.
 router.post('/', authenticate, requireRole('admin'), async (req, res) => {

@@ -26,6 +26,7 @@ const {
   extractEffectiveMapping,
 } = require('../services/integrations/isidata/fieldMapping');
 const { computeDiff, computeSafetyChecks } = require('../services/integrations/diffEngine');
+const { getProfile } = require('../services/integrations/profiles');
 
 // Token formato: `${adminId}-${Date.now()}-${hex16}${ext}` con ext `.csv|.xlsx|...`.
 // Stringere la regex impedisce che varianti tipo `1-foo.csv` (senza Date e
@@ -210,12 +211,14 @@ async function buildExternals(buffer, filename, mimetype, mappingOverrides) {
 // Risponde con il diff calcolato + token+hash da rimandare in /apply.
 // NON modifica DB.
 // =====================================================
-router.post(
-  '/isidata-csv/preview',
-  authenticate,
-  requireRole('admin'),
-  upload.single('file'),
-  async (req, res, next) => {
+// =====================================================
+// Factory dei due handler preview/apply, parametrica sul `source`.
+// Lo stesso flusso vale per Isidata, ESSE3 CINECA e futuri provider:
+// l'unica differenza è il valore di `User.externalSource`, il `provider`
+// salvato in IntegrationSyncRun/Config e il logger label.
+// =====================================================
+function makePreviewHandler(source) {
+  return async (req, res, next) => {
     try {
       if (!req.file) {
         return res
@@ -267,19 +270,19 @@ router.post(
       const { externals, headers, headerMap, warnings } = parsed;
 
       // Carica gli utenti locali interessati al matching: tutti quelli con
-      // externalSource='isidata', + quelli con matricola o email che potrebbe
+      // externalSource=source, + quelli con matricola o email che potrebbe
       // collidere con externalUsers (per eventuale "promozione" da utente
       // creato manualmente a utente legato all'import).
       const matricoleSet = new Set(externals.map((e) => e.matricola).filter(Boolean));
       const emailsSet = new Set(externals.map((e) => e.email).filter(Boolean));
       const externalIdsSet = new Set(externals.map((e) => e.externalId).filter(Boolean));
 
-      const orFilters = [{ externalSource: 'isidata' }];
+      const orFilters = [{ externalSource: source }];
       if (matricoleSet.size) orFilters.push({ matricola: { [Op.in]: Array.from(matricoleSet) } });
       if (emailsSet.size) orFilters.push({ email: { [Op.in]: Array.from(emailsSet) } });
       if (externalIdsSet.size)
         orFilters.push({
-          externalSource: 'isidata',
+          externalSource: source,
           externalId: { [Op.in]: Array.from(externalIdsSet) },
         });
 
@@ -294,15 +297,15 @@ router.post(
       // sui record con courseCode noto (Miglioria 3). I codici sconosciuti
       // finiscono in diff.warnings (soft).
       const courseCodeToId = await loadCourseCodeToIdMap();
-      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata', { courseCodeToId });
+      const diff = computeDiff(externals, localUsers, 'matricola', source, { courseCodeToId });
 
-      // Soglie sicurezza (Miglioria 1): conta utenti Isidata attualmente attivi
-      // per calcolare la frazione di disattivazioni. `User.count` con
-      // `externalSource='isidata'` + `isActive=true` è l'universo significativo
+      // Soglie sicurezza (Miglioria 1): conta utenti del provider attualmente
+      // attivi per calcolare la frazione di disattivazioni. `User.count` con
+      // `externalSource=source` + `isActive=true` è l'universo significativo
       // (gli utenti già disattivati non rientrano nel rischio "mass
       // deactivation": disattivarli di nuovo è no-op).
       const totalActiveUsers = await User.count({
-        where: { externalSource: 'isidata', isActive: true },
+        where: { externalSource: source, isActive: true },
       });
       const safetyChecks = computeSafetyChecks(diff, totalActiveUsers);
 
@@ -311,6 +314,7 @@ router.post(
 
       logger?.info?.(
         {
+          source,
           actorId: req.user.id,
           rows: externals.length,
           toCreate: diff.toCreate.length,
@@ -319,7 +323,7 @@ router.post(
           warnings: warnings.length,
           safetyWarnings: safetyChecks.warnings.map((w) => `${w.level}:${w.code}`),
         },
-        '[integrations.isidata] preview generato',
+        `[integrations.${source}] preview generato`,
       );
 
       // Mapping "user-facing" per la UI guidata (Miglioria 1):
@@ -395,385 +399,417 @@ router.post(
       }
       next(err);
     }
-  },
-);
+  };
+}
 
 // =====================================================
-// POST /api/admin/integrations/isidata-csv/apply
-// body: { token, confirmedDiffHash, mappingOverrides? }
-// Riapplica il file persistito, ricomputa il diff, verifica hash
-// (anti-TOCTOU: se l'admin ha caricato un file diverso fra preview e apply,
-// rifiutiamo), poi applica in transazione SERIALIZABLE.
+// Apply handler factory. Riapplica il file persistito, ricomputa il diff,
+// verifica hash (anti-TOCTOU: se l'admin ha caricato un file diverso fra
+// preview e apply, rifiutiamo), poi applica in transazione SERIALIZABLE.
+// Parametrico sul `source` (isidata, esse3, ...).
 // =====================================================
-router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req, res, next) => {
-  const { token, confirmedDiffHash, mappingOverrides, confirmCriticalWarnings } = req.body || {};
-  if (!token || !confirmedDiffHash) {
-    return res
-      .status(400)
-      .json({ error: 'token e confirmedDiffHash sono obbligatori', code: 'VALIDATION_FAILED' });
-  }
-  if (typeof token !== 'string' || !TOKEN_REGEX.test(token)) {
-    return res.status(400).json({ error: 'token non valido', code: 'TOKEN_INVALID' });
-  }
-  // Hash atteso: 64 char hex (SHA-256). Validare PRIMA del confronto evita
-  // chiamate a Buffer.from con input non normalizzato e dà un errore parlante.
-  if (typeof confirmedDiffHash !== 'string' || !/^[a-f0-9]{64}$/i.test(confirmedDiffHash)) {
-    return res.status(400).json({ error: 'hash non valido', code: 'VALIDATION_FAILED' });
-  }
-  // Solo l'admin che ha caricato può applicare: il prefisso del token
-  // contiene il suo id.
-  const tokenAdminPrefix = String(token).split('-')[0];
-  if (String(req.user.id) !== tokenAdminPrefix) {
-    return res
-      .status(403)
-      .json({ error: "token non appartenente all'admin corrente", code: 'TOKEN_FOREIGN' });
-  }
+function makeApplyHandler(source) {
+  return async (req, res, next) => {
+    const { token, confirmedDiffHash, mappingOverrides, confirmCriticalWarnings } = req.body || {};
+    if (!token || !confirmedDiffHash) {
+      return res
+        .status(400)
+        .json({ error: 'token e confirmedDiffHash sono obbligatori', code: 'VALIDATION_FAILED' });
+    }
+    if (typeof token !== 'string' || !TOKEN_REGEX.test(token)) {
+      return res.status(400).json({ error: 'token non valido', code: 'TOKEN_INVALID' });
+    }
+    // Hash atteso: 64 char hex (SHA-256). Validare PRIMA del confronto evita
+    // chiamate a Buffer.from con input non normalizzato e dà un errore parlante.
+    if (typeof confirmedDiffHash !== 'string' || !/^[a-f0-9]{64}$/i.test(confirmedDiffHash)) {
+      return res.status(400).json({ error: 'hash non valido', code: 'VALIDATION_FAILED' });
+    }
+    // Solo l'admin che ha caricato può applicare: il prefisso del token
+    // contiene il suo id.
+    const tokenAdminPrefix = String(token).split('-')[0];
+    if (String(req.user.id) !== tokenAdminPrefix) {
+      return res
+        .status(403)
+        .json({ error: "token non appartenente all'admin corrente", code: 'TOKEN_FOREIGN' });
+    }
 
-  // Sanitizza eventuali overrides anche in apply: il client può passarli di
-  // nuovo per "rifinire" il diff. Senza sanitize l'apply userebbe un mapping
-  // diverso dalla preview se il client invia shape diversa.
-  let safeOverrides = null;
-  try {
-    safeOverrides = sanitizeOverrides(mappingOverrides ?? null);
-  } catch (err) {
-    return res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
-  }
+    // Sanitizza eventuali overrides anche in apply: il client può passarli di
+    // nuovo per "rifinire" il diff. Senza sanitize l'apply userebbe un mapping
+    // diverso dalla preview se il client invia shape diversa.
+    let safeOverrides = null;
+    try {
+      safeOverrides = sanitizeOverrides(mappingOverrides ?? null);
+    } catch (err) {
+      return res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
+    }
 
-  const buffer = readTempFile(token);
-  if (!buffer) {
-    return res.status(410).json({
-      error: 'File scaduto o non trovato — ricarica e riavvia la procedura',
-      code: 'TOKEN_EXPIRED',
-    });
-  }
-  const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
-  // Confronto in tempo costante: previene timing-attack sull'hash atteso
-  // (defense-in-depth — l'attaccante deve comunque possedere un token valido).
-  const a = Buffer.from(fileHash, 'hex');
-  const b = Buffer.from(confirmedDiffHash.toLowerCase(), 'hex');
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return res
-      .status(409)
-      .json({ error: 'Hash file non coincide — ricarica la preview', code: 'HASH_MISMATCH' });
-  }
-
-  let parsed;
-  try {
-    parsed = await buildExternals(buffer, token, '', safeOverrides);
-  } catch (err) {
-    return res.status(400).json({ error: err.message, code: err.code || 'PARSE_FAILED' });
-  }
-  const { externals, warnings } = parsed;
-
-  // Gate sicurezza pre-apply (Miglioria 1): ricomputiamo il diff PROSPECTIVE
-  // fuori transazione per produrre i warning di safety. Se ci sono warning
-  // `critical` e l'admin NON ha spedito `confirmCriticalWarnings: true`,
-  // rifiutiamo con 409. Questa ricomputazione è "consultiva": la transazione
-  // vera la rifarà di nuovo dentro al t (Snapshot Isolation), così se nel
-  // frattempo qualcuno crea/disattiva utenti il diff finale sarà coerente.
-  // Il rischio "false-negative" (in /apply non c'è più warning critico, ma
-  // l'admin l'ha confermato) è accettabile: niente bloccante.
-  {
-    const matricoleSetCheck = new Set(externals.map((e) => e.matricola).filter(Boolean));
-    const emailsSetCheck = new Set(externals.map((e) => e.email).filter(Boolean));
-    const externalIdsSetCheck = new Set(externals.map((e) => e.externalId).filter(Boolean));
-    const orFiltersCheck = [{ externalSource: 'isidata' }];
-    if (matricoleSetCheck.size)
-      orFiltersCheck.push({ matricola: { [Op.in]: Array.from(matricoleSetCheck) } });
-    if (emailsSetCheck.size)
-      orFiltersCheck.push({ email: { [Op.in]: Array.from(emailsSetCheck) } });
-    if (externalIdsSetCheck.size)
-      orFiltersCheck.push({
-        externalSource: 'isidata',
-        externalId: { [Op.in]: Array.from(externalIdsSetCheck) },
-      });
-    const localUsersCheck = await User.findAll({ where: { [Op.or]: orFiltersCheck } });
-    const diffCheck = computeDiff(externals, localUsersCheck, 'matricola', 'isidata');
-    const totalActiveUsersCheck = await User.count({
-      where: { externalSource: 'isidata', isActive: true },
-    });
-    const safetyChecksApply = computeSafetyChecks(diffCheck, totalActiveUsersCheck);
-    const criticalCodes = safetyChecksApply.warnings
-      .filter((w) => w.level === 'critical')
-      .map((w) => w.code);
-    if (criticalCodes.length > 0 && confirmCriticalWarnings !== true) {
-      return res.status(409).json({
-        error: 'Sono presenti warning critici: richiesta conferma esplicita',
-        code: 'CRITICAL_WARNINGS_PRESENT',
-        criticalCodes,
-        safetyChecks: safetyChecksApply,
+    const buffer = readTempFile(token);
+    if (!buffer) {
+      return res.status(410).json({
+        error: 'File scaduto o non trovato — ricarica e riavvia la procedura',
+        code: 'TOKEN_EXPIRED',
       });
     }
-  }
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    // Confronto in tempo costante: previene timing-attack sull'hash atteso
+    // (defense-in-depth — l'attaccante deve comunque possedere un token valido).
+    const a = Buffer.from(fileHash, 'hex');
+    const b = Buffer.from(confirmedDiffHash.toLowerCase(), 'hex');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res
+        .status(409)
+        .json({ error: 'Hash file non coincide — ricarica la preview', code: 'HASH_MISMATCH' });
+    }
 
-  // Carica config esistente (best-effort: può non esistere ancora).
-  const config = await IntegrationConfig.findOne({
-    where: { provider: 'isidata' },
-    order: [['id', 'ASC']],
-  });
+    let parsed;
+    try {
+      parsed = await buildExternals(buffer, token, '', safeOverrides);
+    } catch (err) {
+      return res.status(400).json({ error: err.message, code: err.code || 'PARSE_FAILED' });
+    }
+    const { externals, warnings } = parsed;
 
-  // Crea il run record subito in stato 'in_progress' così è visibile in storia
-  // anche se la transazione fallisce.
-  const run = await IntegrationSyncRun.create({
-    configId: config?.id ?? null,
-    instituteId: config?.instituteId ?? null,
-    provider: 'isidata',
-    actorId: req.user.id,
-    startedAt: new Date(),
-    triggeredBy: 'manual',
-    status: 'in_progress',
-    fetched: externals.length,
-  });
-
-  try {
-    // Postgres: SERIALIZABLE; SQLite/MySQL: best-effort (SQLite non ha
-    // SERIALIZABLE vero, ma READ_COMMITTED qui è acceptable perché il
-    // file è già caricato e il diff è ricomputato dentro lo stesso block).
-    const isPostgres = sequelize.getDialect() === 'postgres';
-    const txOpts = isPostgres ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE } : {};
-
-    const result = await sequelize.transaction(txOpts, async (t) => {
-      // Riprendi il diff DENTRO la transazione (lock-friendly).
-      const matricoleSet = new Set(externals.map((e) => e.matricola).filter(Boolean));
-      const emailsSet = new Set(externals.map((e) => e.email).filter(Boolean));
-      const externalIdsSet = new Set(externals.map((e) => e.externalId).filter(Boolean));
-
-      const orFilters = [{ externalSource: 'isidata' }];
-      if (matricoleSet.size) orFilters.push({ matricola: { [Op.in]: Array.from(matricoleSet) } });
-      if (emailsSet.size) orFilters.push({ email: { [Op.in]: Array.from(emailsSet) } });
-      if (externalIdsSet.size)
-        orFilters.push({
-          externalSource: 'isidata',
-          externalId: { [Op.in]: Array.from(externalIdsSet) },
+    // Gate sicurezza pre-apply (Miglioria 1): ricomputiamo il diff PROSPECTIVE
+    // fuori transazione per produrre i warning di safety. Se ci sono warning
+    // `critical` e l'admin NON ha spedito `confirmCriticalWarnings: true`,
+    // rifiutiamo con 409. Questa ricomputazione è "consultiva": la transazione
+    // vera la rifarà di nuovo dentro al t (Snapshot Isolation), così se nel
+    // frattempo qualcuno crea/disattiva utenti il diff finale sarà coerente.
+    // Il rischio "false-negative" (in /apply non c'è più warning critico, ma
+    // l'admin l'ha confermato) è accettabile: niente bloccante.
+    {
+      const matricoleSetCheck = new Set(externals.map((e) => e.matricola).filter(Boolean));
+      const emailsSetCheck = new Set(externals.map((e) => e.email).filter(Boolean));
+      const externalIdsSetCheck = new Set(externals.map((e) => e.externalId).filter(Boolean));
+      const orFiltersCheck = [{ externalSource: source }];
+      if (matricoleSetCheck.size)
+        orFiltersCheck.push({ matricola: { [Op.in]: Array.from(matricoleSetCheck) } });
+      if (emailsSetCheck.size)
+        orFiltersCheck.push({ email: { [Op.in]: Array.from(emailsSetCheck) } });
+      if (externalIdsSetCheck.size)
+        orFiltersCheck.push({
+          externalSource: source,
+          externalId: { [Op.in]: Array.from(externalIdsSetCheck) },
         });
-      const localUsers = await User.findAll({
-        where: { [Op.or]: orFilters },
-        transaction: t,
+      const localUsersCheck = await User.findAll({ where: { [Op.or]: orFiltersCheck } });
+      const diffCheck = computeDiff(externals, localUsersCheck, 'matricola', source);
+      const totalActiveUsersCheck = await User.count({
+        where: { externalSource: source, isActive: true },
       });
-
-      // Map courseCode → courseId DENTRO la transazione: garantisce che un
-      // corso disattivato/cancellato fra preview e apply venga ri-letto.
-      const courseCodeToIdTx = await loadCourseCodeToIdMap(t);
-      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata', {
-        courseCodeToId: courseCodeToIdTx,
-      });
-
-      let created = 0,
-        updated = 0,
-        orphaned = 0,
-        errors = 0;
-      const errorPayload = [];
-      const now = new Date();
-
-      // CREATE
-      for (const ext of diff.toCreate) {
-        try {
-          // Priorità: courseId pre-risolto dal diff engine (lookup esatto
-          // su `Course.code`). Fallback `resolveCourse` per quei record con
-          // SOLO courseName (legacy) o courseCode non in catalogo: in quel
-          // caso `resolveCourse` può creare on-demand un Course se serve.
-          let courseId = ext.courseId ?? null;
-          if (!courseId && (ext.courseCode || ext.courseName)) {
-            const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
-            courseId = course?.id ?? null;
-          }
-          // Email può essere null per studenti minorenni: in quel caso
-          // generiamo un placeholder unique-safe (admin la modificherà a
-          // mano quando l'utente attiverà il profilo). Sanitiziamo l'externalId
-          // a `[a-z0-9._-]` per il local-part: il modello User ha validate
-          // isEmail e externalId arbitrari (con `:`, spazi, accenti) farebbero
-          // fallire la create con ValidationError.
-          const safeLocalPart =
-            String(ext.externalId || crypto.randomBytes(4).toString('hex'))
-              .toLowerCase()
-              .replace(/[^a-z0-9._-]+/g, '-')
-              .replace(/^-+|-+$/g, '')
-              .slice(0, 60) || crypto.randomBytes(4).toString('hex');
-          const email = ext.email || `import-${safeLocalPart}@imported.local`;
-          const createData = {
-            email,
-            firstName: ext.firstName,
-            lastName: ext.lastName,
-            role: ext.role,
-            matricola: ext.matricola,
-            courseId,
-            status: 'pending', // l'admin li approva esplicitamente dopo l'import
-            isActive: ext.status === 'active',
-            externalSource: 'isidata',
-            externalId: ext.externalId ?? null,
-            lastExternalSyncAt: now,
-          };
-          // contractType: presente solo per docenti con qualifica riconosciuta
-          // (Miglioria 2). Per gli studenti il campo non è nel payload.
-          if (ext.contractType) createData.contractType = ext.contractType;
-          await User.create(createData, { transaction: t });
-          created++;
-        } catch (err) {
-          errors++;
-          errorPayload.push({ kind: 'create', externalId: ext.externalId, msg: err.message });
-          logger?.warn?.({ ext, err: err.message }, '[integrations.isidata] create failed');
-        }
+      const safetyChecksApply = computeSafetyChecks(diffCheck, totalActiveUsersCheck);
+      const criticalCodes = safetyChecksApply.warnings
+        .filter((w) => w.level === 'critical')
+        .map((w) => w.code);
+      if (criticalCodes.length > 0 && confirmCriticalWarnings !== true) {
+        return res.status(409).json({
+          error: 'Sono presenti warning critici: richiesta conferma esplicita',
+          code: 'CRITICAL_WARNINGS_PRESENT',
+          criticalCodes,
+          safetyChecks: safetyChecksApply,
+        });
       }
+    }
 
-      // UPDATE
-      for (const item of diff.toUpdate) {
-        try {
-          const u = item.local;
-          const ext = item.external;
-          const updates = {
-            externalSource: 'isidata',
-            externalId: ext.externalId ?? u.externalId,
-            lastExternalSyncAt: now,
-          };
-          // Applica solo i campi indicati come `fieldsChanged` per evitare
-          // di sovrascrivere mod manuali dell'admin in altri campi.
-          for (const f of item.fieldsChanged) {
-            if (f === 'isActive') {
-              updates.isActive = ext.status === 'active';
-            } else if (f === 'contractType') {
-              // contractType è opt-in: il diff l'ha già filtrato (entra in
-              // fieldsChanged solo se ext.contractType != null). Lo settiamo
-              // direttamente senza fallback al valore locale per non
-              // produrre un noop.
-              updates.contractType = ext.contractType;
-            } else {
-              updates[f] = ext[f] ?? u[f];
+    // Carica config esistente (best-effort: può non esistere ancora).
+    const config = await IntegrationConfig.findOne({
+      where: { provider: source },
+      order: [['id', 'ASC']],
+    });
+
+    // Crea il run record subito in stato 'in_progress' così è visibile in storia
+    // anche se la transazione fallisce.
+    const run = await IntegrationSyncRun.create({
+      configId: config?.id ?? null,
+      instituteId: config?.instituteId ?? null,
+      provider: source,
+      actorId: req.user.id,
+      startedAt: new Date(),
+      triggeredBy: 'manual',
+      status: 'in_progress',
+      fetched: externals.length,
+    });
+
+    try {
+      // Postgres: SERIALIZABLE; SQLite/MySQL: best-effort (SQLite non ha
+      // SERIALIZABLE vero, ma READ_COMMITTED qui è acceptable perché il
+      // file è già caricato e il diff è ricomputato dentro lo stesso block).
+      const isPostgres = sequelize.getDialect() === 'postgres';
+      const txOpts = isPostgres
+        ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
+        : {};
+
+      const result = await sequelize.transaction(txOpts, async (t) => {
+        // Riprendi il diff DENTRO la transazione (lock-friendly).
+        const matricoleSet = new Set(externals.map((e) => e.matricola).filter(Boolean));
+        const emailsSet = new Set(externals.map((e) => e.email).filter(Boolean));
+        const externalIdsSet = new Set(externals.map((e) => e.externalId).filter(Boolean));
+
+        const orFilters = [{ externalSource: source }];
+        if (matricoleSet.size) orFilters.push({ matricola: { [Op.in]: Array.from(matricoleSet) } });
+        if (emailsSet.size) orFilters.push({ email: { [Op.in]: Array.from(emailsSet) } });
+        if (externalIdsSet.size)
+          orFilters.push({
+            externalSource: source,
+            externalId: { [Op.in]: Array.from(externalIdsSet) },
+          });
+        const localUsers = await User.findAll({
+          where: { [Op.or]: orFilters },
+          transaction: t,
+        });
+
+        // Map courseCode → courseId DENTRO la transazione: garantisce che un
+        // corso disattivato/cancellato fra preview e apply venga ri-letto.
+        const courseCodeToIdTx = await loadCourseCodeToIdMap(t);
+        const diff = computeDiff(externals, localUsers, 'matricola', source, {
+          courseCodeToId: courseCodeToIdTx,
+        });
+
+        let created = 0,
+          updated = 0,
+          orphaned = 0,
+          errors = 0;
+        const errorPayload = [];
+        const now = new Date();
+
+        // CREATE
+        for (const ext of diff.toCreate) {
+          try {
+            // Priorità: courseId pre-risolto dal diff engine (lookup esatto
+            // su `Course.code`). Fallback `resolveCourse` per quei record con
+            // SOLO courseName (legacy) o courseCode non in catalogo: in quel
+            // caso `resolveCourse` può creare on-demand un Course se serve.
+            let courseId = ext.courseId ?? null;
+            if (!courseId && (ext.courseCode || ext.courseName)) {
+              const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
+              courseId = course?.id ?? null;
             }
-          }
-          // Se il corso è cambiato, risolvi e linka. Prima prova la map
-          // (Miglioria 3 — lookup O(1)), poi fallback al resolver completo
-          // che può creare il Course on-demand su courseName.
-          if (ext.courseId && ext.courseId !== u.courseId) {
-            updates.courseId = ext.courseId;
-          } else if (!ext.courseId && (ext.courseCode || ext.courseName)) {
-            const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
-            if (course && course.id !== u.courseId) updates.courseId = course.id;
-          }
-          await u.update(updates, { transaction: t });
-          updated++;
-        } catch (err) {
-          errors++;
-          errorPayload.push({ kind: 'update', userId: item.local.id, msg: err.message });
-          logger?.warn?.(
-            { userId: item.local.id, err: err.message },
-            '[integrations.isidata] update failed',
-          );
-        }
-      }
-
-      // ORPHAN: NEVER delete. Soft-disable + nota.
-      for (const u of diff.toOrphan) {
-        try {
-          await u.update(
-            {
-              isActive: false,
-              externalStatusNote: `Non più presente nell'export Isidata del ${now.toISOString().slice(0, 10)}`,
+            // Email può essere null per studenti minorenni: in quel caso
+            // generiamo un placeholder unique-safe (admin la modificherà a
+            // mano quando l'utente attiverà il profilo). Sanitiziamo l'externalId
+            // a `[a-z0-9._-]` per il local-part: il modello User ha validate
+            // isEmail e externalId arbitrari (con `:`, spazi, accenti) farebbero
+            // fallire la create con ValidationError.
+            const safeLocalPart =
+              String(ext.externalId || crypto.randomBytes(4).toString('hex'))
+                .toLowerCase()
+                .replace(/[^a-z0-9._-]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(0, 60) || crypto.randomBytes(4).toString('hex');
+            const email = ext.email || `import-${safeLocalPart}@imported.local`;
+            const createData = {
+              email,
+              firstName: ext.firstName,
+              lastName: ext.lastName,
+              role: ext.role,
+              matricola: ext.matricola,
+              courseId,
+              status: 'pending', // l'admin li approva esplicitamente dopo l'import
+              isActive: ext.status === 'active',
+              externalSource: source,
+              externalId: ext.externalId ?? null,
               lastExternalSyncAt: now,
-            },
-            { transaction: t },
-          );
-          orphaned++;
-        } catch (err) {
-          errors++;
-          errorPayload.push({ kind: 'orphan', userId: u.id, msg: err.message });
+            };
+            // contractType: presente solo per docenti con qualifica riconosciuta
+            // (Miglioria 2). Per gli studenti il campo non è nel payload.
+            if (ext.contractType) createData.contractType = ext.contractType;
+            await User.create(createData, { transaction: t });
+            created++;
+          } catch (err) {
+            errors++;
+            errorPayload.push({ kind: 'create', externalId: ext.externalId, msg: err.message });
+            logger?.warn?.(
+              { source, ext, err: err.message },
+              `[integrations.${source}] create failed`,
+            );
+          }
         }
-      }
 
-      return { created, updated, orphaned, errors, errorPayload, diff };
-    });
+        // UPDATE
+        for (const item of diff.toUpdate) {
+          try {
+            const u = item.local;
+            const ext = item.external;
+            const updates = {
+              externalSource: source,
+              externalId: ext.externalId ?? u.externalId,
+              lastExternalSyncAt: now,
+            };
+            // Applica solo i campi indicati come `fieldsChanged` per evitare
+            // di sovrascrivere mod manuali dell'admin in altri campi.
+            for (const f of item.fieldsChanged) {
+              if (f === 'isActive') {
+                updates.isActive = ext.status === 'active';
+              } else if (f === 'contractType') {
+                // contractType è opt-in: il diff l'ha già filtrato (entra in
+                // fieldsChanged solo se ext.contractType != null). Lo settiamo
+                // direttamente senza fallback al valore locale per non
+                // produrre un noop.
+                updates.contractType = ext.contractType;
+              } else {
+                updates[f] = ext[f] ?? u[f];
+              }
+            }
+            // Se il corso è cambiato, risolvi e linka. Prima prova la map
+            // (Miglioria 3 — lookup O(1)), poi fallback al resolver completo
+            // che può creare il Course on-demand su courseName.
+            if (ext.courseId && ext.courseId !== u.courseId) {
+              updates.courseId = ext.courseId;
+            } else if (!ext.courseId && (ext.courseCode || ext.courseName)) {
+              const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
+              if (course && course.id !== u.courseId) updates.courseId = course.id;
+            }
+            await u.update(updates, { transaction: t });
+            updated++;
+          } catch (err) {
+            errors++;
+            errorPayload.push({ kind: 'update', userId: item.local.id, msg: err.message });
+            logger?.warn?.(
+              { source, userId: item.local.id, err: err.message },
+              `[integrations.${source}] update failed`,
+            );
+          }
+        }
 
-    const { created, updated, orphaned, errors, errorPayload, diff } = result;
-    const finalStatus =
-      errors === 0 ? 'success' : created + updated + orphaned > 0 ? 'partial' : 'failed';
+        // ORPHAN: NEVER delete. Soft-disable + nota.
+        const sourceLabel = getProfile(source)?.displayName || source;
+        for (const u of diff.toOrphan) {
+          try {
+            await u.update(
+              {
+                isActive: false,
+                externalStatusNote: `Non più presente nell'export ${sourceLabel} del ${now.toISOString().slice(0, 10)}`,
+                lastExternalSyncAt: now,
+              },
+              { transaction: t },
+            );
+            orphaned++;
+          } catch (err) {
+            errors++;
+            errorPayload.push({ kind: 'orphan', userId: u.id, msg: err.message });
+          }
+        }
 
-    // Snapshot diff "leggera" per audit (no `raw` per non gonfiare il DB).
-    // Includiamo `matricola` (oltre a externalId) per rendere possibile il
-    // confronto run-vs-run (Miglioria 2): l'endpoint compare-previous estrae
-    // matricole o, in fallback, externalId.
-    const diffSnapshot = {
-      toCreate: diff.toCreate.map((e) => ({
-        matricola: e.matricola ?? null,
-        externalId: e.externalId,
-        email: e.email,
-        role: e.role,
-      })),
-      toUpdate: diff.toUpdate.map((u) => ({
-        userId: u.local.id,
-        matricola: u.local?.matricola ?? u.external?.matricola ?? null,
-        externalId: u.external.externalId,
-        fieldsChanged: u.fieldsChanged,
-      })),
-      toOrphan: diff.toOrphan.map((u) => ({
-        userId: u.id,
-        matricola: u.matricola ?? null,
-        externalId: u.externalId ?? null,
-      })),
-      warnings,
-    };
-    await run.update({
-      finishedAt: new Date(),
-      status: finalStatus,
-      created,
-      updated,
-      skipped: 0,
-      orphaned,
-      errors,
-      errorPayload: errorPayload.length ? errorPayload : null,
-      diffSnapshot,
-    });
-
-    // Aggiorna config "last run" denormalizzato (se config esiste).
-    if (config) {
-      await config.update({
-        lastRunAt: new Date(),
-        lastRunStatus: finalStatus,
-        lastRunSummary: { fetched: externals.length, created, updated, orphaned, errors },
-        lastErrorMessage: errors > 0 ? `${errors} errori; vedi run #${run.id}` : null,
+        return { created, updated, orphaned, errors, errorPayload, diff };
       });
-    }
 
-    // Cleanup file temp dopo apply riuscito (best-effort).
-    try {
-      fs.unlinkSync(path.join(TMP_DIR, path.basename(token)));
-    } catch {
-      /* noop */
-    }
+      const { created, updated, orphaned, errors, errorPayload, diff } = result;
+      const finalStatus =
+        errors === 0 ? 'success' : created + updated + orphaned > 0 ? 'partial' : 'failed';
 
-    logger?.info?.(
-      {
-        runId: run.id,
-        actorId: req.user.id,
-        created,
-        updated,
-        orphaned,
-        errors,
-        status: finalStatus,
-      },
-      '[integrations.isidata] apply completato',
-    );
-
-    res.status(201).json({
-      runId: run.id,
-      status: finalStatus,
-      summary: { fetched: externals.length, created, updated, orphaned, errors, warnings },
-    });
-  } catch (err) {
-    // Best-effort: marca il run come failed e propaga.
-    try {
+      // Snapshot diff "leggera" per audit (no `raw` per non gonfiare il DB).
+      // Includiamo `matricola` (oltre a externalId) per rendere possibile il
+      // confronto run-vs-run (Miglioria 2): l'endpoint compare-previous estrae
+      // matricole o, in fallback, externalId.
+      const diffSnapshot = {
+        toCreate: diff.toCreate.map((e) => ({
+          matricola: e.matricola ?? null,
+          externalId: e.externalId,
+          email: e.email,
+          role: e.role,
+        })),
+        toUpdate: diff.toUpdate.map((u) => ({
+          userId: u.local.id,
+          matricola: u.local?.matricola ?? u.external?.matricola ?? null,
+          externalId: u.external.externalId,
+          fieldsChanged: u.fieldsChanged,
+        })),
+        toOrphan: diff.toOrphan.map((u) => ({
+          userId: u.id,
+          matricola: u.matricola ?? null,
+          externalId: u.externalId ?? null,
+        })),
+        warnings,
+      };
       await run.update({
         finishedAt: new Date(),
-        status: 'failed',
-        errorPayload: [
-          { kind: 'fatal', msg: err.message, stack: err.stack?.split('\n').slice(0, 5).join('\n') },
-        ],
+        status: finalStatus,
+        created,
+        updated,
+        skipped: 0,
+        orphaned,
+        errors,
+        errorPayload: errorPayload.length ? errorPayload : null,
+        diffSnapshot,
       });
-    } catch {
-      /* noop */
+
+      // Aggiorna config "last run" denormalizzato (se config esiste).
+      if (config) {
+        await config.update({
+          lastRunAt: new Date(),
+          lastRunStatus: finalStatus,
+          lastRunSummary: { fetched: externals.length, created, updated, orphaned, errors },
+          lastErrorMessage: errors > 0 ? `${errors} errori; vedi run #${run.id}` : null,
+        });
+      }
+
+      // Cleanup file temp dopo apply riuscito (best-effort).
+      try {
+        fs.unlinkSync(path.join(TMP_DIR, path.basename(token)));
+      } catch {
+        /* noop */
+      }
+
+      logger?.info?.(
+        {
+          source,
+          runId: run.id,
+          actorId: req.user.id,
+          created,
+          updated,
+          orphaned,
+          errors,
+          status: finalStatus,
+        },
+        `[integrations.${source}] apply completato`,
+      );
+
+      res.status(201).json({
+        runId: run.id,
+        status: finalStatus,
+        summary: { fetched: externals.length, created, updated, orphaned, errors, warnings },
+      });
+    } catch (err) {
+      // Best-effort: marca il run come failed e propaga.
+      try {
+        await run.update({
+          finishedAt: new Date(),
+          status: 'failed',
+          errorPayload: [
+            {
+              kind: 'fatal',
+              msg: err.message,
+              stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+            },
+          ],
+        });
+      } catch {
+        /* noop */
+      }
+      logger?.error?.({ source, err }, `[integrations.${source}] apply fallito`);
+      next(err);
     }
-    logger?.error?.({ err }, '[integrations.isidata] apply fallito');
-    next(err);
-  }
-});
+  };
+}
+
+// Registrazione delle due route per ciascun profilo (Isidata + ESSE3 + future).
+// Lo stesso handler factory copre tutti i source: differenze (externalSource,
+// provider, etichette log) vengono iniettate via closure.
+router.post(
+  '/isidata-csv/preview',
+  authenticate,
+  requireRole('admin'),
+  upload.single('file'),
+  makePreviewHandler('isidata'),
+);
+router.post('/isidata-csv/apply', authenticate, requireRole('admin'), makeApplyHandler('isidata'));
+router.post(
+  '/esse3-csv/preview',
+  authenticate,
+  requireRole('admin'),
+  upload.single('file'),
+  makePreviewHandler('esse3'),
+);
+router.post('/esse3-csv/apply', authenticate, requireRole('admin'), makeApplyHandler('esse3'));
 
 // =====================================================
 // GET /api/admin/integrations/runs?provider=isidata&limit=50

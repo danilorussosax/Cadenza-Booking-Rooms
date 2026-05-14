@@ -38,15 +38,68 @@ function normalizeHeader(s) {
 // matcha alcuna keyword di contratto, così non sovrascriviamo nulla quando
 // la colonna è in realtà un ruolo generico.
 const DEFAULT_ALIASES = {
-  externalId: ['matricola', 'idstudente', 'idutente', 'idanagrafica', 'codice', 'iddocente'],
-  email: ['email', 'emailistituzionale', 'emailaccademica', 'mail', 'posta', 'emailpersonale'],
+  externalId: [
+    'matricola',
+    'idstudente',
+    'idutente',
+    'idanagrafica',
+    'codice',
+    'iddocente',
+    // ESSE3 — codici interni CINECA tipici negli export.
+    'idpersona',
+    'matricoladoc',
+    'matricoladocente',
+    'matricolastudente',
+  ],
+  email: [
+    'email',
+    'emailistituzionale',
+    'emailaccademica',
+    'mail',
+    'posta',
+    'emailpersonale',
+    // ESSE3 — la dicitura "Email Istituzionale" è canonica.
+    'mailistituzionale',
+    'postaelettronica',
+  ],
   firstName: ['nome', 'firstname', 'givenname', 'nomeproprio'],
   lastName: ['cognome', 'lastname', 'surname', 'familyname'],
   role: ['ruolo', 'tipo', 'tipoutente', 'figura', 'qualifica'],
   matricola: ['matricola', 'numerodimatricola', 'numeromatricola'],
-  courseCode: ['codicecorso', 'corsocodice', 'codcorso', 'codiceindirizzo'],
-  courseName: ['corso', 'nomecorso', 'descrizionecorso', 'indirizzo', 'classe'],
-  status: ['stato', 'attivo', 'isactive', 'status', 'iscritto'],
+  courseCode: [
+    'codicecorso',
+    'corsocodice',
+    'codcorso',
+    'codiceindirizzo',
+    'sad',
+    // ESSE3 — il "Corso di Studio" si chiama CdS nelle estrazioni standard.
+    'codicecds',
+    'cds',
+    'codcds',
+    'corsodistudio',
+  ],
+  courseName: [
+    'corso',
+    'nomecorso',
+    'descrizionecorso',
+    'indirizzo',
+    'classe',
+    // ESSE3
+    'descrizionecds',
+    'descrcds',
+    'nomecds',
+  ],
+  status: [
+    'stato',
+    'attivo',
+    'isactive',
+    'status',
+    'iscritto',
+    // ESSE3
+    'statoiscrizione',
+    'statoiscritto',
+    'statocarriera',
+  ],
   birthDate: ['datadinascita', 'datanascita', 'birthdate', 'dataancita'],
   contractType: [
     'tipocontratto',
@@ -56,6 +109,11 @@ const DEFAULT_ALIASES = {
     'qualifica',
     'ruolo',
   ],
+  // Solo per il profilo "cadenza-csv" (CSV admin manuale): colonne separate
+  // per lo status user (pending/approved/rejected) e per il flag isActive.
+  // Sul profilo isidata queste sono ignorate (status determina isActive).
+  userStatus: ['statoutente', 'stato', 'userstatus', 'approvazione'],
+  isActive: ['attivo', 'isactive', 'active', 'enabled', 'abilitato'],
 };
 
 /**
@@ -178,6 +236,17 @@ function coerceStatus(raw) {
       'inactive',
       'disattivato',
       'sospeso',
+      // Stati ESSE3 che corrispondono a fine carriera o uscita dall'istituzione:
+      // gli studenti laureati o trasferiti non devono restare attivi su Cadenza.
+      'laureato',
+      'laureata',
+      'trasferito',
+      'trasferita',
+      'cessata',
+      'rinunciatario',
+      'rinunciataria',
+      'decaduto',
+      'decaduta',
     ].includes(s)
   ) {
     return 'inactive';
@@ -199,6 +268,50 @@ function coerceRole(raw) {
   if (s.startsWith('doc') || s.startsWith('prof')) return 'docente';
   if (s.startsWith('stud') || s.startsWith('all') || s.startsWith('iscr')) return 'studente';
   return 'studente';
+}
+
+/**
+ * Variante di coerceRole che ammette anche 'admin'. Usata dal profilo
+ * "cadenza-csv" (import admin manuale): l'amministratore può legittimamente
+ * caricare in CSV altri admin. Isidata invece non porta mai admin → coerceRole
+ * standard nega esplicitamente questa via.
+ */
+function coerceRoleAdmin(raw) {
+  if (raw === null || raw === undefined) return 'studente';
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'admin' || s.startsWith('amm')) return 'admin';
+  if (s.startsWith('doc') || s.startsWith('prof')) return 'docente';
+  if (s.startsWith('stud') || s.startsWith('all') || s.startsWith('iscr')) return 'studente';
+  return 'studente';
+}
+
+/**
+ * Coerce stringa in user.status ('pending'|'approved'|'rejected'). Usato dal
+ * profilo "cadenza-csv": la colonna Stato del CSV admin contiene lo stato di
+ * approvazione, non l'attività. Default 'approved' (l'admin che carica il CSV
+ * sta già approvando implicitamente; lascia 'pending' a chi vuole forzarlo).
+ */
+function coerceUserStatus(raw) {
+  if (raw === null || raw === undefined) return 'approved';
+  const s = String(raw).trim().toLowerCase();
+  if (s === '') return 'approved';
+  if (['pending', 'pending_approval', 'da approvare', 'inattesa'].includes(s)) return 'pending';
+  if (['rejected', 'rifiutato', 'respinto', 'denied'].includes(s)) return 'rejected';
+  return 'approved';
+}
+
+/**
+ * Coerce stringa in booleano isActive. Tollerante con i valori italiani
+ * più comuni nei CSV admin: si/sì/no/true/false/1/0. Default true.
+ */
+function coerceIsActive(raw) {
+  if (raw === null || raw === undefined || raw === '') return true;
+  const s = String(raw).trim().toLowerCase();
+  if (['no', 'false', '0', 'n', 'off', 'disattivato', 'disabilitato'].includes(s)) return false;
+  if (['si', 'sì', 'yes', 'true', '1', 'y', 'on', 'x', 'attivo', 'abilitato'].includes(s)) {
+    return true;
+  }
+  return true;
 }
 
 /**
@@ -383,7 +496,10 @@ module.exports = {
   extractEffectiveMapping,
   applyMapping,
   coerceRole,
+  coerceRoleAdmin,
   coerceStatus,
+  coerceUserStatus,
+  coerceIsActive,
   coerceContractType,
   sanitizeOverrides,
   DEFAULT_ALIASES,

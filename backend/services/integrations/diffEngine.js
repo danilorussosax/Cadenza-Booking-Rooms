@@ -72,9 +72,9 @@ function normMatricola(s) {
   return String(s).trim().replace(/^0+/, ''); // ignora leading-zero (caso classico Excel)
 }
 
-function externalToSnapshot(ext) {
+function externalToSnapshot(ext, source = 'isidata') {
   const snap = {
-    externalSource: 'isidata',
+    externalSource: source,
     externalId: ext.externalId ?? null,
     email: normEmail(ext.email),
     firstName: normString(ext.firstName),
@@ -265,7 +265,7 @@ function computeDiff(
   const toUpdate = [];
 
   for (const ext of externalUsers) {
-    const snap = externalToSnapshot(ext);
+    const snap = externalToSnapshot(ext, source);
 
     // Risoluzione courseCode → courseId (Miglioria 3). Effetto collaterale:
     // muta `ext.courseId` quando il codice corso è noto, così route /apply

@@ -84,17 +84,23 @@ export const usersApi = {
     return res.blob();
   },
 
-  /** Importa utenti da CSV. Per nuovi utenti viene generata una password
-   *  temporanea casuale (l'admin invita poi al reset). Idempotente su email. */
-  importCsv: (csv: string) =>
-    api<{
+  /** Importa utenti da CSV o XLSX. Per nuovi utenti viene generata una
+   *  password temporanea casuale (l'admin invita poi al reset). Idempotente
+   *  su email. Multipart upload: file con header standard (Email, Cognome,
+   *  Nome, Ruolo, Matricola, CodiceCorso, Stato, Attivo). */
+  importCsv: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api<{
       parsed: number;
       created: number;
       updated: number;
       skipped: number;
       errors: { line: number; msg: string }[];
+      warnings?: { row?: number; msg: string }[];
     }>('/api/users/import', {
       method: 'POST',
-      body: { csv },
-    }),
+      body: fd,
+    });
+  },
 };
