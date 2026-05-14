@@ -29,7 +29,37 @@
  * e altri attributi locali a Cadenza.
  */
 
-const SYNCED_FIELDS = ['email', 'firstName', 'lastName', 'role', 'matricola', 'isActive'];
+// Campi che il diff confronta tra utente locale e snapshot esterno. `contractType`
+// è incluso ma con semantica "opt-in": viene proposto come `update` solo se il
+// record esterno lo specifica esplicitamente (non-null). Vedi `diffFields`.
+const SYNCED_FIELDS = [
+  'email',
+  'firstName',
+  'lastName',
+  'role',
+  'matricola',
+  'isActive',
+  'contractType',
+];
+
+// Soglie hardcoded per i warning di sicurezza pre-apply (Miglioria 1).
+// Niente Settings — questi numeri proteggono dalle situazioni più ovvie
+// (file di import troncato/filtrato dalla segreteria) senza richiedere
+// configurazione lato admin.
+const SAFETY_THRESHOLDS = {
+  // Frazione del totale utenti attivi: oltre questa percentuale di
+  // disattivazioni in un singolo import scatta il livello critical/warning.
+  DEACTIVATE_RATIO_CRITICAL: 0.2, // >20% del totale → critical
+  DEACTIVATE_RATIO_WARNING: 0.1, // >10% → warning
+  // Conteggio assoluto: utile per istituzioni piccole dove anche il 20% è
+  // un numero gestibile ma 50 utenti rimangono molti in valore assoluto.
+  DEACTIVATE_COUNT_CRITICAL: 50,
+  DEACTIVATE_COUNT_WARNING: 20,
+  // Creazione di massa: spesso indica un import "verso fine anno" con
+  // tutta la nuova coorte di matricole. Solo warning (non blocchiamo) —
+  // un istituto medio ha 200-300 nuovi iscritti l'anno.
+  CREATE_COUNT_WARNING: 100,
+};
 
 function normEmail(s) {
   return s ? String(s).trim().toLowerCase() : null;
@@ -43,7 +73,7 @@ function normMatricola(s) {
 }
 
 function externalToSnapshot(ext) {
-  return {
+  const snap = {
     externalSource: 'isidata',
     externalId: ext.externalId ?? null,
     email: normEmail(ext.email),
@@ -55,6 +85,13 @@ function externalToSnapshot(ext) {
     courseName: ext.courseName ?? null,
     isActive: ext.status === 'active',
   };
+  // contractType: presente solo se applyMapping l'ha valorizzato (docente con
+  // valore riconosciuto). Lasciamo `undefined` quando l'origine non lo fornisce
+  // così `diffFields` può saltare il confronto e non generare update spurio.
+  if (Object.prototype.hasOwnProperty.call(ext, 'contractType') && ext.contractType != null) {
+    snap.contractType = ext.contractType;
+  }
+  return snap;
 }
 
 function localToSnapshot(u) {
@@ -67,6 +104,7 @@ function localToSnapshot(u) {
     role: u.role,
     matricola: normString(u.matricola),
     isActive: !!u.isActive,
+    contractType: u.contractType ?? null,
   };
 }
 
@@ -79,7 +117,16 @@ function diffFields(local, ext) {
   const changed = [];
   for (const f of SYNCED_FIELDS) {
     const a = local[f];
-    let b = ext[f];
+    const b = ext[f];
+    // contractType è opt-in: se l'esterno non lo fornisce (undefined/null)
+    // NON proponiamo update — l'utente locale può avere un contractType
+    // settato manualmente e non vogliamo sovrascriverlo con un import che
+    // non porta quel dato.
+    if (f === 'contractType') {
+      if (b == null) continue;
+      if (a !== b) changed.push(f);
+      continue;
+    }
     // Per matricola: confrontiamo dopo normalizzazione leading-zero.
     if (f === 'matricola') {
       if (normMatricola(a) !== normMatricola(b)) changed.push(f);
@@ -96,6 +143,76 @@ function diffFields(local, ext) {
 }
 
 /**
+ * Calcola i warning di sicurezza pre-apply (Miglioria 1).
+ *
+ * @param {object} diff — risultato di computeDiff
+ * @param {number} totalActiveUsers — count totale di utenti del provider
+ *        (es. `User.count({where:{externalSource:source}})`). Serve per
+ *        calcolare la "frazione" di disattivazioni.
+ * @returns {{totalActiveUsers, deactivateCount, createCount, deactivateRatio, warnings}}
+ *
+ * `warnings` è un array di `{level, code, message}` dove:
+ *   - level='critical' richiede una conferma esplicita aggiuntiva dell'admin
+ *     (vedi route `/apply` `confirmCriticalWarnings`);
+ *   - level='warning' è informativo (UI lo mostra ma non blocca).
+ */
+function computeSafetyChecks(diff, totalActiveUsers) {
+  const total = Math.max(0, Number(totalActiveUsers) || 0);
+  const deactivateCount = diff.toOrphan.length;
+  const createCount = diff.toCreate.length;
+  // Evitiamo divisione per zero quando il provider non ha ancora utenti:
+  // in quel caso ratio=0, niente warning di mass-deactivation (e infatti
+  // deactivateCount sarà 0 perché non c'è nulla da disattivare).
+  const deactivateRatio = total > 0 ? deactivateCount / total : 0;
+  const warnings = [];
+
+  // Mass deactivation: combinazione ratio + soglia assoluta.
+  // Critical batte warning — usiamo SOLO la voce critical se entrambe matchano.
+  const ratioPct = Math.round(deactivateRatio * 100);
+  if (
+    deactivateRatio > SAFETY_THRESHOLDS.DEACTIVATE_RATIO_CRITICAL ||
+    deactivateCount >= SAFETY_THRESHOLDS.DEACTIVATE_COUNT_CRITICAL
+  ) {
+    warnings.push({
+      level: 'critical',
+      code: 'MASS_DEACTIVATION',
+      message: `Saranno disattivati ${deactivateCount} utenti${
+        total > 0 ? ` (${ratioPct}% del totale, ${deactivateCount}/${total})` : ''
+      }. Verifica che il file di import sia completo prima di proseguire.`,
+    });
+  } else if (
+    deactivateRatio > SAFETY_THRESHOLDS.DEACTIVATE_RATIO_WARNING ||
+    deactivateCount >= SAFETY_THRESHOLDS.DEACTIVATE_COUNT_WARNING
+  ) {
+    warnings.push({
+      level: 'warning',
+      code: 'MASS_DEACTIVATION',
+      message: `Saranno disattivati ${deactivateCount} utenti${
+        total > 0 ? ` (${ratioPct}% del totale)` : ''
+      }. Controlla che corrispondano agli utenti effettivamente non più presenti.`,
+    });
+  }
+
+  // Mass creation: solo warning (mai critical: aggiungere utenti è meno
+  // rischioso che disattivarli; al peggio l'admin "pulisce" dopo).
+  if (createCount >= SAFETY_THRESHOLDS.CREATE_COUNT_WARNING) {
+    warnings.push({
+      level: 'warning',
+      code: 'MASS_CREATION',
+      message: `Saranno creati ${createCount} nuovi utenti. Controlla che non siano duplicati di utenti esistenti con matricola/email leggermente diversa.`,
+    });
+  }
+
+  return {
+    totalActiveUsers: total,
+    deactivateCount,
+    createCount,
+    deactivateRatio,
+    warnings,
+  };
+}
+
+/**
  * @param {ExternalUser[]} externalUsers
  * @param {User[]} localUsers — solo gli utenti che hanno externalSource=source
  *                              OPPURE quelli con email/matricola che potrebbe
@@ -104,10 +221,27 @@ function diffFields(local, ext) {
  *                              questa funzione filtra.
  * @param {'externalId'|'matricola'|'email'} matchBy
  * @param {string} source — es. 'isidata'. Usato per la detection orphan.
+ * @param {object} [options]
+ * @param {Map<string,number>} [options.courseCodeToId] — pre-caricata dal
+ *        chiamante via `Course.findAll`. Quando presente, ogni record con
+ *        `courseCode` valorizzato viene risolto verso `courseId`; codici
+ *        sconosciuti finiscono in `warnings` (soft, NON bloccante).
  *
- * @returns {{toCreate, toUpdate, toOrphan}}
+ * @returns {{toCreate, toUpdate, toOrphan, warnings}} dove `warnings` è
+ *        l'array soft (vs. `safetyChecks.warnings` che è bloccante).
  */
-function computeDiff(externalUsers, localUsers, matchBy = 'matricola', source = 'isidata') {
+function computeDiff(
+  externalUsers,
+  localUsers,
+  matchBy = 'matricola',
+  source = 'isidata',
+  options = {},
+) {
+  const courseCodeToId = options.courseCodeToId instanceof Map ? options.courseCodeToId : null;
+  const warnings = [];
+  // Conta le occorrenze per courseCode sconosciuto: aggreghiamo nel warning
+  // così la UI non mostra una riga per ogni studente con lo stesso codice.
+  const unknownCourseAgg = new Map(); // courseCode → count
   // Indici di lookup veloce sugli utenti locali.
   const byExternal = new Map(); // (source, externalId) → user
   const byMatricola = new Map(); // matricola normalizzata → user
@@ -132,6 +266,21 @@ function computeDiff(externalUsers, localUsers, matchBy = 'matricola', source = 
 
   for (const ext of externalUsers) {
     const snap = externalToSnapshot(ext);
+
+    // Risoluzione courseCode → courseId (Miglioria 3). Effetto collaterale:
+    // muta `ext.courseId` quando il codice corso è noto, così route /apply
+    // può semplicemente leggere ext.courseId senza ricalcolare il lookup.
+    // I codici sconosciuti vengono aggregati in `unknownCourseAgg` e
+    // riportati a fine ciclo come warning soft (non bloccante).
+    if (courseCodeToId && ext.courseCode) {
+      const courseId = courseCodeToId.get(String(ext.courseCode).trim());
+      if (courseId) {
+        ext.courseId = courseId;
+      } else {
+        const key = String(ext.courseCode).trim();
+        unknownCourseAgg.set(key, (unknownCourseAgg.get(key) ?? 0) + 1);
+      }
+    }
 
     // Strategia di lookup combinata, in ordine deterministico.
     let local = null;
@@ -184,13 +333,27 @@ function computeDiff(externalUsers, localUsers, matchBy = 'matricola', source = 
     (u) => u.externalSource === source && u.role !== 'admin' && !matchedLocalIds.has(u.id),
   );
 
-  return { toCreate, toUpdate, toOrphan };
+  // Emette i warning soft per codici corso sconosciuti. Aggreghiamo per
+  // courseCode così se 30 studenti hanno tutti "PNF-001" non in catalogo,
+  // la UI mostra una sola riga "30 utenti con courseCode PNF-001 ignorato".
+  for (const [code, count] of unknownCourseAgg) {
+    warnings.push({
+      code: 'UNKNOWN_COURSE_CODE',
+      courseCode: code,
+      count,
+      msg: `${count} utent${count === 1 ? 'e' : 'i'} con courseCode "${code}" non riconosciuto: courseId non impostato. Verifica il catalogo corsi.`,
+    });
+  }
+
+  return { toCreate, toUpdate, toOrphan, warnings };
 }
 
 module.exports = {
   computeDiff,
+  computeSafetyChecks,
   diffFields,
   externalToSnapshot,
   localToSnapshot,
   SYNCED_FIELDS,
+  SAFETY_THRESHOLDS,
 };

@@ -2024,6 +2024,13 @@
       "orphan_already_disabled": "Già disattivato — nessuna azione",
       "nothing_to_apply": "Nessuna modifica da applicare: il file è già allineato al database.",
       "confirm_label": "Confermo di aver verificato il diff e di voler applicare queste modifiche.",
+      "confirm_critical_label": "Confermo i warning critici evidenziati e intendo procedere comunque.",
+      "safety": {
+        "critical_title": "Warning critici — richiesta conferma aggiuntiva",
+        "warning_title": "Avvisi di sicurezza"
+      },
+      "soft_warnings_title_one": "{{count}} avviso non bloccante",
+      "soft_warnings_title_other": "{{count}} avvisi non bloccanti",
       "hash_label": "Hash file",
       "apply_action": "Applica modifiche",
       "col": {

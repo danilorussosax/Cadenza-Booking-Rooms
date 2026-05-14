@@ -2028,6 +2028,13 @@
       "orphan_already_disabled": "Already deactivated — no action",
       "nothing_to_apply": "Nothing to apply: the file already matches the database.",
       "confirm_label": "I confirm I have reviewed the diff and want to apply these changes.",
+      "confirm_critical_label": "I acknowledge the critical warnings and want to proceed anyway.",
+      "safety": {
+        "critical_title": "Critical warnings — additional confirmation required",
+        "warning_title": "Safety advisories"
+      },
+      "soft_warnings_title_one": "{{count}} non-blocking warning",
+      "soft_warnings_title_other": "{{count}} non-blocking warnings",
       "hash_label": "File hash",
       "apply_action": "Apply changes",
       "col": {

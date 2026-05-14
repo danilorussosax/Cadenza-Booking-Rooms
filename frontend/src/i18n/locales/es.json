@@ -2028,6 +2028,13 @@
       "orphan_already_disabled": "Ya desactivado — sin acción",
       "nothing_to_apply": "Nada que aplicar: el archivo ya coincide con la base de datos.",
       "confirm_label": "Confirmo que he revisado el diff y quiero aplicar estos cambios.",
+      "confirm_critical_label": "Reconozco las advertencias críticas y quiero continuar de todos modos.",
+      "safety": {
+        "critical_title": "Advertencias críticas — se requiere confirmación adicional",
+        "warning_title": "Advertencias de seguridad"
+      },
+      "soft_warnings_title_one": "{{count}} advertencia no bloqueante",
+      "soft_warnings_title_other": "{{count}} advertencias no bloqueantes",
       "hash_label": "Hash del archivo",
       "apply_action": "Aplicar cambios",
       "col": {

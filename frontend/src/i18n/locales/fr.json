@@ -2028,6 +2028,13 @@
       "orphan_already_disabled": "Déjà désactivé — aucune action",
       "nothing_to_apply": "Aucune modification à appliquer : le fichier est déjà aligné avec la base de données.",
       "confirm_label": "Je confirme avoir vérifié le diff et vouloir appliquer ces modifications.",
+      "confirm_critical_label": "Je prends acte des avertissements critiques et souhaite continuer quand même.",
+      "safety": {
+        "critical_title": "Avertissements critiques — confirmation supplémentaire requise",
+        "warning_title": "Avertissements de sécurité"
+      },
+      "soft_warnings_title_one": "{{count}} avertissement non bloquant",
+      "soft_warnings_title_other": "{{count}} avertissements non bloquants",
       "hash_label": "Hash du fichier",
       "apply_action": "Appliquer les modifications",
       "col": {

@@ -10,7 +10,7 @@
 const request = require('supertest');
 const ExcelJS = require('exceljs');
 const { buildApp } = require('../../app');
-const { User } = require('../../models');
+const { User, Course } = require('../../models');
 const { createAdmin, createUser } = require('../factories');
 
 async function buildXlsxBuffer(rows) {
@@ -107,11 +107,38 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
       externalSource: 'isidata',
       externalId: 'A200',
     });
+    // Riempitivo: utenti Isidata attivi che NON saranno orfani (la matricola
+    // è inclusa nel CSV in basso, ramo "match → toUpdate con linkChanged"
+    // se i campi coincidono). Servono per portare il rapporto di
+    // disattivazione sotto la soglia critical (20%) e tenere questo test
+    // sulla "happy path" senza confirmCriticalWarnings.
+    const filler = [];
+    for (let i = 0; i < 9; i++) {
+      filler.push(
+        await createUser({
+          email: `fill${i}@x.test`,
+          firstName: 'F',
+          lastName: `Filler${i}`,
+          role: 'studente',
+          matricola: `F${i}`,
+          externalSource: 'isidata',
+          externalId: `F${i}`,
+        }),
+      );
+    }
 
+    const fillerRows = filler.map((f, i) => [
+      `F${i}`,
+      `Filler${i}`,
+      'F',
+      `fill${i}@x.test`,
+      'studente',
+    ]);
     const buf = await buildXlsxBuffer([
       ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo'],
       ['A100', 'NewName', 'Old', 'foo@x.test', 'studente'],
       ['A300', 'Bianchi', 'Anna', 'anna@x.test', 'studente'],
+      ...fillerRows,
     ]);
 
     const previewRes = await request(app)
@@ -226,5 +253,138 @@ describe('POST /api/admin/integrations/isidata-csv', () => {
       .set('Authorization', `Bearer ${adminTok}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.runs)).toBe(true);
+  });
+
+  // ===========================================================
+  // Miglioria 1: soglie sicurezza pre-apply
+  // ===========================================================
+  describe('safetyChecks (mass deactivation)', () => {
+    async function seedManyIsidataUsers(count) {
+      // Crea `count` utenti Isidata attivi: necessari per far scattare
+      // il gate critical (deactivateRatio > 20% richiede una popolazione
+      // di partenza non triviale).
+      const created = [];
+      for (let i = 0; i < count; i++) {
+        created.push(
+          await createUser({
+            email: `mass${i}@x.test`,
+            firstName: 'M',
+            lastName: `User${i}`,
+            role: 'studente',
+            matricola: `MASS${i}`,
+            externalSource: 'isidata',
+            externalId: `MASS${i}`,
+          }),
+        );
+      }
+      return created;
+    }
+
+    it('apply rifiuta con 409 CRITICAL_WARNINGS_PRESENT se ratio > 20% e niente confirmCriticalWarnings', async () => {
+      const { token: adminTok } = await createAdmin();
+      // 5 utenti attivi → import vuoto = 100% disattivazione → critical.
+      await seedManyIsidataUsers(5);
+
+      const buf = await buildXlsxBuffer([
+        ['Matricola', 'Cognome', 'Nome'],
+        ['Z1', 'Solo', 'Uno'], // un nuovo utente → 5 orfani, 1 create
+      ]);
+
+      const preview = await request(app)
+        .post('/api/admin/integrations/isidata-csv/preview')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .attach('file', buf, 'isidata.xlsx');
+      expect(preview.status).toBe(200);
+      expect(preview.body.safetyChecks).toBeTruthy();
+      const criticalCount = preview.body.safetyChecks.warnings.filter(
+        (w) => w.level === 'critical',
+      ).length;
+      expect(criticalCount).toBeGreaterThanOrEqual(1);
+
+      const res = await request(app)
+        .post('/api/admin/integrations/isidata-csv/apply')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .send({
+          token: preview.body.token,
+          confirmedDiffHash: preview.body.hash,
+        });
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('CRITICAL_WARNINGS_PRESENT');
+      expect(res.body.criticalCodes).toContain('MASS_DEACTIVATION');
+
+      // Nessun utente è stato disattivato.
+      const stillActive = await User.count({
+        where: { externalSource: 'isidata', isActive: true },
+      });
+      expect(stillActive).toBe(5);
+    });
+
+    it('apply procede con 201 quando confirmCriticalWarnings: true', async () => {
+      const { token: adminTok } = await createAdmin();
+      await seedManyIsidataUsers(5);
+
+      const buf = await buildXlsxBuffer([
+        ['Matricola', 'Cognome', 'Nome'],
+        ['Z1', 'Solo', 'Uno'],
+      ]);
+      const preview = await request(app)
+        .post('/api/admin/integrations/isidata-csv/preview')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .attach('file', buf, 'isidata.xlsx');
+
+      const res = await request(app)
+        .post('/api/admin/integrations/isidata-csv/apply')
+        .set('Authorization', `Bearer ${adminTok}`)
+        .send({
+          token: preview.body.token,
+          confirmedDiffHash: preview.body.hash,
+          confirmCriticalWarnings: true,
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.summary.orphaned).toBe(5);
+      // Tutti i 5 mass-user devono essere disattivati.
+      const remaining = await User.count({
+        where: { externalSource: 'isidata', isActive: true },
+      });
+      // Il nuovo "Z1" creato è attivo (status='active' default), gli altri 5 disattivati.
+      expect(remaining).toBe(1);
+    });
+  });
+
+  // ===========================================================
+  // Miglioria 3: collegamento courseCode → Course.courseId
+  // ===========================================================
+  it('apply: courseCode noto → User.courseId valorizzato dalla map', async () => {
+    const { token: adminTok } = await createAdmin();
+    const course = await Course.create({
+      code: 'CODI/21',
+      name: 'Pianoforte',
+      levels: [],
+      isActive: true,
+    });
+
+    const buf = await buildXlsxBuffer([
+      ['Matricola', 'Cognome', 'Nome', 'Email', 'Ruolo', 'CodiceCorso'],
+      ['STU01', 'Verdi', 'Carla', 'carla@x.test', 'studente', 'CODI/21'],
+    ]);
+
+    const preview = await request(app)
+      .post('/api/admin/integrations/isidata-csv/preview')
+      .set('Authorization', `Bearer ${adminTok}`)
+      .attach('file', buf, 'isidata.xlsx');
+    expect(preview.status).toBe(200);
+    expect(preview.body.softWarnings).toBeTruthy();
+    // courseCode noto → niente UNKNOWN_COURSE_CODE.
+    expect(preview.body.softWarnings.some((w) => w.code === 'UNKNOWN_COURSE_CODE')).toBe(false);
+
+    const res = await request(app)
+      .post('/api/admin/integrations/isidata-csv/apply')
+      .set('Authorization', `Bearer ${adminTok}`)
+      .send({ token: preview.body.token, confirmedDiffHash: preview.body.hash });
+    expect(res.status).toBe(201);
+
+    const created = await User.findOne({ where: { matricola: 'STU01' } });
+    expect(created).toBeTruthy();
+    expect(created.courseId).toBe(course.id);
   });
 });

@@ -10,6 +10,7 @@ const {
   buildHeaderMap,
   coerceStatus,
   coerceRole,
+  coerceContractType,
   applyMapping,
   sanitizeOverrides,
 } = require('../../services/integrations/isidata/fieldMapping');
@@ -86,6 +87,83 @@ describe('fieldMapping.coerceRole', () => {
     expect(coerceRole('')).toBe('studente');
     expect(coerceRole('vattelapesca')).toBe('studente');
     expect(coerceRole(42)).toBe('studente');
+  });
+});
+
+describe('fieldMapping.coerceContractType', () => {
+  it('"titolare di cattedra" / "ordinario" / "cattedra" → titolare', () => {
+    expect(coerceContractType('Titolare di cattedra')).toBe('titolare');
+    expect(coerceContractType('Ordinario')).toBe('titolare');
+    expect(coerceContractType('Cattedra')).toBe('titolare');
+    expect(coerceContractType('TITOLARE')).toBe('titolare');
+  });
+
+  it('"contratto orario" / "co.co.co." / "collaborazione" → contratto_orario', () => {
+    expect(coerceContractType('Contratto orario')).toBe('contratto_orario');
+    expect(coerceContractType('Co.Co.Co.')).toBe('contratto_orario');
+    expect(coerceContractType('Collaborazione')).toBe('contratto_orario');
+    expect(coerceContractType('docente a contratto')).toBe('contratto_orario');
+  });
+
+  it('"supplente" / "supplenza" → supplente', () => {
+    expect(coerceContractType('Supplente')).toBe('supplente');
+    expect(coerceContractType('Supplenza annuale')).toBe('supplente');
+    expect(coerceContractType('supp.')).toBe('supplente');
+  });
+
+  it('vuoto/null/undefined/non-match → null (no override)', () => {
+    expect(coerceContractType(null)).toBeNull();
+    expect(coerceContractType(undefined)).toBeNull();
+    expect(coerceContractType('')).toBeNull();
+    expect(coerceContractType('   ')).toBeNull();
+    expect(coerceContractType('inventato')).toBeNull();
+    expect(coerceContractType('Docente')).toBeNull(); // ruolo generico, non un contratto
+  });
+});
+
+describe('fieldMapping.applyMapping — contractType', () => {
+  it('docente con qualifica riconosciuta → contractType valorizzato', () => {
+    const map = {
+      externalId: 'M',
+      firstName: 'N',
+      lastName: 'C',
+      role: 'R',
+      contractType: 'Q',
+    };
+    const r = applyMapping({ M: '1', N: 'Anna', C: 'Bianchi', R: 'Docente', Q: 'Ordinario' }, map);
+    expect(r.ok).toBe(true);
+    expect(r.user.role).toBe('docente');
+    expect(r.user.contractType).toBe('titolare');
+  });
+
+  it('studente: contractType NON impostato anche se la colonna esiste', () => {
+    const map = {
+      externalId: 'M',
+      firstName: 'N',
+      lastName: 'C',
+      role: 'R',
+      contractType: 'Q',
+    };
+    const r = applyMapping({ M: '1', N: 'Anna', C: 'Bianchi', R: 'Studente', Q: 'Ordinario' }, map);
+    expect(r.ok).toBe(true);
+    expect(r.user.role).toBe('studente');
+    expect('contractType' in r.user).toBe(false);
+  });
+
+  it('docente con qualifica non riconosciuta → contractType assente (no override)', () => {
+    const map = {
+      externalId: 'M',
+      firstName: 'N',
+      lastName: 'C',
+      role: 'R',
+      contractType: 'Q',
+    };
+    const r = applyMapping(
+      { M: '1', N: 'Anna', C: 'Bianchi', R: 'Docente', Q: 'qualcosa di nuovo' },
+      map,
+    );
+    expect(r.ok).toBe(true);
+    expect('contractType' in r.user).toBe(false);
   });
 });
 

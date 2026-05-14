@@ -2028,6 +2028,13 @@
       "orphan_already_disabled": "Bereits deaktiviert — keine Aktion",
       "nothing_to_apply": "Keine Änderungen anzuwenden: Die Datei ist bereits mit der Datenbank abgeglichen.",
       "confirm_label": "Ich bestätige, dass ich das Diff überprüft habe und diese Änderungen anwenden möchte.",
+      "confirm_critical_label": "Ich nehme die kritischen Warnungen zur Kenntnis und möchte trotzdem fortfahren.",
+      "safety": {
+        "critical_title": "Kritische Warnungen — zusätzliche Bestätigung erforderlich",
+        "warning_title": "Sicherheitshinweise"
+      },
+      "soft_warnings_title_one": "{{count}} nicht-blockierende Warnung",
+      "soft_warnings_title_other": "{{count}} nicht-blockierende Warnungen",
       "hash_label": "Datei-Hash",
       "apply_action": "Änderungen anwenden",
       "col": {

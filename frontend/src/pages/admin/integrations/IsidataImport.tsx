@@ -84,9 +84,17 @@ export function IsidataImportContent() {
   const applyMutation = useMutation({
     mutationFn: () => {
       if (!preview) throw new Error('no preview');
+      // Se la preview ha emesso warning critici, propaghiamo
+      // `confirmCriticalWarnings: true` al backend (il gate richiede il
+      // flag esplicito). La UI ha già forzato la doppia checkbox prima
+      // di abilitare il bottone — vedi PreviewView.
+      const hasCritical = (preview.safetyChecks?.warnings ?? []).some(
+        (w) => w.level === 'critical',
+      );
       return integrationsApi.apply({
         token: preview.token,
         confirmedDiffHash: preview.hash,
+        ...(hasCritical ? { confirmCriticalWarnings: true } : {}),
       });
     },
     onSuccess: (data) => {
@@ -324,11 +332,21 @@ function PreviewView({
   applying: boolean;
 }) {
   const { t } = useTranslation();
-  const { summary, diff } = preview;
+  const { summary, diff, safetyChecks, softWarnings } = preview;
   const showCreate = filter === 'all' || filter === 'create';
   const showUpdate = filter === 'all' || filter === 'update';
   const showOrphan = filter === 'all' || filter === 'orphan';
   const [confirmed, setConfirmed] = useState(false);
+  // Seconda checkbox di conferma per i warning critici. Mostrata solo quando
+  // `safetyChecks.warnings` contiene almeno una voce `level=critical`. Il
+  // bottone Applica resta disabilitato finché entrambe le checkbox sono
+  // spuntate — defense-in-depth oltre al gate backend `confirmCriticalWarnings`.
+  const [criticalAck, setCriticalAck] = useState(false);
+  const safetyWarnings = safetyChecks?.warnings ?? [];
+  const criticalWarnings = safetyWarnings.filter((w) => w.level === 'critical');
+  const nonCriticalSafety = safetyWarnings.filter((w) => w.level !== 'critical');
+  const softWarn = softWarnings ?? [];
+  const [softOpen, setSoftOpen] = useState(false);
 
   return (
     <Card>
@@ -380,6 +398,45 @@ function PreviewView({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {criticalWarnings.length > 0 && (
+          <div
+            className="rounded-lg border-2 border-rose-400 bg-rose-50 p-4 text-sm dark:border-rose-500/50 dark:bg-rose-500/10"
+            data-testid="safety-critical"
+            role="alert"
+          >
+            <p className="flex items-center gap-2 font-semibold text-rose-900 dark:text-rose-200">
+              <AlertTriangle className="h-5 w-5" />
+              {t('integrations.isidata.safety.critical_title')}
+            </p>
+            <ul className="mt-2 space-y-1 pl-7 text-rose-900 dark:text-rose-100">
+              {criticalWarnings.map((w, i) => (
+                <li key={i} className="list-disc">
+                  <span className="font-mono text-xs uppercase opacity-70">{w.code}</span> —{' '}
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {nonCriticalSafety.length > 0 && (
+          <div
+            className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+            data-testid="safety-warning"
+          >
+            <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+              <AlertTriangle className="h-4 w-4" />
+              {t('integrations.isidata.safety.warning_title')}
+            </p>
+            <ul className="mt-2 space-y-1 pl-7 text-amber-900 dark:text-amber-100">
+              {nonCriticalSafety.map((w, i) => (
+                <li key={i} className="list-disc">
+                  <span className="font-mono text-xs uppercase opacity-70">{w.code}</span> —{' '}
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {summary.warnings.length > 0 && (
           <div className="rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
             <p className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
@@ -490,7 +547,38 @@ function PreviewView({
           </div>
         )}
 
-        <div className="rounded-lg border bg-muted/30 p-3">
+        {softWarn.length > 0 && (
+          <section
+            className="rounded-lg border border-muted-foreground/20 bg-muted/30 p-3 text-sm"
+            data-testid="soft-warnings"
+          >
+            <button
+              type="button"
+              className="flex w-full items-center justify-between font-medium"
+              onClick={() => setSoftOpen((v) => !v)}
+              aria-expanded={softOpen}
+            >
+              <span className="flex items-center gap-2">
+                {softOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                {t('integrations.isidata.soft_warnings_title', { count: softWarn.length })}
+              </span>
+            </button>
+            {softOpen && (
+              <ul className="mt-2 list-disc space-y-1 pl-7 text-xs text-muted-foreground">
+                {softWarn.map((w, i) => (
+                  <li key={i}>{w.msg}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
           <label className="flex cursor-pointer items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -500,6 +588,21 @@ function PreviewView({
             />
             <span>{t('integrations.isidata.confirm_label')}</span>
           </label>
+          {criticalWarnings.length > 0 && (
+            <label
+              className="flex cursor-pointer items-start gap-3 border-t border-rose-300/40 pt-2 text-sm font-medium text-rose-900 dark:text-rose-200"
+              data-testid="critical-ack-label"
+            >
+              <input
+                type="checkbox"
+                checked={criticalAck}
+                onChange={(e) => setCriticalAck(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-input"
+                data-testid="critical-ack-checkbox"
+              />
+              <span>{t('integrations.isidata.confirm_critical_label')}</span>
+            </label>
+          )}
         </div>
 
         <div className="flex flex-col-reverse items-stretch justify-between gap-2 sm:flex-row sm:items-center">
@@ -513,8 +616,10 @@ function PreviewView({
             </Button>
             <Button
               onClick={onApply}
+              data-testid="apply-button"
               disabled={
                 !confirmed ||
+                (criticalWarnings.length > 0 && !criticalAck) ||
                 applying ||
                 summary.toCreate + summary.toUpdate + summary.toOrphan === 0
               }

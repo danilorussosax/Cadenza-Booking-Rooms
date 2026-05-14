@@ -24,7 +24,7 @@ const {
   applyMapping,
   sanitizeOverrides,
 } = require('../services/integrations/isidata/fieldMapping');
-const { computeDiff } = require('../services/integrations/diffEngine');
+const { computeDiff, computeSafetyChecks } = require('../services/integrations/diffEngine');
 
 // Token formato: `${adminId}-${Date.now()}-${hex16}${ext}` con ext `.csv|.xlsx|...`.
 // Stringere la regex impedisce che varianti tipo `1-foo.csv` (senza Date e
@@ -167,6 +167,25 @@ async function resolveCourse({ code, name }, transaction) {
 }
 
 // =====================================================
+// Pre-carica una Map { courseCode → courseId } per la risoluzione
+// `User.courseId` durante l'import (Miglioria 3). Una sola query, riusata
+// per tutto il batch di externalUsers. Filtra i Course inattivi: non
+// vogliamo "linkare" studenti a corsi disattivati.
+// =====================================================
+async function loadCourseCodeToIdMap(transaction = undefined) {
+  const courses = await Course.findAll({
+    attributes: ['id', 'code'],
+    where: { isActive: true },
+    transaction,
+  });
+  const map = new Map();
+  for (const c of courses) {
+    if (c.code) map.set(String(c.code).trim(), c.id);
+  }
+  return map;
+}
+
+// =====================================================
 // Costruisce gli ExternalUser dal buffer del file: parse + mapping.
 // Restituisce {externals, headers, warnings} senza toccare il DB.
 // =====================================================
@@ -270,7 +289,21 @@ router.post(
         paranoid: true,
       });
 
-      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata');
+      // Map courseCode → courseId per la valorizzazione di `User.courseId`
+      // sui record con courseCode noto (Miglioria 3). I codici sconosciuti
+      // finiscono in diff.warnings (soft).
+      const courseCodeToId = await loadCourseCodeToIdMap();
+      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata', { courseCodeToId });
+
+      // Soglie sicurezza (Miglioria 1): conta utenti Isidata attualmente attivi
+      // per calcolare la frazione di disattivazioni. `User.count` con
+      // `externalSource='isidata'` + `isActive=true` è l'universo significativo
+      // (gli utenti già disattivati non rientrano nel rischio "mass
+      // deactivation": disattivarli di nuovo è no-op).
+      const totalActiveUsers = await User.count({
+        where: { externalSource: 'isidata', isActive: true },
+      });
+      const safetyChecks = computeSafetyChecks(diff, totalActiveUsers);
 
       // Persistenza temporanea per l'apply.
       const { token, hash } = persistTempFile(req.user.id, req.file.buffer, req.file.originalname);
@@ -283,6 +316,7 @@ router.post(
           toUpdate: diff.toUpdate.length,
           toOrphan: diff.toOrphan.length,
           warnings: warnings.length,
+          safetyWarnings: safetyChecks.warnings.map((w) => `${w.level}:${w.code}`),
         },
         '[integrations.isidata] preview generato',
       );
@@ -301,6 +335,11 @@ router.post(
           toUpdate: diff.toUpdate.length,
           toOrphan: diff.toOrphan.length,
         },
+        // Soft warnings dal diff engine (es. courseCode non in catalogo).
+        // Distinti da `summary.warnings` (parse) e da `safetyChecks.warnings`
+        // (gate bloccante).
+        softWarnings: diff.warnings ?? [],
+        safetyChecks,
         diff: {
           toCreate: diff.toCreate,
           toUpdate: diff.toUpdate.map(({ local, external, fieldsChanged, linkChanged }) => ({
@@ -315,6 +354,8 @@ router.post(
               externalId: local.externalId,
               isActive: local.isActive,
               status: local.status,
+              contractType: local.contractType ?? null,
+              courseId: local.courseId ?? null,
             },
             external,
             fieldsChanged,
@@ -348,7 +389,7 @@ router.post(
 // rifiutiamo), poi applica in transazione SERIALIZABLE.
 // =====================================================
 router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req, res, next) => {
-  const { token, confirmedDiffHash, mappingOverrides } = req.body || {};
+  const { token, confirmedDiffHash, mappingOverrides, confirmCriticalWarnings } = req.body || {};
   if (!token || !confirmedDiffHash) {
     return res
       .status(400)
@@ -407,6 +448,47 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
   }
   const { externals, warnings } = parsed;
 
+  // Gate sicurezza pre-apply (Miglioria 1): ricomputiamo il diff PROSPECTIVE
+  // fuori transazione per produrre i warning di safety. Se ci sono warning
+  // `critical` e l'admin NON ha spedito `confirmCriticalWarnings: true`,
+  // rifiutiamo con 409. Questa ricomputazione è "consultiva": la transazione
+  // vera la rifarà di nuovo dentro al t (Snapshot Isolation), così se nel
+  // frattempo qualcuno crea/disattiva utenti il diff finale sarà coerente.
+  // Il rischio "false-negative" (in /apply non c'è più warning critico, ma
+  // l'admin l'ha confermato) è accettabile: niente bloccante.
+  {
+    const matricoleSetCheck = new Set(externals.map((e) => e.matricola).filter(Boolean));
+    const emailsSetCheck = new Set(externals.map((e) => e.email).filter(Boolean));
+    const externalIdsSetCheck = new Set(externals.map((e) => e.externalId).filter(Boolean));
+    const orFiltersCheck = [{ externalSource: 'isidata' }];
+    if (matricoleSetCheck.size)
+      orFiltersCheck.push({ matricola: { [Op.in]: Array.from(matricoleSetCheck) } });
+    if (emailsSetCheck.size)
+      orFiltersCheck.push({ email: { [Op.in]: Array.from(emailsSetCheck) } });
+    if (externalIdsSetCheck.size)
+      orFiltersCheck.push({
+        externalSource: 'isidata',
+        externalId: { [Op.in]: Array.from(externalIdsSetCheck) },
+      });
+    const localUsersCheck = await User.findAll({ where: { [Op.or]: orFiltersCheck } });
+    const diffCheck = computeDiff(externals, localUsersCheck, 'matricola', 'isidata');
+    const totalActiveUsersCheck = await User.count({
+      where: { externalSource: 'isidata', isActive: true },
+    });
+    const safetyChecksApply = computeSafetyChecks(diffCheck, totalActiveUsersCheck);
+    const criticalCodes = safetyChecksApply.warnings
+      .filter((w) => w.level === 'critical')
+      .map((w) => w.code);
+    if (criticalCodes.length > 0 && confirmCriticalWarnings !== true) {
+      return res.status(409).json({
+        error: 'Sono presenti warning critici: richiesta conferma esplicita',
+        code: 'CRITICAL_WARNINGS_PRESENT',
+        criticalCodes,
+        safetyChecks: safetyChecksApply,
+      });
+    }
+  }
+
   // Carica config esistente (best-effort: può non esistere ancora).
   const config = await IntegrationConfig.findOne({
     where: { provider: 'isidata' },
@@ -452,7 +534,12 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
         transaction: t,
       });
 
-      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata');
+      // Map courseCode → courseId DENTRO la transazione: garantisce che un
+      // corso disattivato/cancellato fra preview e apply venga ri-letto.
+      const courseCodeToIdTx = await loadCourseCodeToIdMap(t);
+      const diff = computeDiff(externals, localUsers, 'matricola', 'isidata', {
+        courseCodeToId: courseCodeToIdTx,
+      });
 
       let created = 0,
         updated = 0,
@@ -464,7 +551,15 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
       // CREATE
       for (const ext of diff.toCreate) {
         try {
-          const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
+          // Priorità: courseId pre-risolto dal diff engine (lookup esatto
+          // su `Course.code`). Fallback `resolveCourse` per quei record con
+          // SOLO courseName (legacy) o courseCode non in catalogo: in quel
+          // caso `resolveCourse` può creare on-demand un Course se serve.
+          let courseId = ext.courseId ?? null;
+          if (!courseId && (ext.courseCode || ext.courseName)) {
+            const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
+            courseId = course?.id ?? null;
+          }
           // Email può essere null per studenti minorenni: in quel caso
           // generiamo un placeholder unique-safe (admin la modificherà a
           // mano quando l'utente attiverà il profilo). Sanitiziamo l'externalId
@@ -478,22 +573,23 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
               .replace(/^-+|-+$/g, '')
               .slice(0, 60) || crypto.randomBytes(4).toString('hex');
           const email = ext.email || `import-${safeLocalPart}@imported.local`;
-          await User.create(
-            {
-              email,
-              firstName: ext.firstName,
-              lastName: ext.lastName,
-              role: ext.role,
-              matricola: ext.matricola,
-              courseId: course?.id ?? null,
-              status: 'pending', // l'admin li approva esplicitamente dopo l'import
-              isActive: ext.status === 'active',
-              externalSource: 'isidata',
-              externalId: ext.externalId ?? null,
-              lastExternalSyncAt: now,
-            },
-            { transaction: t },
-          );
+          const createData = {
+            email,
+            firstName: ext.firstName,
+            lastName: ext.lastName,
+            role: ext.role,
+            matricola: ext.matricola,
+            courseId,
+            status: 'pending', // l'admin li approva esplicitamente dopo l'import
+            isActive: ext.status === 'active',
+            externalSource: 'isidata',
+            externalId: ext.externalId ?? null,
+            lastExternalSyncAt: now,
+          };
+          // contractType: presente solo per docenti con qualifica riconosciuta
+          // (Miglioria 2). Per gli studenti il campo non è nel payload.
+          if (ext.contractType) createData.contractType = ext.contractType;
+          await User.create(createData, { transaction: t });
           created++;
         } catch (err) {
           errors++;
@@ -517,12 +613,22 @@ router.post('/isidata-csv/apply', authenticate, requireRole('admin'), async (req
           for (const f of item.fieldsChanged) {
             if (f === 'isActive') {
               updates.isActive = ext.status === 'active';
+            } else if (f === 'contractType') {
+              // contractType è opt-in: il diff l'ha già filtrato (entra in
+              // fieldsChanged solo se ext.contractType != null). Lo settiamo
+              // direttamente senza fallback al valore locale per non
+              // produrre un noop.
+              updates.contractType = ext.contractType;
             } else {
               updates[f] = ext[f] ?? u[f];
             }
           }
-          // Se il corso è cambiato, risolvi e linka.
-          if (ext.courseCode || ext.courseName) {
+          // Se il corso è cambiato, risolvi e linka. Prima prova la map
+          // (Miglioria 3 — lookup O(1)), poi fallback al resolver completo
+          // che può creare il Course on-demand su courseName.
+          if (ext.courseId && ext.courseId !== u.courseId) {
+            updates.courseId = ext.courseId;
+          } else if (!ext.courseId && (ext.courseCode || ext.courseName)) {
             const course = await resolveCourse({ code: ext.courseCode, name: ext.courseName }, t);
             if (course && course.id !== u.courseId) updates.courseId = course.id;
           }

@@ -14,6 +14,12 @@ export interface ExternalUser {
   courseName: string | null;
   status: 'active' | 'inactive';
   raw?: Record<string, string>;
+  // Tipologia contrattuale (solo per docenti, quando la qualifica nel file
+  // matcha una keyword nota). Vedi `coerceContractType` lato backend.
+  contractType?: 'titolare' | 'contratto_orario' | 'supplente' | null;
+  // ID Course risolto dal lookup courseCode → Course.code (popolato dal
+  // diff engine quando courseCode è in catalogo).
+  courseId?: number | null;
 }
 
 export interface DiffSummary {
@@ -52,12 +58,49 @@ export interface ToOrphanItem {
   isActive: boolean;
 }
 
+/**
+ * Soglie sicurezza pre-apply emesse dal backend (Miglioria 1).
+ * Quando `warnings[].level === 'critical'`, la UI deve chiedere una
+ * conferma esplicita aggiuntiva prima di abilitare il bottone Applica.
+ */
+export interface SafetyChecks {
+  totalActiveUsers: number;
+  deactivateCount: number;
+  createCount: number;
+  deactivateRatio: number;
+  warnings: {
+    level: 'critical' | 'warning';
+    // Codici noti emessi oggi: 'MASS_DEACTIVATION', 'MASS_CREATION'. Lasciamo
+    // `string` per essere forward-compatibili con futuri codici aggiunti
+    // backend-side (la UI si limita a mostrare code+message senza switch).
+    code: string;
+    message: string;
+  }[];
+}
+
+/**
+ * Warning soft prodotti dal diff engine (es. courseCode non in catalogo).
+ * Non bloccanti: la UI li mostra in una sezione dedicata. Codice noto oggi:
+ * 'UNKNOWN_COURSE_CODE'. Restiamo su `string` per evoluzione futura.
+ */
+export interface SoftWarning {
+  code: string;
+  msg: string;
+  courseCode?: string;
+  count?: number;
+}
+
 export interface PreviewResponse {
   token: string;
   hash: string;
   headers: string[];
   headerMap: Record<string, string>;
   summary: DiffSummary;
+  // Marcati come opzionali per retro-compatibilità: il backend li popola
+  // sempre da Cadenza 1.6+, ma una preview "vecchia" cache-ata potrebbe
+  // arrivare senza. La UI fa fallback a `?? []` / `?? undefined`.
+  safetyChecks?: SafetyChecks;
+  softWarnings?: SoftWarning[];
   diff: {
     toCreate: ExternalUser[];
     toUpdate: ToUpdateItem[];
@@ -116,6 +159,12 @@ export const integrationsApi = {
     token: string;
     confirmedDiffHash: string;
     mappingOverrides?: Record<string, string>;
+    /**
+     * Se la preview ha emesso `safetyChecks.warnings` di livello `critical`,
+     * il backend rifiuta l'apply con 409 `CRITICAL_WARNINGS_PRESENT` finché
+     * il client non manda esplicitamente `confirmCriticalWarnings: true`.
+     */
+    confirmCriticalWarnings?: boolean;
   }) =>
     api<ApplyResponse>('/api/admin/integrations/isidata-csv/apply', {
       method: 'POST',

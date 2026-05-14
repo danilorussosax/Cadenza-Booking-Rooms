@@ -3,9 +3,11 @@
 // vitest globals abilitati in vitest.config.js
 const {
   computeDiff,
+  computeSafetyChecks,
   diffFields,
   externalToSnapshot,
   localToSnapshot,
+  SAFETY_THRESHOLDS,
 } = require('../../services/integrations/diffEngine');
 
 function ext(over = {}) {
@@ -140,6 +142,121 @@ describe('diffEngine.computeDiff', () => {
     // ricade su matricola → trova → toUpdate con linkChanged.
     expect(out.toUpdate).toHaveLength(1);
     expect(out.toUpdate[0].linkChanged).toBe(true);
+  });
+});
+
+describe('diffEngine.computeSafetyChecks', () => {
+  function fakeDiff(toCreate, toOrphan) {
+    return { toCreate: new Array(toCreate).fill({}), toOrphan: new Array(toOrphan).fill({}) };
+  }
+
+  it('niente warning quando ratio e count sono bassi', () => {
+    const s = computeSafetyChecks(fakeDiff(0, 0), 100);
+    expect(s.warnings).toHaveLength(0);
+    expect(s.deactivateRatio).toBe(0);
+  });
+
+  it('critical su ratio > 20% (es. 25/100)', () => {
+    const s = computeSafetyChecks(fakeDiff(0, 25), 100);
+    const critical = s.warnings.filter((w) => w.level === 'critical');
+    expect(critical).toHaveLength(1);
+    expect(critical[0].code).toBe('MASS_DEACTIVATION');
+  });
+
+  it('critical su count assoluto ≥ 50 anche con ratio basso (es. 50/1000)', () => {
+    const s = computeSafetyChecks(fakeDiff(0, 50), 1000);
+    expect(s.warnings.some((w) => w.level === 'critical' && w.code === 'MASS_DEACTIVATION')).toBe(
+      true,
+    );
+  });
+
+  it('warning (non critical) su ratio fra 10% e 20% (es. 15/100)', () => {
+    const s = computeSafetyChecks(fakeDiff(0, 15), 100);
+    expect(s.warnings.filter((w) => w.level === 'critical')).toHaveLength(0);
+    const warn = s.warnings.filter((w) => w.level === 'warning' && w.code === 'MASS_DEACTIVATION');
+    expect(warn).toHaveLength(1);
+  });
+
+  it('warning MASS_CREATION quando createCount ≥ 100', () => {
+    const s = computeSafetyChecks(fakeDiff(120, 0), 1000);
+    expect(s.warnings.some((w) => w.code === 'MASS_CREATION')).toBe(true);
+  });
+
+  it('totalActiveUsers=0 → ratio=0, niente warning di deactivate', () => {
+    const s = computeSafetyChecks(fakeDiff(0, 0), 0);
+    expect(s.deactivateRatio).toBe(0);
+    expect(s.warnings.filter((w) => w.code === 'MASS_DEACTIVATION')).toHaveLength(0);
+  });
+
+  it('rispetta le soglie esportate', () => {
+    expect(SAFETY_THRESHOLDS.DEACTIVATE_RATIO_CRITICAL).toBe(0.2);
+    expect(SAFETY_THRESHOLDS.DEACTIVATE_COUNT_CRITICAL).toBe(50);
+  });
+});
+
+describe('diffEngine.computeDiff — courseCodeToId map', () => {
+  it('valorizza ext.courseId quando il code è in catalogo', () => {
+    const map = new Map([['CODI/21', 42]]);
+    const externals = [ext({ courseCode: 'CODI/21' })];
+    const out = computeDiff(externals, [], 'matricola', 'isidata', { courseCodeToId: map });
+    expect(out.toCreate).toHaveLength(1);
+    expect(out.toCreate[0].courseId).toBe(42);
+    expect(out.warnings ?? []).toHaveLength(0);
+  });
+
+  it('non valorizza courseId se code non in mappa, emette warning aggregato', () => {
+    const map = new Map([['NOTO', 1]]);
+    const externals = [
+      ext({ matricola: '1', externalId: '1', courseCode: 'IGN-001' }),
+      ext({ matricola: '2', externalId: '2', courseCode: 'IGN-001' }),
+    ];
+    const out = computeDiff(externals, [], 'matricola', 'isidata', { courseCodeToId: map });
+    expect(out.toCreate[0].courseId).toBeUndefined();
+    expect(out.warnings).toHaveLength(1);
+    expect(out.warnings[0].code).toBe('UNKNOWN_COURSE_CODE');
+    expect(out.warnings[0].count).toBe(2);
+    expect(out.warnings[0].courseCode).toBe('IGN-001');
+  });
+});
+
+describe('diffEngine.computeDiff — contractType (docente)', () => {
+  it("non genera update.contractType se l'esterno non fornisce il campo", () => {
+    const local = loc({
+      role: 'docente',
+      externalSource: 'isidata',
+      externalId: '99',
+      matricola: '99',
+      contractType: 'titolare',
+    });
+    // ext NON ha contractType.
+    const out = computeDiff(
+      [ext({ role: 'docente', externalId: '99', matricola: '99' })],
+      [local],
+      'matricola',
+      'isidata',
+    );
+    if (out.toUpdate.length > 0) {
+      expect(out.toUpdate[0].fieldsChanged).not.toContain('contractType');
+    }
+  });
+
+  it("genera update.contractType quando l'esterno cambia valore", () => {
+    const local = loc({
+      role: 'docente',
+      externalSource: 'isidata',
+      externalId: '99',
+      matricola: '99',
+      contractType: 'titolare',
+    });
+    const external = ext({
+      role: 'docente',
+      externalId: '99',
+      matricola: '99',
+      contractType: 'supplente',
+    });
+    const out = computeDiff([external], [local], 'matricola', 'isidata');
+    expect(out.toUpdate).toHaveLength(1);
+    expect(out.toUpdate[0].fieldsChanged).toContain('contractType');
   });
 });
 

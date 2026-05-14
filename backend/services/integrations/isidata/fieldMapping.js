@@ -27,6 +27,16 @@ function normalizeHeader(s) {
 
 // Per ogni campo target, lista di alias (già normalizzati) che riconosciamo
 // nel file Isidata. L'ORDINE conta: il primo match vince.
+//
+// NOTA su `contractType` vs `role`: entrambi possono attingere dall'header
+// "qualifica" perché Isidata esporta in modo non standardizzato (a volte la
+// colonna "Qualifica" contiene "Docente"/"Studente", altre volte "Titolare
+// di cattedra"/"Contratto orario"). `role` viene risolto PRIMA (alias più
+// specifici come "tipoutente", "figura"). Per `contractType` accettiamo
+// alias dedicati ("tipocontratto", "tipologiacontratto") e in fallback la
+// stessa "qualifica" — coerceContractType ritorna null se il testo non
+// matcha alcuna keyword di contratto, così non sovrascriviamo nulla quando
+// la colonna è in realtà un ruolo generico.
 const DEFAULT_ALIASES = {
   externalId: ['matricola', 'idstudente', 'idutente', 'idanagrafica', 'codice', 'iddocente'],
   email: ['email', 'emailistituzionale', 'emailaccademica', 'mail', 'posta', 'emailpersonale'],
@@ -38,6 +48,14 @@ const DEFAULT_ALIASES = {
   courseName: ['corso', 'nomecorso', 'descrizionecorso', 'indirizzo', 'classe'],
   status: ['stato', 'attivo', 'isactive', 'status', 'iscritto'],
   birthDate: ['datadinascita', 'datanascita', 'birthdate', 'dataancita'],
+  contractType: [
+    'tipocontratto',
+    'tipologiacontratto',
+    'tipologiacontrattuale',
+    'contratto',
+    'qualifica',
+    'ruolo',
+  ],
 };
 
 /**
@@ -142,6 +160,45 @@ function coerceRole(raw) {
   return 'studente';
 }
 
+/**
+ * Coerce stringa di qualifica/tipo contratto in uno dei codici di
+ * `ContractType.code` seed dell'app (`titolare` | `contratto_orario` |
+ * `supplente` | `altro`). Strategia "keyword-match" non aggressiva:
+ *
+ *   - "titolare di cattedra", "ordinario", "cattedra" → 'titolare'
+ *   - "contratto orario", "co.co.co.", "collaborazione" → 'contratto_orario'
+ *   - "supplente", "supplenza" → 'supplente'
+ *   - stringa vuota / nessun match → null
+ *
+ * `null` significa "non sovrascrivere": l'apply non tocca il campo lato DB.
+ * Non c'è fuzzy match: se la segreteria scrive "ruolo provvisorio" non
+ * cerchiamo di indovinare, restituiamo null e l'admin lo setterà a mano.
+ */
+function coerceContractType(raw) {
+  if (raw === null || raw === undefined) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (s === '') return null;
+  // Titolare: cattedra / ordinario / titolare.
+  if (s.includes('titolare') || s.includes('ordinario') || s.includes('cattedra') || s === 'tit') {
+    return 'titolare';
+  }
+  // Contratto orario: keyword "orario" o varianti "co.co.co"/"collabora".
+  if (
+    s.includes('orario') ||
+    s.includes('co.co.co') ||
+    s.includes('cococo') ||
+    s.includes('collabora') ||
+    s.includes('a contratto')
+  ) {
+    return 'contratto_orario';
+  }
+  // Supplenza: "supplente" / "supplenza" / abbreviazioni.
+  if (s.startsWith('supp') || s.includes('supplen')) {
+    return 'supplente';
+  }
+  return null;
+}
+
 function pick(row, headerMap, target) {
   const h = headerMap[target];
   if (!h) return null;
@@ -199,6 +256,12 @@ function applyMapping(row, headerMap) {
   const status = coerceStatus(pick(row, headerMap, 'status'));
   const courseCode = pick(row, headerMap, 'courseCode');
   const courseName = pick(row, headerMap, 'courseName');
+  // contractType: SOLO per i docenti. Gli studenti non hanno una tipologia
+  // contrattuale, e includere il campo li farebbe finire nel diff di update
+  // come se fossero cambiati a ogni import. Per i docenti il campo è
+  // opzionale (null = non sovrascrivere).
+  const contractType =
+    role === 'docente' ? coerceContractType(pick(row, headerMap, 'contractType')) : null;
 
   // Fallback externalId quando manca matricola/id ma c'è email: usiamo
   // un prefisso `email_<sha-troncato>` invece di includere l'email cruda.
@@ -215,21 +278,26 @@ function applyMapping(row, headerMap) {
     resolvedExternalId = `email_${tag}`;
   }
 
-  return {
-    ok: true,
-    user: {
-      externalId: resolvedExternalId,
-      email: email ? email.toLowerCase() : null,
-      firstName: fn,
-      lastName: ln,
-      role,
-      matricola,
-      courseCode,
-      courseName,
-      status,
-      raw: row,
-    },
+  const user = {
+    externalId: resolvedExternalId,
+    email: email ? email.toLowerCase() : null,
+    firstName: fn,
+    lastName: ln,
+    role,
+    matricola,
+    courseCode,
+    courseName,
+    status,
+    raw: row,
   };
+  // Aggiungiamo `contractType` solo quando ha senso (docente con valore
+  // riconosciuto). Per gli studenti il campo resta del tutto assente
+  // — non `null` — così il diff engine può distinguere "non fornito" da
+  // "fornito esplicitamente come null" e non mandarlo in update.
+  if (contractType !== null) {
+    user.contractType = contractType;
+  }
+  return { ok: true, user };
 }
 
 /**
@@ -274,6 +342,7 @@ module.exports = {
   applyMapping,
   coerceRole,
   coerceStatus,
+  coerceContractType,
   sanitizeOverrides,
   DEFAULT_ALIASES,
 };
