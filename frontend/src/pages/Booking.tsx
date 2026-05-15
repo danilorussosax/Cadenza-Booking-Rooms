@@ -125,12 +125,12 @@ export default function BookingPage() {
       </header>
 
       {/* Filters */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="grid gap-3 p-3 sm:gap-4 sm:p-5 sm:grid-cols-[1fr_auto_auto]">
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <Label>{t('booking.form.room')}</Label>
             <Select value={roomIdStr} onValueChange={setRoomIdStr} disabled={roomsQuery.isLoading}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
                     roomsQuery.isLoading
@@ -150,7 +150,12 @@ export default function BookingPage() {
             </Select>
           </div>
 
-          <div className="space-y-2">
+          {/* Su iOS Safari l'`<input type="date">` ha una min-width intrinseca
+           * basata sul testo valore + icona calendario che su mobile può
+           * eccedere la cella del grid → sforava il bordo bianco della Card.
+           * `min-w-0` sul wrapper + `w-full max-w-full` sull'input forza il
+           * box a restare entro i confini della cella. */}
+          <div className="min-w-0 space-y-2">
             <Label>{t('booking.form.date')}</Label>
             <Input
               type="date"
@@ -158,10 +163,11 @@ export default function BookingPage() {
               onChange={(e) => {
                 setDate(e.target.value);
               }}
+              className="w-full max-w-full"
             />
           </div>
 
-          <div className="flex items-end gap-2">
+          <div className="flex min-w-0 items-end gap-2">
             <Button
               variant="outline"
               size="icon"

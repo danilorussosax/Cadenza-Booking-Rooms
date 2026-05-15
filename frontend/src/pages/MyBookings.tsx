@@ -17,7 +17,7 @@ import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { CalendarSubscriptionSection } from '@/components/bookings/CalendarSubscriptionSection';
 import type { Booking } from '@/types';
 
-type Tab = 'future' | 'past' | 'cancelled' | 'all';
+type Tab = 'future' | 'past' | 'cancelled';
 
 export default function MyBookings() {
   const { t } = useTranslation();
@@ -88,17 +88,13 @@ export default function MyBookings() {
     const cancelled = list
       .filter((b) => b.status === 'cancelled')
       .sort((a, b) => dayjs(b.startTime).valueOf() - dayjs(a.startTime).valueOf());
-    const all = [...list].sort(
-      (a, b) => dayjs(b.startTime).valueOf() - dayjs(a.startTime).valueOf(),
-    );
-    return { future, past, cancelled, all };
+    return { future, past, cancelled };
   }, [query.data]);
 
   const counts = {
     future: grouped.future.length,
     past: grouped.past.length,
     cancelled: grouped.cancelled.length,
-    all: grouped.all.length,
   };
 
   return (
@@ -146,7 +142,7 @@ export default function MyBookings() {
         }}
         className="w-full"
       >
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
           <TabsTrigger value="future">
             {t('my_bookings.tabs.future')} · {counts.future}
           </TabsTrigger>
@@ -156,12 +152,9 @@ export default function MyBookings() {
           <TabsTrigger value="cancelled">
             {t('my_bookings.tabs.cancelled')} · {counts.cancelled}
           </TabsTrigger>
-          <TabsTrigger value="all">
-            {t('my_bookings.tabs.all')} · {counts.all}
-          </TabsTrigger>
         </TabsList>
 
-        {(['future', 'past', 'cancelled', 'all'] as Tab[]).map((key) => (
+        {(['future', 'past', 'cancelled'] as Tab[]).map((key) => (
           <TabsContent key={key} value={key} className="space-y-3">
             {query.isLoading ? (
               <>
