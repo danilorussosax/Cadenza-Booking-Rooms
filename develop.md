@@ -175,6 +175,8 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 > ✅ **§2.6 Dashboard ops** — implementata in **v1.7.0** (`/admin/ops`). Mantenuta nel backlog come riferimento storico.
 > ✅ **§2.8 Backup verification automatica** — implementata in **v1.9.0** (scheduler weekly, widget in `/admin/ops`).
 > ✅ **§2.10 PWA installable + offline shell** — già live (vite-plugin-pwa con Workbox, manifest, install prompt). Pre-esistente alla v1.8.0, non riconosciuta come done. Voce conservata sotto come riferimento.
+> ✅ **§2.13 Off-site backup sync via rclone** + **§2.14 PITR via WAL archiving** — implementati in **v1.10.0** (ops-only: 2 script di setup + cron + docs).
+> ✅ **§2.4 (parziale)** — **PM2 cluster mode + scheduler lock** implementato in **v1.10.0** (`lib/clusterRole.js` + `ecosystem.config.js`). Attivazione opt-in via VPS command. PgBouncer resta aperto.
 > 🎯 **Prossimi candidati**: §2.9 GDPR self-service export (~1g) e §2.11 Slot alternativi suggeriti (~2g).
 
 ### 2.1 Sicurezza kiosk — device token per schermi mobili
@@ -321,6 +323,35 @@ UI in `BookingFormDialog`: quando il POST fallisce mostra "Alternative disponibi
 
 **Effort stimato**: ~2g · **Dipende da**: nessuna · **Sinergia**: aumenta conversion rate (utente non abbandona dopo il primo NO), riduce frustrazione mobile dove ricominciare il flusso è costoso.
 
+### 2.13 Off-site backup sync via rclone
+
+**Perché**: oggi i backup vivono nella stessa VPS che genera i dati. Failure mode catastrofico: la VPS prende fuoco / viene compromessa / muore HW → perdi anche tutti i backup. Serve copia esterna automatica.
+
+**Cosa (implementato in v1.10.0 come ops-only, niente codice Cadenza)**: riusa il pattern già esistente di `setup-rclone-sync.sh` per l'Excel export — Cadenza scrive backup localmente, rclone a livello SO sincronizza verso un remote cloud (OneDrive, Dropbox, S3, ecc.). Vantaggi:
+
+- **Zero codice Cadenza**: separazione pulita, il backend non sa nemmeno che esiste OneDrive
+- **Multi-cloud agnostico**: rclone parla con 70+ backend (OneDrive Personal/Business, Google Drive, S3, Hetzner Storage Box, Backblaze B2…)
+- **Niente secret nel repo**: il token rclone vive in `~/.config/rclone/rclone.conf` di un utente OS dedicato
+- **Versioning gratis su OneDrive**: file con stesso nome vengono versionati 30gg → secondo livello di "PITR low-cost"
+
+**Setup**: `scripts/setup-rclone-backups.sh <remote-name> [<folder>]` — installa cron giornaliero (default 04:00, dopo backup nightly + verify weekly) + cleanup mensile (retention configurable, default 90gg).
+
+**Effort**: 0g codice + 30 min ops (configurare rclone una tantum + lanciare lo script). Coppia naturale con §2.14 PITR.
+
+### 2.14 PITR via WAL archiving
+
+**Perché**: i backup full giornalieri permettono restore allo stato di mezzanotte, ma per recuperare "le ultime 3 ore di modifiche prima del disastro" servono i WAL (Write-Ahead Logs) Postgres archiviati continuamente.
+
+**Cosa (implementato in v1.10.0 come ops-only)**: script `scripts/setup-wal-archiving.sh` che abilita Postgres archive mode con `archive_command` che pusha ogni WAL via rclone allo stesso remote dei backup full. Combinato con §2.13, restore PITR funziona così:
+
+1. Restore del backup full più vicino al timestamp target (es. mezzanotte)
+2. Apply dei WAL fino al target (es. 14:32:18) via `recovery_target_time` in postgresql.conf
+3. Postgres riapplica le transazioni fino al secondo desiderato
+
+**Effort**: 0g codice + ~30 min ops (configurare rclone per user `postgres` + lanciare lo script + restart Postgres). Tool di restore: `pgBackRest` o `Barman` consigliati per setup mature; per Cadenza scale `restore_command` manuale + recovery target è sufficiente.
+
+**Caveat**: aumenta il volume di dati uscenti (~ 16MB per ogni segmento WAL × volume transazioni). Per un conservatorio scale è trascurabile (<1GB/mese), per scale enterprise valuta retention più stretta.
+
 ### 2.12 Conflict-aware bulk booking (docenti)
 
 **Perché**: un docente con corso ricorrente ("aula X tutti i lunedì 14-16 per 3 mesi") oggi può usare il flag ricorrente del booking, ma se **anche un solo** slot generato è occupato la transazione fallisce in atomico → o riprende a mano slot per slot, o rinuncia. Frustrazione massima per il caso d'uso più comune dei docenti titolari.
@@ -335,26 +366,28 @@ Endpoint: `POST /api/bookings/bulk-preview` (read-only, ritorna tutti i conflitt
 
 **Effort stimato**: ~4g · **Dipende da**: §2.11 (riusa la logica di "alternativa") · **Categoria**: UX docente power-user · **Coda**: alta priorità per ASIMUT parity (vedi §1.6).
 
-### 2.13 Stima e priorità complessiva
+### 2.16 Stima e priorità complessiva
 
-> Tabella aggiornata al 2026-05-15 (post v1.9.0). §2.6, §2.8, §2.10 ✅ done — rimosse dalla coda.
+> Tabella aggiornata al 2026-05-15 (post v1.10.0). §2.6, §2.8, §2.10, §2.13, §2.14 ✅ done — rimosse dalla coda. §2.4 partial: PM2 cluster mode lock implementato in v1.10.0, PgBouncer ancora aperto.
 
-| #    | Voce                                | Effort | Categoria      | Coda                   |
-| ---- | ----------------------------------- | ------ | -------------- | ---------------------- |
-| 2.1  | Device token kiosk mobili           | ~3g    | Security       | Quando serve           |
-| 2.2  | PIN ruotabile via mail              | ~2g    | Security       | Quando serve           |
-| 2.3  | Monitor esterno + alert             | ~0.5g  | Ops resilience | Quando serve           |
-| 2.4  | PgBouncer + PM2 cluster mode        | ~2g    | Performance    | Se >150 utenti         |
-| 2.5  | Slow query digest settimanale       | ~1g    | Observability  | Quando serve           |
-| 2.6  | ~~Dashboard ops `/admin/ops`~~      | —      | ✅ done v1.7.0 | —                      |
-| 2.7  | QR code dinamico sul display        | ~1g    | Feature kiosk  | Quando serve           |
-| 2.8  | ~~Backup verification automatica~~  | —      | ✅ done v1.9.0 | —                      |
-| 2.9  | **GDPR self-service export** 🎯     | ~1g    | Compliance     | **Prossimo candidato** |
-| 2.10 | ~~PWA installable + offline shell~~ | —      | ✅ pre-1.8.0   | —                      |
-| 2.11 | **Slot alternativi suggeriti** 🎯   | ~2g    | UX/conversion  | **Prossimo candidato** |
-| 2.12 | Conflict-aware bulk booking         | ~4g    | UX docente     | Pre-requisito §1       |
+| #    | Voce                                  | Effort | Categoria       | Coda                   |
+| ---- | ------------------------------------- | ------ | --------------- | ---------------------- |
+| 2.1  | Device token kiosk mobili             | ~3g    | Security        | Quando serve           |
+| 2.2  | PIN ruotabile via mail                | ~2g    | Security        | Quando serve           |
+| 2.3  | Monitor esterno + alert               | ~0.5g  | Ops resilience  | Quando serve           |
+| 2.4  | PgBouncer (PM2 cluster ✅ in v1.10.0) | ~1g    | Performance     | Se >150 utenti         |
+| 2.5  | Slow query digest settimanale         | ~1g    | Observability   | Quando serve           |
+| 2.6  | ~~Dashboard ops `/admin/ops`~~        | —      | ✅ done v1.7.0  | —                      |
+| 2.7  | QR code dinamico sul display          | ~1g    | Feature kiosk   | Quando serve           |
+| 2.8  | ~~Backup verification automatica~~    | —      | ✅ done v1.9.0  | —                      |
+| 2.9  | **GDPR self-service export** 🎯       | ~1g    | Compliance      | **Prossimo candidato** |
+| 2.10 | ~~PWA installable + offline shell~~   | —      | ✅ pre-1.8.0    | —                      |
+| 2.11 | **Slot alternativi suggeriti** 🎯     | ~2g    | UX/conversion   | **Prossimo candidato** |
+| 2.12 | Conflict-aware bulk booking           | ~4g    | UX docente      | Pre-requisito §1       |
+| 2.13 | ~~Off-site backup sync via rclone~~   | —      | ✅ done v1.10.0 | —                      |
+| 2.14 | ~~PITR via WAL archiving~~            | —      | ✅ done v1.10.0 | —                      |
 
-**Totale backlog aperto**: ~16g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11.
+**Totale backlog aperto**: ~15g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11.
 
 ---
 

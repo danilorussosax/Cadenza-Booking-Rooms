@@ -10,6 +10,130 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.10.0] — 15 maggio 2026
+
+Versione "High Availability — Livello 1 + 2": rende il backend
+cluster-safe via PM2 (parallelismo HTTP + zero-downtime reload),
+introduce off-site backup sync e PITR via WAL archiving, entrambi
+appoggiati a rclone come fa già l'export Excel. **Nessun breaking
+change**: in fork mode il backend gira esattamente come prima.
+
+### Nuove feature
+
+#### PM2 cluster mode + scheduler lock (§2.4 parziale)
+
+- **Nuovo `backend/lib/clusterRole.js`**: helper `isSchedulerMaster()`
+  che ritorna `true` quando `NODE_APP_INSTANCE === '0'` (cluster mode)
+  o quando la env var non e' settata (fork mode / dev / test). Solo
+  l'istanza master avvia gli scheduler.
+- **Tutti i 6 scheduler** (`reminder`, `retention`, `mailOutbox`,
+  `backup`, `backupVerify`, `excelExport`) ora chiamano
+  `isSchedulerMaster()` in `start()`: se false, log + skip silenzioso.
+  Le istanze non-master servono solo richieste HTTP.
+- **Nuovo `ecosystem.config.js`** alla root del repo. Default `fork`
+  con `instances: 1` (zero impatto sui deploy esistenti). Per attivare
+  cluster mode: `instances: 'max'` + `exec_mode: 'cluster'` + restart
+  PM2 da `pm2 start ecosystem.config.js`.
+- **Override**: `SCHEDULER_FORCE_ALL_INSTANCES=1` forza tutte le
+  istanze a runnare gli scheduler (debug / rollback).
+
+#### Off-site backup sync via rclone (§2.13)
+
+- **Nuovo `scripts/setup-rclone-backups.sh`**: cron giornaliero che
+  copia la cartella backup locale su un remote rclone (OneDrive
+  Personal/Business, Dropbox, Google Drive, S3, Hetzner Storage Box,
+  Backblaze B2, …). Cleanup mensile con retention configurabile
+  (default 90gg).
+- **Pattern identico** a `setup-rclone-sync.sh` (Excel export): zero
+  codice Cadenza, separazione pulita app/ops.
+- **Multi-cloud agnostico**: cambia backend cambiando una riga rclone
+  config, niente OAuth da rifare lato app, niente secret nel repo.
+- **Scheduling consigliato**: 04:00 locali (dopo backup nightly delle
+  02:30 e verify weekly delle 03:00 della v1.9.0).
+
+#### PITR via WAL archiving (§2.14)
+
+- **Nuovo `scripts/setup-wal-archiving.sh`**: configura Postgres
+  `wal_level=replica` + `archive_mode=on` + `archive_command` che
+  pusha ogni segmento WAL allo stesso remote rclone dei backup full
+  (es. `cadenza-cloud:Cadenza/wal`). Combinato con §2.13 permette
+  restore granulare al secondo invece che solo alla mezzanotte.
+- **Procedura restore**: base = backup full vicino al target, poi
+  apply dei WAL fino a `recovery_target_time`. Tool consigliati per
+  setup mature: pgBackRest, Barman.
+
+### Pulizia tecnica · sincronizzazione roadmap
+
+- **`develop.md`**: §2.13, §2.14 marcate ✅ done in questa release.
+  §2.4 marcata "partial" (PM2 cluster lock fatto, PgBouncer aperto).
+  Tabella priorità rinumerata in §2.16 (era §2.13).
+- **Tests**: 1721 passing (incluso 12 schedulers + 5 ops). I check
+  cluster sono additivi: non interferiscono con la test suite.
+- **Backward compat**: `ecosystem.config.js` ha `instances: 1` + fork
+  mode di default. Per attivare cluster mode serve un'azione esplicita
+  sulla VPS (vedi sotto).
+
+### English version
+
+Release "High Availability — Level 1 + 2": makes the backend
+cluster-safe via PM2 (HTTP parallelism + zero-downtime reload),
+introduces off-site backup sync and PITR via WAL archiving, both
+leveraging rclone as the existing Excel export does. **No breaking
+changes**: in fork mode the backend behaves exactly as before.
+
+#### PM2 cluster mode + scheduler lock (§2.4 partial)
+
+- **New `backend/lib/clusterRole.js`**: `isSchedulerMaster()` helper
+  returning `true` when `NODE_APP_INSTANCE === '0'` (cluster mode)
+  or when the env var is unset (fork mode / dev / test). Only the
+  master instance starts the schedulers.
+- **All 6 schedulers** (`reminder`, `retention`, `mailOutbox`,
+  `backup`, `backupVerify`, `excelExport`) now call
+  `isSchedulerMaster()` in `start()`: if false, log + silent skip.
+  Non-master instances only serve HTTP traffic.
+- **New `ecosystem.config.js`** at the repo root. Default `fork`
+  with `instances: 1` (zero impact on existing deploys). To enable
+  cluster mode: `instances: 'max'` + `exec_mode: 'cluster'` + PM2
+  restart from `pm2 start ecosystem.config.js`.
+- **Override**: `SCHEDULER_FORCE_ALL_INSTANCES=1` forces all
+  instances to run the schedulers (debug / rollback).
+
+#### Off-site backup sync via rclone (§2.13)
+
+- **New `scripts/setup-rclone-backups.sh`**: daily cron copying the
+  local backup folder to an rclone remote (OneDrive Personal/Business,
+  Dropbox, Google Drive, S3, Hetzner Storage Box, Backblaze B2, …).
+  Monthly cleanup with configurable retention (default 90 days).
+- **Same pattern** as `setup-rclone-sync.sh` (Excel export): zero
+  Cadenza code, clean app/ops separation.
+- **Multi-cloud agnostic**: switch backend by changing one rclone
+  config line — no OAuth to redo app-side, no secrets in the repo.
+- **Recommended scheduling**: 04:00 local (after 02:30 nightly
+  backup and 03:00 weekly verify from v1.9.0).
+
+#### PITR via WAL archiving (§2.14)
+
+- **New `scripts/setup-wal-archiving.sh`**: configures Postgres
+  `wal_level=replica` + `archive_mode=on` + `archive_command` that
+  pushes each WAL segment to the same rclone remote as the full
+  backups (e.g., `cadenza-cloud:Cadenza/wal`). Combined with §2.13
+  enables second-level granular restore instead of just midnight
+  snapshots.
+- **Restore procedure**: base = full backup near target, then apply
+  WALs up to `recovery_target_time`. Recommended tools for mature
+  setups: pgBackRest, Barman.
+
+#### Technical cleanup · roadmap sync
+
+- **`develop.md`**: §2.13, §2.14 marked ✅ done in this release.
+  §2.4 marked "partial" (PM2 cluster lock done, PgBouncer open).
+  Priority table renumbered as §2.16 (was §2.13).
+- **Tests**: 1721 passing (including 12 schedulers + 5 ops). Cluster
+  checks are additive: they don't interfere with the test suite.
+- **Backward compat**: `ecosystem.config.js` ships with `instances: 1`
+  and fork mode by default. Enabling cluster mode requires an explicit
+  VPS action (see below).
+
 ## [1.9.0] — 15 maggio 2026
 
 Versione "backup integrity & doc sync": aggiunge una verifica automatica
