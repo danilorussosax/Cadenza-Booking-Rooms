@@ -94,14 +94,14 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-1.5">
-        <h1 className="font-display text-3xl font-medium">{t('profile.title')}</h1>
+        <h1 className="font-display text-2xl font-medium sm:text-3xl">{t('profile.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('profile.subtitle')}</p>
       </header>
 
       {/* Identity card */}
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-6 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
+          <CardContent className="flex flex-col items-center gap-3 p-4 text-center sm:flex-row sm:items-center sm:gap-5 sm:p-6 sm:text-left">
             <ProfilePhotoUploader user={user} updateUser={updateUser} />
             <div className="min-w-0 flex-1 space-y-1">
               <h2 className="font-display text-xl font-medium leading-tight">

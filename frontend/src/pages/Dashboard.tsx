@@ -441,19 +441,19 @@ export default function Dashboard() {
   }, [upcomingQuery.data]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
       {/* Hero */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+        className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4"
       >
         <div className="space-y-1.5">
           <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             <Sun className="h-4 w-4 text-amber-500" />
             {t(greetingKey())}, {user?.firstName}
           </p>
-          <h1 className="font-display text-3xl font-medium tracking-tight">
+          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
             {t('dashboard.hero_question')}
           </h1>
           <p className="text-sm text-muted-foreground">

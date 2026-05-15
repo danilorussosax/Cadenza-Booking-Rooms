@@ -105,7 +105,9 @@ export default function MyBookings() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
-          <h1 className="font-display text-3xl font-medium">{t('my_bookings.title')}</h1>
+          <h1 className="font-display text-2xl font-medium sm:text-3xl">
+            {t('my_bookings.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">{t('my_bookings.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
