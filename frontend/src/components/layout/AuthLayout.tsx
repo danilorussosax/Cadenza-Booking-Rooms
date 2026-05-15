@@ -59,23 +59,27 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
 
   return (
     <div className="relative">
-      {/* Background image + overlay (login only): `fixed inset-0` per
-       * coprire l'intero viewport incluse le safe-area iOS (notch + home
-       * indicator). Posizionate al di FUORI del `<main>` (che ha
-       * `overflow-hidden`) per evitare qualsiasi clipping. Su lg+ l'aside
-       * a sinistra ha `bg-primary` solido che copre comunque il bg fixed
-       * lì, quindi visualmente l'immagine appare solo sulla colonna form
-       * (destra). */}
+      {/* Background image + overlay (login only): usiamo `-inset-32`
+       * (overshoot di 8rem in tutte le direzioni oltre i bordi del
+       * viewport) per coprire CON CERTEZZA le safe-area iOS, anche su
+       * iOS Safari in modalità standalone PWA dove `fixed inset-0`
+       * empiricamente non arrivava al home indicator: il box estendendo
+       * oltre il viewport è clippato dal browser sui margini visibili,
+       * garantendo copertura totale. Posizionate al di FUORI del
+       * `<main>` (che ha `overflow-hidden`) per evitare clipping
+       * intermedio. Su lg+ l'aside a sinistra ha `bg-primary` solido
+       * che copre comunque il bg fixed lì, quindi visualmente
+       * l'immagine appare solo sulla colonna form (destra). */}
       {formBgImage && (
         <>
           <div
             aria-hidden
-            className="pointer-events-none fixed inset-0 z-0 scale-105 bg-cover bg-center blur-xs saturate-110"
+            className="pointer-events-none fixed -inset-32 z-0 bg-cover bg-center blur-xs saturate-110"
             style={{ backgroundImage: `url(${formBgImage})` }}
           />
           <div
             aria-hidden
-            className="pointer-events-none fixed inset-0 z-0 bg-background/70 dark:bg-background/80"
+            className="pointer-events-none fixed -inset-32 z-0 bg-background/70 dark:bg-background/80"
           />
         </>
       )}
@@ -147,8 +151,9 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
            * trasparente (niente container `bg-primary` colorato che alterava
            * i colori originali del logo dell'istituto). Posizionato in alto
            * col `safe-pt` per rispettare il notch, fuori dal motion.div
-           * centrale così non si muove col form. */}
-          <div className="safe-pt absolute inset-x-0 top-6 z-10 flex flex-col items-center gap-2 px-16 sm:top-8 lg:hidden">
+           * centrale così non si muove col form. `top-16` lo tiene sotto la
+           * toggle bar lingua/tema (top-4, alta ~36px + safe-pt). */}
+          <div className="safe-pt absolute inset-x-0 top-16 z-10 flex flex-col items-center gap-2 px-16 sm:top-20 lg:hidden">
             {institute?.logoUrl ? (
               <img
                 src={institute.logoUrl}
