@@ -113,11 +113,13 @@ export default function MyBookings() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Esporta iCal: azione rara, nascosta su mobile per ridurre il CTA-rumore */}
           <Button
             variant="outline"
             onClick={handleExportIcal}
             disabled={exporting || query.isLoading}
             title={t('my_bookings.export_ical_title')}
+            className="hidden sm:inline-flex"
           >
             {exporting ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />

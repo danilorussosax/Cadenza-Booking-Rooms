@@ -79,7 +79,7 @@ export function DayCalendar({
         <span>
           Orario {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00
         </span>
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 sm:flex">
           {Object.entries(BOOKING_TYPE_STYLES)
             .slice(0, 4)
             .map(([k, s]) => (

@@ -111,7 +111,10 @@ export default function BookingPage() {
           <h1 className="font-display text-2xl font-medium sm:text-3xl">{t('booking.title')}</h1>
           <p className="hidden text-sm text-muted-foreground sm:block">{t('booking.subtitle')}</p>
         </div>
+        {/* CTA: nascosta su mobile — tap sullo slot libero crea direttamente
+            la prenotazione, quindi un secondo bottone in cima e' rumore. */}
         <Button
+          className="hidden sm:inline-flex"
           onClick={() => {
             setCreateState({ open: true });
           }}
@@ -123,7 +126,7 @@ export default function BookingPage() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto_auto]">
+        <CardContent className="grid gap-3 p-3 sm:gap-4 sm:p-5 sm:grid-cols-[1fr_auto_auto]">
           <div className="space-y-2">
             <Label>{t('booking.form.room')}</Label>
             <Select value={roomIdStr} onValueChange={setRoomIdStr} disabled={roomsQuery.isLoading}>
@@ -198,7 +201,7 @@ export default function BookingPage() {
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-5 py-3"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 sm:gap-3 sm:px-5 sm:py-3"
         >
           <div className="space-y-0.5">
             <p className="font-display text-lg font-medium leading-tight">{selectedRoom.name}</p>
@@ -225,9 +228,9 @@ export default function BookingPage() {
 
       {/* Day calendar */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="font-display text-lg font-medium capitalize">{dayLabel}</p>
-          <p className="text-xs text-muted-foreground">{t('booking.click_help')}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-display text-base font-medium capitalize sm:text-lg">{dayLabel}</p>
+          <p className="hidden text-xs text-muted-foreground sm:block">{t('booking.click_help')}</p>
         </div>
         {!roomId && (
           <Card>
