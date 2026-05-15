@@ -10,6 +10,188 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.7.0] — 15 maggio 2026
+
+Versione "stato sistema e hardening operativo": introduce una dashboard
+admin at-a-glance per la diagnostica di VPS, database, code interne e
+backup, e accompagna due strumenti di hardening pronti all'uso per le
+VPS piccole (tuning Postgres + restrizione IP del kiosk).
+
+### Nuove feature
+
+#### Dashboard ops — `/admin/ops`
+
+- **Nuova pagina admin "Stato sistema"** con 5 widget aggiornati ogni 10s:
+  - **VPS** — CPU (load 1m / numero core), RAM, disco, uptime macchina
+    e processo, versione Node, con semafori verde/giallo/rosso su soglie
+    (70/90% per CPU, 75/90% per RAM e disco).
+  - **Database** — connessioni totali / attive / idle / idle in
+    transazione (con warning sui possibili lock), dimensione DB, top
+    5 tabelle per righe.
+  - **Coda email** — `pending` con età del più vecchio messaggio,
+    `dead` con badge "da rivedere", totale inviati.
+  - **Backup** — ultimo backup con età relativa (verde <24h, giallo
+    24–36h, rosso >36h), dimensione, conteggio totale.
+  - **Scheduler interni** — 5 worker (`reminder`, `retention`,
+    `mailOutbox`, `backup`, `excelExport`) con badge OK / in-ritardo
+    / disabilitato / errore e timestamp dell'ultimo tick.
+- **Nuovo endpoint `GET /api/admin/ops/snapshot`** admin-only, con
+  cache in-memory 5s e collapsing delle chiamate concorrenti — più
+  admin connessi insieme non moltiplicano le query. Parametro `?force=1`
+  bypassa la cache (uso debug).
+- **Strumentazione scheduler**: `getStatus()` aggiunto in modo
+  additivo a `reminderScheduler`, `retentionScheduler`,
+  `mailOutboxScheduler`, `excelExportScheduler` (`backupScheduler` lo
+  aveva già). Espone `lastTickAt`, `lastError`, `intervalMs`,
+  `nextTickAt` — base per la diagnosi di un worker bloccato.
+- i18n IT + EN complete (`nav.admin_ops`, `admin.ops.*`).
+
+### Hardening operativo
+
+- **`scripts/pg-tune-4gb.sh`** — script idempotente che applica via
+  `ALTER SYSTEM` un set di parametri Postgres calibrato per VPS
+  **4 vCPU / 4 GB RAM / SSD**: `shared_buffers=1GB`,
+  `effective_cache_size=2GB`, `work_mem=8MB`, `max_connections=50`,
+  tuning checkpoint / WAL / parallel workers,
+  `log_min_duration_statement=500`. Auto-rileva la major version di
+  Postgres, salva snapshot pre-apply in `/var/backups/postgresql/`,
+  riavvia Postgres + PM2 con polling fino a che il DB risponde. Flag
+  `--dry-run`, `--no-restart`, `--rollback`.
+- **`docs/KIOSK_IP_ALLOWLIST.md`** — guida nginx per restringere
+  `/display` e gli endpoint pubblici `/api/public/*` ai soli IP
+  dell'istituto. Pattern snippet condiviso
+  `cadenza-display-allowlist.conf` (single source of truth), test e
+  verifica da IP interno + IP esterno, monitoraggio dei 403, rollback
+  in <1s. **Non blocca** `/api/auth/*` e `/api/admin/*`: admin, docenti
+  e studenti continuano ad accedere da qualunque rete.
+
+### Fix
+
+- **Sidebar admin**: rimossa voce "Manuale Admin" duplicata; l'admin
+  atterra direttamente sul proprio manuale dalla voce "Manuale" comune.
+
+### Pulizia tecnica
+
+- Tutti gli scheduler interni ora espongono uno stato uniforme — base
+  per gli sviluppi successivi (monitor esterno, alert su tick mancanti).
+- **Backlog post-1.6.0** consolidato in [`develop.md`](develop.md) §2
+  con 7 voci ordinate per coerenza: device token kiosk mobili, PIN
+  ruotabile via mail, monitor esterno con alert 403, PgBouncer + PM2
+  cluster mode, slow query digest settimanale, dashboard ops (chiusa
+  con questa release), QR code dinamico sul display.
+
+### Documentazione
+
+- **Nuovi**: [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md),
+  [`scripts/pg-tune-4gb.sh`](scripts/pg-tune-4gb.sh).
+- **Aggiornati**: `README.md` (tabella docs + bullet "Display kiosk"
+  con riferimento IP allowlist), `docs/install.md` (riferimento
+  `pg-tune-4gb.sh` in §6.3 PostgreSQL, `KIOSK_IP_ALLOWLIST.md` in §10
+  "Cose che NON sono in questa guida"), `develop.md` (nuova §2 con il
+  backlog post-1.6.0).
+
+### Numeri di copertina
+
+```
++1.324 righe / 14 file in feat(observability): 5 widget + 1 endpoint + 5 smoke test
+nuovo endpoint /api/admin/ops/snapshot — admin-only, cache 5s
+1 nuova pagina admin · 4 scheduler strumentati · 2 doc + 1 script ops
+0 breaking change — bump MINOR puro
+```
+
+---
+
+### English version
+
+Release "system status and operational hardening": introduces an
+at-a-glance admin dashboard for VPS, database, internal queue and
+backup diagnostics, and ships two ready-to-use hardening tools for
+small VPS (Postgres tuning + kiosk IP restriction).
+
+#### New features
+
+##### Ops dashboard — `/admin/ops`
+
+- **New admin page "System status"** with 5 widgets refreshed every 10s:
+  - **VPS** — CPU (1m load / core count), RAM, disk, system and
+    process uptime, Node version, with green / yellow / red threshold
+    badges (70/90% for CPU, 75/90% for RAM and disk).
+  - **Database** — total / active / idle / idle-in-transaction
+    connections (with warning on possible locks), DB size, top 5
+    tables by row count.
+  - **Email queue** — `pending` with the oldest message's age,
+    `dead` with a "needs review" badge, total sent.
+  - **Backups** — last backup with relative age (green <24h, yellow
+    24–36h, red >36h), size, total count.
+  - **Internal schedulers** — 5 workers (`reminder`, `retention`,
+    `mailOutbox`, `backup`, `excelExport`) with OK / stale / disabled
+    / error badges and last-tick timestamp.
+- **New `GET /api/admin/ops/snapshot` endpoint** admin-only, 5s
+  in-memory cache with concurrent-call collapsing — multiple admins
+  polling together don't multiply the queries. `?force=1` bypasses the
+  cache (debug usage).
+- **Scheduler instrumentation**: `getStatus()` additively added to
+  `reminderScheduler`, `retentionScheduler`, `mailOutboxScheduler`,
+  `excelExportScheduler` (`backupScheduler` already had one). Exposes
+  `lastTickAt`, `lastError`, `intervalMs`, `nextTickAt` — foundation
+  for diagnosing a stuck worker.
+- Full IT + EN i18n (`nav.admin_ops`, `admin.ops.*`).
+
+#### Operational hardening
+
+- **`scripts/pg-tune-4gb.sh`** — idempotent script applying via
+  `ALTER SYSTEM` a Postgres parameter set tuned for **4 vCPU / 4 GB
+  RAM / SSD** VPS: `shared_buffers=1GB`,
+  `effective_cache_size=2GB`, `work_mem=8MB`, `max_connections=50`,
+  checkpoint / WAL / parallel workers tuning,
+  `log_min_duration_statement=500`. Auto-detects the Postgres major
+  version, saves a pre-apply snapshot in `/var/backups/postgresql/`,
+  restarts Postgres + PM2 with polling until the DB responds. Flags
+  `--dry-run`, `--no-restart`, `--rollback`.
+- **`docs/KIOSK_IP_ALLOWLIST.md`** — nginx guide restricting
+  `/display` and the public `/api/public/*` endpoints to the
+  institute's IPs only. Shared snippet pattern
+  `cadenza-display-allowlist.conf` (single source of truth), test and
+  verification from internal + external IPs, 403 monitoring, rollback
+  in <1s. Does **not** block `/api/auth/*` or `/api/admin/*`: admins,
+  teachers and students keep accessing from any network.
+
+#### Fixes
+
+- **Admin sidebar**: removed duplicate "Admin manual" entry; admins
+  land directly on their manual from the common "Manual" entry.
+
+#### Technical cleanup
+
+- All internal schedulers now expose a uniform status — foundation
+  for follow-up work (external monitor, alerts on missed ticks).
+- **Post-1.6.0 backlog** consolidated in [`develop.md`](develop.md) §2
+  with 7 items: mobile-kiosk device token, mail-rotated PIN, external
+  monitor with 403 alerts, PgBouncer + PM2 cluster mode, weekly slow
+  query digest, ops dashboard (closed with this release), dynamic QR
+  code on the display.
+
+#### Documentation
+
+- **New**: [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md),
+  [`scripts/pg-tune-4gb.sh`](scripts/pg-tune-4gb.sh).
+- **Updated**: `README.md` (docs table + "Display kiosk" bullet with
+  IP allowlist reference), `docs/install.md` (`pg-tune-4gb.sh`
+  reference in §6.3 PostgreSQL, `KIOSK_IP_ALLOWLIST.md` in §10
+  "Things NOT in this guide"), `develop.md` (new §2 with the
+  post-1.6.0 backlog).
+
+#### Headline numbers
+
+```
++1,324 lines / 14 files in feat(observability): 5 widgets + 1 endpoint + 5 smoke tests
+new endpoint /api/admin/ops/snapshot — admin-only, 5s cache
+1 new admin page · 4 instrumented schedulers · 2 docs + 1 ops script
+0 breaking changes — pure MINOR bump
+```
+
+---
+
 ## [1.6.0] — 14 maggio 2026
 
 Versione "consolidamento e onboarding": chiude i pezzi mancanti per portare
