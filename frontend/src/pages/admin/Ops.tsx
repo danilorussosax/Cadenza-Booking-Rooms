@@ -416,6 +416,47 @@ function BackupCard({ data }: { data: OpsSnapshot['backups'] }) {
             </AlertDescription>
           </Alert>
         )}
+        {data.verify && (
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Verifica integrità
+            </p>
+            <Row
+              label="Ultima verifica"
+              value={
+                data.verify.lastTickAt ? (
+                  <span className="flex items-center gap-2 tabular-nums">
+                    {fmtRelative(data.verify.lastTickAt)}
+                    {data.verify.lastOk === true ? (
+                      <Badge variant="success">OK</Badge>
+                    ) : data.verify.lastOk === false ? (
+                      <Badge variant="destructive">{data.verify.lastReason ?? 'FAIL'}</Badge>
+                    ) : (
+                      <Badge variant="secondary">?</Badge>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">mai eseguita</span>
+                )
+              }
+            />
+            {data.verify.enabled && data.verify.nextTickAt && (
+              <Row
+                label="Prossima verifica"
+                value={
+                  <span className="text-muted-foreground tabular-nums">
+                    {fmtRelative(data.verify.nextTickAt)}
+                  </span>
+                }
+              />
+            )}
+            {!data.verify.enabled && (
+              <p className="text-xs text-muted-foreground">
+                Disabilitata (<code>BACKUP_VERIFY_ENABLED=false</code>)
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

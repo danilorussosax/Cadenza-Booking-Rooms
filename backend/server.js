@@ -136,6 +136,14 @@ async function start() {
           console.error('[backup] start failed:', e.message);
         });
       require('./services/excelExportScheduler').start();
+      // Verifica integrita' backup (weekly tick, default domenica 03:00).
+      // Async per simmetria con backupScheduler ma non legge config da DB
+      // (env-only), quindi non puo' fallire al boot.
+      require('./services/backupVerifyScheduler')
+        .start()
+        .catch((e) => {
+          console.error('[verify] start failed:', e.message);
+        });
     });
 
     // Errori di listen (EADDRINUSE, EACCES, …) → messaggio chiaro invece di
@@ -175,6 +183,7 @@ async function safeShutdown(code = 0) {
       require('./services/mailOutboxScheduler').stop();
       require('./services/backupScheduler').stop();
       require('./services/excelExportScheduler').stop();
+      require('./services/backupVerifyScheduler').stop();
       console.log('  ✓ Scheduler fermati');
     } catch (e) {
       console.warn('  ⚠ Errore stop scheduler:', e.message);

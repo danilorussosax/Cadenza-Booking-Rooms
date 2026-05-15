@@ -354,6 +354,7 @@ async function performRestore({ archivePath, dryRun = false }) {
 module.exports = {
   performRestore,
   isRestoreInProgress,
+  validateTarball,
   BACKUP_DIR,
   UPLOADS_DIR,
 };

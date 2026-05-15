@@ -66,12 +66,19 @@ describe('GET /api/admin/ops/snapshot', () => {
     });
   });
 
-  it('ritorna i 5 scheduler attesi', async () => {
+  it('ritorna i 6 scheduler attesi', async () => {
     const { authHeader } = await createAdmin();
     const res = await request(app).get('/api/admin/ops/snapshot').set('Authorization', authHeader);
     expect(res.status).toBe(200);
     const names = res.body.schedulers.map((s) => s.name).sort();
-    expect(names).toEqual(['backup', 'excelExport', 'mailOutbox', 'reminder', 'retention']);
+    expect(names).toEqual([
+      'backup',
+      'backupVerify',
+      'excelExport',
+      'mailOutbox',
+      'reminder',
+      'retention',
+    ]);
     // Tutti devono avere almeno enabled (false su test, schedulers non avviati)
     for (const s of res.body.schedulers) {
       expect(typeof s.enabled).toBe('boolean');

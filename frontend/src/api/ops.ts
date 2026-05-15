@@ -54,6 +54,14 @@ export interface OpsMailOutbox {
   error?: string;
 }
 
+export interface OpsBackupVerify {
+  enabled: boolean;
+  lastTickAt: string | null;
+  lastOk: boolean | null;
+  lastReason: string | null;
+  nextTickAt: string | null;
+}
+
 export interface OpsBackups {
   count?: number;
   lastBackup: {
@@ -64,6 +72,7 @@ export interface OpsBackups {
   lastBackupAgeHours?: number | null;
   totalSizeBytes?: number;
   dir?: string;
+  verify?: OpsBackupVerify | null;
   error?: string;
 }
 

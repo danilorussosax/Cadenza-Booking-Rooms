@@ -20,6 +20,7 @@ const reminderScheduler = require('./reminderScheduler');
 const retentionScheduler = require('./retentionScheduler');
 const mailOutboxScheduler = require('./mailOutboxScheduler');
 const backupScheduler = require('./backupScheduler');
+const backupVerifyScheduler = require('./backupVerifyScheduler');
 const excelExportScheduler = require('./excelExportScheduler');
 
 const CACHE_TTL_MS = 5_000;
@@ -167,6 +168,20 @@ async function gatherMailOutbox() {
 
 function gatherBackups() {
   try {
+    const verifyStatus = (() => {
+      try {
+        const s = backupVerifyScheduler.getStatus();
+        return {
+          enabled: !!s.enabled,
+          lastTickAt: s.lastTickAt,
+          lastOk: s.lastRun ? !!s.lastRun.ok : null,
+          lastReason: s.lastRun?.reason ?? null,
+          nextTickAt: s.nextTickAt,
+        };
+      } catch {
+        return null;
+      }
+    })();
     const items = listBackups();
     if (items.length === 0) {
       return {
@@ -175,6 +190,7 @@ function gatherBackups() {
         lastBackupAgeHours: null,
         totalSizeBytes: 0,
         dir: BACKUP_DIR,
+        verify: verifyStatus,
       };
     }
     const last = items[0]; // listBackups ordina per createdAt desc
@@ -190,6 +206,7 @@ function gatherBackups() {
       lastBackupAgeHours: Math.round(ageHours * 10) / 10,
       totalSizeBytes: totalSize,
       dir: BACKUP_DIR,
+      verify: verifyStatus,
     };
   } catch (err) {
     return { error: shortMsg(err) };
@@ -208,6 +225,7 @@ function gatherSchedulers() {
     // (richiamata anche da /api/admin/backups). La normalizziamo qui sul
     // formato comune così la UI può iterare uniforme.
     adaptBackupStatus(),
+    safeStatus('backupVerify', () => backupVerifyScheduler.getStatus()),
     safeStatus('excelExport', () => excelExportScheduler.getStatus()),
   ];
 }
