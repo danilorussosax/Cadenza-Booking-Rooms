@@ -37,7 +37,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookingListItem } from '@/components/bookings/BookingListItem';
 import { BookingFormDialog } from '@/components/bookings/BookingFormDialog';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { BookingInfoDialog } from '@/components/bookings/BookingInfoDialog';
@@ -101,8 +100,6 @@ export default function Dashboard() {
   }>({ open: false });
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [infoTarget, setInfoTarget] = useState<Booking | null>(null);
-  // Quick-action "Duplica" (gap #1 EasyRoom parity).
-  const [duplicateTarget, setDuplicateTarget] = useState<Booking | null>(null);
   // Edit booking dialog target — admin può modificare qualsiasi prenotazione,
   // proprietario può modificare solo la propria. Apriamo il BookingFormDialog
   // in edit mode passando l'oggetto Booking come prop.
@@ -979,60 +976,10 @@ export default function Dashboard() {
         <WeeklyExportPrintView weekStart={weekStart} buildings={buildings} blocks={weeklyBlocks} />
       )}
 
-      {/* Upcoming */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-display text-xl">
-            {t('dashboard.next_bookings.title')}
-          </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/my-bookings">
-              {t('dashboard.next_bookings.see_all')}
-              <ArrowRight className="h-3.5 w-3.5 text-primary" />
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {upcomingQuery.isLoading && (
-            <>
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </>
-          )}
-          {!upcomingQuery.isLoading && upcoming.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-              <CalendarCheck2 className="h-10 w-10 text-blue-500" />
-              <div>
-                <p className="font-medium">{t('dashboard.no_bookings_yet')}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t('dashboard.no_bookings_yet_subtitle')}
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  setCreateState({ open: true });
-                }}
-              >
-                <CalendarPlus className="h-4 w-4" />
-                {t('my_bookings.empty.create')}
-              </Button>
-            </div>
-          )}
-          {upcoming.map((b) => (
-            <BookingListItem
-              key={b.id}
-              booking={b}
-              onCancel={(book) => {
-                setCancelTarget(book);
-              }}
-              onDuplicate={(book) => {
-                setDuplicateTarget(book);
-              }}
-            />
-          ))}
-        </CardContent>
-      </Card>
+      {/* Sezione "Prossime prenotazioni" rimossa dalla Dashboard:
+          ridondante con la pagina /my-bookings. La query `upcomingQuery`
+          resta attiva perche' alimenta KPI, "Prossima sessione" hero
+          mobile e la card check-in. */}
 
       {showLoansCard && (
         <Card>
@@ -1073,14 +1020,6 @@ export default function Dashboard() {
           if (!open) setEditTarget(null);
         }}
         booking={editTarget}
-      />
-      {/* Duplicate dialog — pre-fill da booking esistente +7gg, POST come create. */}
-      <BookingFormDialog
-        open={duplicateTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDuplicateTarget(null);
-        }}
-        duplicateFrom={duplicateTarget}
       />
       <CancelBookingDialog
         booking={cancelTarget}
