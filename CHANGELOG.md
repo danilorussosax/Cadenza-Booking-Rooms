@@ -10,6 +10,113 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.9.0] — 15 maggio 2026
+
+Versione "backup integrity & doc sync": aggiunge una verifica automatica
+weekly dell'ultimo backup (catch precoce di file corrotti / dump
+incompleti / schema drift), espone lo stato in `/admin/ops`, e
+sincronizza `develop.md` con la realtà del codebase (§2.10 PWA era già
+live, §2.6 e §2.8 ora marcate done). Nessun breaking change.
+
+### Nuove feature
+
+#### Backup verification automatica (§2.8)
+
+- **Nuovo `backupVerifyScheduler.js`** che esegue weekly (default
+  domenica 03:00 Europe/Rome) una verifica "shallow ma sostanziale"
+  dell'ultimo backup. Approccio senza scratch DB / `CREATEDB` per
+  ridurre footprint e privilegi richiesti.
+- **Verifiche eseguite**:
+  1. File backup recente esiste, età ≤ `BACKUP_VERIFY_MAX_AGE_HOURS` (default 36h)
+  2. Tarball strutturalmente safe (no symlinks / path-traversal — riusa
+     `validateTarball` di `backupRestore.js`, ora esportata)
+  3. `manifest.json` parseabile + campo `contents` contiene "db"
+  4. `database.sql` size ≥ `BACKUP_VERIFY_MIN_SQL_BYTES` (default 1024)
+  5. Dump contiene `CREATE TABLE` per `Users`, `Bookings`, `Rooms`, `Buildings`
+  6. Dump ha sezione dati (COPY o INSERT INTO)
+  7. Numero `CREATE TABLE` nel dump entro ±2 vs `information_schema.tables`
+     di prod
+- **Alert email** (kind=security, priority=0) solo se almeno una
+  verifica fallisce, con idempotency per giorno+reason (no spam).
+  Silent-on-success.
+- **Widget `/admin/ops`**: nuova sezione "Verifica integrità" sotto il
+  widget Backup con esito ultima verifica (OK/FAIL + reason) e
+  prossimo tick atteso.
+- **Configurazione env-only** (no UI per ora): `BACKUP_VERIFY_ENABLED`,
+  `BACKUP_VERIFY_DAY` (0=domenica), `BACKUP_VERIFY_HOUR`,
+  `BACKUP_VERIFY_MINUTE`, `BACKUP_VERIFY_MAX_AGE_HOURS`,
+  `BACKUP_VERIFY_MIN_SQL_BYTES`, `BACKUP_VERIFY_TABLE_TOLERANCE`.
+- **Failure mode catturati**: backup mancante/vecchio, file corrotto,
+  gzip/tar truncato, dump senza tabelle critiche, dump senza dati,
+  schema disallineato. **Non catturati**: errori SQL logici nel dump
+  (richiederebbero deep restore — futura estensione se serve).
+
+### Pulizia tecnica · sincronizzazione roadmap
+
+- **`develop.md`** allineato allo stato reale:
+  - §2.6 Dashboard ops marcata ✅ done (era in v1.7.0)
+  - §2.10 PWA installable + offline shell marcata ✅ done (era
+    pre-1.8.0: `vite-plugin-pwa` + Workbox + manifest + install
+    prompt già configurati ma non riconosciuti nel doc)
+  - §2.8 marcata ✅ done in questa release
+  - Tabella priorità complessiva rinumerata, ora 3 nuovi candidati 🎯
+    in evidenza (§2.9 GDPR export, §2.11 Slot alternativi)
+- **Test `ops.test.js`** aggiornato: ora attende 6 scheduler invece di 5.
+- **`backupRestore.js`**: `validateTarball` esportata per riuso da
+  `backupVerifyScheduler` (era interna).
+
+### English version
+
+Release "backup integrity & doc sync": adds a weekly automated check of
+the latest backup (early catch of corrupted files / incomplete dumps /
+schema drift), surfaces the status in `/admin/ops`, and synchronises
+`develop.md` with the actual codebase state (§2.10 PWA was already
+live, §2.6 and §2.8 now marked done). No breaking changes.
+
+#### Automated backup verification (§2.8)
+
+- **New `backupVerifyScheduler.js`** that runs weekly (default Sunday
+  03:00 Europe/Rome) a "shallow but substantial" verification of the
+  latest backup. No scratch DB / `CREATEDB` privilege required.
+- **Checks performed**:
+  1. Recent backup file exists, age ≤ `BACKUP_VERIFY_MAX_AGE_HOURS` (default 36h)
+  2. Tarball structurally safe (no symlinks / path traversal — reuses
+     `validateTarball` from `backupRestore.js`, now exported)
+  3. `manifest.json` parseable + `contents` field includes "db"
+  4. `database.sql` size ≥ `BACKUP_VERIFY_MIN_SQL_BYTES` (default 1024)
+  5. Dump contains `CREATE TABLE` for `Users`, `Bookings`, `Rooms`, `Buildings`
+  6. Dump has a data section (COPY or INSERT INTO)
+  7. `CREATE TABLE` count in dump within ±2 vs `information_schema.tables`
+     in prod
+- **Alert email** (kind=security, priority=0) only when at least one
+  check fails, with idempotency per day+reason (no spam).
+  Silent-on-success.
+- **`/admin/ops` widget**: new "Integrity check" subsection in the
+  Backup widget showing the last check outcome (OK/FAIL + reason) and
+  next scheduled tick.
+- **Env-only configuration** (no UI yet): `BACKUP_VERIFY_ENABLED`,
+  `BACKUP_VERIFY_DAY` (0=Sunday), `BACKUP_VERIFY_HOUR`,
+  `BACKUP_VERIFY_MINUTE`, `BACKUP_VERIFY_MAX_AGE_HOURS`,
+  `BACKUP_VERIFY_MIN_SQL_BYTES`, `BACKUP_VERIFY_TABLE_TOLERANCE`.
+- **Failure modes caught**: missing/stale backup, corrupted file,
+  truncated gzip/tar, dump without critical tables, dump without data,
+  schema drift. **Not caught**: logical SQL errors in the dump
+  (would require deep restore — future extension if needed).
+
+#### Technical cleanup · roadmap sync
+
+- **`develop.md`** aligned with actual state:
+  - §2.6 Dashboard ops marked ✅ done (was in v1.7.0)
+  - §2.10 PWA installable + offline shell marked ✅ done (was
+    pre-1.8.0: `vite-plugin-pwa` + Workbox + manifest + install
+    prompt already configured but not recognised in the doc)
+  - §2.8 marked ✅ done in this release
+  - Priority table renumbered, now 3 new 🎯 candidates highlighted
+    (§2.9 GDPR export, §2.11 Alternative slots suggested)
+- **`ops.test.js`** updated: now expects 6 schedulers instead of 5.
+- **`backupRestore.js`**: `validateTarball` exported for reuse from
+  `backupVerifyScheduler` (was internal).
+
 ## [1.8.0] — 15 maggio 2026
 
 Versione "smartphone UX overhaul": ripensa l'esperienza mobile delle

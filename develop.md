@@ -173,7 +173,9 @@ Permessi:
 Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizione IP del kiosk) e dal pass mobile UX di v1.8.0. Ordinate per coerenza tematica, non per priorità di esecuzione.
 
 > ✅ **§2.6 Dashboard ops** — implementata in **v1.7.0** (`/admin/ops`). Mantenuta nel backlog come riferimento storico.
-> 🎯 **Priorità candidate**: §2.8 Backup verification + §2.10 PWA installable (rapporto ROI/effort più alto, vedi §2.13).
+> ✅ **§2.8 Backup verification automatica** — implementata in **v1.9.0** (scheduler weekly, widget in `/admin/ops`).
+> ✅ **§2.10 PWA installable + offline shell** — già live (vite-plugin-pwa con Workbox, manifest, install prompt). Pre-esistente alla v1.8.0, non riconosciuta come done. Voce conservata sotto come riferimento.
+> 🎯 **Prossimi candidati**: §2.9 GDPR self-service export (~1g) e §2.11 Slot alternativi suggeriti (~2g).
 
 ### 2.1 Sicurezza kiosk — device token per schermi mobili
 
@@ -247,13 +249,28 @@ Endpoint backend `GET /api/admin/ops/snapshot` con cache 5 s lato server per non
 
 **Effort stimato**: ~1g · **Dipende da**: nessuna · **Sinergia**: aumenta valore percepito del display, utile per saggi/concerti aperti al pubblico.
 
-### 2.8 Backup verification automatica
+### 2.8 ✅ Backup verification automatica — IMPLEMENTATA in v1.9.0
 
-**Perché**: oggi i backup `pg_dump` vengono creati ogni notte dallo `backupScheduler`, ma nessuno verifica che siano effettivamente restorabili. Failure mode silente: l'admin scopre che il backup è corrotto solo quando ne ha bisogno (cioè quando è troppo tardi).
+> Live: scheduler weekly (default domenica 03:00) + sezione "Verifica integrità" nel widget Backup di `/admin/ops`. Vedi [`CHANGELOG.md` §1.9.0](CHANGELOG.md).
 
-**Cosa**: nuovo scheduler weekly (es. domenica 03:00) che prende l'ultimo backup OK, lo restora su un database scratch temporaneo (es. `cadenza_backup_verify`), confronta vs prod: conteggio righe sulle tabelle critiche (`Users`, `Bookings`, `Rooms`, `Buildings`, `InstrumentLoans`), validità foreign key (`pg_constraint` check), schema diff. Drop del DB scratch alla fine. Mail admin solo se anomalia (diff >2% o errore restore), altrimenti silent. Espone lo stato in `/admin/ops` come nuovo widget "Backup integrity: ultima verifica OK/FAIL".
+**Perché**: i backup `pg_dump` vengono creati ogni notte dallo `backupScheduler`, ma nessuno verifica che siano restorabili. Failure mode silente: l'admin scopre che il backup è corrotto solo quando ne ha bisogno (cioè quando è troppo tardi).
 
-**Effort stimato**: ~½g · **Dipende da**: `backupScheduler` esistente · **Note**: usa `pg_restore` con utente dedicato `cadenza_verify` con privilegi minimi (CREATE DATABASE + DROP solo sul DB scratch).
+**Cosa (implementato — approccio shallow ma sostanziale)**: nuovo `backupVerifyScheduler.js`. Tick weekly che valida l'ultimo backup senza richiedere `CREATEDB`/scratch DB:
+
+1. File esiste e size > 1KB
+2. Età < 36h (configurabile via `BACKUP_VERIFY_MAX_AGE_HOURS`)
+3. Tarball strutturalmente safe (riusa `validateTarball` di `backupRestore.js`)
+4. `manifest.json` parseabile + campo `contents` contiene "db"
+5. `database.sql` size > 1KB (configurabile)
+6. Dump contiene `CREATE TABLE` per `Users`, `Bookings`, `Rooms`, `Buildings`
+7. Dump ha sezione dati (COPY o INSERT INTO)
+8. Numero `CREATE TABLE` nel dump entro ±2 vs `information_schema.tables` di prod
+
+Mail admin (kind=security, priority=0, idempotency per giorno+reason) solo se almeno una verifica fallisce. Stato esposto in `/admin/ops` come sezione "Verifica integrità" del widget Backup. Configurabile via env (`BACKUP_VERIFY_ENABLED`, `BACKUP_VERIFY_DAY/HOUR/MINUTE`, soglie).
+
+**Failure mode catturati**: backup mancante/vecchio, file corrotto, gzip/tar truncato, dump senza tabelle critiche, dump senza dati, schema disallineato. **Non catturati**: errori SQL logici (richiederebbero deep restore — futura estensione se serve).
+
+**Effort effettivo**: ~½g · **Dipende da**: `backupScheduler` + `MailOutbox` esistenti.
 
 ### 2.9 GDPR self-service export
 
@@ -273,7 +290,9 @@ Rate-limit: 1 export ogni 24h per utente (l'export è asincrono se il dataset è
 
 **Effort stimato**: ~1g · **Dipende da**: nessuna · **Bonus**: prepara il terreno per il "diritto all'oblio" (Art. 17) — endpoint `DELETE /api/users/me` con anonimizzazione cascadable.
 
-### 2.10 PWA installable + offline shell
+### 2.10 ✅ PWA installable + offline shell — GIÀ LIVE (pre-1.8.0)
+
+> Status scoperto durante il pass v1.9.0: già configurata con `vite-plugin-pwa` + Workbox. Manifest in `public/manifest.webmanifest`, icone (192/512/maskable), service worker con runtime caching strategico, componente `InstallPwaPrompt.tsx` per A2HS. Configurazione completa in `frontend/vite.config.ts`. Voce conservata sotto come riferimento storico.
 
 **Perché**: dopo l'overhaul mobile di v1.8.0 l'esperienza su iPhone/Android è "quasi nativa" ma non installabile né resiliente al network. Aggiungere PWA significa: icona homescreen, splash screen, apertura standalone (no chrome browser), capacità offline read-only per consultare le ultime prenotazioni viste.
 
@@ -286,7 +305,7 @@ Rate-limit: 1 export ogni 24h per utente (l'export è asincrono se il dataset è
 
 Banner discreto "Aggiungi a Home" che appare solo su mobile la seconda volta che l'utente apre l'app (criterio "user engagement"). Indicatore stato connessione nell'header (offline → banner giallo "Modalità offline · dati al ...timestamp...").
 
-**Effort stimato**: ~2g · **Dipende da**: nessuna · **Note**: zero impatto backend. Su iOS Safari il supporto è parziale (no push notifications su PWA installata) — coperto da §2.13 Web Push come complemento, vedi `develop-enterprise.md` se promosso.
+**Effort originale stimato**: ~2g · **Effort effettivo**: 0g (già pre-esistente).
 
 ### 2.11 Slot alternativi suggeriti su conflitto
 
@@ -318,24 +337,24 @@ Endpoint: `POST /api/bookings/bulk-preview` (read-only, ritorna tutti i conflitt
 
 ### 2.13 Stima e priorità complessiva
 
-> Tabella aggiornata al 2026-05-15 (post v1.8.0). §2.6 ✅ done in v1.7.0 — rimossa dalla coda.
+> Tabella aggiornata al 2026-05-15 (post v1.9.0). §2.6, §2.8, §2.10 ✅ done — rimosse dalla coda.
 
-| #    | Voce                                   | Effort | Categoria      | Coda                  |
-| ---- | -------------------------------------- | ------ | -------------- | --------------------- |
-| 2.1  | Device token kiosk mobili              | ~3g    | Security       | Quando serve          |
-| 2.2  | PIN ruotabile via mail                 | ~2g    | Security       | Quando serve          |
-| 2.3  | Monitor esterno + alert                | ~0.5g  | Ops resilience | Quando serve          |
-| 2.4  | PgBouncer + PM2 cluster mode           | ~2g    | Performance    | Se >150 utenti        |
-| 2.5  | Slow query digest settimanale          | ~1g    | Observability  | Quando serve          |
-| 2.6  | ~~Dashboard ops `/admin/ops`~~         | —      | ✅ done v1.7.0 | —                     |
-| 2.7  | QR code dinamico sul display           | ~1g    | Feature kiosk  | Quando serve          |
-| 2.8  | **Backup verification automatica** 🎯  | ~½g    | Ops resilience | **Quick win**         |
-| 2.9  | GDPR self-service export               | ~1g    | Compliance     | Quando serve          |
-| 2.10 | **PWA installable + offline shell** 🎯 | ~2g    | UX mobile      | **Naturale post-1.8** |
-| 2.11 | Slot alternativi suggeriti             | ~2g    | UX/conversion  | Quando serve          |
-| 2.12 | Conflict-aware bulk booking            | ~4g    | UX docente     | Pre-requisito §1      |
+| #    | Voce                                | Effort | Categoria      | Coda                   |
+| ---- | ----------------------------------- | ------ | -------------- | ---------------------- |
+| 2.1  | Device token kiosk mobili           | ~3g    | Security       | Quando serve           |
+| 2.2  | PIN ruotabile via mail              | ~2g    | Security       | Quando serve           |
+| 2.3  | Monitor esterno + alert             | ~0.5g  | Ops resilience | Quando serve           |
+| 2.4  | PgBouncer + PM2 cluster mode        | ~2g    | Performance    | Se >150 utenti         |
+| 2.5  | Slow query digest settimanale       | ~1g    | Observability  | Quando serve           |
+| 2.6  | ~~Dashboard ops `/admin/ops`~~      | —      | ✅ done v1.7.0 | —                      |
+| 2.7  | QR code dinamico sul display        | ~1g    | Feature kiosk  | Quando serve           |
+| 2.8  | ~~Backup verification automatica~~  | —      | ✅ done v1.9.0 | —                      |
+| 2.9  | **GDPR self-service export** 🎯     | ~1g    | Compliance     | **Prossimo candidato** |
+| 2.10 | ~~PWA installable + offline shell~~ | —      | ✅ pre-1.8.0   | —                      |
+| 2.11 | **Slot alternativi suggeriti** 🎯   | ~2g    | UX/conversion  | **Prossimo candidato** |
+| 2.12 | Conflict-aware bulk booking         | ~4g    | UX docente     | Pre-requisito §1       |
 
-**Totale backlog aperto**: ~19g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11. Quick win: 2.8 + 2.9 in 1.5g totali (zero rischio, alto valore difensivo).
+**Totale backlog aperto**: ~16g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11.
 
 ---
 
