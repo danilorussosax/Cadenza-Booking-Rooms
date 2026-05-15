@@ -7,6 +7,7 @@ import {
   CalendarCheck2,
   CalendarPlus,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -25,7 +26,7 @@ import { bookingsApi } from '@/api/bookings';
 import { loansApi } from '@/api/instruments';
 import { monteOreAdminApi, monteOreApi } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
-import { dayjs, formatDate } from '@/lib/date';
+import { dayjs, formatDate, formatTime } from '@/lib/date';
 import { isCheckInRequired } from '@/lib/checkInPolicy';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
 import { bookingsToBlocks } from '@/lib/weeklyBlocks';
@@ -420,6 +421,29 @@ export default function Dashboard() {
     window.print();
   };
 
+  // Mobile-only: aule con prenotazioni del giorno aggregate per room.
+  // Riusa `roomsQuery` + `calendarBookingsQuery` (gia' fetchati per il
+  // Weekly Timetable desktop). Solo single-day, niente range three.
+  const roomsWithDayBookings = useMemo(() => {
+    const allBookings = calendarBookingsQuery.data?.bookings ?? [];
+    const allRooms = roomsQuery.data?.rooms ?? [];
+    const dayBegin = dayjs(dayStart).startOf('day');
+    const dayEnd = dayBegin.add(1, 'day');
+    return allRooms
+      .filter((r) => r.isBookable)
+      .map((room) => ({
+        room,
+        bookings: allBookings
+          .filter(
+            (b) =>
+              b.roomId === room.id &&
+              dayjs(b.startTime).isBefore(dayEnd) &&
+              dayjs(b.endTime).isAfter(dayBegin),
+          )
+          .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+      }));
+  }, [calendarBookingsQuery.data, roomsQuery.data, dayStart]);
+
   // Booking imminenti che richiedono check-in:
   // confermate, senza checkedInAt, con startTime nei prossimi 30 min OR già
   // iniziate da meno di GHOST_GRACE_MINUTES (default 15 backend).
@@ -639,6 +663,137 @@ export default function Dashboard() {
           <StatTileCard key={s.label} tile={s} delay={0.05 + i * 0.04} />
         ))}
       </div>
+
+      {/* Aule e prenotazioni del giorno (mobile-only): rimpiazza il Weekly
+          Timetable desktop con un'esperienza list-with-disclosure piu' adatta
+          al telefono. Usa <details> nativo: zero stato, zero dipendenze.
+          Riusa le stesse query del calendar desktop, quindi non aggiunge
+          fetch lato server. */}
+      <Card className="lg:hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="text-base">{t('dashboard.calendar_title')}</CardTitle>
+            <p className="mt-0.5 truncate text-xs capitalize text-muted-foreground">
+              {dayjs(dayStart).format('dddd D MMMM')}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              title={t('dashboard.prev_day')}
+              onClick={() => {
+                setDayStart(dayjs(dayStart).subtract(1, 'day').format('YYYY-MM-DD'));
+              }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => {
+                setDayStart(today);
+              }}
+              disabled={isToday}
+            >
+              {t('dashboard.today')}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              title={t('dashboard.next_day')}
+              onClick={() => {
+                setDayStart(dayjs(dayStart).add(1, 'day').format('YYYY-MM-DD'));
+              }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {roomsQuery.isLoading || calendarBookingsQuery.isLoading ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </>
+          ) : roomsWithDayBookings.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">{t('rooms.no_rooms')}</p>
+          ) : (
+            roomsWithDayBookings.map(({ room, bookings: dayBookings }) => (
+              <details
+                key={room.id}
+                className="group rounded-lg border bg-card transition-colors open:bg-muted/30 [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-sm">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{room.name}</p>
+                      {room.building?.name && (
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {room.building.name}
+                          {room.floor ? ` · ${room.floor}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant={dayBookings.length === 0 ? 'success' : 'secondary'}>
+                      {dayBookings.length === 0 ? 'Libera' : `${dayBookings.length}`}
+                    </Badge>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </div>
+                </summary>
+                <div className="space-y-1.5 border-t px-3 py-2">
+                  {dayBookings.length === 0 ? (
+                    <p className="py-2 text-center text-xs text-muted-foreground">
+                      Nessuna prenotazione oggi
+                    </p>
+                  ) : (
+                    dayBookings.map((b) => {
+                      const owned = user?.id === b.userId;
+                      return (
+                        <button
+                          type="button"
+                          key={b.id}
+                          onClick={() => {
+                            handleBookingClick(b);
+                          }}
+                          className={
+                            owned
+                              ? 'flex w-full items-center gap-2 rounded-md border-2 border-primary/40 bg-primary/5 p-2 text-left text-xs transition-colors hover:bg-primary/10'
+                              : 'flex w-full items-center gap-2 rounded-md border bg-background p-2 text-left text-xs transition-colors hover:bg-accent'
+                          }
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium tabular-nums">
+                                {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                              </span>
+                              <span className="truncate capitalize text-[10px] text-muted-foreground">
+                                · {b.type.replace('_', ' ')}
+                              </span>
+                            </div>
+                            {b.user && (
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {b.user.firstName} {b.user.lastName}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </details>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       {/* Calendar / Timetable giornaliero per edificio selezionato — desktop-only
           (< lg: troppo denso per mobile, l'utente puo' andare su /booking per il calendario aule) */}
