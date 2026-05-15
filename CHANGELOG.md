@@ -10,6 +10,150 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.10.6] — 16 maggio 2026
+
+Patch release di **Developer Experience**: introduce ESLint sul
+backend (prima coperto solo da prettier) e lo integra in CI +
+lint-staged. Primo punto della roadmap "Fondamenta DX" derivata
+dall'analisi strategica (`docs/analisi.md`). Nessun cambio
+funzionale, nessuna migration: solo qualità del codice e
+prevenzione di regressioni future.
+
+### Tooling
+
+#### ESLint backend (nuovo)
+
+- **`backend/eslint.config.js`** (nuovo): flat config ESLint 10+
+  basata su `@eslint/js` recommended + `eslint-plugin-n` (best
+  practice Node.js) + `eslint-plugin-security` (pattern insicuri tipo
+  eval, child_process, ReDoS, ecc.). Override mirati per `tests/**`
+  (mock objects, fetch in Node 18+) e `scripts/**` (process.exit
+  legittimo, hashbang documentale).
+- **`backend/package.json`**: aggiunti script `lint` + `lint:fix` e
+  dev-deps `eslint@^10`, `@eslint/js`, `eslint-plugin-n`,
+  `eslint-plugin-security`, `globals`.
+- **Root `package.json`**: `lint:backend` ora chiama lint reale (era
+  un echo placeholder), `lint` raggruppa BE + FE, `lint-staged`
+  estende `lint:fix` a tutti i file `backend/**/*.js` modificati →
+  ogni commit toccante il backend passa per ESLint.
+- **`.github/workflows/ci.yml`**: step ESLint nel job backend
+  (`matrix.tz == 'Europe/Rome'`, l'analisi statica non dipende dal
+  fuso). Lint precede i test, fallisce CI su qualsiasi errore.
+
+### Bug fix scoperti dal primo lint
+
+Per arrivare a baseline pulita (0 errors, 0 warnings) ho dovuto
+correggere bug veri segnalati dal lint:
+
+- **5× `no-dupe-keys`** in `tests/factories.js`: il pattern "set →
+  spread → re-set" lasciava il primo set come dead code (sovrascritto
+  dallo spread, poi ri-sovrascritto). Risistemato: chiave canonical
+  SOLO dopo lo spread, con commento esplicativo sul perché.
+- **6× `no-useless-assignment`** in `passport.js`, `appIcons.js`,
+  `integrations.js`, `monteOreCalendarService.js`, `analytics.js`,
+  `seeders/initial.js`: assegnazioni `let x = null;` immediatamente
+  sovrascritte → declared without init. Rimosse anche `y += ...` come
+  ultima riga di funzione (valore mai usato).
+- **2× `no-irregular-whitespace`** in `routes/courses.js` e
+  `tests/integration/analytics.test.js`: BOM letterale (U+FEFF)
+  dentro regex → sostituito con escape `﻿`.
+- **1× `no-control-regex`** in `scripts/build-manual-html.js`: `\x01`
+  delimitatore intenzionale per restore di inline-code in markdown →
+  preservato con `eslint-disable-next-line` motivato.
+- **2× `no-empty`** in `diag-counts.js`: `catch {}` vuoti → aggiunto
+  commento "best-effort" come body.
+- **~13 import morti** rimossi in `routes/bookings.js` (ics),
+  `routes/instruments.js` (3 import), `routes/integrations.js`
+  (Institute), `routes/waitlist.js` (dayjs),
+  `services/emailService.js` (baseStyles + 15 righe CSS legacy),
+  `services/instrumentImporter.js` (Op),
+  `services/messaging/index.js` (ChatSession), e altri.
+- **`catch (err)` non usati** → `catch (_err)` per allinearsi alla
+  convenzione `caughtErrorsIgnorePattern: '^_'`.
+- **2 inline-disable su regola TS inesistente**
+  (`@typescript-eslint/no-unused-vars` nei test JS backend) →
+  corretti in `no-unused-vars`.
+- **`preserve-caught-error` × 4** in `backupRestore.js`,
+  `excelExporter.js`, `telegramSetup.js`: aggiunto `{ cause: err }`
+  alle re-throw nei catch (chain di errori ora preservata, debug più
+  ricco).
+- **`ipaddr.js`**: era transitive di express ma richiesta direttamente
+  da `lib/network.js` → promossa a direct dep (`^2.4.0`) per non
+  rompere se express un giorno la droppa.
+
+### Triage warning
+
+Dopo audit caso-per-caso dei 136 warning del primo passaggio, 4
+regole sono state disabilitate con motivazione esplicita in
+`eslint.config.js` perché producevano solo rumore senza segnale:
+
+| Regola                                    | Warning | Motivo                                                                                                                                                                                                                       |
+| :---------------------------------------- | ------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `n/no-process-exit`                       |      21 | Idiomatico Node in boot/CLI (validateConfig + script).                                                                                                                                                                       |
+| `n/no-unsupported-features/node-builtins` |      18 | `engines.node` larga per compat CI/dev; produzione pinned via PM2/nvm supporta tutti i builtins usati (`fetch`, `fs.cpSync`, ecc.).                                                                                          |
+| `security/detect-non-literal-fs-filename` |      68 | Tutti i path nel backend sono costruiti internamente; nessun input utente raggiunge `fs.*` direttamente.                                                                                                                     |
+| `security/detect-unsafe-regex`            |      22 | Detector ReDoS sovra-aggressivo sui pattern URL con gruppi opzionali. Audit: tutte le 22 occorrenze sono regex `^`-anchored con character class esplicite e quantifier bounded — nessun catastrophic backtracking possibile. |
+
+Le regole davvero utili (`detect-non-literal-regexp`, `detect-eval-*`,
+`detect-child-process`, `detect-bidi-characters`,
+`preserve-caught-error`, ecc.) restano attive: CI fa fallire il job
+backend su qualsiasi nuovo warning.
+
+### Risultato
+
+- `npm run lint:backend` → **0 errors, 0 warnings**.
+- Tutti i **1706 test backend** continuano a passare.
+- Lint-staged runna ESLint solo sui file modificati al commit (fast).
+- CI lint step prima dei test: niente test su codice con errori
+  statici.
+
+### Aggiornamenti pacchetti
+
+- `backend/package.json`: `engines.node` invariato (>=18) ma
+  `eslint`, `@eslint/js`, `eslint-plugin-n`, `eslint-plugin-security`,
+  `globals` aggiunti come dev-deps; `ipaddr.js` come direct dep.
+
+### English version
+
+DX patch release: introduces ESLint to the backend (previously only
+prettier), wired into CI and lint-staged. First item of the
+"Fundamentals DX" roadmap from the strategic analysis. No functional
+changes, no migrations: pure code quality and regression prevention.
+
+#### ESLint backend (new)
+
+- **`backend/eslint.config.js`**: flat config based on `@eslint/js`
+  recommended + `eslint-plugin-n` (Node best practices) +
+  `eslint-plugin-security` (insecure patterns). Targeted overrides
+  for `tests/**` and `scripts/**`.
+- **CI**: ESLint step in the backend job, runs before tests; failure
+  blocks merges.
+- **lint-staged**: `lint:fix` on every `backend/**/*.js` touched on
+  commit.
+
+#### Bug fixes uncovered by the first lint
+
+5 `no-dupe-keys` in `tests/factories.js` (dead code from a "set →
+spread → re-set" pattern), 6 `no-useless-assignment` in routes and
+services, 2 `no-irregular-whitespace` (literal U+FEFF in regex), 13
+dead imports cleaned, 4 `preserve-caught-error` fixed by adding
+`{ cause: err }` to re-throws, and `ipaddr.js` promoted from
+transitive to direct dependency.
+
+#### Warning triage
+
+After case-by-case audit, 4 noisy rules disabled with documented
+rationale: `n/no-process-exit` (Node idiom), `n/no-unsupported-
+features/node-builtins` (engines field doesn't reflect production
+pinned Node), `security/detect-non-literal-fs-filename` (all paths
+internally constructed, no user input), `security/detect-unsafe-regex`
+(false positives on bounded URL patterns).
+
+#### Result
+
+Backend baseline: 0 errors, 0 warnings. All 1706 backend tests pass.
+CI now blocks any new lint error.
+
 ## [1.10.5] — 15 maggio 2026
 
 Patch release di bugfix esclusivamente sulla **UI mobile** (iOS PWA
