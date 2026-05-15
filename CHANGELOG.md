@@ -10,6 +10,182 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.8.0] — 15 maggio 2026
+
+Versione "smartphone UX overhaul": ripensa l'esperienza mobile delle
+quattro pagine cliente (Dashboard, Prenota, Le mie prenotazioni,
+Profilo), con focus sul calendario aule del giorno reso navigabile da
+telefono e su una compressione globale delle UI primitives. Nessun
+breaking change: il desktop (>= 1024px) resta identico alla v1.7.0.
+
+### Nuove feature
+
+#### Dashboard mobile-first
+
+- **Hero mobile compatto** che sostituisce il grosso H1 "Pronti per
+  studiare oggi?": una riga "saluto + giorno" + bottone "Nuova
+  prenotazione" piccolo. Risparmia ~80px verticali su iPhone.
+- **Card "Prossima sessione"** prominente sopra le KPI: relativo
+  tempo ("tra 5 ore") + giorno · orario · aula, l'info più
+  actionable in primo piano.
+- **KPI grid 2×2** invece di 4 card stacked: dimezza lo scroll.
+  Card più dense (padding ridotto, icon h-8, value text-xl).
+- **Nuova sezione "Aule e prenotazioni"** mobile-only con disclosure
+  a 2 livelli (`<details>` HTML nativi, zero stato, zero
+  dipendenze):
+  - **Livello 1 (edificio)**: icona, nome, conteggio aule + badge
+    "Tutte libere" (verde) o "N prenot." (totale aggregato).
+    Auto-aperto se c'è un solo edificio.
+  - **Livello 2 (aula)**: nome, piano, badge "Libera" o conteggio
+    prenotazioni del giorno. Espande la lista oraria.
+  - **Prenotazioni**: orario · tipo · utente. Le proprie hanno
+    bordo primary + bg-primary/5 distinguibili a colpo d'occhio.
+    Tap apre il dialog corretto (annulla se tua, info read-only
+    se altrui, edit se admin).
+  - Date navigator condiviso col timetable desktop, riusa
+    `roomsQuery` + `calendarBookingsQuery`: zero fetch aggiuntivi.
+- **Weekly Timetable desktop nascosto su mobile**: troppo denso, e
+  l'utente ha ora il disclosure a discesa al suo posto.
+
+#### Compressione globale UI
+
+- **Card primitives responsive di default** (`CardHeader`, `CardTitle`,
+  `CardContent`, `CardFooter`): padding `p-4 sm:p-6` (era `p-6` fisso),
+  titoli `text-lg sm:text-xl`. Beneficio diffuso a tutte le card
+  dell'app: Profile (7 sezioni) ~30% più dense su mobile.
+- **H1 pagine cliente**: `text-2xl sm:text-3xl` (era `text-3xl` fisso)
+  → niente più title-wrap su iPhone.
+- **Sottotitoli descrittivi** ("Gestisci tutte le tue prenotazioni…",
+  ecc.) nascosti < sm: erano rumore visivo su mobile.
+- **AppLayout header**: "CONSERVATORIO DI …" nascosto < sm — il
+  titolo pagina ora ha la riga intera, niente più troncamento.
+
+#### Booking — `/booking`
+
+- CTA "Nuova prenotazione" nascosta su mobile: il tap su slot libero
+  crea direttamente, doppio CTA era rumore.
+- Filtri card più compatta, day label più piccolo, helper text "Clicca
+  su una fascia libera…" nascosto.
+- Legenda colori del calendario (lezione / concerto / prova / studio)
+  nascosta su mobile (illeggibile su schermo stretto).
+
+#### MyBookings — `/my-bookings`
+
+- Bottone "Esporta iCal" nascosto su mobile (azione rara, riduce
+  CTA-rumore in cima alla pagina).
+- Card prenotazione più dense (padding ridotto, dot bar più stretta).
+
+#### Profile — `/profile`
+
+- Card identità con avatar più piccolo su mobile (h-16 vs h-20).
+- Caption "PNG · JPG · WEBP · max 2 MB" nascosta su mobile.
+
+### Fix
+
+- **Form accessibility su smartphone**: aggiunti `inputMode="numeric"`
+  su input ricorrenza booking e matricola profilo, `autoComplete`
+  given-name/family-name su nome/cognome profilo. Le tastiere
+  iOS/Android si aprono ora corrette al primo tap.
+- **Monte Ore desktop-only**: nascosto su < lg sia il link in sidebar
+  (drawer mobile) sia il `to` del KPI tile docente. La pagina di
+  planning richiede tabelle dense non gestibili da telefono — il
+  valore KPI resta visibile, solo non cliccabile. Rotte e API restano
+  attive: bookmark esistenti funzionano.
+
+### Pulizia tecnica
+
+- **Dashboard**: rimossa la card "Prossime prenotazioni" ridondante
+  con `/my-bookings` (raggiungibile in 1 tap dalla bottom-nav). Il
+  `upcomingQuery` resta attivo perché alimenta KPI, hero mobile
+  "Prossima sessione" e check-in imminente.
+- Tutte le modifiche sono `< lg`-only via Tailwind responsive: il
+  desktop (>= 1024px) è bit-per-bit identico alla v1.7.0.
+
+### English version
+
+Release "smartphone UX overhaul": rethinks the mobile experience of
+the four client pages (Dashboard, Booking, My Bookings, Profile), with
+focus on a usable daily room calendar and a global tightening of UI
+primitives. No breaking changes — desktop (>= 1024px) is unchanged.
+
+#### Mobile-first Dashboard
+
+- **Compact mobile hero** replacing the large "Ready to study today?"
+  H1: a single "greeting + day" line + small "New booking" button.
+  Saves ~80px vertical on iPhone.
+- **"Next session" card** prominent above the KPIs: relative time
+  ("in 5 hours") + day · time · room, the most actionable info on top.
+- **KPI grid 2×2** instead of 4 stacked cards: halves the scroll.
+  Denser cards (reduced padding, h-8 icon, text-xl value).
+- **New "Rooms and bookings" mobile-only section** with 2-level
+  disclosure (native `<details>`, zero state, zero deps):
+  - **Level 1 (building)**: icon, name, room count + "All free"
+    (green) or "N bookings" badge (aggregated). Auto-opened if only
+    one building.
+  - **Level 2 (room)**: name, floor, "Free" badge or per-day booking
+    count. Expands to time list.
+  - **Bookings**: time · type · user. Own bookings have primary
+    border + bg-primary/5 highlight. Tap opens the right dialog
+    (cancel if mine, info read-only if others', edit if admin).
+  - Date navigator shared with desktop timetable, reuses
+    `roomsQuery` + `calendarBookingsQuery`: zero extra fetches.
+- **Desktop Weekly Timetable hidden on mobile**: too dense, replaced
+  by the disclosure list.
+
+#### Global UI compression
+
+- **Responsive Card primitives** (`CardHeader`, `CardTitle`,
+  `CardContent`, `CardFooter`): `p-4 sm:p-6` (was fixed `p-6`),
+  titles `text-lg sm:text-xl`. App-wide benefit: Profile (7 sections)
+  ~30% denser on mobile.
+- **Client page H1**: `text-2xl sm:text-3xl` (was fixed `text-3xl`)
+  → no more title-wrap on iPhone.
+- **Decorative subtitles** ("Manage all your bookings…", etc.) hidden
+  < sm: visual noise on mobile.
+- **AppLayout header**: "CONSERVATORIO DI …" hidden < sm — page
+  title now gets a full line, no more truncation.
+
+#### Booking — `/booking`
+
+- "New booking" CTA hidden on mobile: tapping a free slot creates
+  directly, double CTA was noise.
+- More compact filters card, smaller day label, "Click on a free
+  slot…" helper text hidden.
+- Calendar color legend (lesson / concert / rehearsal / study) hidden
+  on mobile (illegible on narrow screens).
+
+#### My Bookings — `/my-bookings`
+
+- "Export iCal" button hidden on mobile (rare action, reduces CTA
+  noise at the top of the page).
+- Denser booking cards (reduced padding, slimmer dot bar).
+
+#### Profile — `/profile`
+
+- Identity card with smaller avatar on mobile (h-16 vs h-20).
+- "PNG · JPG · WEBP · max 2 MB" caption hidden on mobile.
+
+#### Fix
+
+- **Mobile form accessibility**: added `inputMode="numeric"` on
+  booking recurrence and profile student ID, `autoComplete`
+  given-name/family-name on profile name/surname. iOS/Android
+  keyboards now open correctly on first tap.
+- **Monte Ore desktop-only**: hidden on < lg both the sidebar link
+  (mobile drawer) and the `to` of the teacher KPI tile. The planning
+  page requires dense tables not usable from phone — the KPI value
+  remains visible, just not clickable. Routes and APIs remain active:
+  existing bookmarks still work.
+
+#### Technical cleanup
+
+- **Dashboard**: removed the "Upcoming bookings" card redundant with
+  `/my-bookings` (1 tap from bottom-nav). `upcomingQuery` stays
+  active because it feeds KPIs, mobile "Next session" hero, and
+  imminent check-in card.
+- All changes are `< lg`-only via Tailwind responsive: desktop
+  (>= 1024px) is bit-identical to v1.7.0.
+
 ## [1.7.0] — 15 maggio 2026
 
 Versione "stato sistema e hardening operativo": introduce una dashboard
