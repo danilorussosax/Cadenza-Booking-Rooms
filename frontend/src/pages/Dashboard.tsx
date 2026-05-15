@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  Building2,
   CalendarCheck2,
   CalendarPlus,
   CheckCircle2,
@@ -421,28 +422,29 @@ export default function Dashboard() {
     window.print();
   };
 
-  // Mobile-only: aule con prenotazioni del giorno aggregate per room.
-  // Riusa `roomsQuery` + `calendarBookingsQuery` (gia' fetchati per il
-  // Weekly Timetable desktop). Solo single-day, niente range three.
-  const roomsWithDayBookings = useMemo(() => {
+  // Mobile-only: edifici → aule → prenotazioni del giorno, struttura
+  // gerarchica per il disclosure annidato. Riusa `buildings` (gia'
+  // calcolato per il timetable desktop) e `calendarBookingsQuery`.
+  // Solo single-day, niente range three.
+  const buildingsWithDayBookings = useMemo(() => {
     const allBookings = calendarBookingsQuery.data?.bookings ?? [];
-    const allRooms = roomsQuery.data?.rooms ?? [];
     const dayBegin = dayjs(dayStart).startOf('day');
     const dayEnd = dayBegin.add(1, 'day');
-    return allRooms
-      .filter((r) => r.isBookable)
-      .map((room) => ({
+    const dayBookings = allBookings.filter(
+      (b) => dayjs(b.startTime).isBefore(dayEnd) && dayjs(b.endTime).isAfter(dayBegin),
+    );
+    return buildings.map((building) => {
+      const bookableRooms = building.rooms.filter((r) => r.isBookable);
+      const roomsWithBookings = bookableRooms.map((room) => ({
         room,
-        bookings: allBookings
-          .filter(
-            (b) =>
-              b.roomId === room.id &&
-              dayjs(b.startTime).isBefore(dayEnd) &&
-              dayjs(b.endTime).isAfter(dayBegin),
-          )
+        bookings: dayBookings
+          .filter((b) => b.roomId === room.id)
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
       }));
-  }, [calendarBookingsQuery.data, roomsQuery.data, dayStart]);
+      const totalBookings = roomsWithBookings.reduce((sum, r) => sum + r.bookings.length, 0);
+      return { building, rooms: roomsWithBookings, totalBookings };
+    });
+  }, [buildings, calendarBookingsQuery.data, dayStart]);
 
   // Booking imminenti che richiedono check-in:
   // confermate, senza checkedInAt, con startTime nei prossimi 30 min OR già
@@ -720,73 +722,110 @@ export default function Dashboard() {
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </>
-          ) : roomsWithDayBookings.length === 0 ? (
+          ) : buildingsWithDayBookings.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t('rooms.no_rooms')}</p>
           ) : (
-            roomsWithDayBookings.map(({ room, bookings: dayBookings }) => (
+            buildingsWithDayBookings.map(({ building, rooms: bldgRooms, totalBookings }) => (
               <details
-                key={room.id}
-                className="group rounded-lg border bg-card transition-colors open:bg-muted/30 [&_summary::-webkit-details-marker]:hidden"
+                key={building.id}
+                // Auto-apri solo se c'e' un unico edificio (evita il tap extra
+                // ridondante). Multi-edificio: tutti chiusi, l'utente sceglie.
+                open={buildingsWithDayBookings.length === 1}
+                className="group rounded-lg border bg-card transition-colors open:bg-muted/20 [&_summary::-webkit-details-marker]:hidden"
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-sm">
                   <div className="flex min-w-0 items-center gap-2">
-                    <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{room.name}</p>
-                      {room.building?.name && (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {room.building.name}
-                          {room.floor ? ` · ${room.floor}` : ''}
-                        </p>
-                      )}
+                      <p className="truncate font-medium">{building.name}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {bldgRooms.length} {bldgRooms.length === 1 ? 'aula' : 'aule'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={dayBookings.length === 0 ? 'success' : 'secondary'}>
-                      {dayBookings.length === 0 ? 'Libera' : `${dayBookings.length}`}
+                    <Badge variant={totalBookings === 0 ? 'success' : 'secondary'}>
+                      {totalBookings === 0 ? 'Tutte libere' : `${totalBookings} prenot.`}
                     </Badge>
                     <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                   </div>
                 </summary>
-                <div className="space-y-1.5 border-t px-3 py-2">
-                  {dayBookings.length === 0 ? (
+                <div className="space-y-1.5 border-t p-2">
+                  {bldgRooms.length === 0 ? (
                     <p className="py-2 text-center text-xs text-muted-foreground">
-                      Nessuna prenotazione oggi
+                      Nessuna aula prenotabile in questo edificio
                     </p>
                   ) : (
-                    dayBookings.map((b) => {
-                      const owned = user?.id === b.userId;
-                      return (
-                        <button
-                          type="button"
-                          key={b.id}
-                          onClick={() => {
-                            handleBookingClick(b);
-                          }}
-                          className={
-                            owned
-                              ? 'flex w-full items-center gap-2 rounded-md border-2 border-primary/40 bg-primary/5 p-2 text-left text-xs transition-colors hover:bg-primary/10'
-                              : 'flex w-full items-center gap-2 rounded-md border bg-background p-2 text-left text-xs transition-colors hover:bg-accent'
-                          }
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium tabular-nums">
-                                {formatTime(b.startTime)}–{formatTime(b.endTime)}
-                              </span>
-                              <span className="truncate capitalize text-[10px] text-muted-foreground">
-                                · {b.type.replace('_', ' ')}
-                              </span>
+                    bldgRooms.map(({ room, bookings: dayBookings }) => (
+                      <details
+                        key={room.id}
+                        className="group/room rounded-md border bg-background transition-colors open:bg-muted/40"
+                      >
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-2 text-xs">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <DoorOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{room.name}</p>
+                              {room.floor && (
+                                <p className="truncate text-[10px] text-muted-foreground">
+                                  {room.floor}
+                                </p>
+                              )}
                             </div>
-                            {b.user && (
-                              <p className="truncate text-[10px] text-muted-foreground">
-                                {b.user.firstName} {b.user.lastName}
-                              </p>
-                            )}
                           </div>
-                        </button>
-                      );
-                    })
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <Badge
+                              variant={dayBookings.length === 0 ? 'success' : 'secondary'}
+                              className="text-[10px]"
+                            >
+                              {dayBookings.length === 0 ? 'Libera' : `${dayBookings.length}`}
+                            </Badge>
+                            <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open/room:rotate-180" />
+                          </div>
+                        </summary>
+                        <div className="space-y-1 border-t p-2">
+                          {dayBookings.length === 0 ? (
+                            <p className="py-1 text-center text-[10px] text-muted-foreground">
+                              Nessuna prenotazione oggi
+                            </p>
+                          ) : (
+                            dayBookings.map((b) => {
+                              const owned = user?.id === b.userId;
+                              return (
+                                <button
+                                  type="button"
+                                  key={b.id}
+                                  onClick={() => {
+                                    handleBookingClick(b);
+                                  }}
+                                  className={
+                                    owned
+                                      ? 'flex w-full items-center gap-2 rounded-md border-2 border-primary/40 bg-primary/5 p-1.5 text-left text-[11px] transition-colors hover:bg-primary/10'
+                                      : 'flex w-full items-center gap-2 rounded-md border bg-card p-1.5 text-left text-[11px] transition-colors hover:bg-accent'
+                                  }
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-medium tabular-nums">
+                                        {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                                      </span>
+                                      <span className="truncate capitalize text-[9px] text-muted-foreground">
+                                        · {b.type.replace('_', ' ')}
+                                      </span>
+                                    </div>
+                                    {b.user && (
+                                      <p className="truncate text-[9px] text-muted-foreground">
+                                        {b.user.firstName} {b.user.lastName}
+                                      </p>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </details>
+                    ))
                   )}
                 </div>
               </details>
