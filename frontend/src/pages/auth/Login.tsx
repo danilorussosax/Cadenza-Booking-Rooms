@@ -180,7 +180,7 @@ export default function Login() {
       <div className="mb-7 flex items-center justify-center gap-3">
         <img src={appIcon} alt="" className="h-12 w-12 shrink-0 rounded-lg object-contain" />
         <div className="flex flex-col leading-tight">
-          <span className="font-display text-2xl font-semibold tracking-tight text-primary">
+          <span className="font-display text-2xl font-black tracking-tight text-primary">
             {t('app.name')}
           </span>
           <span className="text-sm text-muted-foreground">{t('app.tagline')}</span>
