@@ -132,6 +132,10 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - **Mirror Excel periodico** delle prenotazioni su disco (default `/var/cadenza/sync/`), una tab per ogni edificio con celle colorate per tipo (`studio_individuale` verde, `lezione` azzurro, `prova` ambra, `concerto` rosa, `altro` viola) e merge orizzontale dei blocchi multi-slot — replica fedele del Display kiosk
 - Sync della cartella su cloud personale (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + cron OS — indipendente dal backend: se Cadenza è giù, l'ultima copia del foglio resta nel cloud, la portineria la apre dal telefono. Direzione volutamente unidirezionale (Cadenza → file): le modifiche al foglio NON tornano nel DB, niente conflict resolution oscura al ripristino. Setup completo in [docs/EXCEL_SYNC.md](docs/EXCEL_SYNC.md)
 - Backup automatico DB + uploads (snapshot tar.gz con retention giornaliera/settimanale/mensile)
+- **Verifica integrità backup automatica** (v1.9.0): scheduler weekly che applica 7 check sull'ultimo `.tar.gz` (età, tarball safety, manifest, dump non vuoto, tabelle critiche, sezione dati, schema vs prod). Mail admin solo su fallimento (silent-on-success) con idempotency per giorno+reason. Widget dedicato in `/admin/ops`
+- **Backup off-site multi-cloud opt-in** (v1.10.0): `scripts/setup-rclone-backups.sh` installa il cron giornaliero che copia i backup su un remote rclone (OneDrive Personal/Business, Dropbox, S3, Hetzner Storage Box, Backblaze B2 — 70+ backend supportati). Cleanup mensile con retention configurabile (default 90gg)
+- **PITR opt-in** (v1.10.0): `scripts/setup-wal-archiving.sh` abilita Postgres `archive_mode=on` con `archive_command` che pusha ogni WAL allo stesso remote rclone. RPO scende da 24h a ~1 min (`archive_timeout` 60s). Procedura restore completa in [docs/DISASTER_RECOVERY.md §5.6](docs/DISASTER_RECOVERY.md)
+- **PM2 cluster mode opt-in** (v1.10.0): `ecosystem.config.js` pronto per il passaggio a cluster mode. Scheduler cluster-safe via `backend/lib/clusterRole.js`: solo l'istanza master li esegue, le altre servono solo richieste HTTP
 
 ### 🌍 Internazionalizzazione
 
@@ -153,6 +157,9 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 - **Banner offline globale** (Service Worker) e **bottom-nav** mobile per le aree principali
 - Dialog responsive: full-screen su `<sm`, bottom-sheet con drag handle su mobile
 - Tabelle admin → **card-stack** su `<sm` (no overflow orizzontale)
+- **PWA installabile** (manifest + Workbox): icona homescreen, splash screen, apertura standalone, offline shell con NetworkFirst su `/api/*` + StaleWhileRevalidate 5 min sul kiosk e CacheFirst sui font
+- **Mobile UX overhaul** (v1.8.0): pass completo sulle 4 pagine cliente (Dashboard, Prenota, Le mie prenotazioni, Profilo). Hero compatto al posto del grosso H1, **card "Prossima sessione"** prominente, **KPI 2×2**, sottotitoli decorativi nascosti su `<sm`, header titolo a riga intera
+- **Calendario aule mobile-first** (v1.8.0): nuova sezione "Aule e prenotazioni del giorno" con **disclosure gerarchica `<details>` HTML nativi** edificio → aula (zero stato React, zero dipendenze). Livello 1 = edificio + badge "Tutte libere/N prenot.", livello 2 = aula + badge "Libera/N", click su prenotazione apre il dialog corretto secondo ruolo (annulla/info/edit). Auto-open se c'è un solo edificio
 
 ### 📥 Integrazioni gestionali
 
@@ -167,7 +174,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 
 - **Macro pagina "Gestione prenotazioni"** (v1.5.1): una sola voce di sidebar (`/admin/bookings-management`) con 3 tab a card grandi — **Regole** (⚖️ ambra) · **Tipi prenotazione** (🏷️ verde) · **Approvazioni** (📋 blu, badge counter `N`). I vecchi URL `/admin/rules`, `/admin/booking-types`, `/admin/approvals` restano funzionanti come redirect.
 - Larghezza coerente con le altre pagine admin (`max-w-6xl`), badge in tempo reale sulle richieste in attesa.
-- **Dashboard "Stato sistema"** (`/admin/ops`, v1.7.0): 5 widget at-a-glance aggiornati ogni 10s — VPS (CPU/RAM/disco con semafori 70/90%), database (connessioni, dimensione, top tabelle), coda email (pending con età del più vecchio), backup (ultimo + età), scheduler interni (stato e ultimo tick di 5 worker). Endpoint `GET /api/admin/ops/snapshot` admin-only con cache server-side 5s.
+- **Dashboard "Stato sistema"** (`/admin/ops`, v1.7.0): 5 widget at-a-glance aggiornati ogni 10s — VPS (CPU/RAM/disco con semafori 70/90%), database (connessioni, dimensione, top tabelle), coda email (pending con età del più vecchio), backup (ultimo + età, **con sezione "Verifica integrità" da v1.9.0** che mostra esito ultima verifica weekly), scheduler interni (stato e ultimo tick di **6 worker**: reminder, retention, mailOutbox, backup, backupVerify, excelExport). Endpoint `GET /api/admin/ops/snapshot` admin-only con cache server-side 5s.
 
 ---
 
@@ -216,7 +223,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente                                                                                                                          |
 | Operations    | `pg-tune-4gb.sh` (Postgres tuning idempotente per VPS piccole, `ALTER SYSTEM` reversibile) · `KIOSK_IP_ALLOWLIST.md` (restrizione nginx del kiosk) · dashboard `/admin/ops` |
 | Monitoring    | Sentry v10 (opt-in) + dashboard ops in-app                                                                                                                                  |
-| Testing       | Vitest 1.386 test backend + 177 component/lib + Playwright 5 spec E2E                                                                                                       |
+| Testing       | Vitest 1.704 test backend + 258 component/lib + Playwright 1 spec E2E (golden path)                                                                                         |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                                              |
 
 ---
@@ -474,7 +481,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale**: **1.386** test backend (70 file integration + unit) + **177** component test frontend (19 file, 10 dei quali a11y `vitest-axe`) + **5 spec** E2E Playwright (login-booking, waitlist-claim, a11y, instrument-loan, admin-approve) — **1.568 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
+**Copertura attuale (v1.10.0)**: **1.704** test backend (95 file integration + unit, 16 skippati con motivazione) + **258** component test frontend (26 file, ~10 dei quali a11y `vitest-axe`, 2 skippati) + **1 spec** Playwright sul percorso d'oro (login UI → booking via API → "Le mie prenotazioni" → logout) — **1.962 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
 
 **Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico, ognuna documentata in [`docs/TESTING.md`](docs/TESTING.md):
 
@@ -509,13 +516,16 @@ Le seguenti aree sono complete e in produzione:
 - **Sistema email robusto** (outbox pattern + retry, throttle per destinatario, hard-bounce detection, pagina admin "Coda email" + health, cleanup automatico)
 - **Dashboard ops `/admin/ops`** (v1.7.0): diagnostica at-a-glance di VPS · Postgres · MailOutbox · Backup · Scheduler con polling 10s e cache server 5s
 - **Toolkit hardening operativo** (v1.7.0): script `pg-tune-4gb.sh` idempotente per Postgres + guida nginx IP allowlist per il kiosk
+- **Smartphone UX overhaul** (v1.8.0): hero compatto, KPI 2×2, sottotitoli decorativi nascosti, header titolo a riga intera; **nuova sezione "Aule e prenotazioni"** mobile-only con disclosure gerarchica `<details>` edificio→aula; Booking/MyBookings/Profile snelliti
+- **Verifica integrità backup automatica** (v1.9.0): scheduler weekly con 7 check, widget in `/admin/ops` "Verifica integrità", mail admin solo su FAIL con idempotency per giorno+reason
+- **High Availability Livello 1+2 opt-in** (v1.10.0): PM2 cluster mode con scheduler lock (`backend/lib/clusterRole.js`), off-site backup multi-cloud (`scripts/setup-rclone-backups.sh`), PITR via WAL archiving (`scripts/setup-wal-archiving.sh`)
 
 ### 🚧 Sprint correnti
 
 - **Bot Telegram MVP** completo, scaffolding WhatsApp Cloud / Signal / Email
 - Push notifications Web Push API
 - Embed iframe per concerti pubblici
-- **Backlog post-1.6.0** (security/ops/perf): 7 voci consolidate in [`develop.md`](develop.md) §2 — device token per kiosk mobili, PIN ruotabile via mail, monitor esterno con alert, PgBouncer + PM2 cluster mode, slow query digest, QR code dinamico sul display
+- **Backlog post-1.6.0** (security/ops/perf): voci consolidate in [`develop.md`](develop.md) §2. Quick win candidati: §2.9 GDPR self-service export (~1g), §2.11 Slot alternativi suggeriti su conflitto (~2g). Voci aperte: device token kiosk mobili, PIN ruotabile via mail, monitor esterno con alert, PgBouncer, slow query digest, QR code dinamico, conflict-aware bulk booking docenti
 
 ### 🔵 Roadmap PA italiana
 
