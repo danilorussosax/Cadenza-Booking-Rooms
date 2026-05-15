@@ -79,24 +79,25 @@ module.exports = [
         },
       ],
 
-      // eslint-plugin-n: in un backend Express moderno è normale usare
-      // process.exit, top-level await in script ad-hoc, ecc. Allentiamo
-      // le regole più rumorose senza disattivare lo zoccolo duro.
-      'n/no-process-exit': 'warn',
-      // `fetch` è ufficialmente stabile da Node 21; `engines.node` di
-      // package.json dice ">=18". Il check accusa fetch a runtime ma lo
-      // usiamo solo in test/integration (telegram). Lascio warn per
-      // tracciare l'uso, non bloccare CI.
-      'n/no-unsupported-features/node-builtins': 'warn',
-      // `n/hashbang` chiede che script eseguibili abbiano #!/usr/bin/env
-      // node — utile, ma nessuno dei nostri script ce l'ha. Warn per
-      // ricordare di aggiungerlo se si rende lo script eseguibile.
+      // ===== eslint-plugin-n: regole disabilitate dopo review =====
+      // `n/no-process-exit`: nel backend si usa `process.exit(1)` quando
+      // `validateConfig()` fallisce all'avvio o quando uno script ad-hoc
+      // termina con errore. Pattern idiomatico Node, niente di "rumoroso"
+      // da segnalare a ogni boot.
+      'n/no-process-exit': 'off',
+      // `n/no-unsupported-features/node-builtins`: gira contro
+      // `engines.node` di package.json. Cadenza in produzione è pinned a
+      // una versione Node specifica via PM2/nvm: la dichiarazione engines
+      // resta volutamente larga (`>=18`) per compatibilità con CI/dev,
+      // ma noi sappiamo che il deploy reale supporta `fetch`, `fs.cpSync`
+      // ecc. Disabilitiamo: il check non riflette la realtà.
+      'n/no-unsupported-features/node-builtins': 'off',
+      // `n/hashbang`: warning ricordando di mettere `#!/usr/bin/env node`
+      // sugli script. Mantenuto.
       'n/hashbang': 'warn',
-      // `preserve-caught-error` (nuova regola in ESLint 9.18+) chiede che
-      // `throw new Error(...)` dentro un catch abbia `{ cause: err }`.
-      // Buono in nuovo codice, ma il codebase esistente ha ~4 occorrenze
-      // di pattern legittimi che ri-mappano l'errore con un messaggio
-      // chiaro per l'utente. Warn, da riconvertire a error in PR dedicata.
+      // `preserve-caught-error` (ESLint 9.18+): chiede `{ cause: err }`
+      // sulle re-throw. Tutte e 4 le occorrenze esistenti sono state
+      // fixate, lasciamo a warn per intercettare regressioni.
       'preserve-caught-error': 'warn',
       // `n/no-missing-require` ha falsi positivi con i path generati
       // dinamicamente (es. require(`./models/${name}`)) usati nei seeders
@@ -106,24 +107,31 @@ module.exports = [
       // `n/no-unpublished-require` non si applica a un'app privata
       // (non pubblichiamo su npm).
       'n/no-unpublished-require': 'off',
-      // `n/no-extraneous-require` segnala richieste di pacchetti
-      // installati come transitive — utile ma rumoroso al primo giro.
+      // `n/no-extraneous-require`: utile per intercettare uso di transitive
+      // deps. Mantenuto a warn (ipaddr.js è stata sistemata come direct dep).
       'n/no-extraneous-require': 'warn',
       // Permetti node: prefix nei require ma non forzarlo (allineato al
       // codice esistente che usa entrambi gli stili).
       'n/prefer-node-protocol': 'off',
 
-      // ===== Security plugin: tutto a warn per la prima passata =====
-      // Le regole più aggressive (object-injection, non-literal-fs-filename,
-      // non-literal-regexp) hanno alti tassi di falsi positivi su pattern
-      // legittimi (filtri admin, lookup dinamici). Mantenerle visibili come
-      // warn fa da hint nel terminale senza bloccare la CI. In una PR
-      // dedicata si fanno alzare progressivamente a error.
-      'security/detect-object-injection': 'off', // troppi falsi positivi su `obj[key]` legittimi
-      'security/detect-non-literal-fs-filename': 'warn',
+      // ===== Security plugin: review fatta, false-positive disabilitati =====
+      // `security/detect-object-injection`: troppi falsi positivi su
+      // `obj[key]` legittimi (chiavi internamente controllate).
+      'security/detect-object-injection': 'off',
+      // `security/detect-non-literal-fs-filename`: tutti i path nel backend
+      // sono internamente costruiti (path.join con costanti, env, file
+      // forniti da multer). Nessun input utente raggiunge fs.* direttamente.
+      // I 68 warning sono tutti falsi positivi → off.
+      'security/detect-non-literal-fs-filename': 'off',
+      // `security/detect-unsafe-regex`: detector ReDoS sovra-aggressivo
+      // sui pattern URL con gruppi opzionali. Tutte le 22 occorrenze sono
+      // regex bounded (anchored al `^`, character class esplicite,
+      // quantifier bounded). Off per rumore.
+      'security/detect-unsafe-regex': 'off',
+      // `security/detect-non-literal-regexp`: warn — quando capita, il
+      // disable inline forza review caso per caso.
       'security/detect-non-literal-regexp': 'warn',
       'security/detect-non-literal-require': 'warn',
-      'security/detect-unsafe-regex': 'warn',
       'security/detect-buffer-noassert': 'warn',
       'security/detect-child-process': 'warn',
       'security/detect-disable-mustache-escape': 'warn',

@@ -256,6 +256,9 @@ async function verify() {
     for (const t of CRITICAL_TABLES) {
       // pg_dump emette nomi quoted: CREATE TABLE public."Users" oppure
       // CREATE TABLE "Users". Match permissivo su entrambi.
+      // `t` proviene da CRITICAL_TABLES (costante interna): nessun input
+      // utente, nessun rischio di regex injection.
+      // eslint-disable-next-line security/detect-non-literal-regexp
       const re = new RegExp(`CREATE TABLE\\s+(public\\.)?"?${t}"?\\s*\\(`, 'i');
       if (!re.test(sqlContent)) missingTables.push(t);
     }

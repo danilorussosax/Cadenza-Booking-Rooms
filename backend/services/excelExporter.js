@@ -56,6 +56,7 @@ function loadExcelJs() {
   } catch (err) {
     throw new Error(
       `Dipendenza "exceljs" mancante: esegui "npm install exceljs" nel backend. Detail: ${err.message}`,
+      { cause: err },
     );
   }
 }

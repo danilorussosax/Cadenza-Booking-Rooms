@@ -67,9 +67,9 @@ async function callTelegram(token, method, payload) {
     });
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error(`telegramSetup ${method}: timeout dopo ${TIMEOUT_MS}ms`);
+      throw new Error(`telegramSetup ${method}: timeout dopo ${TIMEOUT_MS}ms`, { cause: err });
     }
-    throw new Error(`telegramSetup ${method}: ${err.message}`);
+    throw new Error(`telegramSetup ${method}: ${err.message}`, { cause: err });
   } finally {
     clearTimeout(timer);
   }

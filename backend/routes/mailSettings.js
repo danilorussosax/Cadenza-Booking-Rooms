@@ -97,6 +97,9 @@ router.put(
     if (username !== undefined) row.username = username || null;
     if (password !== undefined && password !== '') {
       row.passwordEncrypted = encrypt(password);
+      // Confronto con stringa letterale vuota: l'admin sta esplicitamente
+      // svuotando il campo, nessun segreto comparato. Plugin false-positive.
+      // eslint-disable-next-line security/detect-possible-timing-attacks
     } else if (password === '') {
       row.passwordEncrypted = null;
     }

@@ -291,6 +291,7 @@ async function performRestore({ archivePath, dryRun = false }) {
         if (err.code === 'ENOENT' || /ENOENT/.test(err.message || '')) {
           throw new Error(
             "psql non trovato. Imposta PSQL_PATH nell'env per indicarne il path completo (es. /Library/PostgreSQL/18/bin/psql), oppure aggiungi la directory bin di Postgres al PATH del processo Node.",
+            { cause: err },
           );
         }
         throw err;
