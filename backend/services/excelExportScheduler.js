@@ -60,6 +60,11 @@ function getStatus() {
 
 function start() {
   if (timer) return;
+  // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('Excel export scheduler skipped — non-master cluster instance');
+    return;
+  }
   if (!exporter.isEnabled()) {
     logger.info('Export Excel disabilitato — scheduler non avviato.');
     return;

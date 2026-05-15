@@ -400,6 +400,11 @@ function getStatus() {
 
 function start() {
   if (timer) return;
+  // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('[retention] scheduler skipped — non-master cluster instance');
+    return;
+  }
   scheduleNext();
   logger.info(
     `[retention] scheduler avviato (sweep alle ${String(TICK_HOUR).padStart(2, '0')}:00, audit log = ${getAuditRetentionDays()}gg)`,

@@ -275,6 +275,12 @@ function getStatus() {
 
 function start() {
   if (timer) return;
+  // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
+  // In fork mode / dev / test isSchedulerMaster() ritorna sempre true.
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('[reminder] scheduler skipped — non-master cluster instance');
+    return;
+  }
   // primo tick subito (utile in dev) poi ogni TICK_MS
   setTimeout(tickAll, 10_000);
   timer = setInterval(tickAll, TICK_MS);

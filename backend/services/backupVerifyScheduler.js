@@ -432,6 +432,11 @@ async function tick() {
 
 async function start() {
   if (timer) return; // idempotente
+  // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('[verify] scheduler skipped — non-master cluster instance');
+    return;
+  }
   const cfg = getConfig();
   if (!cfg.enabled) {
     logger.info('[verify] scheduler DISABILITATO (BACKUP_VERIFY_ENABLED=false)');

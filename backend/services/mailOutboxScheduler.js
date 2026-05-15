@@ -257,6 +257,11 @@ function getStatus() {
 
 function start() {
   if (timer) return;
+  // PM2 cluster mode: solo l'istanza 0 esegue il worker (vedi clusterRole.js).
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('[mail-outbox] worker skipped — non-master cluster instance');
+    return;
+  }
   // primo tick a 5s dal boot (lascia tempo al sync DB)
   setTimeout(tick, 5_000);
   timer = setInterval(tick, TICK_MS);

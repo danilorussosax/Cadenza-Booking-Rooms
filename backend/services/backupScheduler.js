@@ -215,6 +215,11 @@ function scheduleNext() {
 
 async function start() {
   if (timer) return; // già attivo (idempotente per HMR/hot reload)
+  // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
+  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+    logger.info('[backup] scheduler skipped — non-master cluster instance');
+    return;
+  }
   await loadEffectiveConfig();
   const cfg = getCachedConfig();
   if (!cfg.autoEnabled) {
