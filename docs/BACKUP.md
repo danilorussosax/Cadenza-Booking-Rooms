@@ -61,6 +61,34 @@ Dalla versione corrente il backend include uno **scheduler in-process** che eseg
 
 > Se hai un process manager (systemd/pm2) che riavvia il backend in automatico, puoi tranquillamente esporre l'endpoint `restart` per applicare uno schema aggiornato dopo il restore.
 
+## Verifica integrità automatica (v1.9.0)
+
+A complemento dello scheduler di backup, Cadenza esegue una **verifica strutturale weekly** sull'ultimo archivio prodotto. Il `backupVerifyScheduler` esegue di default ogni **domenica alle 03:00 Europe/Rome** sette controlli che catturano i failure-mode silenziosi più comuni (file corrotto, gzip troncato, dump pg_dump morto a metà, schema disallineato):
+
+1. Esiste un backup recente (età ≤ `BACKUP_VERIFY_MAX_AGE_HOURS`, default 36h)
+2. Tarball strutturalmente safe (no symlinks / path-traversal — riusa `validateTarball`)
+3. `manifest.json` parseabile e contiene il campo `contents` con `db`
+4. `database.sql` size ≥ `BACKUP_VERIFY_MIN_SQL_BYTES` (default 1024)
+5. Il dump contiene `CREATE TABLE` per `Users`, `Bookings`, `Rooms`, `Buildings`
+6. Il dump ha sezione dati (`COPY` o `INSERT INTO`)
+7. Numero `CREATE TABLE` nel dump entro ±`BACKUP_VERIFY_TABLE_TOLERANCE` (default 2) vs `information_schema.tables` di prod
+
+**Comportamento**: silent-on-success. Su fallimento manda mail admin (`kind=security`, `priority=0`, idempotency per giorno+reason → no spam) e marca lo stato come `lastReason` consultabile da `/admin/ops` widget Backup → sezione "Verifica integrità".
+
+**Configurazione (env-only)**:
+
+| Variabile                       | Default | Significato                                             |
+| ------------------------------- | ------- | ------------------------------------------------------- |
+| `BACKUP_VERIFY_ENABLED`         | `true`  | Disabilita lo scheduler interno                         |
+| `BACKUP_VERIFY_DAY`             | `0`     | Giorno della settimana (0=domenica … 6=sabato)          |
+| `BACKUP_VERIFY_HOUR`            | `3`     | Ora del tick (0–23)                                     |
+| `BACKUP_VERIFY_MINUTE`          | `0`     | Minuto                                                  |
+| `BACKUP_VERIFY_MAX_AGE_HOURS`   | `36`    | Soglia oltre la quale il backup è considerato "vecchio" |
+| `BACKUP_VERIFY_MIN_SQL_BYTES`   | `1024`  | Soglia minima per `database.sql`                        |
+| `BACKUP_VERIFY_TABLE_TOLERANCE` | `2`     | Diff massimo nel conteggio tabelle dump vs prod         |
+
+**Cosa NON cattura**: errori SQL logici nel dump (es. dati referenzialmente inconsistenti). Catturarli richiederebbe un restore vero su scratch DB — futura estensione "deep verify" se sarà mai necessaria.
+
 ## Interfaccia admin
 
 La pagina **`/admin/backups`** (solo ruolo `admin`) consente di gestire interamente il backup dal browser:
@@ -370,28 +398,44 @@ rsync -av --delete -e "ssh -i ~/.ssh/hetzner_storagebox -p 23" \
 
 [rclone](https://rclone.org/) è uno strumento universale che supporta 50+ provider cloud con la stessa CLI.
 
-```bash
-# Installazione (Linux/macOS)
-curl https://rclone.org/install.sh | sudo bash
+#### Setup automatico via script (v1.10.0, consigliato)
 
-# Setup interattivo (una tantum, configura "remote" per ogni provider)
+Per il caso d'uso "backup off-site giornaliero su OneDrive/Dropbox/altro cloud personale" è disponibile `scripts/setup-rclone-backups.sh` che fa tutto il lavoro di cron + retention:
+
+```bash
+# Una tantum: installa rclone + configura il remote come utente che fa girare il backend
+curl https://rclone.org/install.sh | sudo bash
+sudo -u cadenza rclone config         # interattivo, OAuth nel browser
+
+# Installa il cron giornaliero (default 04:00 locali, dopo backup nightly + verify)
+sudo bash scripts/setup-rclone-backups.sh cadenza-cloud Cadenza/backups
+```
+
+Lo script:
+
+- Verifica la presenza del remote come utente OS dedicato (default `cadenza`)
+- Testa la connessione (`rclone lsd`)
+- Installa `/etc/cron.d/cadenza-rclone-backups` con due voci:
+  - **Sync giornaliero** alle `CRON_HOUR:00` (default 04:00) — `rclone copy` dei tar.gz nuovi
+  - **Cleanup mensile** il 1° del mese alle 05:00 — `rclone delete --min-age 90d` per rispettare retention
+- Esegue un copy di prova immediato per verificare end-to-end
+
+Variabili opzionali: `BACKUP_DIR`, `OWNER`, `CRON_HOUR`, `MAX_AGE_DAYS`. Log su `/var/log/cadenza-rclone-backups.log`.
+
+> **Coppia naturale con PITR**: `scripts/setup-wal-archiving.sh` (v1.10.0) configura Postgres per pushare i WAL allo stesso remote rclone. Vedi [`DISASTER_RECOVERY.md` §5](DISASTER_RECOVERY.md) per la procedura completa.
+
+#### Setup manuale (alternativa)
+
+```bash
 rclone config
 #   n) New remote
 #   name> cadenza-dropbox    (o cadenza-gdrive, cadenza-onedrive)
 #   Storage> dropbox          (o drive, onedrive)
 #   …segue OAuth nel browser
-```
 
-Sync verso ciascuno:
-
-```bash
-# Dropbox
+# Sync ad-hoc
 rclone sync /var/backups/cadenza/ cadenza-dropbox:Backup/Cadenza --transfers=4
-
-# Google Drive
 rclone sync /var/backups/cadenza/ cadenza-gdrive:Backup/Cadenza
-
-# OneDrive
 rclone sync /var/backups/cadenza/ cadenza-onedrive:Backup/Cadenza
 ```
 

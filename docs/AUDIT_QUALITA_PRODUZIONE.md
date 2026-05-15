@@ -1,8 +1,8 @@
 # Cadenza · Audit Qualità, Stabilità e Sicurezza
 
-> **Versione**: 1.5.1 — fotografia del 14 maggio 2026
+> **Versione**: 1.10.0 — fotografia del 15 maggio 2026
 > **Cosa è**: una rilettura ragionata dello stato attuale del prodotto pronta per essere mostrata a un cliente Conservatorio, a un'amministrazione che valuta l'adozione o a un consulente esterno che debba farsi un'idea senza dover leggere il codice.
-> **Cosa non è**: un changelog. Per la cronologia delle modifiche c'è `git log`; qui interessa raccontare in che condizioni il software è arrivato a oggi.
+> **Cosa non è**: un changelog. Per la cronologia delle modifiche c'è `git log` e [`CHANGELOG.md`](../CHANGELOG.md); qui interessa raccontare in che condizioni il software è arrivato a oggi.
 
 Cadenza è una webapp per la gestione delle prenotazioni di aule e strumenti in un istituto musicale. Il sistema è in produzione, scritto in Italiano nel dominio, costruito su Node 20 + Express + Sequelize lato server, React 19 + TypeScript strict lato client, e pensato per girare su un VPS Ubuntu standard. Il documento che segue racconta — senza nascondersi dietro un punteggio — quanto è solido, quanto è sicuro e quanto è pronto per essere venduto a un altro istituto domani mattina.
 
@@ -10,9 +10,11 @@ Cadenza è una webapp per la gestione delle prenotazioni di aule e strumenti in 
 
 ## In breve
 
-Se il lettore avesse solo trenta secondi per farsi un'idea: il software è **pronto alla produzione commerciale** su singolo Conservatorio e si presta al multi-cliente con un onboarding documentato di pochi giorni. La conformità GDPR è completa, le misure minime AGID sono rispettate, l'anti-overlap delle prenotazioni è garantito dal database (non solo dall'applicazione), il backup e il disaster recovery sono provati. Restano in roadmap le integrazioni "PA enterprise" — SPID/CIE, PEC, conservazione sostitutiva — che si attivano su richiesta del cliente.
+Se il lettore avesse solo trenta secondi per farsi un'idea: il software è **pronto alla produzione commerciale** su singolo Conservatorio e si presta al multi-cliente con un onboarding documentato di pochi giorni. La conformità GDPR è completa, le misure minime AGID sono rispettate, l'anti-overlap delle prenotazioni è garantito dal database (non solo dall'applicazione), il backup è verificato automaticamente ogni settimana e il disaster recovery è coperto da backup off-site multi-cloud + PITR opzionale via WAL archiving. Restano in roadmap le integrazioni "PA enterprise" — SPID/CIE, PEC, conservazione sostitutiva — che si attivano su richiesta del cliente.
 
-Dal punto di vista numerico Cadenza conta circa **91.500 righe di codice produttivo**, **244 endpoint REST**, **1.913 test unitari e di integrazione**, un E2E Playwright sul percorso d'oro e una suite di soak test che gira fuori CI per le verifiche pre-rilascio. La copertura di codice è sopra le soglie su tutti gli otto assi misurati. Nessuna vulnerabilità segnalata da `npm audit`. Nessun errore di lint o di type-check.
+Dal punto di vista numerico Cadenza conta circa **95.600 righe di codice produttivo** (44.6K backend + 51K frontend), **244 endpoint REST**, **1.721 test unitari e di integrazione** in run-time medio di 95 secondi, un E2E Playwright sul percorso d'oro e una suite di soak test che gira fuori CI per le verifiche pre-rilascio. La copertura di codice è sopra le soglie su tutti gli otto assi misurati. Nessuna vulnerabilità segnalata da `npm audit`. Nessun errore di lint o di type-check.
+
+Dalle release v1.6.0 al v1.10.0 il prodotto ha consolidato l'osservabilità (dashboard `/admin/ops` in v1.7.0 con widget VPS · Postgres · MailOutbox · Backup · Scheduler), il mobile UX (overhaul completo delle pagine cliente in v1.8.0 con disclosure gerarchica edificio→aula per il calendario su smartphone) e la business continuity (verifica integrità backup automatica in v1.9.0, PM2 cluster lock + off-site backup + PITR opt-in in v1.10.0).
 
 ---
 
@@ -25,10 +27,10 @@ Il frontend è una single-page app React 19 con TanStack Query per la cache serv
 I numeri di superficie:
 
 - 34 file di route per 244 endpoint REST
-- 38 services per la logica di dominio (mailer, scheduler, importer)
+- 38 services per la logica di dominio (mailer, scheduler, importer, ora anche `backupVerify` per integrità backup)
 - 41 modelli Sequelize, di cui 15 con soft-delete
-- circa 43.000 righe lato server e 48.500 lato client
-- 195 file TypeScript/TSX
+- circa **44.600 righe lato server e 51.000 lato client** (escluso `node_modules`, test e coverage)
+- 202 file TypeScript/TSX
 
 Lo stack è volutamente conservativo. Niente framework esoterici, niente librerie a rischio abbandono: tutto quello che gira è documentato, manutenuto e facile da sostituire se mai servisse.
 
@@ -77,13 +79,13 @@ L'ossatura di prova è costruita su Vitest 4 — stesso runner per backend e fro
 
 Lo stato attuale è il seguente:
 
-- **1.655 test backend** (più 16 skippati con motivazione, soprattutto test Postgres-only che girano in un job separato) distribuiti su 91 file
+- **1.704 test backend** (più 16 skippati con motivazione, soprattutto test Postgres-only che girano in un job separato) distribuiti su 95 file
 - **258 test frontend** (più 2 skippati) su 26 file
 - **1 spec Playwright** sul percorso d'oro: login dall'UI, prenotazione via API, verifica nella pagina "Le mie prenotazioni", logout
 - Una **suite di soak test** in k6 con sampler memoria, file descriptor e latenza, che si lancia manualmente per le verifiche pre-rilascio (non in CI, perché impiega 4-8 ore)
 - Suite di stabilità dedicata: **roundtrip dei backup**, **time-travel del calendario** (vent'anni di Pasqua calcolata con il Computus su dieci anni avanti)
 
-Sommando solo unit e integration si arriva a **1.913 test** che girano in circa 90 secondi sul backend e 3 secondi sul frontend. È il tipo di velocità che invita davvero a lanciare i test prima di committare, non un rituale da subire.
+Sommando solo unit e integration si arriva a **1.962 test** che girano in circa 95 secondi sul backend e 3 secondi sul frontend. È il tipo di velocità che invita davvero a lanciare i test prima di committare, non un rituale da subire.
 
 ### 3.2 Quanto codice è coperto
 
@@ -126,20 +128,31 @@ Sono le cose che il sistema fa per non sbagliare anche quando l'utente fa qualco
 
 ### 3.4 Gli scheduler
 
-Cadenza ha cinque scheduler principali. Tutti sono testati, tutti scrivono uno stato persistente prima di mandare email — non c'è il rischio del doppio invio se la rete o SMTP si interrompono a metà.
+Cadenza ha **sei scheduler** principali. Tutti sono testati, tutti scrivono uno stato persistente prima di mandare email — non c'è il rischio del doppio invio se la rete o SMTP si interrompono a metà. Da v1.10.0 ogni scheduler verifica in `start()` di essere sull'istanza master (`NODE_APP_INSTANCE === '0'` quando PM2 gira in cluster mode), così l'attivazione del parallelismo HTTP non moltiplica i tick di backup/reminder.
 
 - Un **tick generale ogni cinque minuti** che si occupa di quattro cose in serie: reminder delle prenotazioni in arrivo (T-60 minuti circa), cancellazione automatica dei "ghost", reminder e segnalazione overdue dei prestiti strumenti, pulizia delle waitlist scadute con promozione del prossimo utente in coda.
 - Un **job di backup quotidiano alle 02:30** che produce un archivio compresso del database e degli upload. Le impostazioni di backup leggono dal DB con fallback su variabili d'ambiente.
+- Un **job di verifica integrità backup** _weekly_ (default domenica 03:00 Europe/Rome) introdotto in v1.9.0. Esegue sette check sull'ultimo `.tar.gz`: età ≤ 36h, tarball safe, manifest valido, `database.sql` non vuoto, presenza delle `CREATE TABLE` critiche, sezione dati presente, conteggio tabelle dump entro ±2 vs `information_schema.tables` di prod. Mail admin solo su fallimento, idempotency per giorno+reason. Stato esposto in `/admin/ops`.
 - Un **job di retention quotidiano alle 03:00** che lavora su tre fronti: pruning dell'audit log oltre i 730 giorni con archiviazione gzip; rimozione degli snapshot pre-restore più vecchi di sette giorni; pulizia dell'outbox `sent` oltre i 30 giorni (i `dead` restano per inspection manuale).
 - Un **worker dell'outbox email** che polla i `pending` con backoff esponenziale e li manda al transporter SMTP cached.
+- Un **scheduler di export Excel** (ogni dieci minuti, opt-in) che scrive un file `.xlsx` su una cartella locale che il sistema operativo sincronizza via `rclone` verso un cloud personale — pattern adottato anche per i backup off-site (vedi §3.5).
 
 ### 3.5 Operations
 
-Il sistema è in produzione dietro nginx con TLS gestito da Let's Encrypt e HSTS preload. Il process supervisor è pm2; l'uptime è stabile, i restart sono solo quelli del deploy. C'è un endpoint `/api/health` che risponde sotto i cinque millisecondi con lo stato del database, la versione e l'uptime — utile per sonde esterne e per i runbook di on-call.
+Il sistema è in produzione dietro nginx con TLS gestito da Let's Encrypt e HSTS preload. Il process supervisor è pm2; l'uptime è stabile, i restart sono solo quelli del deploy. C'è un endpoint `/api/health` che risponde sotto i cinque millisecondi con lo stato del processo e un `/api/ready` che valida la connessione DB — utile per sonde esterne, livenessProbe/readinessProbe Kubernetes e load balancer di front.
 
-Il deploy è uno script bash idempotente di otto passi che fa rsync incrementale, `npm ci`, reload pm2 e test nginx prima di rilanciare. Include una normalizzazione dei permessi post-rsync (754/755 sulle dir, 644 sui file) e un guard che confronta l'hash di `index.html` per intercettare deploy parziali. Tutto è documentato in `docs/DEPLOY.md` insieme a una piccola "incident library" con i problemi nginx più comuni.
+**Dashboard operativa unificata** in `/admin/ops` (introdotta in v1.7.0): cinque widget aggiornati ogni dieci secondi via polling cacheato server-side (TTL 5s) per VPS (load average, RAM, disco, uptime, Node version), Postgres (connessioni attive/idle/idle-in-tx, dimensione DB, top tabelle), MailOutbox (count per status, età del più vecchio `pending`), Backup (ultimo `.tar.gz` con badge verde/giallo/rosso sull'età, dimensione, totale storico) con **sotto-sezione "Verifica integrità"** introdotta in v1.9.0 che mostra esito dell'ultima verifica weekly e prossimo tick programmato, Scheduler (sei worker con `lastTickAt`, `lastError`, `nextTickAt` normalizzati).
 
-Il disaster recovery è coperto da `scripts/dr-drill.sh`: un drill _non distruttivo_ che restora il backup più recente in una sandbox, valida le foreign key e produce un report. L'RTO misurato è di circa un secondo per il restore del database; il vincolo dimensionale è ovviamente la dimensione degli `uploads/`.
+Il deploy è uno script bash idempotente di otto passi che fa rsync incrementale, `npm ci`, reload pm2 e test nginx prima di rilanciare. Include una normalizzazione dei permessi post-rsync (754/755 sulle dir, 644 sui file) e un guard che confronta l'hash di `index.html` per intercettare deploy parziali. Tutto è documentato in [`docs/DEPLOY.md`](DEPLOY.md) insieme a una piccola "incident library" con i problemi nginx più comuni.
+
+**Parallelismo opt-in** (v1.10.0): `ecosystem.config.js` alla root del repo è pronto per il passaggio a PM2 cluster mode (`instances: 'max'` + `exec_mode: 'cluster'`). Quando attivato, le richieste HTTP si distribuiscono su N core ma gli scheduler restano confinati all'istanza 0 grazie al lock in `backend/lib/clusterRole.js`. Default fork mode = zero impatto sui deploy esistenti.
+
+Il disaster recovery è coperto su tre livelli:
+
+1. **`scripts/dr-drill.sh`** — drill _non distruttivo_ che restora il backup più recente in una sandbox, valida le foreign key e produce un report. RTO misurato ~1 s per il restore del database.
+2. **Verifica integrità weekly** (v1.9.0, `backupVerifyScheduler.js`) — controlla automaticamente che ogni `.tar.gz` recente sia restorabile a livello strutturale, senza che un operatore debba ricordarsene.
+3. **Backup off-site multi-cloud** (v1.10.0, `scripts/setup-rclone-backups.sh`) — cron giornaliero che copia la cartella backup su un remote rclone (OneDrive Business, Dropbox, S3, Hetzner Storage Box, Backblaze B2 — 70+ backend supportati). Cleanup mensile, retention configurabile (default 90gg). Stesso pattern adottato per l'export Excel: zero codice Cadenza, separazione pulita app/ops.
+4. **PITR opzionale** (v1.10.0, `scripts/setup-wal-archiving.sh`) — abilita Postgres `archive_mode=on` con `archive_command` che pusha ogni segmento WAL allo stesso remote rclone, permettendo restore granulare al secondo invece dei soli snapshot di mezzanotte. Procedura documentata in [`docs/DISASTER_RECOVERY.md`](DISASTER_RECOVERY.md).
 
 ---
 
@@ -213,9 +226,9 @@ Sul deploy, lo script `deploy.sh` è idempotente e completa tipicamente in trent
 
 ### 7.1 Pronto subito per un singolo Conservatorio
 
-Tutte le condizioni che servono per partire sono soddisfatte: zero vulnerabilità, zero errori statici, 1.913 test che passano, copertura sopra soglia su tutti gli assi, anti-overlap a livello DB, audit log immutabile, endpoint GDPR completi, scheduler con retention testati, outbox email con idempotency e dead-letter, doppio fattore admin obbligatorio, segreti cifrati AES-256-GCM, deploy idempotente, drill DR non distruttivo, cinque lingue, venti documenti tecnici e trentasei screenshot per l'onboarding.
+Tutte le condizioni che servono per partire sono soddisfatte: zero vulnerabilità, zero errori statici, **1.962 test che passano**, copertura sopra soglia su tutti gli assi, anti-overlap a livello DB, audit log immutabile, endpoint GDPR completi, **sei scheduler con retention testati e verifica integrità backup automatica**, outbox email con idempotency e dead-letter, doppio fattore admin obbligatorio, segreti cifrati AES-256-GCM, deploy idempotente, drill DR non distruttivo, **backup off-site multi-cloud opt-in**, PWA installabile, mobile UX mobile-first (overhaul v1.8.0), cinque lingue, venti documenti tecnici e trentasei screenshot per l'onboarding.
 
-La capacità target su singolo Conservatorio — verificata dai load test in `loadtest/` — è dell'ordine di **cinquemila utenti attivi**, **cinquantamila prenotazioni l'anno**, **duecento aule** e **cinquecento strumenti in prestito**. Numeri molto sopra la media dei conservatori italiani.
+La capacità target su singolo Conservatorio — verificata dai load test in `loadtest/` — è dell'ordine di **cinquemila utenti attivi**, **cinquantamila prenotazioni l'anno**, **duecento aule** e **cinquecento strumenti in prestito**. Numeri molto sopra la media dei conservatori italiani. Con PM2 cluster mode attivato (opt-in v1.10.0) la capacità HTTP scala linearmente sul numero di core fisici della VPS.
 
 ### 7.2 Pronto per il modello commerciale multi-cliente
 
@@ -234,9 +247,9 @@ Il tempo realistico è di **due o tre giorni** con un implementatore esperto, o 
 
 ### 7.3 Casi d'uso supportati oggi
 
-Prenotazione di aule e studi, anti-ghost via QR check-in, concerti con scheda artisti e locandina integrata, prestito strumenti con approvazione e regole per famiglia, monte ore docenti con sezioni A/B e deroga contratto orario, display kiosk pubblico per ingresso edificio, bot Telegram/WhatsApp/Email per le richieste rapide, multi-lingua, PWA mobile-friendly, export iCal per i calendari personali, analytics admin (occupancy, ghost rate, top users), backup e DR.
+Prenotazione di aule e studi, anti-ghost via QR check-in, concerti con scheda artisti e locandina integrata, prestito strumenti con approvazione e regole per famiglia, monte ore docenti con sezioni A/B e deroga contratto orario, display kiosk pubblico per ingresso edificio, bot Telegram/WhatsApp/Email per le richieste rapide, multi-lingua, **PWA installabile con offline shell e mobile UX dedicato** (overhaul v1.8.0: calendario aule del giorno gerarchico edificio→aula con disclosure HTML nativi, hero compatto, KPI 2×2), export iCal per i calendari personali, analytics admin (occupancy, ghost rate, top users), backup verificato + DR + off-site sync + PITR opzionale.
 
-L'unico caso d'uso pianificato ma non implementato sono gli **eventi multipli** intesi come aggregatori di N prenotazioni con un'unica identità (utile per festival e settimane tematiche). Il piano architetturale è abbozzato in `docs/develop.md`; l'implementazione non è ancora partita.
+L'unico caso d'uso pianificato ma non implementato sono gli **eventi multipli** intesi come aggregatori di N prenotazioni con un'unica identità (utile per festival e settimane tematiche). Il piano architetturale è documentato in [`develop.md` §1](../develop.md); l'implementazione non è ancora partita.
 
 ---
 
@@ -313,19 +326,20 @@ npm run soak
 ### Numeri-cartolina
 
 ```
-v1.5.1 — closed-source proprietary
-~91.500 LOC produttivo (43K backend + 48.5K frontend)
+v1.10.0 — closed-source proprietary
+~95.600 LOC produttivo (44.6K backend + 51K frontend)
 244 endpoint REST con RBAC granulare
 41 modelli Sequelize, 15 con soft-delete
 34 route, 38 services, 5 lingue UI
-1.913 test unit+integration (1.655 backend + 258 frontend) + 1 E2E + soak harness
+1.962 test unit+integration (1.704 backend + 258 frontend) + 1 E2E + soak harness
 72.99 / 74.25 / 79.46 / 61.50 backend coverage (stmts/lines/funcs/branches)
 71.87 / 74.32 / 63.83 / 60.06 frontend coverage
 0 vulnerabilità npm audit · 0 errori lint/typecheck · TS strict
 2FA admin obbligatorio · audit log immutabile firmato HMAC · AES-256-GCM secrets
 GDPR by-design (consent, export, delete, retention 24mo)
 Anti-overlap DB-level (Postgres EXCLUDE) — zero doppie prenotazioni garantite
-4 scheduler tick + 3 daily jobs + 1 worker outbox
-Deploy idempotente · DR drill non distruttivo, RTO ~1 s
-20 documenti tecnici + 36 screenshot admin
+6 scheduler (cluster-safe) · weekly backup integrity check · off-site sync rclone
+Deploy idempotente · DR drill non distruttivo · PITR opt-in · RTO ~1 s
+Dashboard ops /admin/ops · PWA installabile · mobile UX mobile-first
+20 documenti tecnici + 36 screenshot admin + CHANGELOG bilingue IT/EN
 ```

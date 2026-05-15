@@ -8,14 +8,14 @@
 
 ## 1. Obiettivi (RPO / RTO)
 
-| Obiettivo                                  | Target              | Come si misura                                                                                                                                                  |
-| ------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPO** (Recovery Point Objective)         | ≤ 24h di dati persi | Backup giornaliero automatico alle 02:30 locali (scheduler in-process). Nello scenario peggiore si perdono al massimo le ore tra l'ultimo backup e l'incidente. |
-| **RTO database** (Recovery Time Objective) | ≤ 5 min             | Tempo per ripristinare il DB da archivio. **Misurato 2026-04-30: 0.99s** su archivio 280 KB / 629 prenotazioni.                                                 |
-| **RTO completo (DB + uploads + servizio)** | ≤ 30 min            | Include: provisioning VPS (se total loss), restore, riavvio backend, smoke test admin.                                                                          |
-| **MTTR** (Mean Time To Restore)            | ≤ 15 min            | In caso di restore senza re-provisioning (server vivo, solo DB corrotto).                                                                                       |
+| Obiettivo                                  | Target                                       | Come si misura                                                                                                                                                                |
+| ------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO** (Recovery Point Objective)         | ≤ 24h (default) / ≤ 1 min con PITR (v1.10.0) | Backup giornaliero automatico alle 02:30 locali. Con WAL archiving (`setup-wal-archiving.sh`) ogni transazione e' archiviata, RPO scende all'`archive_timeout` (default 60s). |
+| **RTO database** (Recovery Time Objective) | ≤ 5 min                                      | Tempo per ripristinare il DB da archivio. **Misurato 2026-04-30: 0.99s** su archivio 280 KB / 629 prenotazioni.                                                               |
+| **RTO completo (DB + uploads + servizio)** | ≤ 30 min                                     | Include: provisioning VPS (se total loss), restore, riavvio backend, smoke test admin.                                                                                        |
+| **MTTR** (Mean Time To Restore)            | ≤ 15 min                                     | In caso di restore senza re-provisioning (server vivo, solo DB corrotto).                                                                                                     |
 
-> Per Conservatori con > 5.000 utenti/anno o > 100k prenotazioni storiche, considerare RPO ≤ 6h aumentando la frequenza dello scheduler (vedi `BACKUP_TICK_HOUR`/`BACKUP_TICK_MINUTE` in `docs/BACKUP.md`).
+> Per Conservatori con > 5.000 utenti/anno o > 100k prenotazioni storiche, considerare RPO ≤ 6h aumentando la frequenza dello scheduler (vedi `BACKUP_TICK_HOUR`/`BACKUP_TICK_MINUTE` in `docs/BACKUP.md`) oppure attivare PITR via WAL archiving (vedi §5.6).
 
 ---
 
@@ -56,11 +56,22 @@
 - ✅ Audit log `audit_log` append-only per ogni operazione (chi, quando, quale archivio)
 - ✅ Manifest JSON per detection automatica del dialect (sqlite/postgres)
 
-**Cosa manca per DR completo** (decisioni operative del Conservatorio):
+**Componenti aggiunti in v1.9.0**:
 
-- ⚠ Off-site storage: scegliere uno di S3/B2/rclone/Hetzner — vedi `docs/BACKUP.md` §7
-- ⚠ Crittografia archivi pre-upload (GPG) se off-site è cloud pubblico
-- ⚠ Test di restore reale con cadenza definita (questo documento)
+- ✅ `backupVerifyScheduler.js` — verifica strutturale weekly dell'ultimo backup (default domenica 03:00). 7 check, alert silent-on-success, idempotency per giorno+reason. Vedi `docs/BACKUP.md` §"Verifica integrità automatica".
+- ✅ Widget "Verifica integrità" in `/admin/ops` con esito ultima verifica e prossimo tick.
+
+**Componenti aggiunti in v1.10.0 (opt-in)**:
+
+- ✅ `scripts/setup-rclone-backups.sh` — cron giornaliero che copia i `.tar.gz` su un remote rclone (OneDrive/Dropbox/S3/B2/…). Cleanup mensile, retention configurabile (default 90gg). Vedi `docs/BACKUP.md` §"Upload remoto · Setup automatico via script".
+- ✅ `scripts/setup-wal-archiving.sh` — abilita Postgres `archive_mode=on` con `archive_command` che pusha ogni WAL allo stesso remote rclone, sbloccando il PITR (vedi §5.6).
+- ✅ PM2 cluster mode + scheduler lock (`backend/lib/clusterRole.js` + `ecosystem.config.js`) — scheduler attivi solo sull'istanza master in modo opt-in da `pm2 start ecosystem.config.js`.
+
+**Cosa manca per DR enterprise** (decisioni operative del Conservatorio):
+
+- ⚠ Hot-standby Postgres con failover automatico (Patroni / pg_auto_failover) — utile solo per SLA enterprise, non per Conservatori
+- ⚠ Crittografia archivi pre-upload (GPG) se off-site è cloud pubblico — opzionale via `rclone crypt:` come remote intermedio
+- ⚠ Test di restore reale con cadenza definita (questo documento, §8)
 
 ### 2.1 Continuità operativa durante un downtime (Excel mirror)
 
@@ -235,6 +246,61 @@ Esecuzione: l'app gestisce automaticamente la creazione del nuovo schema su Post
 ```
 
 > Cadenza è già provvisto di audit log append-only con anonimizzazione SHA-256 (vedi `docs/SECURITY.md`). In caso di breach, audit_log è la fonte di verità per ricostruire l'attività dell'attaccante.
+
+### 5.6 PITR — Restore granulare al secondo (v1.10.0)
+
+**Quando**: utile per scenari A/B (corruzione DB / cancellazione accidentale) quando il backup di mezzanotte è troppo vecchio rispetto al momento dell'incidente. Esempio classico: alle 14:32 un admin scrive `DELETE FROM bookings` senza WHERE; con PITR puoi tornare alle 14:31:55 e perdere solo 5 secondi di lavoro invece di 14 ore.
+
+**Pre-requisito**: WAL archiving abilitato in produzione tramite `scripts/setup-wal-archiving.sh` (v1.10.0). Verificabile con:
+
+```bash
+sudo -u postgres psql -c "SHOW archive_mode;"       # deve dire "on"
+sudo -u postgres psql -c "SELECT archived_count, failed_count, last_archived_time FROM pg_stat_archiver;"
+```
+
+Se `archive_mode = off`, il PITR non è disponibile per quel periodo — segui §5.1 (restore standard al backup precedente) e attiva WAL archiving per il futuro.
+
+**Procedura PITR sintetica** (per il completo: pgBackRest o Barman raccomandati):
+
+```bash
+# 1. Identifica il timestamp target (poco PRIMA dell'incidente)
+#    Esempio: incidente alle 14:32:18 → target = 14:31:55
+TARGET="2026-05-15 14:31:55+02"
+
+# 2. Identifica il backup full piu' vicino PRIMA del target
+ls -la /home/cadenza/backups/ | grep "2026-05-15"     # cerca quello delle 02:30
+
+# 3. Crea una recovery dir vuota (NON sovrascrivere $PGDATA finche' non sei sicuro)
+sudo mkdir -p /var/lib/postgresql/recovery
+sudo chown postgres:postgres /var/lib/postgresql/recovery
+
+# 4. Ferma Postgres
+sudo systemctl stop postgresql
+
+# 5. Restore del backup full (extract + import)
+cd /tmp
+sudo -u postgres tar -xzf /home/cadenza/backups/backup-2026-05-15-0230.tar.gz
+sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS cadenza_recovery;"
+sudo -u postgres createdb cadenza_recovery
+sudo -u postgres psql -d cadenza_recovery -f database.sql
+
+# 6. Configura recovery_target_time in postgresql.conf temporaneamente:
+#    restore_command = 'rclone copyto <remote>:Cadenza/wal/%f %p'
+#    recovery_target_time = '2026-05-15 14:31:55+02'
+#    recovery_target_action = 'promote'
+
+# 7. Avvia Postgres in modalita' recovery, lasciagli applicare i WAL fino al target
+sudo systemctl start postgresql
+
+# 8. Verifica che il DB sia tornato al timestamp target
+sudo -u postgres psql -d cadenza_recovery -c "SELECT MAX(created_at) FROM bookings;"
+
+# 9. Se OK, swap di nome (rinominare cadenza_recovery -> cadenza) e riavvio backend
+```
+
+**Strumenti consigliati per setup mature**: `pgBackRest` (gestisce base + WAL + retention + integrity check in un solo tool), `Barman` (focus su orchestrazione enterprise). Per Cadenza scale (singolo Conservatorio) la procedura manuale sopra è sufficiente.
+
+**RPO con PITR attivo**: pari ad `archive_timeout` (default 60s) — i WAL vengono flushati al remote anche se la transazione corrente non riempie un segmento intero. **RTO**: stesso del restore standard + tempo di apply dei WAL fra l'ultimo full e il target (~secondi per ogni 16MB di WAL).
 
 ---
 
