@@ -109,7 +109,7 @@ export default function BookingPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
           <h1 className="font-display text-2xl font-medium sm:text-3xl">{t('booking.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('booking.subtitle')}</p>
+          <p className="hidden text-sm text-muted-foreground sm:block">{t('booking.subtitle')}</p>
         </div>
         <Button
           onClick={() => {

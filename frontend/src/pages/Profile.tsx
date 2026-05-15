@@ -95,7 +95,7 @@ export default function Profile() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-1.5">
         <h1 className="font-display text-2xl font-medium sm:text-3xl">{t('profile.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('profile.subtitle')}</p>
+        <p className="hidden text-sm text-muted-foreground sm:block">{t('profile.subtitle')}</p>
       </header>
 
       {/* Identity card */}
@@ -174,7 +174,7 @@ function ProfilePhotoUploader({
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <Avatar className="h-20 w-20 ring-1 ring-border">
+      <Avatar className="h-16 w-16 ring-1 ring-border sm:h-20 sm:w-20">
         {hasPhoto && <AvatarImage src={user.profilePhotoUrl ?? ''} alt="Foto profilo" />}
         <AvatarFallback className="bg-primary/10 text-lg text-primary">{initials}</AvatarFallback>
       </Avatar>
@@ -213,7 +213,9 @@ function ProfilePhotoUploader({
           </Button>
         )}
       </div>
-      <p className="text-[11px] text-muted-foreground">PNG · JPG · WEBP · max 2 MB</p>
+      <p className="hidden text-[11px] text-muted-foreground sm:block">
+        PNG · JPG · WEBP · max 2 MB
+      </p>
       <input
         ref={fileRef}
         type="file"

@@ -46,9 +46,9 @@ export function BookingListItem({ booking, onCancel, cancelling, onDuplicate }: 
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center"
+      className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
     >
-      <div className={cn('h-10 w-1.5 shrink-0 rounded-full sm:h-12', styles.dot)} aria-hidden />
+      <div className={cn('h-8 w-1.5 shrink-0 rounded-full sm:h-12', styles.dot)} aria-hidden />
 
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">

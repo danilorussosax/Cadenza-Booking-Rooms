@@ -311,7 +311,7 @@ export function AppLayout() {
             </div>
             <div className="min-w-0 flex-1">
               <p
-                className="truncate text-[10px] font-semibold uppercase tracking-wider sm:text-[11px]"
+                className="hidden truncate text-[10px] font-semibold uppercase tracking-wider sm:block sm:text-[11px]"
                 style={{ color: 'rgb(55 98 170)' }}
               >
                 {institute?.name ?? t('app.institute_default')}

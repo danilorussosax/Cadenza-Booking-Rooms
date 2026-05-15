@@ -108,7 +108,9 @@ export default function MyBookings() {
           <h1 className="font-display text-2xl font-medium sm:text-3xl">
             {t('my_bookings.title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('my_bookings.subtitle')}</p>
+          <p className="hidden text-sm text-muted-foreground sm:block">
+            {t('my_bookings.subtitle')}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button

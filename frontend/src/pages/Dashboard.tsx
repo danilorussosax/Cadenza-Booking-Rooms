@@ -456,12 +456,12 @@ export default function Dashboard() {
           <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
             {t('dashboard.hero_question')}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             {t('dashboard.today_welcome', { date: dayjs().format('dddd D MMMM YYYY') })}
           </p>
         </div>
         <Button
-          size="lg"
+          className="sm:h-11 sm:px-8"
           onClick={() => {
             setCreateState({ open: true });
           }}
@@ -564,7 +564,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s, i) => (
           <StatTileCard key={s.label} tile={s} delay={0.05 + i * 0.04} />
         ))}
@@ -886,18 +886,22 @@ function StatTileCard({ tile, delay }: { tile: StatTile; delay: number }) {
           : 'h-full'
       }
     >
-      <CardContent className="flex items-start gap-3 p-5">
+      <CardContent className="flex items-start gap-2 p-3 sm:gap-3 sm:p-5">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tile.tone}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${tile.tone}`}
         >
-          <tile.icon className="h-5 w-5" />
+          <tile.icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">{tile.label}</p>
-          <p className="font-display text-2xl font-medium">{tile.value}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{tile.hint}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground sm:text-xs">
+            {tile.label}
+          </p>
+          <p className="font-display text-xl font-medium sm:text-2xl">{tile.value}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground sm:text-xs">{tile.hint}</p>
         </div>
-        {tile.to && <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+        {tile.to && (
+          <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+        )}
       </CardContent>
     </Card>
   );
