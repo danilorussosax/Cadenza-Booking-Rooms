@@ -105,6 +105,23 @@ export default function Dashboard() {
   // in edit mode passando l'oggetto Booking come prop.
   const [editTarget, setEditTarget] = useState<Booking | null>(null);
 
+  // Viewport >= lg: alcuni link KPI (es. /monte-ore) hanno senso solo qui
+  // perche' la pagina di planning richiede tabelle dense desktop.
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   const upcomingQuery = useQuery({
     queryKey: ['bookings', 'mine', 'upcoming'],
     queryFn: () =>
@@ -325,7 +342,10 @@ export default function Dashboard() {
         tone: meets
           ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
           : 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-        to: '/monte-ore',
+        // Link a /monte-ore solo su desktop: la pagina di planning con
+        // tabelle dense non e' gestibile da smartphone. Su mobile il tile
+        // mostra lo stato (informativo) ma non e' navigabile.
+        to: isDesktop ? '/monte-ore' : undefined,
       });
     } else {
       stats.push({

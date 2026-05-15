@@ -150,6 +150,13 @@ export function AppLayout() {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // Tracciamo se la viewport e' >= lg (1024px). Lo usiamo per nascondere
+  // dal drawer mobile le voci di nav che non hanno senso da smartphone
+  // (es. /monte-ore: la gestione planning richiede tabelle larghe).
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Chiudi entrambi i menu quando cambia rotta. NavLink interno alla sidebar
@@ -166,7 +173,9 @@ export function AppLayout() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mq = window.matchMedia('(min-width: 1024px)');
+    setIsDesktop(mq.matches);
     const onChange = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
       if (e.matches) setMobileOpen(false);
     };
     mq.addEventListener('change', onChange);
@@ -220,6 +229,9 @@ export function AppLayout() {
     // averne almeno uno. Altrimenti la voce è visibile a tutti i ruoli.
     if (n.roles && !hasRole(...n.roles)) return false;
     if (!monteOreEnabled && n.to === '/monte-ore') return false;
+    // /monte-ore: pagina di planning con tabelle dense, non gestibile da
+    // smartphone. Nascosta sotto lg per evitare entry-point inutilizzabili.
+    if (!isDesktop && n.to === '/monte-ore') return false;
     if (!instrumentLoansEnabled && (n.to === '/instruments' || n.to === '/my-loans')) return false;
     return true;
   });
@@ -227,6 +239,7 @@ export function AppLayout() {
   const visibleAdminNav = ADMIN_NAV.filter((n) => {
     if (n.roles && !hasRole(...n.roles)) return false;
     if (!monteOreEnabled && n.to === '/admin/monte-ore') return false;
+    if (!isDesktop && n.to === '/admin/monte-ore') return false;
     if (!instrumentLoansEnabled && n.to === '/admin/instruments') return false;
     return true;
   });
