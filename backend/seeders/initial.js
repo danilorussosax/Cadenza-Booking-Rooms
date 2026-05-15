@@ -49,7 +49,7 @@ async function seed() {
     (await User.findOne({ where: { email: adminEmail } })) ||
     (await User.findOne({ where: { matricola: 'ADMIN-001' } }));
   if (!admin) {
-    admin = await User.create({
+    await User.create({
       email: adminEmail,
       passwordHash: process.env.DEFAULT_ADMIN_PASSWORD || 'Admin123!',
       firstName: process.env.DEFAULT_ADMIN_FIRSTNAME || 'Amministratore',
@@ -115,7 +115,7 @@ async function seed() {
   ];
 
   for (const r of defaultRules) {
-    const [rule, created] = await BookingRule.findOrCreate({
+    const [, created] = await BookingRule.findOrCreate({
       where: { role: r.role },
       defaults: r,
     });

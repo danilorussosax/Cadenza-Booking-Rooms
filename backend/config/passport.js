@@ -131,11 +131,11 @@ function microsoftVerify() {
 // =============================================
 async function initOAuthStrategies() {
   const status = { google: false, microsoft: false };
-  let dbSettings = null;
+  let dbSettings;
   try {
     const { OAuthSettings } = require('../models');
     dbSettings = await OAuthSettings.findOne({ where: { id: 1 } });
-  } catch (err) {
+  } catch (_err) {
     // Se la tabella non esiste ancora (primo avvio), procedi con sole env vars
     dbSettings = null;
   }

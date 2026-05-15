@@ -166,7 +166,6 @@ function validateConfig() {
     return getConfig();
   } catch (err) {
     if (err instanceof ConfigError) {
-      // eslint-disable-next-line no-console
       console.error(`\n❌ Configurazione non valida: ${err.message}\n`);
       process.exit(1);
     }

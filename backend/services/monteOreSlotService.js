@@ -23,7 +23,6 @@ dayjs.extend(timezone);
 // produce Date sfasate di 1-2h e il findOne per cancellare il Booking
 // originale non lo trova mai (orfani in DB).
 const DEFAULT_TZ = 'Europe/Rome';
-const { Op } = require('sequelize');
 const {
   MonteOreProposal,
   MonteOreSchedule,
@@ -169,7 +168,7 @@ async function toggleSlot(slotId, { force = false, transaction = null } = {}) {
  */
 async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}) {
   const tx = transaction ? { transaction } : {};
-  const { Booking, MonteOreSchedule, Room } = require('../models');
+  const { Booking, MonteOreSchedule } = require('../models');
   const { validateBooking } = require('./bookingValidator');
 
   const slot = await MonteOreSlot.findByPk(slotId, { ...tx });

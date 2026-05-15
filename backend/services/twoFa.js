@@ -117,7 +117,6 @@ async function findRecoveryMatch(plain, hashList) {
     .toUpperCase();
   if (!clean) return -1;
   for (let i = 0; i < hashList.length; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
     const ok = await bcrypt.compare(clean, hashList[i]);
     if (ok) return i;
   }

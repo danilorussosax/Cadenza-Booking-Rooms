@@ -486,7 +486,6 @@ async function runPreSyncMigrations() {
       // Idempotente: aggiorna solo gli strumenti che hanno allowedCourseIds
       // vuoto (== JSON di array vuoto, oppure NULL). Gli admin che avessero
       // già personalizzato lo strumento non vengono toccati.
-      const Sequelize = sequelize.Sequelize || sequelize.constructor;
       const allInstruments = await Instrument.findAll({
         where: { family: rule.family },
         attributes: ['id', 'allowedCourseIds'],

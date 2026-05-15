@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 'use strict';
 
 /**
@@ -34,7 +33,6 @@ dayjs.extend(timezone);
 // locale dell'admin che esegue il restore).
 const TS_TZ = 'Europe/Rome';
 
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
 const UPLOADS_DIR = path.join(BACKEND_ROOT, 'uploads');
 

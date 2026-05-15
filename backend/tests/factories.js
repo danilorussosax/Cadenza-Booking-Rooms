@@ -55,10 +55,12 @@ async function createBuilding(overrides = {}) {
   const n = next();
   return Building.create({
     name: overrides.name || `Edificio ${n}`,
-    instituteId: institute.id,
     floors: overrides.floors || ['Piano terra', 'Primo piano'],
     ...overrides,
-    instituteId: institute.id, // ri-applico per evitare override accidentali
+    // `instituteId` ri-applicato dopo lo spread per non lasciare un
+    // override accidentale (l'invariante delle factory è che la FK
+    // segua la dipendenza creata sopra, non quanto passato in overrides).
+    instituteId: institute.id,
   });
 }
 
@@ -67,13 +69,13 @@ async function createRoom(overrides = {}) {
   const n = next();
   return Room.create({
     name: overrides.name || `Aula ${n}`,
-    buildingId: building.id,
     floor: overrides.floor || 'Piano terra',
     capacity: overrides.capacity ?? 10,
     type: overrides.type || 'studio',
     isBookable: overrides.isBookable ?? true,
     requireCheckIn: overrides.requireCheckIn ?? false,
     ...overrides,
+    // `buildingId` re-applicato dopo lo spread (vedi nota in createBuilding).
     buildingId: building.id,
   });
 }
@@ -85,14 +87,17 @@ async function createUser(overrides = {}) {
     firstName: overrides.firstName || `Test${n}`,
     lastName: overrides.lastName || `User${n}`,
     email: overrides.email || `user${n}@test.invalid`,
-    passwordHash: password, // hashata dal hook beforeCreate
     role: overrides.role || 'studente',
     status: overrides.status || 'approved',
     isActive: overrides.isActive ?? true,
     matricola: overrides.matricola ?? `M${n}`,
     courseId: overrides.courseId,
     ...overrides,
-    passwordHash: password, // riapplico
+    // `passwordHash` re-applicato dopo lo spread: il valore in chiaro
+    // viene hashato dal hook beforeCreate del model. Se `overrides`
+    // contenesse un `passwordHash` già hashato la factory lo ri-hasherebbe
+    // due volte → password sbagliata nei test.
+    passwordHash: password,
   });
 }
 
@@ -115,14 +120,15 @@ async function createBooking(overrides = {}) {
   const start = overrides.startTime || new Date(Date.now() + 60 * 60 * 1000);
   const end = overrides.endTime || new Date(start.getTime() + 60 * 60 * 1000);
   return Booking.create({
-    userId: user.id,
-    roomId: room.id,
     startTime: start,
     endTime: end,
     type: overrides.type || 'studio',
     purpose: overrides.purpose || null,
     status: overrides.status || 'confirmed',
     ...overrides,
+    // `userId` e `roomId` re-applicati dopo lo spread (vedi nota in
+    // createBuilding) per garantire che le FK seguano sempre le entità
+    // create dalla factory.
     userId: user.id,
     roomId: room.id,
   });

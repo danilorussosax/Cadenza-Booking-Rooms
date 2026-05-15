@@ -24,7 +24,7 @@
 // rules/quotas/approval workflow esistenti.
 // =============================================================================
 
-const { MessagingSettings, BotBinding, ChatSession, AuditLog, User } = require('../../models');
+const { MessagingSettings, BotBinding, AuditLog, User } = require('../../models');
 const { decrypt } = require('../../lib/crypto');
 const adapters = require('./adapters');
 const intent = require('./intent');
@@ -130,7 +130,7 @@ function verifyWebhook(channel, req, config) {
 
 /** Audit di un singolo messaggio (in/out). Fire-and-forget: errori loggati ma
  *  non bloccano il flusso. */
-function auditChatMessage({ direction, channel, externalId, userId, payload }) {
+function auditChatMessage({ direction, channel, userId, payload }) {
   AuditLog.create({
     actorId: userId ?? null,
     action: direction === 'in' ? 'POST' : 'PUT',
@@ -160,7 +160,7 @@ async function handleIncoming(incoming, config) {
   return withChatLock(channel, externalId, () => handleIncomingInner(incoming, config));
 }
 
-async function handleIncomingInner(incoming, config) {
+async function handleIncomingInner(incoming, _config) {
   const { channel, externalId, text } = incoming;
   if (!text) return null;
 
@@ -334,7 +334,6 @@ async function consumeBindingOtp(otp) {
     return true;
   });
   for (const u of candidateUsers) {
-    // eslint-disable-next-line no-await-in-loop
     const ok = await bcrypt.compare(otp, u.botBindingChallenge.tokenHash);
     if (ok) {
       // Consuma la challenge.

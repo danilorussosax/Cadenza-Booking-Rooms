@@ -68,7 +68,6 @@ describe('twoFa.createChallenge', () => {
 describe('twoFa.consumeChallenge', () => {
   it('NO_CHALLENGE se stored e null/undefined/non-object', async () => {
     for (const stored of [null, undefined, 0, '', 'string']) {
-      // eslint-disable-next-line no-await-in-loop
       const r = await twoFa.consumeChallenge(stored, '123456');
       expect(r.ok).toBe(false);
       expect(r.reason).toBe('NO_CHALLENGE');
@@ -97,7 +96,6 @@ describe('twoFa.consumeChallenge', () => {
   it('INVALID_FORMAT incrementa attempts ma non scarta la challenge', async () => {
     const { record } = await twoFa.createChallenge();
     for (const bad of ['', 'abc', '12345', '1234567', 'not-a-number']) {
-      // eslint-disable-next-line no-await-in-loop
       const r = await twoFa.consumeChallenge(record, bad);
       expect(r.ok).toBe(false);
       expect(r.reason).toBe('INVALID_FORMAT');
@@ -164,7 +162,6 @@ describe('twoFa.hashRecoveryCodes + findRecoveryMatch', () => {
     const hashed = await twoFa.hashRecoveryCodes(codes);
     expect(hashed).toHaveLength(codes.length);
     for (let i = 0; i < codes.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const idx = await twoFa.findRecoveryMatch(codes[i], hashed);
       expect(idx).toBe(i);
     }

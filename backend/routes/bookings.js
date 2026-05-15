@@ -16,7 +16,6 @@ dayjs.extend(isoWeek);
 // VPS UTC vicino a mezzanotte italiana il dayStart può cadere il giorno
 // prima/dopo, falsando i totali ora.
 const DEFAULT_TZ = 'Europe/Rome';
-const ics = require('ics');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getJwtSecret } = require('../lib/secrets');

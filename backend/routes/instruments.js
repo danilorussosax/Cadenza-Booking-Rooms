@@ -9,9 +9,7 @@ const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
-const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
-const { sendInstrumentLoanEmail } = require('../services/instrumentLoanEmail');
-const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
+const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 

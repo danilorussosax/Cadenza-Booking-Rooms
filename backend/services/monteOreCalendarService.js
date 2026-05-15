@@ -102,19 +102,13 @@ function computeWeeks(settings, suspensions = []) {
   const start = dayjs(settings.lessonsStartDate).startOf('day');
   const end = dayjs(settings.lessonsEndDate).endOf('day');
 
-  // Allinea cursor al lunedì della settimana di start
-  let weekStart = start.startOf('isoWeek'); // lunedì
-  // Se start è dopo lunedì, comunque la prima settimana parte da quel lunedì:
-  // la specifica chiede di mostrare il lunedì della settimana anche se le
-  // lezioni partono in un giorno successivo (e il lunedì verrà bloccato come
-  // "fuori periodo"). Per semplicità però partiamo dal lunedì >= start.
-  if (weekStart.isBefore(start, 'day')) weekStart = weekStart.add(7, 'day');
-  // Però la spec mostra "03 Nov - 08 Nov" e 3 nov (lunedì) coincide con
-  // start. Quindi se start è di lunedì usiamo quello. Se start è di
-  // martedì (es. 4 nov) la prima settimana inizierebbe il 10 nov: meglio
-  // includere la settimana del 3-8 nov con il 3 lockato. Compromesso:
-  // partiamo dal lunedì <= start.
-  weekStart = dayjs(settings.lessonsStartDate).startOf('isoWeek');
+  // Allinea cursor al lunedì della settimana di start.
+  //
+  // Decisione (vedi spec): se `start` è di lunedì → quello stesso lunedì.
+  // Se `start` è di martedì (es. 4 nov), la prima settimana mostrata è
+  // 3-8 nov con il 3 "lockato" (fuori periodo). Compromesso: partiamo
+  // dal lunedì ≤ start.
+  let weekStart = dayjs(settings.lessonsStartDate).startOf('isoWeek');
 
   const weeks = [];
   let weekIndex = 0;

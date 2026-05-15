@@ -851,11 +851,11 @@ function renderAnalyticsPdf(doc, data, range) {
   const margin = doc.page.margins.left;
   const usable = doc.page.width - margin * 2;
   const cardW = (usable - 10) / 2;
-  const heightRooms = drawTopRooms(doc, data.topRooms, y);
-  const heightUsers = drawTopUsers(doc, data.topUsers, y, margin + cardW + 10, cardW);
-  // Avanza y al massimo delle due (per coerenza, anche se non aggiungiamo altro
-  // contenuto sotto al momento — utile se in futuro si estende il PDF).
-  y += Math.max(heightRooms, heightUsers) + 10;
+  drawTopRooms(doc, data.topRooms, y);
+  drawTopUsers(doc, data.topUsers, y, margin + cardW + 10, cardW);
+  // Le altezze dei due blocchi non vengono accumulate in `y` perché al
+  // momento non c'è contenuto sotto; se in futuro si estende il PDF
+  // ripristinare il calcolo `y += Math.max(heightRooms, heightUsers) + 10`.
   drawFooter(doc);
 }
 

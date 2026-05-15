@@ -50,7 +50,7 @@ function listIcons() {
     const ext = path.extname(name).toLowerCase();
     if (!ALLOWED_EXT.has(ext)) continue;
     const full = path.join(LOGO_APP_DIR, name);
-    let stat = null;
+    let stat;
     try {
       stat = fs.statSync(full);
     } catch {

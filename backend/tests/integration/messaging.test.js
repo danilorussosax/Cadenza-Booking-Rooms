@@ -61,7 +61,7 @@ let lastSent = null;
 let allSent = [];
 beforeAll(() => {
   const adapter = require('../../services/messaging/adapters/telegram');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   adapter.send = async (externalId, text, _config) => {
     lastSent = { externalId, text };
     allSent.push({ externalId, text });
@@ -195,7 +195,6 @@ describe('Bot messaging — webhook signature & binding', () => {
     });
     // Simula 35 messaggi rapidi
     for (let i = 0; i < 35; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await request(app)
         .post('/api/messaging/telegram/webhook')
         .set('X-Telegram-Bot-Api-Secret-Token', TG_SECRET)

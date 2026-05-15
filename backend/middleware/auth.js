@@ -60,7 +60,7 @@ async function authenticate(req, res, next) {
       }
     }
     next();
-  } catch (err) {
+  } catch (_err) {
     return res.status(401).json({ error: 'Token non valido o scaduto' });
   }
 }

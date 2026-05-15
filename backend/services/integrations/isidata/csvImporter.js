@@ -82,7 +82,6 @@ function parseCsvText(text) {
   let cur = [];
   let field = '';
   let inQuotes = false;
-  let lineNo = 1;
 
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -119,7 +118,6 @@ function parseCsvText(text) {
       rows.push(cur);
       cur = [];
       field = '';
-      lineNo++;
       continue;
     }
     field += c;

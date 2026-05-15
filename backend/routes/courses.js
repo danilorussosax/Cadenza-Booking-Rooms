@@ -23,7 +23,14 @@ function parseCoursesCsv(csv) {
     .map((d) => ({ d, n: headerLine.split(d).length }))
     .sort((a, b) => b.n - a.n)[0].d;
 
-  const headers = headerLine.split(delim).map((h) => h.trim().replace(/^﻿/, '').toLowerCase());
+  // \uFEFF = BOM, comune sui CSV Windows/Excel: lo strippiamo dal primo
+  // header altrimenti il match `sad === 'sad'` fallisce silenziosamente.
+  const headers = headerLine.split(delim).map((h) =>
+    h
+      .trim()
+      .replace(/^\uFEFF/, '')
+      .toLowerCase(),
+  );
   const sadIdx = headers.findIndex((h) => h === 'sad' || h === 'codice' || h === 'code');
   const nameIdx = headers.findIndex((h) => h === 'denominazione' || h === 'nome' || h === 'name');
   if (sadIdx === -1 || nameIdx === -1) {
@@ -71,7 +78,7 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
       'Content-Disposition',
       `attachment; filename="corsi-${new Date().toISOString().slice(0, 10)}.csv"`,
     );
-    res.send('﻿' + csv);
+    res.send('\uFEFF' + csv);
   } catch (err) {
     next(err);
   }

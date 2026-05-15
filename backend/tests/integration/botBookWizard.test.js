@@ -35,7 +35,7 @@ const TG_TOKEN = 'TEST_TOKEN_NOT_USED';
 let lastSent = null;
 beforeAll(() => {
   const adapter = require('../../services/messaging/adapters/telegram');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   adapter.send = async (externalId, text, _config) => {
     lastSent = { externalId, text };
   };

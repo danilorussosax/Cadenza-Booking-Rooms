@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 'use strict';
 
 /**
@@ -44,7 +43,6 @@ function inline(text) {
   // L'ordine conta: prima inline code (toglie i delimitatori `…`), poi link,
   // poi bold (** preferito su *), poi italic (* singolo).
   let out = '';
-  let i = 0;
   // Replace `inline code` first via placeholder per evitare interpretazioni interne.
   const codes = [];
   text = text.replace(/`([^`\n]+)`/g, (_, c) => {
@@ -67,7 +65,8 @@ function inline(text) {
   // Bold / italic: applicati DOPO i link per non interferire con [..](..).
   text = inlineNonLink(text);
 
-  // Restore inline code
+  // Restore inline code. I `\x01` (SOH) prima e dopo `C<n>` sono delimitatori intenzionali (chars di controllo improbabili nei manuali â niente collisioni con `C12` legittimi).
+  // eslint-disable-next-line no-control-regex
   text = text.replace(/C(\d+)/g, (_, n) => `<code>${escapeHtml(codes[Number(n)])}</code>`);
 
   out += text;

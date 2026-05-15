@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-const dayjs = require('dayjs');
 const { Op, Transaction } = require('sequelize');
 const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');

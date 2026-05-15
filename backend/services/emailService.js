@@ -126,22 +126,6 @@ async function senderFrom() {
   return cfg?.from || 'Cadenza <noreply@cadenza.local>';
 }
 
-const baseStyles = `
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color: #1a2234; background: #f7f9fc; margin: 0; padding: 24px; }
-  .card { max-width: 540px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; }
-  h1 { font-size: 20px; margin: 0 0 8px; color: #3762aa; }
-  .meta { color: #4a5568; font-size: 14px; line-height: 1.6; }
-  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .pill-ok { background: #d1fae5; color: #065f46; }
-  .pill-cancel { background: #fee2e2; color: #991b1b; }
-  .pill-info { background: #dbeafe; color: #1e40af; }
-  .row { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-  .row:last-child { border: 0; }
-  .label { width: 110px; color: #6b7a90; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
-  .val { flex: 1; font-size: 14px; }
-  .footer { margin-top: 16px; color: #9aa5b4; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; text-align: center; }
-`;
-
 const TYPE_LABEL = {
   studio_individuale: 'Studio individuale',
   lezione: 'Lezione',

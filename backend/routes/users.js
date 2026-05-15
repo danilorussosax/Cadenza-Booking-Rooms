@@ -445,7 +445,7 @@ router.put(
           );
         } catch (e) {
           // Log ma non blocca: la modifica utente è andata a buon fine.
-          // eslint-disable-next-line no-console
+
           console.warn('[monte-ore] flag requiresRevalidation fallita:', e?.message);
         }
       }

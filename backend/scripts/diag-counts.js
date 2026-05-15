@@ -42,11 +42,15 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
   try {
     const u = await m.User.findOne({ order: [['createdAt', 'DESC']] });
     console.log(`\nUltimo user createdAt: ${u?.createdAt ?? '—'} (${u?.email ?? '—'})`);
-  } catch {}
+  } catch {
+    // best-effort: tabelle potrebbero non esistere in DB vergine
+  }
   try {
     const b = await m.Booking.findOne({ order: [['createdAt', 'DESC']] });
     console.log(`Ultimo booking createdAt: ${b?.createdAt ?? '—'}`);
-  } catch {}
+  } catch {
+    // best-effort (vedi sopra)
+  }
   process.exit(0);
 })().catch((e) => {
   console.error('FATAL:', e.message);

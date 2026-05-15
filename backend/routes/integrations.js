@@ -8,14 +8,7 @@ const os = require('os');
 const crypto = require('crypto');
 const { Op, Transaction } = require('sequelize');
 
-const {
-  sequelize,
-  User,
-  Course,
-  IntegrationConfig,
-  IntegrationSyncRun,
-  Institute,
-} = require('../models');
+const { sequelize, User, Course, IntegrationConfig, IntegrationSyncRun } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
@@ -436,7 +429,7 @@ function makeApplyHandler(source) {
     // Sanitizza eventuali overrides anche in apply: il client può passarli di
     // nuovo per "rifinire" il diff. Senza sanitize l'apply userebbe un mapping
     // diverso dalla preview se il client invia shape diversa.
-    let safeOverrides = null;
+    let safeOverrides;
     try {
       safeOverrides = sanitizeOverrides(mappingOverrides ?? null);
     } catch (err) {

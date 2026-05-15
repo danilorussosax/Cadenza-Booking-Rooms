@@ -15,7 +15,6 @@
  * Errori di riga non bloccano: vengono raccolti in errors[].
  */
 
-const { Op } = require('sequelize');
 const { Instrument } = require('../models');
 const { parseCSV } = require('./structureImporter');
 

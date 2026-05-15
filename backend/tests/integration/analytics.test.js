@@ -107,7 +107,7 @@ describe('GET /api/admin/analytics/export.csv', () => {
     expect(res.headers['content-type']).toMatch(/text\/csv/);
     expect(res.headers['content-disposition']).toMatch(/attachment; filename="analytics-/);
     // Solo BOM + header riga (no record).
-    expect(res.text).toMatch(/^﻿id,start,end,/);
+    expect(res.text).toMatch(/^\uFEFFid,start,end,/);
   });
 
   it('200 con CSV popolato include i campi di una booking', async () => {

@@ -128,7 +128,7 @@ async function archiveAuditLog(cutoff) {
   let lastId = 0;
   // Cursor-based: ordiniamo per id ASC e usiamo `id > lastId` per chunk-paging
   // (evita offset sliding mentre cancelliamo, anche se qui cancelliamo dopo).
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const batch = await AuditLog.findAll({
       where: { ...where, id: { [Op.gt]: lastId } },
