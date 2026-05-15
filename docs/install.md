@@ -138,6 +138,8 @@ echo "Salva questa password, la useremo dopo: ${DB_PASSWORD}"
 
 > Postgres ascolta solo su `localhost` di default. Va bene così — il backend sta sulla stessa macchina.
 
+> 💡 **Tuning su VPS piccole** (4 vCPU · 4 GB RAM): i default Postgres sono molto conservativi. Lo script idempotente `scripts/pg-tune-4gb.sh` applica via `ALTER SYSTEM` un set di parametri calibrato (shared_buffers 1GB, effective_cache_size 2GB, work_mem 8MB, max_connections 50, checkpoint/WAL/parallel workers). Usa `--dry-run` per ispezionare, `--rollback` per tornare ai default. Lancialo dopo aver popolato il DB e prima di mettere il sito in produzione.
+
 ### 6.4. nginx + certbot (HTTPS automatico se hai un dominio)
 
 ```bash
@@ -685,6 +687,8 @@ systemctl reload nginx
 
 ## 10. Cose che NON sono in questa guida (ma valuta per la produzione)
 
+- **Restrizione IP del kiosk pubblico**: limita `/display` + `/api/public/*` ai soli IP dell'istituto via nginx allowlist. Guida passo-passo in [`KIOSK_IP_ALLOWLIST.md`](KIOSK_IP_ALLOWLIST.md).
+- **Tuning Postgres** per VPS 4 GB RAM: lancia `scripts/pg-tune-4gb.sh` (dettagli in §6.3).
 - **Monitoring esterno**: Uptime Kuma / Better Stack pingando `/api/health`.
 - **Log shipping**: Loki / Grafana Cloud per i log Pino strutturati.
 - **Off-site backup**: replica `/opt/cadenza/app/backups/` su Hetzner Storage Box.

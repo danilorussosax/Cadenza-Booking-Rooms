@@ -72,6 +72,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Rotazione building / concerti / annunci con timer per-edificio
 - Modalità offline-soft via Service Worker (banner "Connessione persa")
 - Privacy granulare: opzione per nascondere i nomi sul display per edificio
+- **Restrizione per IP** (opzionale): limita la visibilità del kiosk e degli endpoint `/api/public/*` ai soli IP dell'istituto via nginx — vedi [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)
 
 ### 📢 Bacheca avvisi e comunicazione
 
@@ -429,6 +430,7 @@ La cartella `docs/` contiene la documentazione tecnica e operativa completa:
 | [`DEPLOY.md`](docs/DEPLOY.md)                             | Flusso `./deploy.sh` (8 step), setup SSH alias, verifiche PWA, troubleshooting nginx |
 | [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                                 |
 | [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                           |
+| [`KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)     | Restrizione `/display` + `/api/public/*` ai soli IP dell'istituto via nginx          |
 
 ### Materiale strategico (riservato)
 
