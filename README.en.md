@@ -71,6 +71,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - Building / concerts / announcements rotation with per-building timers
 - Soft-offline mode via Service Worker (a "Connection lost" banner)
 - Granular privacy: option to hide names on the display per building
+- **IP restriction** (optional): limit kiosk visibility and `/api/public/*` endpoints to the institute's IPs via nginx — see [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)
 
 ### 📢 Announcements board & communications
 
@@ -161,6 +162,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 
 - **"Booking management" macro page** (v1.5.1): a single sidebar entry (`/admin/bookings-management`) with 3 large-card tabs — **Rules** (⚖️ amber) · **Booking types** (🏷️ green) · **Approvals** (📋 blue, with `N` counter badge). Legacy URLs `/admin/rules`, `/admin/booking-types`, `/admin/approvals` still work as redirects to the corresponding tab.
 - Width aligned with the other admin pages (`max-w-6xl`), real-time badge on pending requests.
+- **"System status" dashboard** (`/admin/ops`, v1.7.0): 5 at-a-glance widgets refreshed every 10s — VPS (CPU/RAM/disk with 70/90% threshold badges), database (connections, size, top tables), email queue (pending with oldest age), backups (last + age), internal schedulers (status and last tick of 5 workers). Admin-only `GET /api/admin/ops/snapshot` endpoint with 5s server-side cache.
 
 ---
 
@@ -202,14 +204,15 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 
 ### Infrastructure
 
-| Component     | Technology                                                              |
-| ------------- | ----------------------------------------------------------------------- |
-| Database      | PostgreSQL 16 (with `EXCLUDE` anti-overlap constraint)                  |
-| Reverse proxy | nginx + Let's Encrypt (cert via certbot)                                |
-| Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                       |
-| Monitoring    | Sentry v10 (opt-in)                                                     |
-| Testing       | Vitest 1,386 backend tests + 177 component/lib + 5 Playwright E2E specs |
-| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                          |
+| Component     | Technology                                                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database      | PostgreSQL 16 (with `EXCLUDE` anti-overlap constraint)                                                                                               |
+| Reverse proxy | nginx + Let's Encrypt (cert via certbot)                                                                                                             |
+| Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                                                                                                    |
+| Operations    | `pg-tune-4gb.sh` (idempotent, reversible Postgres tuning for small VPS) · `KIOSK_IP_ALLOWLIST.md` (nginx kiosk restriction) · `/admin/ops` dashboard |
+| Monitoring    | Sentry v10 (opt-in) + in-app ops dashboard                                                                                                           |
+| Testing       | Vitest 1,386 backend tests + 177 component/lib + 5 Playwright E2E specs                                                                              |
+| CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                       |
 
 ---
 
@@ -256,7 +259,10 @@ Cadenza/
 │   └── e2e/                           → Playwright specs
 │
 ├── docs/                              → technical documentation (see § 7)
-├── scripts/install.sh                 → idempotent Ubuntu VPS installer
+├── scripts/
+│   ├── install.sh                     → idempotent Ubuntu VPS installer
+│   └── pg-tune-4gb.sh                 → reversible Postgres tuning for 4 GB VPS
+├── develop.md                         → dev roadmap (event plan + ops backlog)
 └── README.md                          → Italian version of this file
 ```
 
@@ -424,17 +430,18 @@ The `docs/` folder contains the full technical and operational documentation. **
 | [`DEPLOY.md`](docs/DEPLOY.md)                             | `./deploy.sh` flow (8 steps), SSH alias setup, PWA checks, nginx troubleshooting |
 | [`TESTING.md`](docs/TESTING.md)                           | Testing strategy, coverage, local and CI execution                               |
 | [`install.md`](docs/install.md)                           | VPS install guide (Hetzner example) with `install.sh`                            |
+| [`KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)     | Restrict `/display` + `/api/public/*` to the institute's IPs via nginx           |
 
 ### Strategic material (private)
 
 Commercial and positioning documents are kept **outside the public repo** (pricing, target lists, sensitive market data). Available on request to Directors / IT Managers.
 
-| Document                              | Contents                                                                                                                                | Status                           |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| [`develop.md`](develop.md)            | Development roadmap: event-management plan (5 phases · ~11 dev-days vs ASIMUT), current sprints, residual gaps                          | ✅ Versioned                     |
-| `Proposta.md`                         | Technical-commercial proposal + competitive benchmark (ASIMUT, EasyStaff/EasyRoom Zucchetti) + 10-year TCO + migration plan · v2.2 (IT) | 📄 Out of repo                   |
-| `Cadenza_Presentazione_Direzione.pdf` | 18-slide deck for Directors / Presidents / DSGA — feature parity, costs, PA compliance                                                  | 📄 Out of repo                   |
-| `develop-enterprise.md`               | Enterprise roadmap (LDAP/AD, SAML 2.0 IDEM-GARR, Esse3 sync, RFID badge)                                                                | 🚧 In progress, not yet released |
+| Document                              | Contents                                                                                                                                      | Status                           |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| [`develop.md`](develop.md)            | Development roadmap: event-management plan (5 phases · ~11 dev-days vs ASIMUT) + **post-1.6.0 backlog** (7 security/ops/perf items, ~12 days) | ✅ Versioned                     |
+| `Proposta.md`                         | Technical-commercial proposal + competitive benchmark (ASIMUT, EasyStaff/EasyRoom Zucchetti) + 10-year TCO + migration plan · v2.2 (IT)       | 📄 Out of repo                   |
+| `Cadenza_Presentazione_Direzione.pdf` | 18-slide deck for Directors / Presidents / DSGA — feature parity, costs, PA compliance                                                        | 📄 Out of repo                   |
+| `develop-enterprise.md`               | Enterprise roadmap (LDAP/AD, SAML 2.0 IDEM-GARR, Esse3 sync, RFID badge)                                                                      | 🚧 In progress, not yet released |
 
 ---
 
@@ -482,7 +489,7 @@ The following areas are complete and running in production:
 - Core booking + waitlist + approval workflow + anti-ghost QR check-in
 - Full musical-instrument loan module (5 states, scheduler, PDF, rules/quotas)
 - Audience-based announcements board + 11 editable mail templates
-- Kiosk display (3 configurable cards, soft-offline, audience filter)
+- Kiosk display (3 configurable cards, soft-offline, audience filter, **optional nginx IP restriction**)
 - Email 2FA + admin Activity Hub
 - Installable PWA (Service Worker, A2HS, kiosk offline)
 - Italian PA GDPR package (Garante 06/2021)
@@ -495,13 +502,15 @@ The following areas are complete and running in production:
 - **WCAG 2 AA accessibility** (skip link, landmarks, ARIA on forms, reduced-motion, chart text fallbacks, axe-core in unit + E2E)
 - **Mobile UX** (`dvh` viewport, bottom-nav, bottom-sheet dialogs below `sm`, card-stack admin tables, global offline banner, safe-area aware top toggles)
 - **Robust email system** (outbox pattern + retry, per-recipient throttle, hard-bounce detection, admin "Email Queue" page + health, automatic cleanup, timezone-aware formatting)
+- **`/admin/ops` ops dashboard** (v1.7.0): at-a-glance diagnostics for VPS · Postgres · MailOutbox · Backups · Schedulers, polled every 10s with 5s server-side cache
+- **Operational hardening toolkit** (v1.7.0): idempotent `pg-tune-4gb.sh` for Postgres + nginx IP allowlist guide for the kiosk
 
 ### 🚧 Current sprints
 
 - **Telegram bot MVP** complete, WhatsApp Cloud / Signal / Email scaffolding
 - Web Push API notifications
 - Iframe embed for public concerts
-- Kiosk display granular privacy
+- **Post-1.6.0 backlog** (security/ops/perf): 7 items consolidated in [`develop.md`](develop.md) §2 — mobile-kiosk device token, mail-rotated PIN, external monitor with alerts, PgBouncer + PM2 cluster mode, slow query digest, dynamic QR code on the display
 
 ### 🔵 Italian PA roadmap
 
