@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -57,69 +57,28 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
   const finalQuote = quote ?? pickedQuote?.text ?? '';
   const finalAttribution = attribution ?? pickedQuote?.attribution ?? '';
 
-  // Backstop iOS safe-area: applichiamo immagine + overlay tint
-  // direttamente al <body> usando un linear-gradient sopra l'image. Su
-  // iOS Safari standalone PWA (viewport-fit=cover) `position: fixed;
-  // inset: 0` non sempre arriva al home indicator → striscia visibile
-  // in fondo. Il <body> invece dipinge attraverso TUTTE le safe-area
-  // senza eccezioni (è il containing block iniziale del documento). La
-  // gradient color matcha l'overlay `bg-background/70` light e
-  // `bg-background/80` dark per restare visivamente coerente con il
-  // form panel. Watch sul theme via MutationObserver sulla classe `dark`
-  // di <html> per riallineare quando l'utente cambia tema.
-  useEffect(() => {
-    if (!formBgImage) return;
-    const body = document.body;
-    const prev = {
-      backgroundImage: body.style.backgroundImage,
-      backgroundSize: body.style.backgroundSize,
-      backgroundPosition: body.style.backgroundPosition,
-      backgroundAttachment: body.style.backgroundAttachment,
-    };
-    const applyBg = () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      // bg-background light = hsl(210 24% 97%) ≈ rgb(246,247,249); dark = hsl(222 47% 7%) ≈ rgb(10,18,32).
-      const overlay = isDark ? 'rgba(10,18,32,0.8)' : 'rgba(246,247,249,0.7)';
-      body.style.backgroundImage = `linear-gradient(${overlay}, ${overlay}), url(${formBgImage})`;
-      body.style.backgroundSize = 'cover';
-      body.style.backgroundPosition = 'center';
-      body.style.backgroundAttachment = 'fixed';
-    };
-    applyBg();
-    const observer = new MutationObserver(applyBg);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      observer.disconnect();
-      body.style.backgroundImage = prev.backgroundImage;
-      body.style.backgroundSize = prev.backgroundSize;
-      body.style.backgroundPosition = prev.backgroundPosition;
-      body.style.backgroundAttachment = prev.backgroundAttachment;
-    };
-  }, [formBgImage]);
-
   return (
     <div className="relative">
-      {/* Background image + overlay (login only): usiamo `-inset-32`
-       * (overshoot di 8rem in tutte le direzioni oltre i bordi del
-       * viewport) per coprire CON CERTEZZA le safe-area iOS, anche su
-       * iOS Safari in modalità standalone PWA dove `fixed inset-0`
-       * empiricamente non arrivava al home indicator: il box estendendo
-       * oltre il viewport è clippato dal browser sui margini visibili,
-       * garantendo copertura totale. Posizionate al di FUORI del
-       * `<main>` (che ha `overflow-hidden`) per evitare clipping
-       * intermedio. Su lg+ l'aside a sinistra ha `bg-primary` solido
-       * che copre comunque il bg fixed lì, quindi visualmente
-       * l'immagine appare solo sulla colonna form (destra). */}
+      {/* Background image + overlay (login only): `fixed inset-0` copre
+       * il viewport. La safe-area home indicator su iOS PWA standalone
+       * resta tecnicamente non coperta dai fixed, ma il manifest ha
+       * `background_color: #f6f7f9` (= bg-background light) così la
+       * striscia visibile nel safe-area è dello stesso colore del body
+       * → visivamente invisibile. Posizionate al di FUORI del `<main>`
+       * (che ha `overflow-hidden`) per evitare clipping. Su lg+ l'aside
+       * a sinistra ha `bg-primary` solido che copre comunque il bg
+       * fixed lì, quindi visualmente l'immagine appare solo sulla
+       * colonna form (destra). */}
       {formBgImage && (
         <>
           <div
             aria-hidden
-            className="pointer-events-none fixed -inset-32 z-0 bg-cover bg-center blur-xs saturate-110"
+            className="pointer-events-none fixed inset-0 z-0 scale-105 bg-cover bg-center blur-xs saturate-110"
             style={{ backgroundImage: `url(${formBgImage})` }}
           />
           <div
             aria-hidden
-            className="pointer-events-none fixed -inset-32 z-0 bg-background/70 dark:bg-background/80"
+            className="pointer-events-none fixed inset-0 z-0 bg-background/70 dark:bg-background/80"
           />
         </>
       )}
