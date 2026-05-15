@@ -10,6 +10,78 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.10.5] — 15 maggio 2026
+
+Patch release di bugfix esclusivamente sulla **UI mobile** (iOS PWA
+standalone). Nessun cambio backend, nessuna migration. Le correzioni
+nascono dalle sessioni di test sul portale del Conservatorio "Nino
+Rota" e indirizzano problemi di layout, safe-area iOS e UX toccati
+durante l'uso quotidiano da smartphone.
+
+### Bug fix
+
+#### PWA manifest — striscia "bianca" sotto il home indicator iOS
+
+- **`frontend/public/manifest.webmanifest`**: `background_color` da
+  `#fcefd6` (crema chiaro) a `#f6f7f9` (= `bg-background` light mode).
+  Su iOS PWA standalone con `viewport-fit=cover`, quel valore è ciò
+  che iOS dipinge nella safe-area del home indicator quando il
+  contenuto della pagina non la copre. Era il vero responsabile della
+  striscia "fuori schema" visibile in basso sul login.
+- **Nota deploy**: per applicare il nuovo manifest occorre **rimuovere
+  e re-installare la PWA dalla home screen iOS** (iOS legge il
+  manifest solo al momento dell'install, force-quit non basta).
+
+#### AppLayout — padding orizzontale azzerato da safe-pl/safe-pr
+
+- **`frontend/src/components/layout/AppLayout.tsx`**: rimosse le
+  utility `safe-pl` e `safe-pr` da `<header>` e `<main>`. Settavano
+  `padding-left/right: env(safe-area-inset-*)` che su iPhone in
+  portrait vale 0px e nella cascata CSS vinceva sul `px-5` voluto,
+  azzerando di fatto il padding orizzontale → contenuto attaccato ai
+  bordi schermo. Allineato anche il breakpoint `sm` (prima `px-4`,
+  meno del mobile — regressione).
+- Trade-off accettato: iPhone in landscape con notch laterale può
+  avere contenuto leggermente sotto il notch (caso d'uso minoritario
+  per il portale Conservatorio, prevalentemente portrait).
+
+#### AuthLayout — brand istituto centrato + sotto i pulsanti, "Cadenza" più bold
+
+- **`frontend/src/components/layout/AuthLayout.tsx`**: il blocco logo
+  - nome dell'istituto su mobile è ora **dopo i pulsanti** "Accedi con
+    email" / "Registrati" (nel flusso del motion.div), invece che in
+    alto. Logo SOPRA il nome, entrambi centrati, sfondo trasparente
+    (rimosso il container `bg-primary` che alterava i colori originali
+    del logo dell'istituto).
+- **`frontend/src/pages/auth/Login.tsx`**: wordmark "Cadenza" da
+  `font-semibold` (600) a `font-black` (900) — peso visivamente più
+  marcato in apertura. Inter è caricato fino al weight 900 in
+  `index.html`.
+
+#### Booking — date input non sfora più la Card su iOS Safari
+
+- **`frontend/src/pages/Booking.tsx`**: aggiunto `overflow-hidden`
+  sulla Card dei filtri e `min-w-0` su tutti i wrapper dei campi
+  (Aula, Data, pulsanti freccia). Su iOS Safari `<input type="date">`
+  ha una min-width intrinseca basata sul valore + icona calendario
+  che su schermi stretti eccedeva la cella del grid → il riquadro
+  data sforava il bordo della Card visibile sotto. `min-w-0` permette
+  al box di stringersi entro i confini.
+
+#### MyBookings — tab "Tutte" rimossa, fitting su mobile
+
+- **`frontend/src/pages/MyBookings.tsx`**: rimossa la 4ª tab "Tutte"
+  da `<TabsList>` e dai gruppi calcolati in `useMemo`. Le tre tab
+  rimanenti (Prossime / Passate / Cancellate) coprono i casi d'uso
+  effettivi senza overflow orizzontale del tab bar su mobile. La
+  `TabsList` usa `grid grid-cols-3 w-full` su mobile e `inline-flex
+w-auto` su sm+ per occupare la riga in modo equilibrato.
+
+### Misc
+
+- Versioni allineate: `package.json`, `backend/package.json`,
+  `frontend/package.json` → `1.10.5`.
+
 ## [1.10.0] — 15 maggio 2026
 
 Versione "High Availability — Livello 1 + 2": rende il backend

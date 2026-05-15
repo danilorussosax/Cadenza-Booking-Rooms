@@ -2,7 +2,7 @@
   "name": "cadenza-monorepo",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.10.0",
+  "version": "1.10.5",
   "description": "Cadenza — root meta-package per devtools condivisi (husky, lint-staged, commitlint, prettier). Proprietary software, see LICENSE.",
   "author": "Danilo Russo <danilorussosax@gmail.com>",
   "engines": {
