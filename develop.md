@@ -168,7 +168,99 @@ Permessi:
 
 ---
 
-## 2. Sprint correnti
+## 2. Backlog post-1.6.0 — security, ops, performance
+
+Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizione IP del kiosk). Ordinate per coerenza tematica, non per priorità di esecuzione.
+
+> 🎯 **Priorità attuale dichiarata: 2.6 Dashboard ops** — la voce su cui c'è interesse esplicito di prossima esecuzione. Le altre restano backlog "quando serve".
+
+### 2.1 Sicurezza kiosk — device token per schermi mobili
+
+**Perché**: la [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md) (nginx allowlist) copre il caso "kiosk fisso in sede", ma non protegge tablet/laptop che escono dall'istituto (eventi, sedi temporanee, kiosk mobili al saggio in teatro).
+
+**Cosa**: nuovo modello `DisplayToken` (`jti` + `buildingId` + `expiresAt` + `revokedAt`), endpoint admin per emettere un URL `/display?b=<slug>&t=<jwt-30gg>`. Il kiosk lo salva in `localStorage` e lo invia in header `X-Display-Token` su tutte le `/api/public/*`. Middleware `requireDisplayToken` skippabile tramite feature flag globale per backwards compatibility. UI in `/admin/display` per generare/revocare/listare i token attivi.
+
+**Effort stimato**: ~3g · **Dipende da**: nessuna · **Coesistenza con IP allowlist**: si combinano (defense-in-depth, non si escludono).
+
+### 2.2 Sicurezza kiosk — PIN ruotabile via mail
+
+**Perché**: difesa contro lo scenario "visitatore in sede che si collega al WiFi guest e apre l'URL del kiosk" — non coperto né dall'IP allowlist (è dentro l'IP istituto) né dal device token (lo schermo è già autenticato).
+
+**Cosa**: toggle per-edificio "PIN richiesto" nel modello `Building`. Scheduler che ogni lunedì 06:00 genera un PIN a 6 cifre per edificio, lo invia tramite `MailOutbox` al destinatario configurato (campo `displayPinRecipientEmail`). Lato kiosk una schermata d'ingresso "Inserisci PIN" → memorizzato in `sessionStorage` con TTL fino alla rotazione successiva. Cadenza giornaliera/settimanale configurabile.
+
+**Effort stimato**: ~2g · **Dipende da**: nessuna (riusa `MailOutbox` + scheduler pattern di `reminderScheduler`).
+
+### 2.3 Sicurezza kiosk — monitor esterno con alert
+
+**Perché**: se l'IP pubblico dell'istituto cambia silenziosamente (ISP, rinegoziazione contratto, failover linea), l'allowlist nginx blocca i kiosk e nessuno se ne accorge fino a quando un operatore guarda lo schermo. Failure mode silenziosa.
+
+**Cosa**: scheduler interno che ogni 15 min lancia `curl` su `/api/public/display-config` da un IP secondario allow-listato (loopback VPS oppure secondo Hetzner). In caso di 403 ripetuto manda mail "i kiosk potrebbero non vedere il display — verifica l'IP dell'istituto". Mail throttled per evitare spam.
+
+**Effort stimato**: ~0.5g · **Dipende da**: utile se 2.1 o l'IP allowlist sono attivi.
+
+### 2.4 Performance — PgBouncer + PM2 cluster mode
+
+**Perché**: oggi `node` saturerebbe su 1 core sotto >150 utenti attivi simultanei (3 vCPU su 4 sono inattivi). Cluster mode raddoppia la capacità HTTP ma moltiplica le connessioni Postgres → PgBouncer diventa il ponte naturale (oggi non giustificato — v. analisi del 2026-05-15).
+
+**Cosa**: `ecosystem.config.js` con `instances: 2` + `exec_mode: 'cluster'`. Lock-singleton su scheduler (`reminderScheduler`, `mailOutboxScheduler`, ecc.): solo l'istanza con `process.env.NODE_APP_INSTANCE === '0'` li avvia, le altre no — alternativa più robusta: spostarli in un worker process dedicato (`pm2 start workers/scheduler.js`). PgBouncer in transaction pooling davanti a Postgres (`pool_mode=transaction`, `default_pool_size=20`). Backend si connette a `127.0.0.1:6432` invece di `5432`. Re-run dei k6 esistenti come gate di verifica.
+
+**Effort stimato**: ~2g · **Dipende da**: pg-tune già applicato (`max_connections=50` lascia margine per PgBouncer).
+
+### 2.5 Observability — slow query digest settimanale
+
+**Perché**: lo script `scripts/pg-tune-4gb.sh` ha abilitato `log_min_duration_statement=500`, quindi Postgres logga ogni query >500 ms — ma nessuno legge `/var/log/postgresql/*.log`. Il valore è sprecato.
+
+**Cosa**: scheduler weekly (domenica 23:00) che parsa i log Postgres della settimana, normalizza le query (rimuove parametri letterali), aggrega top-20 per `total_time` e top-20 per `count`, manda mail admin con: query, count, p95 latency, e — se possibile — `EXPLAIN ANALYZE` automatico per le prime 3. Soglia mail solo se ci sono almeno N query nel digest, altrimenti silent.
+
+**Effort stimato**: ~1g · **Dipende da**: nessuna (richiede solo che il pg-tune sia stato lanciato in produzione).
+
+### 2.6 🎯 Dashboard ops in `/admin/ops` — PRIORITÀ
+
+**Perché**: oggi per sapere "come sta la VPS" bisogna fare SSH e lanciare `pm2 monit + free -h + psql + tail mail-queue`. Nessuna vista admin unificata. Quando qualcosa va storto (lentezze, picchi memoria, scheduler bloccato), si scopre tardi.
+
+**Cosa**: pagina admin con widget aggiornati ogni 10 s via SSE:
+
+- **VPS**: load average (`os.loadavg`), RAM usata/free (`os.freemem`/`totalmem`), uptime processo, spazio disco di `/` e della partizione dei backup
+- **Postgres**: numero conn attive (`pg_stat_activity`), conn idle vs active, dimensione DB, tempo dall'ultimo autovacuum sulle 3 tabelle più grandi
+- **MailOutbox**: count per stato (`pending`/`sending`/`sent`/`failed`/`dead`), età della più vecchia in `pending`
+- **Backup**: timestamp dell'ultimo backup OK + dimensione, alert visivo se >36 h
+- **Schedulers**: ultima tick di ciascuno (reminder, retention, mailOutbox, backup, excelExport), visualizzato come "verde se <2× il proprio interval"
+
+Endpoint backend `GET /api/admin/ops/snapshot` con cache 5 s lato server per non martellare Postgres. Frontend in `frontend/src/pages/admin/Ops.tsx`. Stessa struttura della Coda email admin esistente.
+
+**Estensioni opzionali (post-MVP)**:
+
+- Pulsanti "Riavvia scheduler X" per ogni scheduler bloccato (audit-loggato)
+- Mini-grafico sparkline su RAM/CPU degli ultimi 60 minuti (ring buffer in memoria, non persistito)
+- Toggle "modalità manutenzione" che mette il frontend in banner read-only (utile per migrazioni DB)
+
+**Effort stimato**: ~2g MVP, ~3g con estensioni · **Dipende da**: nessuna · **Valore**: alto sia operativo sia commerciale (è una feature mostrabile in demo).
+
+### 2.7 Feature kiosk — QR code dinamico
+
+**Perché**: il kiosk mostra "Concerto Vivaldi · Aula Magna · 18:30" ma il passante non può portarsi via l'info. Esperienza utente "vedo e dimentico".
+
+**Cosa**: angolo basso-destra di `Display.tsx` un QR (libreria `qrcode` o `qr-code-styling`) che cambia con l'elemento in rotazione e linka a `/public/event/<id>` (pagina già esistente o da creare). Su mobile l'utente apre dettagli evento + bottone "Aggiungi al calendario" (.ics). Per le card prenotazioni il QR può essere omesso (privacy) o linkare alla pagina pubblica dell'edificio.
+
+**Effort stimato**: ~1g · **Dipende da**: nessuna · **Sinergia**: aumenta valore percepito del display, utile per saggi/concerti aperti al pubblico.
+
+### 2.8 Stima e priorità complessiva
+
+| #   | Voce                              | Effort | Categoria      | Coda           |
+| --- | --------------------------------- | ------ | -------------- | -------------- |
+| 2.1 | Device token kiosk mobili         | ~3g    | Security       | Quando serve   |
+| 2.2 | PIN ruotabile via mail            | ~2g    | Security       | Quando serve   |
+| 2.3 | Monitor esterno + alert           | ~0.5g  | Ops resilience | Quando serve   |
+| 2.4 | PgBouncer + PM2 cluster mode      | ~2g    | Performance    | Se >150 utenti |
+| 2.5 | Slow query digest settimanale     | ~1g    | Observability  | Quando serve   |
+| 2.6 | **Dashboard ops `/admin/ops`** 🎯 | ~2-3g  | Observability  | **Prossima**   |
+| 2.7 | QR code dinamico sul display      | ~1g    | Feature kiosk  | Quando serve   |
+
+**Totale backlog**: ~11.5-12.5g se eseguito interamente. Tutti scope independenti, ordinabili a piacere — niente dipendenze a catena come nelle fasi della §1.
+
+---
+
+## 3. Sprint correnti
 
 Sezione da popolare man mano che vengono aperti gli sprint operativi. Per ora rimangono validi gli sprint elencati nel README (§ 9):
 
@@ -179,9 +271,11 @@ Sezione da popolare man mano che vengono aperti gli sprint operativi. Per ora ri
 
 ---
 
-## 3. Riferimenti
+## 4. Riferimenti
 
 - [`README.md`](README.md) — overview, stack, stato production-ready
 - [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](docs/ANALISI_TIPI_PRENOTAZIONE.md) — studio sui tipi di prenotazione (Opzione B referenziata in Fase 0)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architettura sistema, modelli dati
+- [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md) — restrizione IP nginx del kiosk (base sopra cui poggiano 2.1-2.3)
+- [`scripts/pg-tune-4gb.sh`](scripts/pg-tune-4gb.sh) — tuning Postgres VPS 4 GB (prerequisito di 2.5)
 - [`develop-enterprise.md`](develop-enterprise.md) — roadmap enterprise (LDAP, SAML, RFID)
