@@ -299,7 +299,7 @@ export function AppLayout() {
          * sopra il contenuto: con `h-14` fisso il padding "schiacciava" gli
          * elementi interni; `min-h-14` lascia all'header crescere quando il
          * notch è presente, senza mai scendere sotto il minimo. */}
-        <header className="safe-pt sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-background/80 px-7 backdrop-blur-sm sm:min-h-16 sm:gap-3 sm:px-7 lg:min-h-20 lg:px-8">
+        <header className="safe-pt sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b bg-background/80 px-5 backdrop-blur-sm sm:min-h-16 sm:gap-3 sm:px-5 lg:min-h-20 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -423,7 +423,7 @@ export function AppLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 px-7 py-4 pb-24 focus-visible:outline-hidden sm:px-7 sm:py-6 lg:px-8 lg:py-8 lg:pb-8"
+          className="flex-1 px-5 py-4 pb-24 focus-visible:outline-hidden sm:px-5 sm:py-6 lg:px-8 lg:py-8 lg:pb-8"
         >
           <motion.div
             key={location.pathname}
