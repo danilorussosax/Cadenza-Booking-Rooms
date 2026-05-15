@@ -326,6 +326,7 @@ function PersonalSection({
               <Label htmlFor="p-firstName">Nome</Label>
               <Input
                 id="p-firstName"
+                autoComplete="given-name"
                 aria-invalid={!!errors.firstName}
                 aria-describedby={errors.firstName ? 'p-firstName-error' : undefined}
                 {...register('firstName')}
@@ -336,6 +337,7 @@ function PersonalSection({
               <Label htmlFor="p-lastName">Cognome</Label>
               <Input
                 id="p-lastName"
+                autoComplete="family-name"
                 aria-invalid={!!errors.lastName}
                 aria-describedby={errors.lastName ? 'p-lastName-error' : undefined}
                 {...register('lastName')}
@@ -355,7 +357,12 @@ function PersonalSection({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="p-matricola">Matricola</Label>
-              <Input id="p-matricola" {...register('matricola')} />
+              <Input
+                id="p-matricola"
+                inputMode="numeric"
+                autoComplete="off"
+                {...register('matricola')}
+              />
             </div>
             <div className="space-y-2">
               <Label>Corso di studio</Label>

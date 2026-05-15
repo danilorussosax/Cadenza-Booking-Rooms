@@ -85,6 +85,7 @@ export function RecurrenceForm({ value, onChange, startDate }: Props) {
             </span>
             <Input
               type="number"
+              inputMode="numeric"
               min={1}
               max={12}
               value={r.interval}
