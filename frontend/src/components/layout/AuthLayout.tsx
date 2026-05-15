@@ -113,18 +113,27 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
       <main
         id="main-content"
         tabIndex={-1}
-        className="relative flex items-center justify-center overflow-hidden bg-background px-4 py-10 focus-visible:outline-hidden sm:px-6 lg:px-12"
+        className="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-10 focus-visible:outline-hidden sm:px-6 lg:px-12"
       >
         {formBgImage && (
           <>
+            {/* Su mobile usiamo `fixed inset-0` invece di `absolute -inset-4`
+             * perché su iOS (PWA standalone con viewport-fit=cover) `min-h-dvh`
+             * non sempre estende il box attraverso la safe-area del home
+             * indicator: si vedeva una striscia di `bg-background` del body
+             * sotto il pannello form. `fixed` è relativo al viewport e copre
+             * l'intera schermata, safe-area incluse. Su lg+ torniamo ad
+             * `absolute` dentro `<main>` per limitare il bg al pannello form
+             * (l'aside a sinistra ha `bg-primary` solido che lo coprirebbe
+             * comunque, ma manteniamo l'isolamento per pulizia stilistica). */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 scale-105 bg-cover bg-center blur-xs saturate-110"
+              className="pointer-events-none fixed inset-0 scale-105 bg-cover bg-center blur-xs saturate-110 lg:absolute lg:-inset-4"
               style={{ backgroundImage: `url(${formBgImage})` }}
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 bg-background/70 dark:bg-background/80"
+              className="pointer-events-none fixed inset-0 bg-background/70 dark:bg-background/80 lg:absolute"
             />
           </>
         )}
