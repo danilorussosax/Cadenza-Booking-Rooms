@@ -15,6 +15,8 @@ const logger = require('../lib/logger').child({ scope: 'excelExportScheduler' })
 
 let timer = null;
 let running = false;
+let lastTickAt = null;
+let lastError = null;
 
 function getTickMs() {
   const n = Number(process.env.EXCEL_EXPORT_TICK_MIN);
@@ -31,13 +33,29 @@ async function tick() {
   try {
     const r = await exporter.exportNow();
     if (!r.ok) logger.warn({ reason: r.reason }, 'export skipped');
+    lastError = null;
   } catch (err) {
     // exportNow non dovrebbe lanciare (gestisce errori internamente),
     // ma per sicurezza catch-all qui per non killare il process.
+    lastError = err?.message ? String(err.message).slice(0, 500) : String(err).slice(0, 500);
     logger.error({ err: err.message }, 'export threw');
   } finally {
+    lastTickAt = new Date();
     running = false;
   }
+}
+
+function getStatus() {
+  const intervalMs = exporter.isEnabled() ? getTickMs() : null;
+  return {
+    name: 'excelExport',
+    enabled: timer != null && exporter.isEnabled(),
+    running,
+    intervalMs,
+    lastTickAt,
+    lastError,
+    nextTickAt: timer && intervalMs ? new Date(Date.now() + intervalMs) : null,
+  };
 }
 
 function start() {
@@ -60,4 +78,4 @@ function stop() {
   }
 }
 
-module.exports = { start, stop, tick };
+module.exports = { start, stop, tick, getStatus };

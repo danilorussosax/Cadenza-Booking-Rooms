@@ -130,6 +130,7 @@
     "admin_instruments": "Instruments inventory",
     "admin_display": "Infopoint",
     "admin_integrations_isidata": "Isidata import",
+    "admin_ops": "System status",
     "admin_server_settings": "Server settings",
     "monte_ore": "Hour budget",
     "admin_monte_ore": "Hour budget management",
@@ -753,6 +754,64 @@
         "label": "Footer text",
         "hint": "Shown at the bottom of every page (login, user area, kiosk monitor). Leave empty to display the default text.",
         "saved": "Copyright updated"
+      }
+    },
+    "ops": {
+      "title": "System status",
+      "subtitle": "At-a-glance diagnostics for VPS, database, email queue, backups and internal schedulers. Refreshes every 10 seconds.",
+      "last_update": "Last update",
+      "refresh": "Refresh",
+      "vps": {
+        "title": "VPS",
+        "cpu": "CPU (1m load)",
+        "memory": "RAM",
+        "disk": "Disk",
+        "uptime_system": "System uptime",
+        "uptime_process": "Process uptime",
+        "node_version": "Node version"
+      },
+      "postgres": {
+        "title": "Database",
+        "unavailable": "Stats unavailable (dialect: {{dialect}}).",
+        "no_stats": "Connection stats unavailable.",
+        "connections": "Total connections",
+        "active": "Active",
+        "idle": "Idle",
+        "idle_in_tx": "Idle in transaction",
+        "warn_idle_in_tx": "Possible lock",
+        "db_size": "Database size",
+        "top_tables": "Largest tables"
+      },
+      "mailOutbox": {
+        "title": "Email queue",
+        "pending": "Pending",
+        "dead": "Failed",
+        "sent": "Sent (total)",
+        "review_required": "Needs review"
+      },
+      "backup": {
+        "title": "Backups",
+        "last_backup": "Last backup",
+        "size": "Size",
+        "count": "Total backups",
+        "empty": "No backups present. Check the scheduler."
+      },
+      "scheduler": {
+        "title": "Internal schedulers",
+        "ok": "OK",
+        "stale": "Stalled",
+        "disabled": "Disabled",
+        "error": "Error",
+        "last_error": "Last error",
+        "last_tick": "Last tick",
+        "never_ticked": "Never run",
+        "names": {
+          "reminder": "Booking & loan reminders",
+          "retention": "GDPR retention (audit log, snapshots)",
+          "mailOutbox": "Email outbox spooler",
+          "backup": "Automatic backups",
+          "excelExport": "Periodic Excel export"
+        }
       }
     },
     "server_settings": {

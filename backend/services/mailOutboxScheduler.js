@@ -61,6 +61,8 @@ function isHardBounce(err) {
 let timer = null;
 let running = false; // semaforo per evitare overlap se un tick dura > TICK_MS
 let verified = false; // verify() già fatto nella vita di questo processo?
+let lastTickAt = null;
+let lastError = null;
 
 function backoffMs(attempts) {
   // 2^attempts * 30s, capped a 1h. Esempio:
@@ -231,11 +233,26 @@ async function tick() {
         'mail outbox tick processed',
       );
     }
+    lastError = null;
   } catch (err) {
+    lastError = err?.message ? String(err.message).slice(0, 500) : String(err).slice(0, 500);
     logger.error({ err: err.message, scope: 'mailOutbox.tick' }, 'mail outbox tick failed');
   } finally {
+    lastTickAt = new Date();
     running = false;
   }
+}
+
+function getStatus() {
+  return {
+    name: 'mailOutbox',
+    enabled: timer != null,
+    running,
+    intervalMs: TICK_MS,
+    lastTickAt,
+    lastError,
+    nextTickAt: timer ? new Date(Date.now() + TICK_MS) : null,
+  };
 }
 
 function start() {
@@ -258,6 +275,7 @@ function stop() {
 module.exports = {
   start,
   stop,
+  getStatus,
   // Esposti per test integration: chiamare il tick deterministicamente
   // invece di aspettare il setInterval.
   tick,

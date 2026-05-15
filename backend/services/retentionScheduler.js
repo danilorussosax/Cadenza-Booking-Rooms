@@ -41,6 +41,9 @@ const BACKEND_ROOT = path.resolve(__dirname, '..');
 const AUDIT_ARCHIVE_DIR = path.join(BACKEND_ROOT, 'backups', 'audit');
 
 let timer = null;
+let lastTickAt = null;
+let lastError = null;
+let nextScheduledAt = null;
 
 function nextRunDelayMs() {
   const now = dayjs();
@@ -351,19 +354,26 @@ async function pruneMailOutbox() {
 }
 
 async function tick() {
-  await pruneAuditLog();
-  await prunePreRestoreSnapshots();
-  await pruneMailOutbox();
-  // P1-4: cleanup file temporanei delle integrazioni (Isidata import preview).
-  // Lazy require per evitare cicli a startup; la funzione è esportata da
-  // `routes/integrations.js`. È best-effort: se manca/lancia, log e continua.
   try {
-    const { cleanupExpiredTmpFiles } = require('../routes/integrations');
-    if (typeof cleanupExpiredTmpFiles === 'function') {
-      cleanupExpiredTmpFiles();
+    await pruneAuditLog();
+    await prunePreRestoreSnapshots();
+    await pruneMailOutbox();
+    // P1-4: cleanup file temporanei delle integrazioni (Isidata import preview).
+    // Lazy require per evitare cicli a startup; la funzione è esportata da
+    // `routes/integrations.js`. È best-effort: se manca/lancia, log e continua.
+    try {
+      const { cleanupExpiredTmpFiles } = require('../routes/integrations');
+      if (typeof cleanupExpiredTmpFiles === 'function') {
+        cleanupExpiredTmpFiles();
+      }
+    } catch (err) {
+      logger.warn({ err: err.message }, 'integrations tmp cleanup failed');
     }
+    lastError = null;
   } catch (err) {
-    logger.warn({ err: err.message }, 'integrations tmp cleanup failed');
+    lastError = err?.message ? String(err.message).slice(0, 500) : String(err).slice(0, 500);
+  } finally {
+    lastTickAt = new Date();
   }
   // Riprogramma il prossimo tick a 24h.
   scheduleNext();
@@ -371,7 +381,21 @@ async function tick() {
 
 function scheduleNext() {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(tick, nextRunDelayMs());
+  const delay = nextRunDelayMs();
+  nextScheduledAt = new Date(Date.now() + delay);
+  timer = setTimeout(tick, delay);
+}
+
+function getStatus() {
+  return {
+    name: 'retention',
+    enabled: timer != null,
+    running: false,
+    intervalMs: 24 * 60 * 60 * 1000,
+    lastTickAt,
+    lastError,
+    nextTickAt: nextScheduledAt,
+  };
 }
 
 function start() {
@@ -392,6 +416,7 @@ function stop() {
 module.exports = {
   start,
   stop,
+  getStatus,
   pruneAuditLog,
   prunePreRestoreSnapshots,
   pruneMailOutbox,

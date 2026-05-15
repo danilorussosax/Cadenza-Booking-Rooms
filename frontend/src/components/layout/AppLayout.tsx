@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
+  Activity,
   BarChart3,
   BookOpen,
   Building2,
@@ -115,6 +116,10 @@ const ADMIN_NAV: NavItem[] = [
     icon: Megaphone,
     roles: ['admin'],
   },
+  // "Stato sistema" — dashboard ops at-a-glance (VPS · Postgres · MailOutbox
+  // · Backup · Scheduler). Top-level perché è la pagina diagnostica più
+  // veloce quando "qualcosa non va": meno click possibili dal dubbio.
+  { to: '/admin/ops', labelKey: 'nav.admin_ops', icon: Activity, roles: ['admin'] },
   // "Impostazioni Server" raggruppa: Servizio Posta, Bot Messaging,
   // Registro attività e Backup come tab interne (vedi ServerSettings.tsx).
   {

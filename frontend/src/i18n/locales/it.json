@@ -130,6 +130,7 @@
     "admin_instruments": "Inventario strumenti",
     "admin_display": "Infopoint",
     "admin_integrations_isidata": "Import Isidata",
+    "admin_ops": "Stato sistema",
     "admin_server_settings": "Impostazioni Server",
     "monte_ore": "Monte ore",
     "admin_monte_ore": "Gestione Monte Ore",
@@ -755,6 +756,64 @@
         "label": "Testo del footer",
         "hint": "Visibile in fondo a tutte le pagine (login, area utente, kiosk monitor). Lascia vuoto per mostrare il testo predefinito.",
         "saved": "Copyright aggiornato"
+      }
+    },
+    "ops": {
+      "title": "Stato sistema",
+      "subtitle": "Diagnostica at-a-glance di VPS, database, coda email, backup e scheduler interni. Aggiornamento ogni 10 secondi.",
+      "last_update": "Ultimo aggiornamento",
+      "refresh": "Aggiorna",
+      "vps": {
+        "title": "VPS",
+        "cpu": "CPU (load 1m)",
+        "memory": "RAM",
+        "disk": "Disco",
+        "uptime_system": "Uptime macchina",
+        "uptime_process": "Uptime processo",
+        "node_version": "Versione Node"
+      },
+      "postgres": {
+        "title": "Database",
+        "unavailable": "Statistiche non disponibili (dialect: {{dialect}}).",
+        "no_stats": "Statistiche connessioni non disponibili.",
+        "connections": "Connessioni totali",
+        "active": "Attive",
+        "idle": "Idle",
+        "idle_in_tx": "Idle in transazione",
+        "warn_idle_in_tx": "Possibile lock",
+        "db_size": "Dimensione DB",
+        "top_tables": "Tabelle con più righe"
+      },
+      "mailOutbox": {
+        "title": "Coda email",
+        "pending": "In attesa",
+        "dead": "Fallite",
+        "sent": "Inviate (totale)",
+        "review_required": "Da rivedere"
+      },
+      "backup": {
+        "title": "Backup",
+        "last_backup": "Ultimo backup",
+        "size": "Dimensione",
+        "count": "Backup totali",
+        "empty": "Nessun backup presente. Verifica lo scheduler."
+      },
+      "scheduler": {
+        "title": "Scheduler interni",
+        "ok": "OK",
+        "stale": "In ritardo",
+        "disabled": "Disabilitato",
+        "error": "Errore",
+        "last_error": "Ultimo errore",
+        "last_tick": "Ultimo tick",
+        "never_ticked": "Mai eseguito",
+        "names": {
+          "reminder": "Promemoria prenotazioni e prestiti",
+          "retention": "Retention GDPR (audit log, snapshot)",
+          "mailOutbox": "Spooler email outbox",
+          "backup": "Backup automatico",
+          "excelExport": "Export Excel periodico"
+        }
       }
     },
     "server_settings": {

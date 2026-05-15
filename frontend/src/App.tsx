@@ -37,6 +37,7 @@ const AdminBookingsManagement = lazy(() => import('@/pages/admin/BookingsManagem
 const AdminBookings = lazy(() => import('@/pages/admin/Bookings'));
 const AdminMessagingSettings = lazy(() => import('@/pages/admin/MessagingSettings'));
 const AdminBackups = lazy(() => import('@/pages/admin/Backups'));
+const AdminOps = lazy(() => import('@/pages/admin/Ops'));
 const AdminServerSettings = lazy(() => import('@/pages/admin/ServerSettings'));
 const AdminIsidataImport = lazy(() => import('@/pages/admin/integrations/IsidataImport'));
 const MonteOre = lazy(() => import('@/pages/MonteOre'));
@@ -170,6 +171,7 @@ export default function App() {
               <Route path="bookings-page" element={adminPage(<AdminBookings />)} />
               <Route path="messaging" element={adminPage(<AdminMessagingSettings />)} />
               <Route path="backups" element={adminPage(<AdminBackups />)} />
+              <Route path="ops" element={adminPage(<AdminOps />)} />
               <Route path="server-settings" element={adminPage(<AdminServerSettings />)} />
               <Route path="integrations/isidata" element={adminPage(<AdminIsidataImport />)} />
             </Route>

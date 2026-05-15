@@ -44,6 +44,8 @@ const WINDOW_AFTER_MS = 55 * 60 * 1000; // almeno 55 min nel futuro
 const LOAN_REMINDER_DAYS_AHEAD = 2;
 
 let timer = null;
+let lastTickAt = null;
+let lastError = null;
 
 async function tick() {
   if (!(await emailService.emailEnabled())) return;
@@ -246,10 +248,29 @@ async function tickWaitlist() {
 }
 
 async function tickAll() {
-  await tick();
-  await tickGhostCancel();
-  await tickLoans();
-  await tickWaitlist();
+  try {
+    await tick();
+    await tickGhostCancel();
+    await tickLoans();
+    await tickWaitlist();
+    lastError = null;
+  } catch (err) {
+    lastError = err?.message ? String(err.message).slice(0, 500) : String(err).slice(0, 500);
+  } finally {
+    lastTickAt = new Date();
+  }
+}
+
+function getStatus() {
+  return {
+    name: 'reminder',
+    enabled: timer != null,
+    running: false,
+    intervalMs: TICK_MS,
+    lastTickAt,
+    lastError,
+    nextTickAt: timer ? new Date(Date.now() + TICK_MS) : null,
+  };
 }
 
 function start() {
@@ -272,6 +293,7 @@ function stop() {
 module.exports = {
   start,
   stop,
+  getStatus,
   // Esposti per test di integrazione (chiamare il tick deterministicamente
   // invece di aspettare il setInterval). NON da usare in route handler.
   tick,
