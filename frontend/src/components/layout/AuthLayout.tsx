@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -56,6 +56,46 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
 
   const finalQuote = quote ?? pickedQuote?.text ?? '';
   const finalAttribution = attribution ?? pickedQuote?.attribution ?? '';
+
+  // Backstop iOS safe-area: applichiamo immagine + overlay tint
+  // direttamente al <body> usando un linear-gradient sopra l'image. Su
+  // iOS Safari standalone PWA (viewport-fit=cover) `position: fixed;
+  // inset: 0` non sempre arriva al home indicator → striscia visibile
+  // in fondo. Il <body> invece dipinge attraverso TUTTE le safe-area
+  // senza eccezioni (è il containing block iniziale del documento). La
+  // gradient color matcha l'overlay `bg-background/70` light e
+  // `bg-background/80` dark per restare visivamente coerente con il
+  // form panel. Watch sul theme via MutationObserver sulla classe `dark`
+  // di <html> per riallineare quando l'utente cambia tema.
+  useEffect(() => {
+    if (!formBgImage) return;
+    const body = document.body;
+    const prev = {
+      backgroundImage: body.style.backgroundImage,
+      backgroundSize: body.style.backgroundSize,
+      backgroundPosition: body.style.backgroundPosition,
+      backgroundAttachment: body.style.backgroundAttachment,
+    };
+    const applyBg = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      // bg-background light = hsl(210 24% 97%) ≈ rgb(246,247,249); dark = hsl(222 47% 7%) ≈ rgb(10,18,32).
+      const overlay = isDark ? 'rgba(10,18,32,0.8)' : 'rgba(246,247,249,0.7)';
+      body.style.backgroundImage = `linear-gradient(${overlay}, ${overlay}), url(${formBgImage})`;
+      body.style.backgroundSize = 'cover';
+      body.style.backgroundPosition = 'center';
+      body.style.backgroundAttachment = 'fixed';
+    };
+    applyBg();
+    const observer = new MutationObserver(applyBg);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      observer.disconnect();
+      body.style.backgroundImage = prev.backgroundImage;
+      body.style.backgroundSize = prev.backgroundSize;
+      body.style.backgroundPosition = prev.backgroundPosition;
+      body.style.backgroundAttachment = prev.backgroundAttachment;
+    };
+  }, [formBgImage]);
 
   return (
     <div className="relative">
@@ -147,26 +187,6 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
             <LanguageToggle />
             <ThemeToggle />
           </div>
-          {/* Mobile institute brand: logo SOPRA il nome, centrato, sfondo
-           * trasparente (niente container `bg-primary` colorato che alterava
-           * i colori originali del logo dell'istituto). Posizionato in alto
-           * col `safe-pt` per rispettare il notch, fuori dal motion.div
-           * centrale così non si muove col form. `top-16` lo tiene sotto la
-           * toggle bar lingua/tema (top-4, alta ~36px + safe-pt). */}
-          <div className="safe-pt absolute inset-x-0 top-16 z-10 flex flex-col items-center gap-2 px-16 sm:top-20 lg:hidden">
-            {institute?.logoUrl ? (
-              <img
-                src={institute.logoUrl}
-                alt={institute.name}
-                className="h-14 w-14 object-contain"
-              />
-            ) : (
-              <img src={appIcon} alt="" className="h-14 w-14 object-contain" />
-            )}
-            <p className="text-center font-display text-sm font-medium leading-tight">
-              {institute?.name ?? t('app.subtitle')}
-            </p>
-          </div>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -174,6 +194,25 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
             className="relative z-10 w-full max-w-md"
           >
             {children}
+            {/* Mobile institute brand: dopo i pulsanti del form. Logo SOPRA
+             * il nome, entrambi centrati, sfondo trasparente (niente container
+             * `bg-primary` che alterava i colori originali del logo).
+             * Rimane nel flusso del motion.div così è naturalmente al di sotto
+             * delle azioni principali (Accedi con email / Registrati). */}
+            <div className="mt-8 flex flex-col items-center gap-2 lg:hidden">
+              {institute?.logoUrl ? (
+                <img
+                  src={institute.logoUrl}
+                  alt={institute.name}
+                  className="h-14 w-14 object-contain"
+                />
+              ) : (
+                <img src={appIcon} alt="" className="h-14 w-14 object-contain" />
+              )}
+              <p className="text-center font-display text-sm font-medium leading-tight">
+                {institute?.name ?? t('app.subtitle')}
+              </p>
+            </div>
           </motion.div>
           <AppFooter className="absolute inset-x-0 bottom-0 z-10" />
         </main>
