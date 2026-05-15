@@ -168,11 +168,12 @@ Permessi:
 
 ---
 
-## 2. Backlog post-1.6.0 — security, ops, performance
+## 2. Backlog post-1.6.0 — security, ops, performance, UX
 
-Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizione IP del kiosk). Ordinate per coerenza tematica, non per priorità di esecuzione.
+Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizione IP del kiosk) e dal pass mobile UX di v1.8.0. Ordinate per coerenza tematica, non per priorità di esecuzione.
 
-> 🎯 **Priorità attuale dichiarata: 2.6 Dashboard ops** — la voce su cui c'è interesse esplicito di prossima esecuzione. Le altre restano backlog "quando serve".
+> ✅ **§2.6 Dashboard ops** — implementata in **v1.7.0** (`/admin/ops`). Mantenuta nel backlog come riferimento storico.
+> 🎯 **Priorità candidate**: §2.8 Backup verification + §2.10 PWA installable (rapporto ROI/effort più alto, vedi §2.13).
 
 ### 2.1 Sicurezza kiosk — device token per schermi mobili
 
@@ -214,7 +215,9 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 
 **Effort stimato**: ~1g · **Dipende da**: nessuna (richiede solo che il pg-tune sia stato lanciato in produzione).
 
-### 2.6 🎯 Dashboard ops in `/admin/ops` — PRIORITÀ
+### 2.6 ✅ Dashboard ops in `/admin/ops` — IMPLEMENTATA in v1.7.0
+
+> Riferimento storico: ora live in `/admin/ops`, vedi [`CHANGELOG.md` §1.7.0](CHANGELOG.md). Voce conservata sotto per documentare le scelte architetturali originali.
 
 **Perché**: oggi per sapere "come sta la VPS" bisogna fare SSH e lanciare `pm2 monit + free -h + psql + tail mail-queue`. Nessuna vista admin unificata. Quando qualcosa va storto (lentezze, picchi memoria, scheduler bloccato), si scopre tardi.
 
@@ -244,19 +247,95 @@ Endpoint backend `GET /api/admin/ops/snapshot` con cache 5 s lato server per non
 
 **Effort stimato**: ~1g · **Dipende da**: nessuna · **Sinergia**: aumenta valore percepito del display, utile per saggi/concerti aperti al pubblico.
 
-### 2.8 Stima e priorità complessiva
+### 2.8 Backup verification automatica
 
-| #   | Voce                              | Effort | Categoria      | Coda           |
-| --- | --------------------------------- | ------ | -------------- | -------------- |
-| 2.1 | Device token kiosk mobili         | ~3g    | Security       | Quando serve   |
-| 2.2 | PIN ruotabile via mail            | ~2g    | Security       | Quando serve   |
-| 2.3 | Monitor esterno + alert           | ~0.5g  | Ops resilience | Quando serve   |
-| 2.4 | PgBouncer + PM2 cluster mode      | ~2g    | Performance    | Se >150 utenti |
-| 2.5 | Slow query digest settimanale     | ~1g    | Observability  | Quando serve   |
-| 2.6 | **Dashboard ops `/admin/ops`** 🎯 | ~2-3g  | Observability  | **Prossima**   |
-| 2.7 | QR code dinamico sul display      | ~1g    | Feature kiosk  | Quando serve   |
+**Perché**: oggi i backup `pg_dump` vengono creati ogni notte dallo `backupScheduler`, ma nessuno verifica che siano effettivamente restorabili. Failure mode silente: l'admin scopre che il backup è corrotto solo quando ne ha bisogno (cioè quando è troppo tardi).
 
-**Totale backlog**: ~11.5-12.5g se eseguito interamente. Tutti scope independenti, ordinabili a piacere — niente dipendenze a catena come nelle fasi della §1.
+**Cosa**: nuovo scheduler weekly (es. domenica 03:00) che prende l'ultimo backup OK, lo restora su un database scratch temporaneo (es. `cadenza_backup_verify`), confronta vs prod: conteggio righe sulle tabelle critiche (`Users`, `Bookings`, `Rooms`, `Buildings`, `InstrumentLoans`), validità foreign key (`pg_constraint` check), schema diff. Drop del DB scratch alla fine. Mail admin solo se anomalia (diff >2% o errore restore), altrimenti silent. Espone lo stato in `/admin/ops` come nuovo widget "Backup integrity: ultima verifica OK/FAIL".
+
+**Effort stimato**: ~½g · **Dipende da**: `backupScheduler` esistente · **Note**: usa `pg_restore` con utente dedicato `cadenza_verify` con privilegi minimi (CREATE DATABASE + DROP solo sul DB scratch).
+
+### 2.9 GDPR self-service export
+
+**Perché**: l'Art. 15 GDPR (diritto di accesso) e Art. 20 (portabilità) impongono che ogni utente possa scaricare i propri dati personali. Oggi una richiesta del genere obbliga un admin a query SQL manuali — non scala e rischia di omettere tabelle.
+
+**Cosa**: nuovo bottone in `/profile` "Scarica i miei dati" (sezione Privacy). Endpoint `GET /api/users/me/export` che produce uno ZIP con file JSON per categoria:
+
+- `profile.json` — dati anagrafici, contractType, monteOreOverride, foto URL
+- `bookings.json` — tutte le prenotazioni proprie (passate + future + annullate)
+- `loans.json` — richieste prestito strumenti
+- `monte_ore.json` — proposte e amendments (se applicabile)
+- `audit_log.json` — record di `AuditLog` con `userId` = me (chi ha fatto cosa sui miei dati)
+- `consents.json` — consensi privacy granted/revoked con timestamp
+- `README.txt` — descrizione delle categorie e riferimento Art. 15
+
+Rate-limit: 1 export ogni 24h per utente (l'export è asincrono se il dataset è grande, mail "il tuo export è pronto" con link temporaneo).
+
+**Effort stimato**: ~1g · **Dipende da**: nessuna · **Bonus**: prepara il terreno per il "diritto all'oblio" (Art. 17) — endpoint `DELETE /api/users/me` con anonimizzazione cascadable.
+
+### 2.10 PWA installable + offline shell
+
+**Perché**: dopo l'overhaul mobile di v1.8.0 l'esperienza su iPhone/Android è "quasi nativa" ma non installabile né resiliente al network. Aggiungere PWA significa: icona homescreen, splash screen, apertura standalone (no chrome browser), capacità offline read-only per consultare le ultime prenotazioni viste.
+
+**Cosa**: `vite-plugin-pwa` con manifest che usa `logo3.png` come icon canonica (vedi feedback memory). Service worker Workbox con strategy:
+
+- **NetworkFirst** su `/api/*` (con timeout 3s → cache)
+- **StaleWhileRevalidate** su `/api/rooms/*` e `/api/buildings/*` (poco mutevoli)
+- **CacheFirst** su asset statici (fonts, images, CSS, JS bundle)
+- **NetworkOnly** su `/api/auth/*` (no cache su token)
+
+Banner discreto "Aggiungi a Home" che appare solo su mobile la seconda volta che l'utente apre l'app (criterio "user engagement"). Indicatore stato connessione nell'header (offline → banner giallo "Modalità offline · dati al ...timestamp...").
+
+**Effort stimato**: ~2g · **Dipende da**: nessuna · **Note**: zero impatto backend. Su iOS Safari il supporto è parziale (no push notifications su PWA installata) — coperto da §2.13 Web Push come complemento, vedi `develop-enterprise.md` se promosso.
+
+### 2.11 Slot alternativi suggeriti su conflitto
+
+**Perché**: oggi quando un utente tenta una prenotazione su uno slot già occupato vede solo l'errore generico "slot non disponibile". Frustrazione massima, soprattutto su mobile dove ricominciare il flusso è oneroso.
+
+**Cosa**: estendere il response 409 di `POST /api/bookings` quando il fail è per overlap. Oltre al messaggio, includere campo `suggestions: [{roomId, start, end, reason}]` con 3-5 alternative ordinate per "vicinanza":
+
+1. Stessa aula, ±30/60/120 min dall'orario richiesto
+2. Aula compatibile (stesso building, stessa capacity, stesso tipo se richiesto strumento specifico) nello stesso orario
+3. Stessa aula+orario il giorno successivo (utile per chi flessibile sul quando)
+
+UI in `BookingFormDialog`: quando il POST fallisce mostra "Alternative disponibili" con card cliccabili che pre-fillano il form (`setDefaults({roomId, start, end})`). Una sola riga di codice cliente per chip.
+
+**Effort stimato**: ~2g · **Dipende da**: nessuna · **Sinergia**: aumenta conversion rate (utente non abbandona dopo il primo NO), riduce frustrazione mobile dove ricominciare il flusso è costoso.
+
+### 2.12 Conflict-aware bulk booking (docenti)
+
+**Perché**: un docente con corso ricorrente ("aula X tutti i lunedì 14-16 per 3 mesi") oggi può usare il flag ricorrente del booking, ma se **anche un solo** slot generato è occupato la transazione fallisce in atomico → o riprende a mano slot per slot, o rinuncia. Frustrazione massima per il caso d'uso più comune dei docenti titolari.
+
+**Cosa**: wizard "Prenotazione ricorrente avanzata" (accessibile da `BookingFormDialog` quando l'utente attiva il toggle "ricorrenza" + ruolo docente/admin) con 3 step:
+
+1. **Definizione**: aula, frequenza (daily/weekly), giorni della settimana, orario, range date (da/a)
+2. **Preview**: anteprima della lista di tutti gli slot generati (es. 13 lunedì), ognuno con badge: ✅ libero, ⚠️ conflitto (con dettaglio "occupato da Tizio per Y") o ❌ aula chiusa (fuori orari operativi)
+3. **Aggiusta e conferma**: l'utente può deselezionare i conflittuali, cliccare "Trova alternativa" per ogni conflitto (riusa §2.11), confermare → POST atomico solo degli slot selezionati
+
+Endpoint: `POST /api/bookings/bulk-preview` (read-only, ritorna tutti i conflitti senza scrivere) + `POST /api/bookings/bulk-create` (transazione su array di booking pre-validati).
+
+**Effort stimato**: ~4g · **Dipende da**: §2.11 (riusa la logica di "alternativa") · **Categoria**: UX docente power-user · **Coda**: alta priorità per ASIMUT parity (vedi §1.6).
+
+### 2.13 Stima e priorità complessiva
+
+> Tabella aggiornata al 2026-05-15 (post v1.8.0). §2.6 ✅ done in v1.7.0 — rimossa dalla coda.
+
+| #    | Voce                                   | Effort | Categoria      | Coda                  |
+| ---- | -------------------------------------- | ------ | -------------- | --------------------- |
+| 2.1  | Device token kiosk mobili              | ~3g    | Security       | Quando serve          |
+| 2.2  | PIN ruotabile via mail                 | ~2g    | Security       | Quando serve          |
+| 2.3  | Monitor esterno + alert                | ~0.5g  | Ops resilience | Quando serve          |
+| 2.4  | PgBouncer + PM2 cluster mode           | ~2g    | Performance    | Se >150 utenti        |
+| 2.5  | Slow query digest settimanale          | ~1g    | Observability  | Quando serve          |
+| 2.6  | ~~Dashboard ops `/admin/ops`~~         | —      | ✅ done v1.7.0 | —                     |
+| 2.7  | QR code dinamico sul display           | ~1g    | Feature kiosk  | Quando serve          |
+| 2.8  | **Backup verification automatica** 🎯  | ~½g    | Ops resilience | **Quick win**         |
+| 2.9  | GDPR self-service export               | ~1g    | Compliance     | Quando serve          |
+| 2.10 | **PWA installable + offline shell** 🎯 | ~2g    | UX mobile      | **Naturale post-1.8** |
+| 2.11 | Slot alternativi suggeriti             | ~2g    | UX/conversion  | Quando serve          |
+| 2.12 | Conflict-aware bulk booking            | ~4g    | UX docente     | Pre-requisito §1      |
+
+**Totale backlog aperto**: ~19g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11. Quick win: 2.8 + 2.9 in 1.5g totali (zero rischio, alto valore difensivo).
 
 ---
 
