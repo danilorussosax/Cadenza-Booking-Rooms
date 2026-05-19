@@ -10,6 +10,129 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.11.0] — 19 maggio 2026
+
+Minor release di **hardening sicurezza, performance e qualità test**.
+Origin dei lavori: analisi tecnica del documento `migliorie.md`, dopo aver
+ricalibrato le proposte rispetto a ciò che era effettivamente assente nel
+codebase (molte raccomandazioni si sono rivelate già implementate). Le
+modifiche non sono breaking: i client esistenti continuano a funzionare
+senza cambi.
+
+### Sicurezza
+
+#### originGuard middleware (CSRF-equivalent per modello Bearer)
+
+- **`backend/middleware/originGuard.js`** (nuovo): controllo `Origin/Referer`
+  su tutte le richieste mutanti (`POST/PUT/PATCH/DELETE`) verso `/api/*`.
+  Whitelist: `FRONTEND_URL` + same-origin (+ `localhost:*` in dev).
+  Defense-in-depth complementare a CORS — copre anche le "simple request"
+  (`form-urlencoded`/`text/plain`) che il browser invia senza preflight.
+- Bypassato in `NODE_ENV=test` (supertest non invia Origin) e sui webhook
+  server-to-server (`/api/messaging/`, `/api/csp-report`).
+- Risponde `403 ORIGIN_FORBIDDEN` con log strutturato per audit/SOC.
+- Rationale per la scelta vs CSRF token classico: Cadenza usa JWT in
+  `localStorage` + `Authorization: Bearer`, NON cookie di sessione. Un
+  CSRF token via `csurf` con cookie non aggiunge sicurezza (l'attaccante
+  cross-origin non può comunque leggere il Bearer) e introdurrebbe un
+  cookie nuovo a scopo difensivo — controproducente.
+- **14 unit test** che coprono safe methods, origin allowed/blocked,
+  fallback su Referer, esenzioni di percorso, typosquatting,
+  comportamento dev vs production.
+
+#### Hash-chain di integrità su `audit_log` (tamper-evidence PA)
+
+- **`backend/migrations/20260519100000-audit-log-hash-chain.js`**: aggiunge
+  colonne `rowHash` e `prevHash` (`STRING(64)`, nullable per backward-compat
+  con righe pre-migration).
+- **`backend/models/AuditLog.js`**: hook `beforeCreate` calcola
+  `rowHash = SHA-256(canonical(record) + '|' + prevHash della riga precedente)`.
+  `canonicalString` usa ordering-stable JSON: l'hash non dipende
+  dall'ordine delle chiavi nel payload.
+- **`backend/services/auditIntegrity.js`**: `verifyAuditIntegrity()`
+  ricalcola l'intera catena e categorizza issue (`legacy`,
+  `hash_mismatch`, `chain_gap`). Cap `?limit=N` per spot-check rapidi.
+- **`GET /api/admin/audit-log/verify-integrity`** (admin-only): endpoint
+  per richiedere la verifica on-demand. Risponde
+  `{ ok, scanned, tamperingCount, issues }`.
+- Compatibilità: SQLite + Postgres. No trigger SQL (logica in JS).
+- Test-only helper `flushPendingAuditWrites()`: il nuovo hook aggiunge una
+  `findOne`, quindi la write audit non è più ~istantanea su SQLite. I 3
+  test pre-esistenti del middleware sono stati aggiornati per awaitare il
+  flush invece di assumere sync.
+
+### Performance
+
+#### Pagination su `GET /api/loans` (admin)
+
+- **`backend/routes/instrumentLoans.js`**: il listing admin usava `findAll`
+  senza limit — su un istituto con migliaia di prestiti storici il payload
+  cresceva linearmente e drenava memoria del processo Node.
+- Passa a `findAndCountAll` + `lib/pagination`, esponendo header
+  `X-Total-Count` / `X-Limit` / `X-Offset`. Clamp lato server:
+  `MAX_LIMIT=500` (anti-DoS via `?limit=999999`).
+- Helper `loanAdminIncludes()` colocato col route: deduplica la lista
+  `include` (instrument + user + approver) condivisa da 4 handler.
+- **Backward-compatible**: i client che non passano `limit`/`offset`
+  ricevono i primi 100 (default), come se fosse sempre stato così.
+
+### Operations
+
+#### `/api/ready` esteso con check multi-componente
+
+- Prima `/api/ready` testava solo il DB (`SELECT 1`). Aggiunti:
+  - **smtp** (`WARNING`): `transporter.verify()` se SMTP configurato.
+    Un SMTP down NON blocca la readiness (`mail_outbox` fa retry), ma
+    `checks.smtp.ok=false` viene esposto per i dashboard esterni.
+  - **disk** (`WARNING/CRITICAL`): `statfsSync` su `uploads/`. ≥90% =
+    warning, ≥95% = critico (503).
+- Schema response uniforme `{ status, checks: { database, smtp, disk }, timestamp }`
+  sia su 200 sia su 503: monitor esterni (UptimeRobot/Healthchecks) possono
+  differenziare warning da critico senza parser custom.
+
+### Testing
+
+#### +5 spec Playwright E2E
+
+In `e2e/tests/`, copertura di scenari critici prima senza test E2E:
+
+- **`rbac-denial.spec.ts`**: uno studente riceve `403` su 5 rotte admin
+  core (canary contro un `requireRole` dimenticato su nuove rotte).
+- **`booking-cancel.spec.ts`**: owner cancella la propria prenotazione,
+  `status` diventa `cancelled` e l'item sparisce dagli attivi.
+- **`gdpr-export.spec.ts`**: art. 20 — il payload contiene
+  profile/bookings/instrumentLoans/consents/auditTrail con i dati del
+  richiedente.
+- **`pending-user.spec.ts`**: docente appena registrato (`status=pending`)
+  può loggarsi ma riceve `403 ACCOUNT_PENDING` su `POST /api/bookings` e
+  `POST /api/loans`. Usa un utente fresco via `/register` per non
+  dipendere dall'ordine di esecuzione vs `admin-approve.spec`.
+- **`loans-pagination.spec.ts`**: chiude il loop con il refactor di
+  `/api/loans` di questa release — verifica header
+  `X-Total-Count`/`X-Limit`/`X-Offset` e clamp `MAX_LIMIT=500` lato server.
+
+### Compatibilità & migrazione
+
+- **Migration richiesta**: `20260519100000-audit-log-hash-chain.js`. Su DB
+  esistenti, le righe pre-migration restano con `rowHash=NULL` (segnalate
+  come `legacy` dalla verify, ma non rompono la catena per quelle nuove).
+- Nessun cambio di contratto rotto: `/api/loans` ora pagina ma il default
+  (100 record, ordinati come prima) mantiene il comportamento storico per
+  client non aggiornati.
+
+### Quality gates
+
+- 1730 test backend (era 1721 a v1.10.6, +9 nuovi):
+  - 14 unit test `originGuard`
+  - 2 integration `instrumentLoans` pagination
+  - 6 integration `auditIntegrity` (hash-chain)
+  - 1 integration esteso su `/api/ready`
+  - 3 test pre-esistenti audit aggiornati per `flushPendingAuditWrites`
+- 12 E2E Playwright pass (era 7), 1 skip pre-esistente
+- Lint: 0 errors, 0 warnings (backend)
+
+---
+
 ## [1.10.6] — 16 maggio 2026
 
 Patch release di **Developer Experience**: introduce ESLint sul
