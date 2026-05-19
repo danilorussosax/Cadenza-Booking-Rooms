@@ -13,6 +13,7 @@
 const request = require('supertest');
 const { buildApp } = require('../../app');
 const { AuditLog } = require('../../models');
+const { flushPendingAuditWrites } = require('../../middleware/audit');
 const { createAdmin, createUser } = require('../factories');
 
 const app = buildApp({ serveFrontend: false });
@@ -33,6 +34,7 @@ describe('audit middleware', () => {
     expect(res.status).toBe(201);
     const courseId = res.body.course.id;
 
+    await flushPendingAuditWrites();
     const entries = await AuditLog.findAll({ where: { actorId: user.id } });
     expect(entries.length).toBe(1);
     const entry = entries[0];
@@ -60,6 +62,7 @@ describe('audit middleware', () => {
       .set('Authorization', authHeader);
     expect(del.status).toBeLessThan(400);
 
+    await flushPendingAuditWrites();
     const entries = await AuditLog.findAll({
       where: { actorId: user.id, action: 'DELETE' },
     });
@@ -92,6 +95,7 @@ describe('audit middleware', () => {
       });
     expect(res.status).toBeLessThan(400);
 
+    await flushPendingAuditWrites();
     const entry = await AuditLog.findOne({
       where: { targetType: 'user', action: 'PUT', targetId: target.id },
     });

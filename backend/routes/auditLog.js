@@ -85,6 +85,29 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
 });
 
 // =====================================================
+// GET /api/admin/audit-log/verify-integrity
+// Verifica la hash-chain dell'audit log (tamper-evidence).
+//
+// Ricalcola rowHash per ogni riga e confronta con quello persistito;
+// verifica anche che prevHash punti alla riga precedente. Restituisce
+// `ok: true` se nessuna riga è stata modificata dopo l'insert.
+//
+// Costo: O(N). Su tabelle grandi (>50k righe) la verify può richiedere
+// secondi; il default è scansione completa, ma `?limit=N` permette uno
+// spot-check più rapido (utile per smoke test).
+// =====================================================
+router.get('/verify-integrity', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { verifyAuditIntegrity } = require('../services/auditIntegrity');
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const result = await verifyAuditIntegrity({ AuditLog }, { limit });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// =====================================================
 // GET /api/admin/audit-log/target-types
 // Lista distinta dei targetType presenti, per popolare il filtro UI.
 // =====================================================

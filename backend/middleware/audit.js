@@ -188,12 +188,34 @@ function auditMiddleware(req, res, next) {
       ip: req.ip || null,
       userAgent: (req.get('user-agent') || '').slice(0, 255) || null,
     };
-    AuditLog.create(entry).catch((err) => {
+    const writePromise = AuditLog.create(entry).catch((err) => {
       logger.error({ err, entry: { ...entry, payload: undefined } }, 'audit log write failed');
     });
+    // I test (e solo i test) possono awaitare il completamento della write
+    // asincrona: l'introduzione del hook beforeCreate hash-chain ha aggiunto
+    // una findOne, rendendo la write più sensibile al timing. Vedi
+    // `tests/helpers/auditFlush.js`. In produzione `_pendingAuditWrites`
+    // è popolata ma mai consumata — overhead trascurabile.
+    if (process.env.NODE_ENV === 'test') {
+      if (!global.__pendingAuditWrites) global.__pendingAuditWrites = new Set();
+      const set = global.__pendingAuditWrites;
+      set.add(writePromise);
+      writePromise.finally(() => set.delete(writePromise));
+    }
   });
 
   next();
 }
 
-module.exports = { auditMiddleware, matchAudit };
+/**
+ * Helper test-only: attende il completamento di tutte le AuditLog.create
+ * in volo lanciate dal middleware. Da chiamare dopo le request che
+ * dovrebbero generare audit, prima di leggere AuditLog dal DB.
+ */
+async function flushPendingAuditWrites() {
+  const set = global.__pendingAuditWrites;
+  if (!set || set.size === 0) return;
+  await Promise.allSettled([...set]);
+}
+
+module.exports = { auditMiddleware, matchAudit, flushPendingAuditWrites };

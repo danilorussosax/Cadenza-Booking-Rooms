@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { DataTypes } = require('sequelize');
 
 /**
@@ -77,6 +78,21 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
+      // Hash-chain di integrità (tamper-evidence per compliance PA).
+      // rowHash  = SHA-256( canonicalString(record) + '|' + prevHash )
+      // prevHash = rowHash della riga precedente (per createdAt, id) o NULL
+      //            per la prima riga della tabella.
+      // Una modifica/cancellazione spezza la catena dalla riga toccata in poi
+      // e viene rilevata da `verifyAuditIntegrity()`.
+      // Nullable per non rompere le righe legacy create prima della migration.
+      rowHash: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      prevHash: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
     },
     {
       tableName: 'audit_log',
@@ -96,5 +112,71 @@ module.exports = (sequelize) => {
     },
   );
 
+  /**
+   * Stringa canonica del record audit. NON include id (auto-incrementato a
+   * insert) e createdAt (assegnato dal DB) per garantire che la stessa
+   * azione produca sempre la stessa hash a parità di payload. Include
+   * invece tutti i campi semantici dell'azione.
+   *
+   * Stable JSON ordering: serializza le chiavi dell'oggetto in ordine
+   * alfabetico così l'hash non dipende dall'ordine di inserimento delle
+   * proprietà nel payload.
+   */
+  AuditLog.canonicalString = function canonicalString(record) {
+    const parts = [
+      String(record.actorId ?? ''),
+      String(record.action ?? ''),
+      String(record.targetType ?? ''),
+      String(record.targetId ?? ''),
+      String(record.path ?? ''),
+      String(record.statusCode ?? ''),
+      stableStringify(record.payload),
+      stableStringify(record.response),
+      String(record.ip ?? ''),
+      String(record.userAgent ?? ''),
+    ];
+    return parts.join('|');
+  };
+
+  AuditLog.computeRowHash = function computeRowHash(record, prevHash) {
+    const input = AuditLog.canonicalString(record) + '|' + (prevHash || '');
+    return crypto.createHash('sha256').update(input).digest('hex');
+  };
+
+  // Hook beforeCreate: legge l'ultimo rowHash della catena e calcola il
+  // proprio. Wrapped in una transazione esterna quando possibile (vedi
+  // services/auditIntegrity per la verifica); l'audit middleware oggi
+  // inserisce senza tx, accettando che con scritture rigorosamente
+  // concorrenti possa esserci un raro mis-link → la verify lo segnala
+  // come `chain_gap` (non come tampering).
+  AuditLog.addHook('beforeCreate', async (instance, options) => {
+    const last = await AuditLog.findOne({
+      attributes: ['rowHash'],
+      where: {},
+      order: [
+        ['createdAt', 'DESC'],
+        ['id', 'DESC'],
+      ],
+      transaction: options.transaction,
+    });
+    const prev = last?.rowHash || null;
+    instance.prevHash = prev;
+    instance.rowHash = AuditLog.computeRowHash(instance.toJSON(), prev);
+  });
+
   return AuditLog;
 };
+
+/**
+ * Serializzazione JSON stabile: ordina le chiavi alfabeticamente in modo
+ * ricorsivo. Necessario perché `JSON.stringify({a:1,b:2})` ≠
+ * `JSON.stringify({b:2,a:1})` ma le due strutture sono semanticamente
+ * identiche — non vogliamo che l'hash dipenda dall'ordine.
+ */
+function stableStringify(value) {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+  const keys = Object.keys(value).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(value[k])).join(',') + '}';
+}
