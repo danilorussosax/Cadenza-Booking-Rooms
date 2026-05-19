@@ -19,6 +19,7 @@ const passport = require('./config/passport');
 const logger = require('./lib/logger');
 const { apiDefaultLimiter } = require('./middleware/rateLimit');
 const { auditMiddleware } = require('./middleware/audit');
+const { originGuard } = require('./middleware/originGuard');
 const { mapSequelizeError } = require('./lib/dbErrors');
 const sentry = require('./lib/sentry');
 
@@ -214,6 +215,12 @@ function buildApp({ serveFrontend = true } = {}) {
   if (process.env.NODE_ENV !== 'test') {
     app.use('/api/', apiDefaultLimiter);
   }
+
+  // CSRF-equivalent: blocca richieste mutanti (POST/PUT/PATCH/DELETE) con
+  // Origin/Referer non whitelistato. Difesa complementare al CORS che copre
+  // anche richieste "simple" (form-urlencoded/text/plain) inviate senza
+  // preflight. Bypassato in test e su webhook server-to-server.
+  app.use('/api/', originGuard);
 
   app.use('/api/', auditMiddleware);
 
