@@ -189,7 +189,16 @@ Soglie **bloccanti** (esito CI fallisce sotto target). Tutti gli 8 assi (4 backe
 
 Le soglie crescono con il coverage: floor = misurato − ~1.5 punti, così nuovi test alzano la barra mentre regressioni vengono bloccate dal CI. Quando aggiungi test che migliorano la copertura, alza anche le soglie.
 
-Stato 2026-05-12: **1.386 test backend** (12 skipped postgres-only, 70 file) + **177 frontend** (2 skipped, 19 file) + **5 spec E2E** = 1.568 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`, `fieldMapping`) e `twoFa` al 100 % / 88 % / 100 % / 100 %. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E). Esclusioni motivate backend: adapter messaging I/O esterno (telegram, signal_cli, email_imap, whatsapp_cloud), `routes/analytics.js` (coperto da job CI Postgres-only dedicato), `services/announcementEmail.js` (SMTP transporter).
+Stato 2026-05-19 (v1.11.0): **1.730 test backend** (16 skipped postgres-only, 98 file) + **258 frontend** (2 skipped, 26 file) + **12 spec E2E** = 2.000 test totali. Servizi parser CSV (`structureImporter`, `instrumentImporter`, `fieldMapping`) e `twoFa` al 100 % / 88 % / 100 % / 100 %. Scope frontend: `src/components/**` + `src/lib/**` (pages e dialog admin pesanti coperti via E2E). Esclusioni motivate backend: adapter messaging I/O esterno (telegram, signal_cli, email_imap, whatsapp_cloud), `routes/analytics.js` (coperto da job CI Postgres-only dedicato), `services/announcementEmail.js` (SMTP transporter).
+
+**Nuove suite v1.11.0**:
+
+- `tests/unit/originGuard.test.js` (14 test) — safe methods bypass, origin allowed/blocked, fallback su Referer, esenzioni di percorso, typosquatting, comportamento dev vs production.
+- `tests/integration/auditIntegrity.test.js` (6 test) — hash-chain popolata su `AuditLog.create`, verifica catena pulita, rilevamento `hash_mismatch` (tampering campi), rilevamento `chain_gap` (cancellazione in mezzo), endpoint `GET /api/admin/audit-log/verify-integrity` (admin-only, 403 per non-admin).
+- `tests/integration/instrumentLoans.test.js` esteso con 2 test pagination (`X-Total-Count`/`X-Limit`/`X-Offset` + clamp `MAX_LIMIT=500`).
+- `tests/integration/adminRoutes.test.js` esteso con 1 test su `/api/ready` multi-componente (struttura `checks.database/smtp/disk`).
+
+**Helper test-only**: `flushPendingAuditWrites()` esportato da `middleware/audit.js`. Il hook `beforeCreate` della hash-chain aggiunge una `findOne`, quindi la write audit non è più ~istantanea su SQLite. I test pre-esistenti del middleware sono stati aggiornati per awaitare il flush invece di assumere sync.
 
 Per area frontend i test componenti coprono i critici (BookingFormDialog, QuotasManager, Heatmap). Estendi in base al rischio.
 
@@ -212,10 +221,21 @@ In v1.5.1 sono state aggiunte **4 nuove suite di stabilità** che vanno oltre lo
 - **Cosa fa**: 20 test sui calcoli temporali del calendario didattico — rollover anno accademico (transizione 31 ottobre → 1 novembre), finestra di submission delle proposte Monte Ore (settembre-ottobre), Computus pasquale per gli anni 2024-2033, comportamento degli override admin sulle finestre. Tutti i test usano `vi.useFakeTimers()` per simulare il salto di data.
 - **Comando**: `npm --prefix backend test -- timeTravel`
 
-### 3. Playwright E2E smoke
+### 3. Playwright E2E (suite `e2e/tests/`)
 
-- **File**: `frontend/tests/e2e/smoke.spec.ts`
-- **Cosa fa**: golden path utente end-to-end — login UI con un utente seedato → creazione di una `Booking` via API (saltando la UI per velocità) → verifica che compaia nella lista `Le mie prenotazioni` → logout. Il backend gira con **SQLite in-memory** e serve anche la SPA buildata dal `backend/lib/serveStaticSpa.js`, in modo che il test giri come "monolite" senza nginx.
+- **Suite ufficiale**: `e2e/tests/` (la CI lancia da qui, `working-directory: e2e` nel workflow). `frontend/tests/e2e/smoke.spec.ts` esiste come monolite alternativo ma non è quello che gira in CI.
+- **12 spec attualmente** (aggiornato v1.11.0):
+  - `login-booking.spec.ts` — studente: login, crea booking, opzionale check-in
+  - `waitlist-claim.spec.ts` — conflict → waitlist → claim
+  - `instrument-loan.spec.ts` — prestito strumento lifecycle (request → approve → return)
+  - `admin-approve.spec.ts` — admin approva utente pending dal pannello
+  - `a11y.spec.ts` — axe-core scan su `/login`, `/register`, `/privacy-policy`, `/terms` (no violazioni serious/critical)
+  - `rbac-denial.spec.ts` (v1.11.0) — studente riceve 403 su 5 rotte admin core (canary anti escalation privilegio)
+  - `booking-cancel.spec.ts` (v1.11.0) — owner cancella la propria booking, status diventa `cancelled` e sparisce dagli attivi
+  - `gdpr-export.spec.ts` (v1.11.0) — art. 20: il payload contiene profile/bookings/instrumentLoans/consents/auditTrail
+  - `pending-user.spec.ts` (v1.11.0) — docente fresco da `/register` riceve 403 `ACCOUNT_PENDING` su POST `/api/bookings` e `/api/loans`
+  - `loans-pagination.spec.ts` (v1.11.0) — contratto header `X-Total-Count/X-Limit/X-Offset` + clamp `MAX_LIMIT=500`
+- **Cosa fa lo smoke** (`login-booking.spec.ts`): golden path utente end-to-end — login UI con un utente seedato → creazione di una `Booking` via API (saltando la UI per velocità) → verifica che compaia nella lista `Le mie prenotazioni` → logout. Il backend gira con **SQLite in-memory** e serve anche la SPA buildata, in modo che il test giri come "monolite" senza nginx.
 - **Setup**: `npx playwright install chromium` la prima volta (~150 MB di binari). Va fatto una sola volta per workstation; in CI è cached per workflow.
 - **Comandi**:
 

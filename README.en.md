@@ -107,13 +107,14 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - Top 10 rooms and top users by hours
 - No-show rate with an 8-week trend
 - CSV export (UTF-8 BOM) and monthly PDF reports
-- Append-only audit log with 24-month retention
+- Append-only audit log with 24-month retention and **SHA-256 integrity hash-chain** (v1.11.0): every row chains to the previous via `rowHash`/`prevHash`. Admin endpoint `GET /api/admin/audit-log/verify-integrity` detects direct DB tampering (PA compliance: tamper-evidence)
 
 ### 🔒 Security & compliance
 
 - **2FA via email code** (6-digit OTP, 10-min expiry, bcrypt cost 8, 10 recovery codes)
 - **JWT** 2h + `tokenVersion` (real logout) + bcrypt cost 12
 - **Strict CSP** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — public scanners: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
+- **Origin guard middleware** (v1.11.0): defense-in-depth against CSRF for Cadenza's JWT+Bearer model. All mutating requests (`POST/PUT/PATCH/DELETE`) must originate from a whitelisted `Origin/Referer` (`FRONTEND_URL` + same-origin), otherwise `403 ORIGIN_FORBIDDEN`
 - **Sentry** v10 with recursive PII scrubbing + SHA-256 anonymised user
 - **Italian PA GDPR package** (Garante 06/2021): cookie banner, append-only `UserConsent`, art. 20 export, art. 17 delete, re-consent on policy version change
 - **PostgreSQL EXCLUDE constraint** (`bookings_no_overlap`) as a DB-level anti-overlap safety net
@@ -176,6 +177,8 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 - **"Booking management" macro page** (v1.5.1): a single sidebar entry (`/admin/bookings-management`) with 3 large-card tabs — **Rules** (⚖️ amber) · **Booking types** (🏷️ green) · **Approvals** (📋 blue, with `N` counter badge). Legacy URLs `/admin/rules`, `/admin/booking-types`, `/admin/approvals` still work as redirects to the corresponding tab.
 - Width aligned with the other admin pages (`max-w-6xl`), real-time badge on pending requests.
 - **"System status" dashboard** (`/admin/ops`, v1.7.0): 5 at-a-glance widgets refreshed every 10s — VPS (CPU/RAM/disk with 70/90% threshold badges), database (connections, size, top tables), email queue (pending with oldest age), backups (last + age, **with "Integrity check" subsection added in v1.9.0** showing the latest weekly verification outcome), internal schedulers (status and last tick of **6 workers**: reminder, retention, mailOutbox, backup, backupVerify, excelExport). Admin-only `GET /api/admin/ops/snapshot` endpoint with 5s server-side cache.
+- **Multi-component readiness** (`GET /api/ready`, extended in v1.11.0): verifies `database` (CRITICAL → 503), `smtp` (warning, the outbox handles retries), `disk` (warning ≥90%, critical ≥95%). Uniform response schema `{ status, checks: { database, smtp, disk }, timestamp }` on both 200 and 503 — ready for UptimeRobot/Healthchecks/Kubernetes `readinessProbe`. Separate liveness: `GET /api/health` (always 200 while the process is alive).
+- **Admin `/api/loans` pagination** (v1.11.0): the loans listing returns `X-Total-Count`, `X-Limit`, `X-Offset` headers. Default 100 records, server-side cap 500 (anti-DoS). Backward-compatible for clients that don't pass `limit`/`offset`.
 
 ---
 
@@ -224,7 +227,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 | Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                                                                                                    |
 | Operations    | `pg-tune-4gb.sh` (idempotent, reversible Postgres tuning for small VPS) · `KIOSK_IP_ALLOWLIST.md` (nginx kiosk restriction) · `/admin/ops` dashboard |
 | Monitoring    | Sentry v10 (opt-in) + in-app ops dashboard                                                                                                           |
-| Testing       | Vitest 1,704 backend tests + 258 component/lib + 1 Playwright E2E spec (golden path)                                                                 |
+| Testing       | Vitest 1,730 backend tests + 258 component/lib + 12 Playwright E2E specs (golden + RBAC + GDPR + audit chains closed)                                |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                       |
 
 ---
@@ -482,7 +485,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Current coverage (v1.10.0)**: **1,704** backend tests (95 integration + unit files, 16 skipped with rationale) + **258** frontend component tests (26 files, ~10 of which a11y via `vitest-axe`, 2 skipped) + **1 spec** Playwright on the golden path (login UI → booking via API → "My bookings" → logout) — **1,962 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
+**Current coverage (v1.11.0)**: **1,730** backend tests (98 integration + unit files, 16 skipped with rationale) + **258** frontend component tests (26 files, ~10 of which a11y via `vitest-axe`, 2 skipped) + **12 Playwright specs** (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocking + loans pagination contract + 6 pre-existing on loans/waitlist/a11y) — **2,000 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
 
 **Stability suites (v1.5.1)** — beyond the classic unit/integration scope, each documented in [`docs/TESTING.md`](docs/TESTING.md):
 
@@ -520,6 +523,7 @@ The following areas are complete and running in production:
 - **Smartphone UX overhaul** (v1.8.0): compact hero, 2×2 KPI grid, hidden decorative subtitles, full-line page title; **new "Rooms and bookings" section** mobile-only with hierarchical `<details>` disclosure building→room; Booking/MyBookings/Profile tightened
 - **Automated backup integrity check** (v1.9.0): weekly scheduler running 7 checks, "Integrity check" widget in `/admin/ops`, admin alert email only on FAIL with idempotency per day+reason
 - **High Availability Level 1+2, opt-in** (v1.10.0): PM2 cluster mode with scheduler lock (`backend/lib/clusterRole.js`), multi-cloud off-site backup (`scripts/setup-rclone-backups.sh`), PITR via WAL archiving (`scripts/setup-wal-archiving.sh`)
+- **Security & quality hardening** (v1.11.0): originGuard middleware (cross-origin anti-CSRF), integrity hash-chain on `audit_log` (PA tamper-evidence, `verify-integrity` endpoint), `/api/ready` extended to DB/SMTP/disk, admin pagination on `/api/loans`, +5 Playwright specs (RBAC denial, booking cancel, GDPR export, pending-user, loans pagination contract)
 
 ### 🚧 Current sprints
 

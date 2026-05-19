@@ -107,13 +107,14 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Top 10 aule e top utenti per ore
 - No-show rate con trend 8 settimane
 - Export CSV (BOM UTF-8) e report PDF mensili
-- Audit log append-only con retention 24 mesi
+- Audit log append-only con retention 24 mesi e **hash-chain di integrità SHA-256** (v1.11.0): ogni riga concatena la precedente via `rowHash`/`prevHash`. Endpoint admin `GET /api/admin/audit-log/verify-integrity` rileva manipolazioni dirette del DB (compliance PA tamper-evidence)
 
 ### 🔒 Sicurezza & compliance
 
 - **2FA via codice email** (OTP 6 cifre, scadenza 10 min, bcrypt cost 8, 10 recovery code)
 - **JWT** 2h + `tokenVersion` (logout effettivo) + bcrypt cost 12
 - **CSP rigorosa** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — scanner pubblici: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
+- **Origin guard middleware** (v1.11.0): defense-in-depth contro CSRF per il modello JWT+Bearer di Cadenza. Tutte le richieste mutanti (`POST/PUT/PATCH/DELETE`) devono provenire da un `Origin/Referer` whitelistato (`FRONTEND_URL` + same-origin), altrimenti `403 ORIGIN_FORBIDDEN`
 - **Sentry** v10 con scrubbing PII ricorsivo + utente anonimizzato SHA-256
 - **Pacchetto GDPR-PA italiana** (Garante 06/2021): cookie banner, `UserConsent` append-only, export art. 20, delete art. 17, re-consent al cambio versione
 - **EXCLUDE constraint** PostgreSQL (`bookings_no_overlap`) come rete di sicurezza anti-overlap a livello DB
@@ -175,6 +176,8 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 - **Macro pagina "Gestione prenotazioni"** (v1.5.1): una sola voce di sidebar (`/admin/bookings-management`) con 3 tab a card grandi — **Regole** (⚖️ ambra) · **Tipi prenotazione** (🏷️ verde) · **Approvazioni** (📋 blu, badge counter `N`). I vecchi URL `/admin/rules`, `/admin/booking-types`, `/admin/approvals` restano funzionanti come redirect.
 - Larghezza coerente con le altre pagine admin (`max-w-6xl`), badge in tempo reale sulle richieste in attesa.
 - **Dashboard "Stato sistema"** (`/admin/ops`, v1.7.0): 5 widget at-a-glance aggiornati ogni 10s — VPS (CPU/RAM/disco con semafori 70/90%), database (connessioni, dimensione, top tabelle), coda email (pending con età del più vecchio), backup (ultimo + età, **con sezione "Verifica integrità" da v1.9.0** che mostra esito ultima verifica weekly), scheduler interni (stato e ultimo tick di **6 worker**: reminder, retention, mailOutbox, backup, backupVerify, excelExport). Endpoint `GET /api/admin/ops/snapshot` admin-only con cache server-side 5s.
+- **Readiness multi-componente** (`GET /api/ready`, esteso v1.11.0): verifica `database` (CRITICO → 503), `smtp` (warning, l'outbox fa retry), `disk` (warning ≥90 %, critico ≥95 %). Schema response uniforme `{ status, checks: { database, smtp, disk }, timestamp }` su 200 e 503 — pronto per UptimeRobot/Healthchecks/Kubernetes `readinessProbe`. Liveness separata: `GET /api/health` (sempre 200 se il processo è vivo).
+- **Paginazione `/api/loans` admin** (v1.11.0): listing prestiti restituisce header `X-Total-Count`, `X-Limit`, `X-Offset`. Default 100 record, cap server-side 500 (anti-DoS). Backward-compatible per client che non passano `limit`/`offset`.
 
 ---
 
@@ -223,7 +226,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente                                                                                                                          |
 | Operations    | `pg-tune-4gb.sh` (Postgres tuning idempotente per VPS piccole, `ALTER SYSTEM` reversibile) · `KIOSK_IP_ALLOWLIST.md` (restrizione nginx del kiosk) · dashboard `/admin/ops` |
 | Monitoring    | Sentry v10 (opt-in) + dashboard ops in-app                                                                                                                                  |
-| Testing       | Vitest 1.704 test backend + 258 component/lib + Playwright 1 spec E2E (golden path)                                                                                         |
+| Testing       | Vitest 1.730 test backend + 258 component/lib + Playwright 12 spec E2E (golden + RBAC + GDPR + audit-loop chiusi)                                                           |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                                              |
 
 ---
@@ -481,7 +484,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale (v1.10.0)**: **1.704** test backend (95 file integration + unit, 16 skippati con motivazione) + **258** component test frontend (26 file, ~10 dei quali a11y `vitest-axe`, 2 skippati) + **1 spec** Playwright sul percorso d'oro (login UI → booking via API → "Le mie prenotazioni" → logout) — **1.962 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
+**Copertura attuale (v1.11.0)**: **1.730** test backend (98 file integration + unit, 16 skippati con motivazione) + **258** component test frontend (26 file, ~10 dei quali a11y `vitest-axe`, 2 skippati) + **12 spec** Playwright (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocco + loans pagination contract + 6 spec pre-esistenti su prestiti/waitlist/a11y) — **2.000 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
 
 **Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico, ognuna documentata in [`docs/TESTING.md`](docs/TESTING.md):
 
@@ -519,6 +522,7 @@ Le seguenti aree sono complete e in produzione:
 - **Smartphone UX overhaul** (v1.8.0): hero compatto, KPI 2×2, sottotitoli decorativi nascosti, header titolo a riga intera; **nuova sezione "Aule e prenotazioni"** mobile-only con disclosure gerarchica `<details>` edificio→aula; Booking/MyBookings/Profile snelliti
 - **Verifica integrità backup automatica** (v1.9.0): scheduler weekly con 7 check, widget in `/admin/ops` "Verifica integrità", mail admin solo su FAIL con idempotency per giorno+reason
 - **High Availability Livello 1+2 opt-in** (v1.10.0): PM2 cluster mode con scheduler lock (`backend/lib/clusterRole.js`), off-site backup multi-cloud (`scripts/setup-rclone-backups.sh`), PITR via WAL archiving (`scripts/setup-wal-archiving.sh`)
+- **Security & quality hardening** (v1.11.0): originGuard middleware (anti-CSRF cross-origin), hash-chain di integrità su `audit_log` (tamper-evidence PA, endpoint `verify-integrity`), `/api/ready` esteso a DB/SMTP/disk, paginazione admin su `/api/loans`, +5 spec Playwright (RBAC denial, booking cancel, GDPR export, pending-user, loans pagination contract)
 
 ### 🚧 Sprint correnti
 

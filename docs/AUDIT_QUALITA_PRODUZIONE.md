@@ -1,6 +1,6 @@
 # Cadenza · Audit Qualità, Stabilità e Sicurezza
 
-> **Versione**: 1.10.0 — fotografia del 15 maggio 2026
+> **Versione**: 1.11.0 — fotografia del 19 maggio 2026
 > **Cosa è**: una rilettura ragionata dello stato attuale del prodotto pronta per essere mostrata a un cliente Conservatorio, a un'amministrazione che valuta l'adozione o a un consulente esterno che debba farsi un'idea senza dover leggere il codice.
 > **Cosa non è**: un changelog. Per la cronologia delle modifiche c'è `git log` e [`CHANGELOG.md`](../CHANGELOG.md); qui interessa raccontare in che condizioni il software è arrivato a oggi.
 
@@ -12,9 +12,9 @@ Cadenza è una webapp per la gestione delle prenotazioni di aule e strumenti in 
 
 Se il lettore avesse solo trenta secondi per farsi un'idea: il software è **pronto alla produzione commerciale** su singolo Conservatorio e si presta al multi-cliente con un onboarding documentato di pochi giorni. La conformità GDPR è completa, le misure minime AGID sono rispettate, l'anti-overlap delle prenotazioni è garantito dal database (non solo dall'applicazione), il backup è verificato automaticamente ogni settimana e il disaster recovery è coperto da backup off-site multi-cloud + PITR opzionale via WAL archiving. Restano in roadmap le integrazioni "PA enterprise" — SPID/CIE, PEC, conservazione sostitutiva — che si attivano su richiesta del cliente.
 
-Dal punto di vista numerico Cadenza conta circa **95.600 righe di codice produttivo** (44.6K backend + 51K frontend), **244 endpoint REST**, **1.721 test unitari e di integrazione** in run-time medio di 95 secondi, un E2E Playwright sul percorso d'oro e una suite di soak test che gira fuori CI per le verifiche pre-rilascio. La copertura di codice è sopra le soglie su tutti gli otto assi misurati. Nessuna vulnerabilità segnalata da `npm audit`. Nessun errore di lint o di type-check.
+Dal punto di vista numerico Cadenza conta circa **95.600 righe di codice produttivo** (44.6K backend + 51K frontend), **245 endpoint REST**, **1.730 test unitari e di integrazione** in run-time medio di 95 secondi, **12 spec Playwright** (golden path + RBAC + GDPR + audit + pagination contract) e una suite di soak test che gira fuori CI per le verifiche pre-rilascio. La copertura di codice è sopra le soglie su tutti gli otto assi misurati. Nessuna vulnerabilità segnalata da `npm audit`. Nessun errore di lint o di type-check.
 
-Dalle release v1.6.0 al v1.10.0 il prodotto ha consolidato l'osservabilità (dashboard `/admin/ops` in v1.7.0 con widget VPS · Postgres · MailOutbox · Backup · Scheduler), il mobile UX (overhaul completo delle pagine cliente in v1.8.0 con disclosure gerarchica edificio→aula per il calendario su smartphone) e la business continuity (verifica integrità backup automatica in v1.9.0, PM2 cluster lock + off-site backup + PITR opt-in in v1.10.0).
+Dalle release v1.6.0 al v1.11.0 il prodotto ha consolidato l'osservabilità (dashboard `/admin/ops` in v1.7.0 con widget VPS · Postgres · MailOutbox · Backup · Scheduler), il mobile UX (overhaul completo delle pagine cliente in v1.8.0 con disclosure gerarchica edificio→aula per il calendario su smartphone), la business continuity (verifica integrità backup automatica in v1.9.0, PM2 cluster lock + off-site backup + PITR opt-in in v1.10.0) e infine — con v1.11.0 — un giro di hardening sicurezza/qualità che ha aggiunto la difesa cross-origin sulle mutazioni (originGuard middleware), la hash-chain di integrità sull'audit log per tamper-evidence, la paginazione admin su `/api/loans` e il readiness check multi-componente (DB + SMTP + disk).
 
 ---
 
@@ -79,13 +79,13 @@ L'ossatura di prova è costruita su Vitest 4 — stesso runner per backend e fro
 
 Lo stato attuale è il seguente:
 
-- **1.704 test backend** (più 16 skippati con motivazione, soprattutto test Postgres-only che girano in un job separato) distribuiti su 95 file
+- **1.730 test backend** (più 16 skippati con motivazione, soprattutto test Postgres-only che girano in un job separato) distribuiti su 98 file
 - **258 test frontend** (più 2 skippati) su 26 file
-- **1 spec Playwright** sul percorso d'oro: login dall'UI, prenotazione via API, verifica nella pagina "Le mie prenotazioni", logout
+- **12 spec Playwright** sui flussi critici: golden path (login + booking + my-bookings + logout), **RBAC denial** (studente → 403 su rotte admin), **booking cancellation** dall'owner, **GDPR export** art. 20, **pending-user** che vede `403 ACCOUNT_PENDING` sulle mutazioni, **loans pagination contract** (X-Total-Count/X-Limit/X-Offset + clamp anti-DoS), prestito strumenti lifecycle, waitlist conflict + claim, admin approve pending, a11y `axe-core` su pagine pubbliche
 - Una **suite di soak test** in k6 con sampler memoria, file descriptor e latenza, che si lancia manualmente per le verifiche pre-rilascio (non in CI, perché impiega 4-8 ore)
 - Suite di stabilità dedicata: **roundtrip dei backup**, **time-travel del calendario** (vent'anni di Pasqua calcolata con il Computus su dieci anni avanti)
 
-Sommando solo unit e integration si arriva a **1.962 test** che girano in circa 95 secondi sul backend e 3 secondi sul frontend. È il tipo di velocità che invita davvero a lanciare i test prima di committare, non un rituale da subire.
+Sommando solo unit e integration si arriva a **1.988 test** che girano in circa 95 secondi sul backend e 3 secondi sul frontend. È il tipo di velocità che invita davvero a lanciare i test prima di committare, non un rituale da subire.
 
 ### 3.2 Quanto codice è coperto
 
@@ -123,7 +123,7 @@ Sono le cose che il sistema fa per non sbagliare anche quando l'utente fa qualco
 - **Transazioni `SERIALIZABLE` con retry su deadlock**: ogni mutazione passa per `lib/withTransaction.js`, che intercetta i codici di errore 40001 e ritenta in modo trasparente.
 - **Outbox email**: tutte le email passano da una coda persistente con chiave di idempotenza unica, throttle per destinatario, backoff esponenziale fino a un'ora di cap e dead-letter dopo cinque tentativi falliti. Se il server SMTP smette di rispondere, le email si accumulano in stato `pending` e ripartono da sole. Se un utente ha hard-bounce permanente, viene segnato e saltato dagli invii futuri (tranne quelli a priorità di sicurezza, come l'OTP).
 - **Ghost booking**: chi prenota e non si presenta perde lo slot dopo una finestra di grazia configurabile. Il meccanismo è in profondità: lo scheduler include la condizione `requireCheckIn` direttamente nella query SQL, c'è un filtro di sicurezza applicativo a valle e un guard hard nel mittente che si rifiuta di inviare un'email "ghost cancellation" se l'aula non richiede check-in.
-- **Audit log immutabile**: ogni azione amministrativa su entità sensibili viene scritta in append-only con retention configurabile (default 24 mesi), archiviazione gzip prima della cancellazione e firma HMAC SHA-256 sull'export per provenance.
+- **Audit log immutabile con hash-chain di integrità**: ogni azione amministrativa su entità sensibili viene scritta in append-only con retention configurabile (default 24 mesi) e archiviazione gzip prima della cancellazione. Da v1.11.0 ogni riga porta un `rowHash` SHA-256 concatenato al `prevHash` della riga precedente, in modo che un `UPDATE` o `DELETE` diretto sul DB sia rilevabile dall'endpoint admin `GET /api/admin/audit-log/verify-integrity` come `hash_mismatch` o `chain_gap`. Tamper-evidence per dossier legali e ispezioni PA.
 - **Account lockout**: dopo dieci login falliti consecutivi l'account si blocca per trenta minuti. Il controllo `lockedUntil` avviene _prima_ di bcrypt, così un attacco brute force non amplifica il consumo CPU del server.
 
 ### 3.4 Gli scheduler
@@ -139,7 +139,7 @@ Cadenza ha **sei scheduler** principali. Tutti sono testati, tutti scrivono uno 
 
 ### 3.5 Operations
 
-Il sistema è in produzione dietro nginx con TLS gestito da Let's Encrypt e HSTS preload. Il process supervisor è pm2; l'uptime è stabile, i restart sono solo quelli del deploy. C'è un endpoint `/api/health` che risponde sotto i cinque millisecondi con lo stato del processo e un `/api/ready` che valida la connessione DB — utile per sonde esterne, livenessProbe/readinessProbe Kubernetes e load balancer di front.
+Il sistema è in produzione dietro nginx con TLS gestito da Let's Encrypt e HSTS preload. Il process supervisor è pm2; l'uptime è stabile, i restart sono solo quelli del deploy. C'è un endpoint `/api/health` che risponde sotto i cinque millisecondi con lo stato del processo e un `/api/ready` che — esteso in v1.11.0 — esegue tre check di prontezza: **database** (CRITICO, una connessione KO porta a 503), **SMTP** (warning, l'outbox compensa con retry), **disk** (warning ≥90 %, critico ≥95 % sul filesystem che ospita `uploads/`). La risposta segue uno schema uniforme `{ status, checks, timestamp }` sia su 200 sia su 503 — un monitor esterno (UptimeRobot, Healthchecks) può differenziare warning da critico senza parser custom.
 
 **Dashboard operativa unificata** in `/admin/ops` (introdotta in v1.7.0): cinque widget aggiornati ogni dieci secondi via polling cacheato server-side (TTL 5s) per VPS (load average, RAM, disco, uptime, Node version), Postgres (connessioni attive/idle/idle-in-tx, dimensione DB, top tabelle), MailOutbox (count per status, età del più vecchio `pending`), Backup (ultimo `.tar.gz` con badge verde/giallo/rosso sull'età, dimensione, totale storico) con **sotto-sezione "Verifica integrità"** introdotta in v1.9.0 che mostra esito dell'ultima verifica weekly e prossimo tick programmato, Scheduler (sei worker con `lastTickAt`, `lastError`, `nextTickAt` normalizzati).
 
@@ -188,6 +188,8 @@ I segreti del repository sono protetti da **Gitleaks** in CI (fail su rilevament
 
 Rate limit su login, register, forgot password, GDPR endpoint e iCal export, con `express-rate-limit` per IP. Account lockout dopo dieci tentativi falliti (durata trenta minuti). Anti-replay del TOTP con marker `lastUsedAt` e tolleranza di una finestra (trenta secondi). Token iCal e QR check-in rotabili, hash SHA-256 in DB, mai loggati in chiaro.
 
+**Origin guard cross-origin** (v1.11.0): tutte le richieste mutanti (`POST/PUT/PATCH/DELETE`) verso `/api/*` devono provenire da un `Origin/Referer` whitelistato (`FRONTEND_URL` + same-origin; localhost qualsiasi porta in dev). Difesa CSRF-equivalente coerente con il modello JWT+Bearer di Cadenza: copre anche le "simple request" che il browser invia senza preflight CORS. Una richiesta non conforme riceve `403 ORIGIN_FORBIDDEN` con log strutturato `warn` per SIEM. Eccezioni: webhook server-to-server (`/api/messaging/*`) e CSP report endpoint.
+
 C'è anche una **whitelist IP opzionale** per il check-in: se l'amministratore vuole, il check-in QR funziona solo da una CIDR list configurata (utile per evitare che gli studenti facciano check-in da casa).
 
 ### 4.6 Stato delle vulnerabilità
@@ -226,7 +228,7 @@ Sul deploy, lo script `deploy.sh` è idempotente e completa tipicamente in trent
 
 ### 7.1 Pronto subito per un singolo Conservatorio
 
-Tutte le condizioni che servono per partire sono soddisfatte: zero vulnerabilità, zero errori statici, **1.962 test che passano**, copertura sopra soglia su tutti gli assi, anti-overlap a livello DB, audit log immutabile, endpoint GDPR completi, **sei scheduler con retention testati e verifica integrità backup automatica**, outbox email con idempotency e dead-letter, doppio fattore admin obbligatorio, segreti cifrati AES-256-GCM, deploy idempotente, drill DR non distruttivo, **backup off-site multi-cloud opt-in**, PWA installabile, mobile UX mobile-first (overhaul v1.8.0), cinque lingue, venti documenti tecnici e trentasei screenshot per l'onboarding.
+Tutte le condizioni che servono per partire sono soddisfatte: zero vulnerabilità, zero errori statici, **1.988 test che passano** (più 12 spec E2E Playwright), copertura sopra soglia su tutti gli assi, anti-overlap a livello DB, **audit log immutabile con hash-chain di integrità SHA-256 e endpoint admin di verifica**, endpoint GDPR completi, **sei scheduler con retention testati e verifica integrità backup automatica**, outbox email con idempotency e dead-letter, doppio fattore admin obbligatorio, **origin guard cross-origin sulle mutazioni** (v1.11.0), segreti cifrati AES-256-GCM, **readiness multi-componente DB/SMTP/disk** per monitor esterni (v1.11.0), deploy idempotente, drill DR non distruttivo, **backup off-site multi-cloud opt-in**, PWA installabile, mobile UX mobile-first (overhaul v1.8.0), cinque lingue, venti documenti tecnici e trentasei screenshot per l'onboarding.
 
 La capacità target su singolo Conservatorio — verificata dai load test in `loadtest/` — è dell'ordine di **cinquemila utenti attivi**, **cinquantamila prenotazioni l'anno**, **duecento aule** e **cinquecento strumenti in prestito**. Numeri molto sopra la media dei conservatori italiani. Con PM2 cluster mode attivato (opt-in v1.10.0) la capacità HTTP scala linearmente sul numero di core fisici della VPS.
 
@@ -326,19 +328,21 @@ npm run soak
 ### Numeri-cartolina
 
 ```
-v1.10.0 — closed-source proprietary
+v1.11.0 — closed-source proprietary
 ~95.600 LOC produttivo (44.6K backend + 51K frontend)
-244 endpoint REST con RBAC granulare
-41 modelli Sequelize, 15 con soft-delete
+245 endpoint REST con RBAC granulare (+1 verify-integrity audit-log)
+41 modelli Sequelize, 15 con soft-delete · audit log con hash-chain SHA-256
 34 route, 38 services, 5 lingue UI
-1.962 test unit+integration (1.704 backend + 258 frontend) + 1 E2E + soak harness
+1.988 test unit+integration (1.730 backend + 258 frontend) + 12 E2E + soak harness
 72.99 / 74.25 / 79.46 / 61.50 backend coverage (stmts/lines/funcs/branches)
 71.87 / 74.32 / 63.83 / 60.06 frontend coverage
 0 vulnerabilità npm audit · 0 errori lint/typecheck · TS strict
-2FA admin obbligatorio · audit log immutabile firmato HMAC · AES-256-GCM secrets
+2FA admin obbligatorio · audit log tamper-evident (hash-chain) · AES-256-GCM secrets
+Origin guard cross-origin (CSRF-equivalent per modello Bearer) · CSP A+
 GDPR by-design (consent, export, delete, retention 24mo)
 Anti-overlap DB-level (Postgres EXCLUDE) — zero doppie prenotazioni garantite
 6 scheduler (cluster-safe) · weekly backup integrity check · off-site sync rclone
+Readiness multi-componente (DB/SMTP/disk) per UptimeRobot/Healthchecks
 Deploy idempotente · DR drill non distruttivo · PITR opt-in · RTO ~1 s
 Dashboard ops /admin/ops · PWA installabile · mobile UX mobile-first
 20 documenti tecnici + 36 screenshot admin + CHANGELOG bilingue IT/EN

@@ -103,10 +103,10 @@ Lo step `[5/8]` previene sia regressioni sia recupera da stati pregressi rotti.
 
 Per i rollout maggiori (cambi schema, refactor estesi, prima volta in produzione di un servizio), affianca al deploy due **gate di stabilità** in più rispetto agli unit test che girano già in CI:
 
-| Test                     | Quando                                    | Dove                   | Durata          | Cosa cattura                                                                                   |
-| ------------------------ | ----------------------------------------- | ---------------------- | --------------- | ---------------------------------------------------------------------------------------------- |
-| **E2E smoke** Playwright | A ogni PR su `main`, prima del deploy     | CI GitHub Actions      | ~3 s            | Regression sul golden path (login → booking → list → logout). Catastrofi UI / API              |
-| **Soak test 4h**         | La **notte prima** di un rollout maggiore | Staging (k6 + sampler) | 4 h (overnight) | Memory leak, FD leak, latenza in degradazione lenta, race condition emergenti dopo N richieste |
+| Test                         | Quando                                    | Dove                   | Durata          | Cosa cattura                                                                                                                                                                                                     |
+| ---------------------------- | ----------------------------------------- | ---------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **E2E Playwright (12 spec)** | A ogni PR su `main`, prima del deploy     | CI GitHub Actions      | ~30 s           | Golden path + RBAC denial (studente vs admin) + booking cancel + GDPR export + pending-user block + loans pagination contract + prestiti/waitlist/a11y. Catastrofi UI/API e regressioni di sicurezza/compliance. |
+| **Soak test 4h**             | La **notte prima** di un rollout maggiore | Staging (k6 + sampler) | 4 h (overnight) | Memory leak, FD leak, latenza in degradazione lenta, race condition emergenti dopo N richieste                                                                                                                   |
 
 **Comandi** (vedi `docs/TESTING.md` § _Test di stabilità_ per i dettagli):
 
@@ -148,6 +148,48 @@ Da maggio 2026 `sequelize-cli` è stato **spostato da `devDependencies` a `depen
 Cadenza esegue un `lib/preSyncMigrations.js` al boot che applica **fallback difensivi** per alcune migration di schema critiche (es. il rilassamento di `rooms.requireCheckIn` a NULLABLE introdotto dalla migration `20260514083454-building-checkin-default`). Sono **idempotenti** e no-op se la migration è già stata applicata.
 
 Questo evita che il backend vada in crash post-deploy se per qualche motivo l'admin si dimentica `db:cli:migrate`. **Non sostituisce** l'esecuzione esplicita della migration: per trasparenza, audit e per non lasciare derive su altri ambienti, **continua a eseguire `npm run db:cli:migrate`** come passo dichiarato del deploy. Vedi `docs/MIGRATIONS.md` per il dettaglio.
+
+### 0.6 Smoke post-deploy (v1.11.0)
+
+Dopo il `pm2 restart`, lancia un controllo readiness multi-componente sul nuovo processo prima di passare il traffico:
+
+```bash
+curl -fsS https://cadenza.tuoistituto.it/api/ready | jq .
+```
+
+Il payload (esteso in v1.11.0) ha questa forma:
+
+```json
+{
+  "status": "ready",
+  "checks": {
+    "database": { "ok": true, "latencyMs": 3 },
+    "smtp": { "ok": true, "latencyMs": 142 },
+    "disk": { "ok": true, "usedPct": 47, "freeBytes": 53194752000 }
+  },
+  "timestamp": "2026-05-19T17:55:00.000Z"
+}
+```
+
+Stati:
+
+- `status: "ready"` + HTTP **200** → tutto critico OK, puoi instradare traffico.
+- `status: "not_ready"` + HTTP **503** → DB irraggiungibile o disco ≥95 %. Stop, indaga.
+- `checks.smtp.ok = false` con HTTP **200** → la posta è giù ma l'app risponde; le mail si accumulano in `mail_outbox` con retry. Non blocca il deploy, ma apri un ticket per l'SMTP.
+- `checks.disk.severity = "warning"` (90-94 %) con HTTP **200** → libera spazio prima del prossimo backup notturno.
+
+**Monitor esterni** (UptimeRobot / Healthchecks / Better Stack): configura `GET /api/ready` come endpoint principale. Differenzia gli alert su `checks.smtp.ok = false` (priorità bassa) e su HTTP 503 (priorità alta).
+
+**Per Kubernetes / load balancer di front**: `/api/health` (sempre 200 se il processo è vivo) come `livenessProbe`, `/api/ready` come `readinessProbe`.
+
+Lancia poi anche una verifica di integrità sull'audit log se la migration `20260519100000-audit-log-hash-chain` è appena stata applicata:
+
+```bash
+curl -fsS -H "Authorization: Bearer $ADMIN_TOKEN" \
+  https://cadenza.tuoistituto.it/api/admin/audit-log/verify-integrity | jq .
+```
+
+Risposta attesa: `ok: true` con eventuali `issues` di tipo `legacy` (righe pre-migration, attese e benigne). Se compare `hash_mismatch` o `chain_gap`: investigare prima di promuovere il deploy in produzione (vedi `docs/SECURITY.md §11`).
 
 ---
 

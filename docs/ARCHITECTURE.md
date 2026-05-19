@@ -89,6 +89,7 @@ BookingRule        ── 1 record per ruolo (studente/docente/admin)
 - **BookingRuleException** — eccezioni temporanee a regole/quote: `name`, `kind` (`block` · `time_window`), `role` (`all` · ruolo specifico), `roomId` (nullable — null = vale per tutte le aule, valorizzato = scope su singola aula), `dateFrom/dateTo`, `startTime/endTime`, `daysOfWeek[]`, `maxHoursInWindow`, `isActive`, `notes`. FK CASCADE su `Room`. Indici: `(roomId)` e composito `(role, roomId, isActive)` per il lookup hot-path nel validator.
 - **BookingRecurrence** — regola MRBS-style di serie ricorrente: `userId`, `roomId`, `frequency` (`daily` · `weekly`), `interval` (1..12), `byWeekday` JSON (es. `['MO','WE','FR']`), `startDate`, `endDate`, `excludeDates[]` (YYYY-MM-DD da skippare). `hasMany Booking` con `onDelete: SET NULL` — cancellando la serie le occorrenze restano come booking individuali (storia preservata). Espansione e validazione conflitti in `services/recurrenceExpander.js` con cap `MAX_OCCURRENCES=52` e `MAX_RANGE_DAYS=366`.
 - **PasswordResetToken** — token monouso per reset password self-service: `userId`, `tokenHash` (SHA-256 hex, mai plain in DB), `expiresAt` (default +1h), `usedAt` (null finché non usato), `requestIp`, `requestUserAgent`. Gate per-utente: max 3 token attivi nell'ultima ora (anti-abuse mirato).
+- **AuditLog** — append-only, retention 24 mesi. Campi: `actorId`, `action` (HTTP method), `targetType` (`user` · `booking` · `room` · …), `targetId`, `path`, `statusCode`, `payload` (sanitizzato: password/token redacted), `response` (summary), `ip`, `userAgent`. Da v1.11.0 ogni riga porta una **hash-chain di integrità** SHA-256: `rowHash` calcolato come hash di `canonicalString(record) + '|' + prevHash`, dove `prevHash` è il `rowHash` della riga precedente in ordine `(createdAt, id)`. `canonicalString` usa `stableStringify` (chiavi alfabeticamente ordinate) per produrre lo stesso hash a parità di payload semantico. Endpoint admin di verifica: `GET /api/admin/audit-log/verify-integrity` (vedi `services/auditIntegrity.js`).
 
 ## 4. Autenticazione e autorizzazione
 
@@ -113,9 +114,14 @@ backend/
 ├── config/database.js → istanza Sequelize
 ├── models/            → un file per modello + index.js (relazioni)
 ├── routes/            → un file per area (auth, users, courses, ...)
-├── middleware/auth.js → authenticate, requireRole, requireCompleteProfile
+├── middleware/
+│   ├── auth.js         → authenticate, requireRole, requireCompleteProfile
+│   ├── audit.js        → audit middleware + flushPendingAuditWrites (test helper)
+│   ├── originGuard.js  → CSRF-equivalent: Origin/Referer check su POST/PUT/PATCH/DELETE (v1.11.0)
+│   └── rateLimit.js    → express-rate-limit per login / register / GDPR / 2FA / iCal
 ├── services/
-│   ├── bookingValidator.js → validazione regole prima di insert/update
+│   ├── bookingValidator.js  → validazione regole prima di insert/update
+│   ├── auditIntegrity.js    → verifyAuditIntegrity (hash-chain check, v1.11.0)
 │   └── structureImporter.js → parser CSV import sedi
 └── seeders/initial.js → admin di default + 5 livelli + regole base
 ```
@@ -254,7 +260,8 @@ Lo scheduler (`reminderScheduler.tickLoans`, ogni 5 min) gestisce due transizion
 - `POST /api/instruments/:id/photo` — upload foto resize sharp 1200×675 webp (pattern identico a `routes/structure.js`).
 - `GET /api/instruments/export` · `POST /api/instruments/import` — CSV (idempotente, match per `code` o composta).
 - `GET /api/loans/mine` — i propri prestiti.
-- `GET /api/loans` (admin) · `GET /api/loans/overdue` (admin) · `GET /api/loans/expiring?days=N` (admin).
+- `GET /api/loans` (admin) — paginato da v1.11.0 con `?limit=&offset=` (default 100, MAX 500 server-side anti-DoS). Risposta espone header `X-Total-Count`, `X-Limit`, `X-Offset` (CORS-exposed). Backward-compatible per client legacy che non passano i parametri. Filtri: `status`, `userId`, `instrumentId`.
+- `GET /api/loans/overdue` (admin) · `GET /api/loans/expiring?days=N` (admin) — no pagination (bound naturale dal filtro temporale).
 - `POST /api/loans` — richiesta utente. Validazioni: `fromDate >= today`, `toDate >= fromDate`, `instrument.isLoanable`, `condition ∉ {fuori_uso, da_riparare}`, `allowedCourseIds` (regola per strumento e per famiglia), conflitto overlap su `requested|active|overdue`, quote (`loanQuotaValidator.checkLoanQuotas`). Codici errore: `LOAN_INVALID_DATE`, `LOAN_CONFLICT`, `INSTRUMENT_NOT_LOANABLE`, `INSTRUMENT_NOT_ALLOWED_FOR_COURSE`, `LOAN_QUOTA_EXCEEDED_*`.
 - `POST /api/loans/:id/approve` · `/reject` (admin) · `/return` (proprietario o admin).
 - `DELETE /api/loans/:id` — cancella richiesta `requested` (utente) o pulizia (admin).

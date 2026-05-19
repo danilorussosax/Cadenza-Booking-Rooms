@@ -249,3 +249,126 @@ Verifiche manuali consigliate:
 - **GDPR art. 32** — la verifica in due passaggi è una misura tecnica appropriata per l'accesso a dati personali. La challenge non contiene PII oltre all'email del destinatario stesso (no leak cross-utente).
 
 In ottica ISAE 3000 / SOC 2: la 2FA email è accettabile per la maggior parte dei casi d'uso PA italiana ed è la scelta meno burocratica per i conservatori. Per asset altamente critici considerare un upgrade futuro a TOTP+app o WebAuthn.
+
+---
+
+## 10. Origin guard middleware (v1.11.0)
+
+> Riferimento codice: `backend/middleware/originGuard.js` · `backend/tests/unit/originGuard.test.js` (14 unit test).
+
+### Cosa fa
+
+Su tutte le richieste mutanti verso `/api/*` (`POST`, `PUT`, `PATCH`, `DELETE`) il middleware verifica che l'header `Origin` (o, in fallback, `Referer`) provenga da un'origin esplicitamente autorizzata. Se manca o non matcha la whitelist, la richiesta viene respinta con `403 ORIGIN_FORBIDDEN`. `GET/HEAD/OPTIONS` passano sempre (safe methods per RFC 7231 §4.2.1).
+
+```
+allowed = { FRONTEND_URL, same-origin(host del backend) } ∪ (dev only: localhost:*)
+```
+
+### Perché non csurf con cookie
+
+Cadenza usa JWT in `localStorage` + header `Authorization: Bearer` — **non** cookie di sessione. Un attaccante cross-origin che apre una pagina malevola non può invocare le API admin perché il browser non invia automaticamente il Bearer token. Il vettore residuo è la "simple request" (Content-Type `text/plain`/`form-urlencoded`) che il browser invia _senza_ preflight CORS: il `cors()` middleware non interviene, ma `originGuard` sì. Aggiungere un CSRF token via cookie introdurrebbe un cookie a scopo difensivo — controproducente vs il modello attuale.
+
+### Eccezioni
+
+Bypassato per:
+
+- `NODE_ENV=test` — supertest non invia `Origin`, applicarlo bloccherebbe l'intera suite.
+- `/api/messaging/*` — webhook server-to-server (WhatsApp/Telegram cloud) inviati senza `Origin`.
+- `/api/csp-report` — il browser invia da contesto interno con Content-Type dedicato.
+
+### Configurazione
+
+Niente env aggiuntive: deriva da `FRONTEND_URL` (già richiesta in produzione dal middleware CORS).
+
+### Logging
+
+Ogni richiesta bloccata produce un log strutturato di livello `warn`:
+
+```json
+{
+  "level": "warn",
+  "ip": "203.0.113.5",
+  "method": "POST",
+  "path": "/api/users",
+  "origin": "https://attacker.example.com",
+  "referer": null,
+  "requestId": "abc123",
+  "msg": "origin guard: request blocked"
+}
+```
+
+Da consumare in SIEM/log aggregator per riconoscere campagne CSRF mirate.
+
+---
+
+## 11. Audit log con hash-chain di integrità (v1.11.0)
+
+> Riferimento codice: `backend/models/AuditLog.js` (hook `beforeCreate` + `canonicalString`/`computeRowHash`) · `backend/services/auditIntegrity.js` · `backend/routes/auditLog.js#verify-integrity` · migration `backend/migrations/20260519100000-audit-log-hash-chain.js`.
+
+### Modello
+
+A partire da v1.11.0 ogni riga di `audit_log` porta due colonne aggiuntive:
+
+| Campo      | Tipo         | Significato                                                                |
+| ---------- | ------------ | -------------------------------------------------------------------------- | ------------- |
+| `rowHash`  | `STRING(64)` | SHA-256 hex di `canonicalString(record) + '                                | ' + prevHash` |
+| `prevHash` | `STRING(64)` | `rowHash` della riga immediatamente precedente, oppure `NULL` per la prima |
+
+`canonicalString` serializza il record in modo ordering-stable (`stableStringify` ordina le chiavi alfabeticamente in modo ricorsivo), così payload semanticamente identici producono sempre lo stesso hash anche se le proprietà sono in ordine diverso.
+
+### Come scatta il rilevamento
+
+- **`hash_mismatch`** — un `UPDATE` diretto sui campi audit (anche un solo carattere nel `payload`) cambia il `canonicalString` della riga: ricalcolando il `rowHash` ottieni un valore diverso da quello persistito. Tampering certo.
+- **`chain_gap`** — un `DELETE` di una riga "in mezzo" lascia il `prevHash` della riga successiva orfano (non corrisponde più al `rowHash` del suo nuovo predecessore). Rilevato come catena spezzata.
+- **`legacy`** — righe pre-migration senza `rowHash`. Segnalate ma non spezzano la catena delle righe nuove (`prevHash=NULL` viene accettato dopo una `legacy`).
+
+### Endpoint di verifica
+
+```http
+GET /api/admin/audit-log/verify-integrity[?limit=N]
+Authorization: Bearer <admin-token>
+```
+
+Risposta:
+
+```json
+{
+  "ok": true,
+  "scanned": 12453,
+  "issuesCount": 3,
+  "tamperingCount": 0,
+  "issues": [
+    {
+      "type": "legacy",
+      "id": 1,
+      "createdAt": "2024-09-12T...",
+      "message": "..."
+    },
+    {
+      "type": "legacy",
+      "id": 2,
+      "createdAt": "2024-09-12T...",
+      "message": "..."
+    }
+  ]
+}
+```
+
+- `ok = true` se `tamperingCount = 0` (le `legacy` sono informative, non spezzano la catena).
+- `?limit=N` limita la scansione (spot-check rapido in CI o smoke); senza, scandisce tutto in pagine da 500.
+
+### Quando lanciare la verifica
+
+- **On-demand** dalla pagina admin "Audit log" — bottone "Verifica integrità" prima di un'esportazione legale.
+- **Periodica** — può essere aggiunta a uno scheduler weekly (non implementato di default per non saturare il DB di organizzazioni con audit molto grandi: lasciamo l'admin libero di scegliere).
+- **Post-incident** — dopo un sospetto accesso non autorizzato al DB, una verifica completa stabilisce se l'attaccante ha alterato il log.
+
+### Limiti noti
+
+- Il modello è **tamper-evident**, non **tamper-proof**: chi ha credenziali Postgres + il codice JS può rigenerare l'intera catena. La protezione contro questo scenario richiederebbe un timestamp authority esterno (RFC 3161) o write-once storage (S3 Object Lock) — fuori scope per la release attuale.
+- Inserimenti concorrenti possono produrre un raro `chain_gap` benigno (due request che inseriscono "in parallelo" finiscono con due righe che riferiscono allo stesso `prevHash`). In Postgres SERIALIZABLE è raro; in SQLite la scrittura è già serializzata. La verify segnala come `chain_gap` — distinguibile manualmente da un tampering perché tipicamente è uno solo, vicinissimo nel tempo a un'altra riga.
+
+### Compatibilità
+
+- SQLite + Postgres: logica in JS, niente trigger SQL.
+- La migration è idempotente: applicabile su DB esistenti senza fermare il servizio. Le righe pre-migration restano valide come `legacy`.
