@@ -8,6 +8,7 @@ const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
 const { sendInstrumentLoanEmail } = require('../services/instrumentLoanEmail');
 const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
+const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const { utils: instrumentsUtils } = require('./instruments');
 const { annotateStatus } = instrumentsUtils;
 
@@ -15,14 +16,21 @@ const router = express.Router();
 
 const userPublicAttrs = ['id', 'firstName', 'lastName', 'email', 'matricola', 'role'];
 
+// Include riusabile per i listing admin: instrument + user + approver.
+// Centralizzato qui per evitare di duplicare la lista in 4 endpoint diversi
+// (con il rischio che una modifica ne dimentichi qualcuno).
+function loanAdminIncludes() {
+  return [
+    { model: Instrument, as: 'instrument' },
+    { model: User, as: 'user', attributes: userPublicAttrs },
+    { model: User, as: 'approver', attributes: userPublicAttrs },
+  ];
+}
+
 // Costruisce un loan completo con relazioni e status calcolato
 async function findLoanFull(id) {
   const loan = await InstrumentLoan.findByPk(id, {
-    include: [
-      { model: Instrument, as: 'instrument' },
-      { model: User, as: 'user', attributes: userPublicAttrs },
-      { model: User, as: 'approver', attributes: userPublicAttrs },
-    ],
+    include: loanAdminIncludes(),
   });
   return loan;
 }
@@ -43,6 +51,10 @@ router.get('/mine', authenticate, async (req, res) => {
 
 // GET /api/loans — tutti i prestiti (admin)
 //   Filtri: status (requested|active|returned|overdue|rejected), userId, instrumentId
+//   Pagination: ?limit=&offset= (default 100, max 500). Header
+//   X-Total-Count/X-Limit/X-Offset esposti via lib/pagination.
+//   Senza limit, su un istituto con migliaia di prestiti storici, la response
+//   cresceva linearmente e drenava memoria del processo.
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   const where = {};
   if (req.query.status) where.status = String(req.query.status);
@@ -55,16 +67,17 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     if (Number.isInteger(n)) where.instrumentId = n;
   }
 
-  const loans = await InstrumentLoan.findAll({
+  const { limit, offset } = parsePagination(req.query);
+  const { rows, count } = await InstrumentLoan.findAndCountAll({
     where,
-    include: [
-      { model: Instrument, as: 'instrument' },
-      { model: User, as: 'user', attributes: userPublicAttrs },
-      { model: User, as: 'approver', attributes: userPublicAttrs },
-    ],
+    include: loanAdminIncludes(),
     order: [['fromDate', 'DESC']],
+    limit,
+    offset,
+    distinct: true, // count corretto in presenza di JOIN su user/instrument
   });
-  res.json({ loans: loans.map((l) => annotateStatus(l)) });
+  setPaginationHeaders(res, count, limit, offset);
+  res.json({ loans: rows.map((l) => annotateStatus(l)) });
 });
 
 // GET /api/loans/overdue — prestiti scaduti (admin)
@@ -75,10 +88,7 @@ router.get('/overdue', authenticate, requireRole('admin'), async (req, res) => {
     where: {
       [Op.or]: [{ status: 'overdue' }, { status: 'active', toDate: { [Op.lt]: today } }],
     },
-    include: [
-      { model: Instrument, as: 'instrument' },
-      { model: User, as: 'user', attributes: userPublicAttrs },
-    ],
+    include: loanAdminIncludes(),
     order: [['toDate', 'ASC']],
   });
   res.json({ loans: loans.map((l) => annotateStatus(l)) });
@@ -94,10 +104,7 @@ router.get('/expiring', authenticate, requireRole('admin'), async (req, res) => 
       status: 'active',
       toDate: { [Op.between]: [today, limit] },
     },
-    include: [
-      { model: Instrument, as: 'instrument' },
-      { model: User, as: 'user', attributes: userPublicAttrs },
-    ],
+    include: loanAdminIncludes(),
     order: [['toDate', 'ASC']],
   });
   res.json({ loans: loans.map((l) => annotateStatus(l)) });

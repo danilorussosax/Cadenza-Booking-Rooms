@@ -358,3 +358,67 @@ describe('GET /api/loans/mine', () => {
     expect(res.body.loans[0].userId).toBe(me.user.id);
   });
 });
+
+describe('GET /api/loans (admin) — pagination', () => {
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+  });
+
+  it('restituisce header X-Total-Count e rispetta ?limit=&offset=', async () => {
+    const admin = await createAdmin();
+    const { user } = await createAuthedUser({ role: 'studente' });
+    const inst = await createInstrument({ name: 'Violino A', family: 'archi' });
+
+    // 7 prestiti storici "returned" (così evitiamo i conflict di sovrapposizione)
+    for (let i = 0; i < 7; i++) {
+      await InstrumentLoan.create({
+        instrumentId: inst.id,
+        userId: user.id,
+        fromDate: dayjs()
+          .subtract(30 + i * 8, 'day')
+          .format('YYYY-MM-DD'),
+        toDate: dayjs()
+          .subtract(25 + i * 8, 'day')
+          .format('YYYY-MM-DD'),
+        status: 'returned',
+        returnedAt: new Date(),
+      });
+    }
+
+    const page1 = await request(app)
+      .get('/api/loans?limit=3&offset=0')
+      .set('Authorization', admin.authHeader);
+
+    expect(page1.status).toBe(200);
+    expect(page1.body.loans).toHaveLength(3);
+    expect(page1.headers['x-total-count']).toBe('7');
+    expect(page1.headers['x-limit']).toBe('3');
+    expect(page1.headers['x-offset']).toBe('0');
+
+    const page2 = await request(app)
+      .get('/api/loans?limit=3&offset=3')
+      .set('Authorization', admin.authHeader);
+
+    expect(page2.status).toBe(200);
+    expect(page2.body.loans).toHaveLength(3);
+
+    const last = await request(app)
+      .get('/api/loans?limit=3&offset=6')
+      .set('Authorization', admin.authHeader);
+
+    expect(last.status).toBe(200);
+    expect(last.body.loans).toHaveLength(1);
+  });
+
+  it('rispetta cap max sul ?limit (anti-DoS)', async () => {
+    const admin = await createAdmin();
+
+    const res = await request(app)
+      .get('/api/loans?limit=999999')
+      .set('Authorization', admin.authHeader);
+
+    expect(res.status).toBe(200);
+    // lib/pagination clampa a MAX_LIMIT=500
+    expect(Number(res.headers['x-limit'])).toBeLessThanOrEqual(500);
+  });
+});
