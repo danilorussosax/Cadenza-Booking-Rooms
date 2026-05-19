@@ -258,9 +258,18 @@ describe('admin routes — smoke + CRUD', () => {
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ok');
     });
-    it('GET /api/ready', async () => {
+    it('GET /api/ready espone i check di database/smtp/disk', async () => {
       const res = await request(app).get('/api/ready');
       expect([200, 503]).toContain(res.status);
+      expect(res.body.status).toMatch(/^(ready|not_ready)$/);
+      expect(res.body.checks).toBeDefined();
+      // In test usiamo SQLite in-memory → database SEMPRE ok.
+      expect(res.body.checks.database).toBeDefined();
+      expect(res.body.checks.database.ok).toBe(true);
+      // smtp + disk presenti come oggetti (note='not_configured' è OK).
+      expect(res.body.checks.smtp).toBeDefined();
+      expect(res.body.checks.disk).toBeDefined();
+      expect(res.body.timestamp).toBeDefined();
     });
   });
 

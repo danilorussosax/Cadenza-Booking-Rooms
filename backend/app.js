@@ -323,22 +323,110 @@ function buildApp({ serveFrontend = true } = {}) {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Readiness: il processo può servire traffico (DB raggiungibile, schema OK).
-  // Per Kubernetes readinessProbe (instradare/no instradare traffico) e per
-  // load balancer di front. Risponde 503 se la connessione DB è giù.
+  // Readiness: il processo può servire traffico.
+  //
+  // Check eseguiti:
+  //   - database (CRITICO): SELECT 1 — se KO la app non funziona, 503
+  //   - smtp     (WARNING): transporter.verify() solo se SMTP configurato.
+  //     Una SMTP KO non blocca la readiness (booking via UI funzionano,
+  //     l'invio email è asincrono via mail_outbox + retry), quindi resta
+  //     200 ma con `checks.smtp.ok=false` così un dashboard esterno
+  //     (Healthchecks / UptimeRobot) può alertare.
+  //   - disk     (WARNING): usage del filesystem dove vivono BACKUP_DIR
+  //     e uploads. Soglia 90% = warning, 95% = critico (503). Lettura
+  //     non bloccante (statfs sync) — irrilevante sul costo di una probe.
+  //
+  // Schema response (sia 200 sia 503):
+  //   { status: 'ready'|'not_ready', checks: { [name]: { ok, ... } },
+  //     timestamp }
+  //
+  // Per Kubernetes readinessProbe / load balancer di front + dashboard
+  // esterne (la status= principale risponde alla domanda "instrada o no",
+  // i checks.* danno il dettaglio per il monitoring).
   app.get('/api/ready', async (req, res) => {
+    const checks = {};
+    let critical = false;
+
+    // 1. Database (CRITICO)
+    const dbStart = Date.now();
     try {
       const { sequelize } = require('./models');
       await sequelize.query('SELECT 1');
-      res.json({ status: 'ready', timestamp: new Date().toISOString() });
+      checks.database = { ok: true, latencyMs: Date.now() - dbStart };
     } catch (err) {
-      res.status(503).json({
-        status: 'not_ready',
+      checks.database = {
+        ok: false,
         error: 'database_unreachable',
         message: err?.message?.slice(0, 200),
-        timestamp: new Date().toISOString(),
-      });
+      };
+      critical = true;
     }
+
+    // 2. SMTP (WARNING) — solo se la config esiste
+    try {
+      const emailService = require('./services/emailService');
+      const hasSmtp = await emailService.emailEnabled();
+      if (hasSmtp) {
+        const smtpStart = Date.now();
+        try {
+          const transporter = await emailService._internal.getTransporter();
+          if (transporter && typeof transporter.verify === 'function') {
+            await transporter.verify();
+            checks.smtp = { ok: true, latencyMs: Date.now() - smtpStart };
+          } else {
+            checks.smtp = { ok: true, note: 'transporter_no_verify' };
+          }
+        } catch (err) {
+          checks.smtp = {
+            ok: false,
+            error: 'smtp_unreachable',
+            message: err?.message?.slice(0, 200),
+          };
+          // SMTP KO NON è critico (mail_outbox fa retry). Resta 200.
+        }
+      } else {
+        checks.smtp = { ok: true, note: 'not_configured' };
+      }
+    } catch {
+      checks.smtp = { ok: true, note: 'check_skipped' };
+    }
+
+    // 3. Disk usage (WARNING/CRITICO) — del filesystem che ospita uploads/.
+    //   - statfsSync è sync ma <1ms in pratica; evita di pesare sul probe.
+    //   - su sistemi senza statfsSync (Node <18.15) skippa silenziosamente.
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const uploadsDir = path.join(__dirname, 'uploads');
+      if (typeof fs.statfsSync === 'function') {
+        const stats = fs.statfsSync(uploadsDir, { bigint: false });
+        const total = stats.blocks * stats.bsize;
+        const free = stats.bfree * stats.bsize;
+        const usedPct = total > 0 ? Math.round(((total - free) / total) * 100) : 0;
+        const diskCheck = { ok: true, usedPct, freeBytes: free };
+        if (usedPct >= 95) {
+          diskCheck.ok = false;
+          diskCheck.severity = 'critical';
+          critical = true;
+        } else if (usedPct >= 90) {
+          diskCheck.severity = 'warning';
+          // 90-94%: segnaliamo ma restiamo ready (il backup notturno potrebbe
+          // ancora liberare spazio).
+        }
+        checks.disk = diskCheck;
+      } else {
+        checks.disk = { ok: true, note: 'statfs_unavailable' };
+      }
+    } catch (err) {
+      checks.disk = { ok: true, note: 'check_failed', message: err?.message?.slice(0, 80) };
+    }
+
+    const body = {
+      status: critical ? 'not_ready' : 'ready',
+      checks,
+      timestamp: new Date().toISOString(),
+    };
+    res.status(critical ? 503 : 200).json(body);
   });
 
   // Smoke test della pipeline Sentry — admin-only. Lancia un errore
