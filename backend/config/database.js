@@ -11,17 +11,40 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const dialect = process.env.DB_DIALECT || 'sqlite';
 const isProd = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 
-// Logging: disattivato in prod, log limitato (solo righe di SQL distillate) in dev
+// Lazy require per evitare ciclo (requestContext non è ancora pronto al boot
+// del modulo config — viene risolto a primo uso).
+let slowQueryRecorder;
+function getRecorder() {
+  if (!slowQueryRecorder) slowQueryRecorder = require('../lib/slowQueryRecorder');
+  return slowQueryRecorder;
+}
+
+// Logging: con `benchmark: true` Sequelize passa il secondo argomento
+// `timingMs` alla callback. In dev: stampa in console. In prod: silenzioso
+// salvo per le query lente, registrate nel ring-buffer slowQueryRecorder.
+// In test: silenzioso (i record vengono comunque catturati se sopra threshold).
 function makeLogger() {
-  if (process.env.DB_LOGGING === 'true') return console.log;
-  if (process.env.DB_LOGGING === 'false') return false;
-  return isProd
-    ? false
-    : (sql) => {
-        const trimmed = sql.replace(/^Executing \(.+?\): /, '').slice(0, 200);
-        console.log('  sql ›', trimmed);
-      };
+  const forced = process.env.DB_LOGGING;
+  const consoleLog = forced === 'true' || (!isProd && !isTest && forced !== 'false');
+
+  return (sql, timingMs) => {
+    if (typeof timingMs === 'number') {
+      try {
+        getRecorder().record({ sql, durationMs: timingMs });
+      } catch {
+        // Recorder non disponibile (test isolato che mocka il modulo): ignora.
+      }
+    }
+    if (consoleLog) {
+      const trimmed = String(sql)
+        .replace(/^Executing \(.+?\): /, '')
+        .slice(0, 200);
+      const tag = typeof timingMs === 'number' ? ` (${timingMs}ms)` : '';
+      console.log(`  sql${tag} ›`, trimmed);
+    }
+  };
 }
 
 // Pool configurabile via env (utile per Postgres/MySQL in produzione)
@@ -54,7 +77,10 @@ const baseOptions = {
   pool,
   retry,
   define: { timestamps: true, underscored: false, freezeTableName: false },
-  benchmark: !isProd,
+  // benchmark sempre attivo: il costo di process.hrtime per query è trascurabile
+  // (~1 µs), in cambio abbiamo tempi di esecuzione disponibili anche in prod
+  // per `slowQueryRecorder`.
+  benchmark: true,
 };
 
 let sequelize;

@@ -783,6 +783,16 @@
       "subtitle": "Diagnostica at-a-glance di VPS, database, coda email, backup e scheduler interni. Aggiornamento ogni 10 secondi.",
       "last_update": "Ultimo aggiornamento",
       "refresh": "Aggiorna",
+      "slow_queries": {
+        "title": "Query lente",
+        "threshold": "soglia ≥ {{ms}}ms",
+        "buffer": "buffer {{used}}/{{size}}",
+        "aggregate_by_route": "Aggregato per route (ultime 24h)",
+        "recent": "Ultime registrate",
+        "empty": "Nessuna query lenta registrata. Buon segno.",
+        "col_route": "Route",
+        "col_count": "N°"
+      },
       "vps": {
         "title": "VPS",
         "cpu": "CPU (load 1m)",

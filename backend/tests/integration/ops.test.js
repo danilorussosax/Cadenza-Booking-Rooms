@@ -104,3 +104,82 @@ describe('GET /api/admin/ops/snapshot', () => {
     expect(r3.body.capturedAt).not.toBe(captured1);
   });
 });
+
+describe('GET /api/admin/ops/slow-queries', () => {
+  // Carichiamo il recorder direttamente per popolarlo con record di test
+  // (in un test integration non possiamo affidarci a query reali sopra
+  // soglia: l'overhead di SQLite in-memory è < 1ms).
+  const slowQueryRecorder = require('../../lib/slowQueryRecorder');
+
+  beforeEach(async () => {
+    await globalThis.resetDatabase();
+    slowQueryRecorder.clear();
+  });
+
+  it('senza auth → 401', async () => {
+    const res = await request(app).get('/api/admin/ops/slow-queries');
+    expect(res.status).toBe(401);
+  });
+
+  it('come studente → 403', async () => {
+    const { authHeader } = await createAuthedUser({ role: 'studente' });
+    const res = await request(app)
+      .get('/api/admin/ops/slow-queries')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('come admin → 200 con items e stats', async () => {
+    slowQueryRecorder.record({ sql: 'SELECT 1', durationMs: 800 });
+    slowQueryRecorder.record({ sql: 'SELECT 2', durationMs: 1200 });
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/ops/slow-queries')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBeGreaterThanOrEqual(2);
+    expect(res.body.stats).toMatchObject({
+      bufferSize: expect.any(Number),
+      bufferUsed: expect.any(Number),
+      thresholdMs: expect.any(Number),
+    });
+  });
+
+  it('?limit=1 rispetta il cap', async () => {
+    slowQueryRecorder.record({ sql: 'SELECT 1', durationMs: 800 });
+    slowQueryRecorder.record({ sql: 'SELECT 2', durationMs: 900 });
+    slowQueryRecorder.record({ sql: 'SELECT 3', durationMs: 1000 });
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/ops/slow-queries?limit=1')
+      .set('Authorization', authHeader);
+    expect(res.body.items).toHaveLength(1);
+  });
+
+  it('aggregate?by=pattern raggruppa varianti', async () => {
+    slowQueryRecorder.record({ sql: 'SELECT * FROM bookings WHERE id=1', durationMs: 800 });
+    slowQueryRecorder.record({ sql: 'SELECT * FROM bookings WHERE id=2', durationMs: 900 });
+    slowQueryRecorder.record({ sql: 'SELECT * FROM loans WHERE id=5', durationMs: 600 });
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/ops/slow-queries/aggregate?by=pattern')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('pattern');
+    expect(Array.isArray(res.body.aggregate)).toBe(true);
+    // Due gruppi (bookings / loans), il primo con count=2.
+    const bookings = res.body.aggregate.find((g) => g.key.includes('bookings'));
+    expect(bookings).toBeDefined();
+    expect(bookings.count).toBe(2);
+  });
+
+  it('aggregate by=route ignora chiavi non valide e cade su default', async () => {
+    const { authHeader } = await createAdmin();
+    const res = await request(app)
+      .get('/api/admin/ops/slow-queries/aggregate?by=bogus')
+      .set('Authorization', authHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.by).toBe('route');
+  });
+});

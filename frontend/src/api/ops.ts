@@ -96,7 +96,49 @@ export interface OpsSnapshot {
   schedulers: OpsScheduler[];
 }
 
+export interface SlowQueryItem {
+  at: string;
+  durationMs: number;
+  sql: string;
+  pattern: string;
+  model: string | null;
+  route: string | null;
+  method: string | null;
+  userId: number | null;
+  requestId: string | null;
+}
+
+export interface SlowQueryStats {
+  thresholdMs: number;
+  bufferSize: number;
+  bufferUsed: number;
+  observed: number;
+  recorded: number;
+  startedAt: string;
+}
+
+export interface SlowQueryAggregateRow {
+  key: string;
+  count: number;
+  avgMs: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  maxMs: number;
+}
+
 export const opsApi = {
   snapshot: () => api<OpsSnapshot>('/api/admin/ops/snapshot'),
   snapshotForce: () => api<OpsSnapshot>('/api/admin/ops/snapshot', { query: { force: '1' } }),
+  slowQueries: (params: { limit?: number; since?: string; route?: string } = {}) =>
+    api<{ items: SlowQueryItem[]; stats: SlowQueryStats }>('/api/admin/ops/slow-queries', {
+      query: params,
+    }),
+  slowQueriesAggregate: (
+    params: { by?: 'route' | 'model' | 'pattern'; since?: string; limit?: number } = {},
+  ) =>
+    api<{ aggregate: SlowQueryAggregateRow[]; by: string; stats: SlowQueryStats }>(
+      '/api/admin/ops/slow-queries/aggregate',
+      { query: params },
+    ),
 };

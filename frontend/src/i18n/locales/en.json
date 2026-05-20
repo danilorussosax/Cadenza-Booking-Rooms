@@ -781,6 +781,16 @@
       "subtitle": "At-a-glance diagnostics for VPS, database, email queue, backups and internal schedulers. Refreshes every 10 seconds.",
       "last_update": "Last update",
       "refresh": "Refresh",
+      "slow_queries": {
+        "title": "Slow queries",
+        "threshold": "threshold ≥ {{ms}}ms",
+        "buffer": "buffer {{used}}/{{size}}",
+        "aggregate_by_route": "Aggregated by route (last 24h)",
+        "recent": "Most recent",
+        "empty": "No slow queries recorded. Good sign.",
+        "col_route": "Route",
+        "col_count": "Count"
+      },
       "vps": {
         "title": "VPS",
         "cpu": "CPU (1m load)",

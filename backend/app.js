@@ -20,6 +20,7 @@ const logger = require('./lib/logger');
 const { apiDefaultLimiter } = require('./middleware/rateLimit');
 const { auditMiddleware } = require('./middleware/audit');
 const { originGuard } = require('./middleware/originGuard');
+const { requestContextMiddleware } = require('./middleware/requestContext');
 const { mapSequelizeError } = require('./lib/dbErrors');
 const sentry = require('./lib/sentry');
 
@@ -221,6 +222,11 @@ function buildApp({ serveFrontend = true } = {}) {
   // anche richieste "simple" (form-urlencoded/text/plain) inviate senza
   // preflight. Bypassato in test e su webhook server-to-server.
   app.use('/api/', originGuard);
+
+  // AsyncLocalStorage con req.id / route / userId — letto da
+  // slowQueryRecorder per arricchire i record delle query lente.
+  // Va PRIMA dell'audit middleware così req.id viene propagato anche lì.
+  app.use('/api/', requestContextMiddleware);
 
   app.use('/api/', auditMiddleware);
 
