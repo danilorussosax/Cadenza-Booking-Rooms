@@ -10,6 +10,84 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.13.1] — 20 maggio 2026
+
+Patch release **DB legacy + tooling test**: ripristina la portabilità GDPR
+sui DB esistenti prima della v1.13 e chiude diversi gap di test infrastructure
+emersi durante l'audit dei test skippati.
+
+### Bug fix — `column "rowHash" does not exist` su /gdpr/export
+
+Sintomo: scaricando il proprio archivio JSON dal profilo utente (GET
+`/api/users/me/gdpr/export`) il backend ritornava 500 con errore Postgres
+`column "rowHash" does not exist`.
+
+Causa: la migration sequelize-cli `20260519100000-audit-log-hash-chain`
+(v1.13.0) aggiungeva `rowHash`/`prevHash` alla tabella `audit_log` per la
+hash-chain di integrità, ma `deploy.sh` non esegue `db:cli:migrate` — lo
+schema in prod si allinea solo via `sequelize.sync()` in safe mode, che
+NON aggiunge colonne a tabelle esistenti. Sui DB già popolati prima della
+v1.13 le colonne restavano assenti e ogni `AuditLog.findAll()` esplodeva
+(non solo l'export GDPR: tutte le route che leggono l'audit trail).
+
+Fix: la logica idempotente è ora dentro `runPreSyncMigrations()` (gira
+ad ogni boot prima di `sync()`). Stesso pattern usato per
+`oauth_settings.allowedEmailDomains`, `password_reset_tokens.purpose`,
+ecc. Le righe pre-esistenti restano con `rowHash=NULL` (classificate
+come "legacy" dalla verifica integrità — comportamento previsto).
+
+### Audit test skippati — categoria A+B chiuse
+
+Tre test riattivati e due `test.fixme` E2E implementati:
+
+- **`<HeatmapGrid />` skip duplicato** in `booking-helpers.test.tsx`
+  rimosso: la copertura "dedicata" citata esisteva già in
+  `Heatmap.test.tsx` (4 test).
+- **`<ConsentGate />` skip → 2 smoke test reali** con `vi.mock` di
+  `useAuth` e `useConsentGate` (i 2 hook richiedono provider runtime).
+- **`approve + reject pending`** in `bookingsAdminCoverage.test.js`
+  riattivato (fix: `Room.floor` era notNull e mancante nel setup).
+- **E2E `flow completo approvazione coordinatore`** (monte-ore):
+  implementati i §1-7 del workflow originale; il seed E2E è stato esteso
+  con `MonteOreSettings` per l'AA corrente, `contractType='titolare'`
+  sul docente e `moduleMonteOreEnabled` esplicito.
+- **E2E `flusso completo` studente** (login → booking → cancella):
+  popolamento diretto dei campi `datetime-local` invece di cliccare la
+  cella oraria del calendar; cleanup deterministico via API.
+
+Side effect del refactor seed E2E: pre-popolazione `UserConsent` per i
+non-admin (studente/docente/pending) per evitare che il `ConsentGate`
+modale intercetti i click negli E2E. Il `waitFor` del legal dialog in
+`instrument-loan.spec.ts` è stato ridotto da 5000ms a 500ms (non scatta
+più con i consensi pre-popolati).
+
+### Note di operatività
+
+- Al primo restart post-deploy, i log di boot mostrano
+  `✓ Colonna audit_log.rowHash aggiunta` + `prevHash` (una sola volta —
+  idempotente nei boot successivi).
+- Nessuna data migration sulle righe esistenti: il valore NULL è
+  semanticamente corretto ("riga pre-migration", esposto come `legacy`
+  dalla verifica `/api/admin/audit-log/verify-integrity`).
+- Test backend: 1781/1781 ✓ (+2 nuovi su `preSyncMigrations`).
+- Test E2E: 20/20 ✓ con `TZ=UTC` (simula l'ambiente CI).
+
+---
+
+EN — short summary
+
+**Bug fix**: `GET /api/users/me/gdpr/export` returned 500 (`column
+"rowHash" does not exist`) on Postgres installations upgraded from
+pre-v1.13. The audit-log hash-chain columns are now added idempotently
+via `runPreSyncMigrations()` at boot, bypassing the unrun sequelize-cli
+migration.
+
+**Test infra**: 3 backend/frontend unit tests un-skipped, 2 Playwright
+`test.fixme` converted into real specs (monte-ore approval workflow and
+student booking flow). Seed E2E extended with `MonteOreSettings`,
+contract type and GDPR consents to remove modal interceptions in
+headless mode.
+
 ## [1.13.0] — 20 maggio 2026
 
 Minor release **Robustezza runtime**: chiude 3 gap residui identificati
