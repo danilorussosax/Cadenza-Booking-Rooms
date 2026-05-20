@@ -112,6 +112,13 @@ module.exports = (sequelize) => {
         { fields: ['date'] },
         { fields: ['proposalId', 'date'] },
         { fields: ['roomId'] },
+        // Composito hot-path: usato da generateBookingsForProposal e da
+        // recomputeTotals che filtrano gli slot per proposta + stato.
+        // Senza questo, su 15k+ slot la scansione è lineare.
+        {
+          fields: ['proposalId', 'isActive', 'isLocked'],
+          name: 'monte_ore_slots_proposal_active_locked_idx',
+        },
       ],
       validate: {
         // Lo slot deve sempre poter risalire a roomId+bookingType per

@@ -899,6 +899,13 @@ async function runPreSyncMigrations() {
         table: 'monte_ore_schedules',
       },
       {
+        // Hot-path della generate booking + recomputeTotals: filtro per
+        // proposta + stato attivo/locked su tabella ~15k righe per istituto.
+        name: 'monte_ore_slots_proposal_active_locked_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS monte_ore_slots_proposal_active_locked_idx ON monte_ore_slots ("proposalId", "isActive", "isLocked")',
+        table: 'monte_ore_slots',
+      },
+      {
         name: 'integration_sync_runs_config_created_idx',
         sql: 'CREATE INDEX IF NOT EXISTS integration_sync_runs_config_created_idx ON integration_sync_runs ("configId", "createdAt")',
         table: 'integration_sync_runs',

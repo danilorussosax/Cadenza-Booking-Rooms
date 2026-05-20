@@ -1569,23 +1569,24 @@ adminRouter.post(
           );
         }
 
-        // Crea le righe schedule. roomId=null: l'admin assegnerà l'aula
-        // prima di approvare la proposta.
-        for (const s of schedules) {
-          await MonteOreSchedule.create(
-            {
-              proposalId: proposal.id,
-              roomId: null,
-              dayOfWeek: s.dayOfWeek,
-              startTime: s.startTime,
-              endTime: s.endTime,
-              bookingType: s.bookingType || 'lezione',
-              purpose: anagrafica.materia || null,
-              notes: s.notes || null,
-              excludeDates: [],
-            },
-            { transaction: t },
-          );
+        // Crea le righe schedule in batch (era N INSERT sequenziali pre-v1.14.1).
+        // roomId=null: l'admin assegnerà l'aula prima di approvare la proposta.
+        const schedulePayloads = schedules.map((s) => ({
+          proposalId: proposal.id,
+          roomId: null,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          bookingType: s.bookingType || 'lezione',
+          purpose: anagrafica.materia || null,
+          notes: s.notes || null,
+          excludeDates: [],
+        }));
+        if (schedulePayloads.length > 0) {
+          await MonteOreSchedule.bulkCreate(schedulePayloads, {
+            transaction: t,
+            validate: true,
+          });
         }
 
         // Reload con schedules per ritornare il dato fresco.

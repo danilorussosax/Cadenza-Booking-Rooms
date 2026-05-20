@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -119,7 +119,15 @@ export default function MonteOreGrid({
     mutationFn: () => monteOreApi.regenerateSlots(),
     onSuccess: (data) => {
       toast.success(`Griglia rigenerata: ${data.result.created} celle`);
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // Regenerate riscrive tutti gli slot della proposta + aggiorna i
+      // contatori sulla proposal. Niente impact su threshold/amendments.
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+      void qc.invalidateQueries({
+        queryKey: ['monte-ore', 'me'],
+        // Solo la proposal-key (4 segmenti: ['monte-ore','me',<year>]),
+        // non threshold/calendar/amendments.
+        predicate: (q) => q.queryKey.length === 3 && q.queryKey[2] !== 'slots',
+      });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -177,6 +185,22 @@ export default function MonteOreGrid({
     return { active };
   }, [slotsQuery.data]);
 
+  // Callback stabili (identità invariata fra render consecutivi) → senza
+  // queste, React.memo su WeekRow/DayCell sarebbe un no-op perché la prop
+  // funzione cambierebbe ad ogni render del parent. Devono essere
+  // dichiarati PRIMA dei return condizionali (Rules of Hooks).
+  const editable = ['draft', 'rejected', 'approved', 'generated'].includes(proposalStatus);
+  const handleToggle = useCallback(
+    (slotId: number) => {
+      if (editable) toggleMutation.mutate(slotId);
+    },
+    [editable, toggleMutation],
+  );
+  const handleRequestMove = useCallback((s: MonteOreSlot) => {
+    setMovingSlot(s);
+  }, []);
+  const onRequestMoveProp = allowMove ? handleRequestMove : undefined;
+
   if (calendarQuery.isLoading) {
     return (
       <Card>
@@ -222,8 +246,6 @@ export default function MonteOreGrid({
   const slots = slotsQuery.data?.slots ?? [];
   const slotsCount = slots.length;
   const hasPendingPattern = isPatternEmpty;
-  const editable = ['draft', 'rejected', 'approved', 'generated'].includes(proposalStatus);
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
@@ -346,8 +368,8 @@ export default function MonteOreGrid({
                     key={w.weekStart}
                     week={w}
                     slotsByDate={slotsByDate}
-                    onToggle={(slotId) => editable && toggleMutation.mutate(slotId)}
-                    onRequestMove={allowMove ? (s) => setMovingSlot(s) : undefined}
+                    onToggle={handleToggle}
+                    onRequestMove={onRequestMoveProp}
                     disabled={toggleMutation.isPending || !editable}
                   />
                 ))}
@@ -375,19 +397,21 @@ export default function MonteOreGrid({
   );
 }
 
-function WeekRow({
-  week,
-  slotsByDate,
-  onToggle,
-  onRequestMove,
-  disabled,
-}: {
+interface WeekRowProps {
   week: CalendarWeek;
   slotsByDate: Map<string, MonteOreSlot[]>;
   onToggle: (slotId: number) => void;
   onRequestMove?: (slot: MonteOreSlot) => void;
   disabled: boolean;
-}) {
+}
+
+const WeekRow = memo(function WeekRow({
+  week,
+  slotsByDate,
+  onToggle,
+  onRequestMove,
+  disabled,
+}: WeekRowProps) {
   let weekTotal = 0;
   for (const d of week.days) {
     const slots = slotsByDate.get(d.date) ?? [];
@@ -417,21 +441,23 @@ function WeekRow({
       </td>
     </tr>
   );
-}
+});
 
-function DayCell({
-  day,
-  slots,
-  onToggle,
-  onRequestMove,
-  disabled,
-}: {
+interface DayCellProps {
   day: { date: string; isLocked: boolean; lockReason: string | null };
   slots: MonteOreSlot[];
   onToggle: (slotId: number) => void;
   onRequestMove?: (slot: MonteOreSlot) => void;
   disabled: boolean;
-}) {
+}
+
+const DayCell = memo(function DayCell({
+  day,
+  slots,
+  onToggle,
+  onRequestMove,
+  disabled,
+}: DayCellProps) {
   if (day.isLocked) {
     return (
       <div
@@ -487,7 +513,7 @@ function DayCell({
       })}
     </div>
   );
-}
+});
 
 function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
   const [open, setOpen] = useState(false);
@@ -771,7 +797,10 @@ function SlotMoveDialog({
   );
 
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+    // Amendment su slot (change_time/change_room/move_to) → cambia lo slot
+    // e crea un amendment. Non tocca proposal, threshold o calendar.
+    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
   };
 
   const changeTime = useMutation({

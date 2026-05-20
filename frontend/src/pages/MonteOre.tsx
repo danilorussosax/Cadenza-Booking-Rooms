@@ -154,7 +154,9 @@ export default function MonteOre() {
       validTo?: string;
     }) => monteOreApi.updateMine(payload),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // Aggiorno solo la proposal (campi notes/hours/range); threshold e
+      // slots non sono toccati da questa mutation.
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -163,7 +165,11 @@ export default function MonteOre() {
     mutationFn: (id: number) => monteOreApi.removeMySchedule(id),
     onSuccess: () => {
       toast.success('Riga eliminata');
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // La rimozione di una schedule cambia proposal.schedules e rende stantii
+      // gli slot legati a quella schedule (verranno rigenerati al prossimo
+      // regenerate-slots o submit).
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -172,7 +178,8 @@ export default function MonteOre() {
     mutationFn: () => monteOreApi.submitMine(targetYear),
     onSuccess: () => {
       toast.success('Proposta inviata al coordinatore');
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // Cambia solo proposal.status (e timestamp): basta proposal.
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -543,6 +550,7 @@ export default function MonteOre() {
         }}
         existing={editing}
         proposalId={proposal.id}
+        targetYear={targetYear}
       />
     </div>
   );
@@ -557,11 +565,13 @@ function ScheduleDialog({
   onClose,
   existing,
   proposalId: _proposalId,
+  targetYear,
 }: {
   open: boolean;
   onClose: () => void;
   existing: MonteOreSchedule | null;
   proposalId: number;
+  targetYear: string | undefined;
 }) {
   const qc = useQueryClient();
   const isEdit = existing !== null;
@@ -601,7 +611,11 @@ function ScheduleDialog({
       isEdit ? monteOreApi.updateMySchedule(existing.id, form) : monteOreApi.addMySchedule(form),
     onSuccess: () => {
       toast.success(isEdit ? 'Fascia aggiornata' : 'Fascia aggiunta');
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      // Add/update di una schedule cambia proposal.schedules; gli slot
+      // legati vanno rigenerati (regenerate-slots è esplicito), ma comunque
+      // invalidiamoli per coerenza UI quando già materializzati.
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

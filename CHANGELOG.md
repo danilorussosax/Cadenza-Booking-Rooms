@@ -10,6 +10,94 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.14.1] — 20 maggio 2026
+
+Patch release **Performance Monte Ore (Categoria A audit)**: 4 ottimizzazioni
+backend + frontend identificate dall'audit di efficienza pre-v1.14. Nessun
+cambio di comportamento funzionale.
+
+### A1 — Indice composito su `monte_ore_slots`
+
+Nuovo indice `(proposalId, isActive, isLocked)` (`monte_ore_slots_proposal_active_locked_idx`).
+Hot-path di `generateBookingsForProposal` e `recomputeTotals` filtrano gli
+slot proposta-per-proposta su questi 3 campi; senza indice composito
+Postgres scansionava linearmente fino a ~15.000 righe per istituto.
+Dichiarato nel modello (`backend/models/MonteOreSlot.js`) e aggiunto
+idempotentemente in `preSyncMigrations.js` per DB legacy (CREATE INDEX
+IF NOT EXISTS).
+
+### A2 — `bulkCreate` nell'import schedule admin
+
+`POST /api/admin/monte-ore/import` creava le righe schedule una per una in
+un loop dentro la transazione (~5-10 INSERT sequenziali per import). Ora
+costruisce il payload in memoria e fa un solo `MonteOreSchedule.bulkCreate`,
+allineandosi al pattern già usato da `monteOreSlotService.regenerateSlotsFromPattern`.
+
+### A3 — `React.memo` su `WeekRow` / `DayCell`
+
+La griglia annuale `MonteOreGrid.tsx` rende ~52 settimane × 6 giorni ≈ 312
+celle. Pre-v1.14.1 ogni toggle slot causava il re-render di tutte le righe
+(le callback `onToggle`/`onRequestMove` erano arrow inline → identità cambia
+ad ogni render del parent → memo inefficace). Fix:
+
+- `WeekRow` e `DayCell` ora sono `React.memo(...)`.
+- Le callback sono memoizzate con `useCallback` in `MonteOreGrid`.
+
+Su un toggle isolato solo la riga interessata si ri-renderizza.
+
+### A4 — Invalidation React Query granulare
+
+7 mutation usavano `qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] })`
+che per prefix-matching ri-fetchava proposal + threshold + slots +
+amendments + calendar simultaneamente. Ora ogni mutation invalida solo le
+chiavi effettivamente impattate:
+
+- `updateMine`, `submit` → solo proposal
+- `removeSchedule`, `addSchedule`, `updateSchedule` → proposal + slots
+- `regenerateSlots` → slots + proposal (escluso 'slots' via predicate)
+- amendment slot (`change_time` / `change_room` / `move_to`) → slots + amendments
+
+Risparmiate 2-4 query API per ogni mutation in stato normale.
+
+### Backward compatibility
+
+100% trasparente:
+
+- L'indice è additivo (`IF NOT EXISTS`); i vecchi indici single-column
+  restano in piedi senza danno.
+- `bulkCreate` mantiene la stessa semantica del loop (`validate: true` per
+  rispettare i validator del modello).
+- `React.memo` è un'ottimizzazione interna senza impatto sul rendering
+  finale.
+- Le invalidation più strette possono solo _non_ ri-fetchare query che
+  prima venivano comunque ri-fetchate inutilmente.
+
+### Verifica
+
+- Backend: 1793/1793 ✓
+- Frontend: 272/272 ✓ (typecheck strict OK)
+- E2E: 20/20 ✓ con `TZ=UTC`
+
+### Note di operatività
+
+Al primo restart post-deploy, log atteso (una sola volta su Postgres):
+
+```
+✓ Indice composito monte_ore_slots_proposal_active_locked_idx creato su monte_ore_slots
+```
+
+Nessuna azione admin richiesta.
+
+---
+
+EN — short summary
+
+**Performance patch**: composite index on `monte_ore_slots`,
+`bulkCreate` for admin schedule import, `React.memo` + `useCallback` on
+the year grid (312 cells), and granular React Query invalidation
+(7 mutations no longer over-invalidate). 100% transparent — no behaviour
+change.
+
 ## [1.14.0] — 20 maggio 2026
 
 Minor release **Vincoli giornalieri Monte Ore (Z2/Z3)**: il modulo Monte Ore
