@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Aula Book — installer automatico per VPS Ubuntu 24.04 (Hetzner Cloud o equivalenti).
+# Cadenza — installer automatico per VPS Linux (Ubuntu 24.04 LTS o equivalenti).
+# Funziona su qualsiasi provider: Hetzner, IONOS, Aruba, OVH, Scaleway, Contabo, ecc.
 #
-# Stack: Node 20 + PostgreSQL 16 + nginx (+ certbot/Let's Encrypt se DOMAIN) + systemd.
+# Stack: Node 22 LTS + PostgreSQL 18 + nginx (+ certbot/Let's Encrypt se DOMAIN) + systemd.
 #
 # USO (con dominio + HTTPS Let's Encrypt):
 #   DOMAIN="aulabook.miodominio.it" \
@@ -22,6 +23,8 @@
 #   PUBLIC_IP               forza l'IP pubblico (default: rilevato in automatico)
 #   USE_TLS_INTERNAL=1      modalità IP-only con cert self-signed (openssl)
 #   BRANCH                  branch git da deployare (default: main)
+#   NODE_MAJOR              major Node da installare (default: 22)
+#   PG_VERSION              major PostgreSQL via PGDG (default: 18)
 #   APP_USER                utente di sistema (default: aulabook)
 #   APP_DIR                 directory installazione (default: /opt/aulabook/app)
 #   DB_NAME / DB_USER       (default: aulabook / aulabook)
@@ -62,7 +65,8 @@ APP_HOME="$(dirname "$APP_DIR")"  # /opt/aulabook
 DB_NAME="${DB_NAME:-aulabook}"
 DB_USER="${DB_USER:-aulabook}"
 PORT="${PORT:-3000}"
-NODE_MAJOR="${NODE_MAJOR:-20}"
+NODE_MAJOR="${NODE_MAJOR:-22}"
+PG_VERSION="${PG_VERSION:-18}"
 
 # =====================================================
 # Detect IP pubblico se DOMAIN non è valorizzato.
@@ -149,11 +153,21 @@ fi
 ok "Node $(node -v) · npm $(npm -v)"
 
 # =====================================================
-# 3. PostgreSQL
+# 3. PostgreSQL (PGDG per la major specificata, default 18)
 # =====================================================
 if ! command -v psql >/dev/null 2>&1; then
-  log "Installo PostgreSQL..."
-  apt-get install -y -qq postgresql postgresql-contrib
+  log "Installo PostgreSQL ${PG_VERSION} dal repository PGDG..."
+  install -d /usr/share/postgresql-common/pgdg
+  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+  CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME:-noble}")"
+  echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${CODENAME}-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list
+  apt-get update -qq
+  if ! apt-get install -y -qq "postgresql-${PG_VERSION}" "postgresql-contrib-${PG_VERSION}"; then
+    warn "PGDG non offre ${PG_VERSION} per ${CODENAME} — fallback al pacchetto di sistema"
+    apt-get install -y -qq postgresql postgresql-contrib
+  fi
 fi
 systemctl enable --now postgresql >/dev/null
 
