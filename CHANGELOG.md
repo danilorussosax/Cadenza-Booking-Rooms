@@ -10,6 +10,67 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.12.0] — 20 maggio 2026
+
+Minor release **Observability & Quality**: 3 interventi additivi indipendenti.
+
+### Feature A — Slow query logging (osservabilità)
+
+- **`backend/lib/slowQueryRecorder.js`** (nuovo): ring buffer in-memory di
+  500 slot con normalizzazione SQL (params → `?`, no PII grezza),
+  aggregati per route/model/pattern con p50/p95/p99. Threshold
+  configurabile via `SLOW_QUERY_MS` (default 500ms). Snapshot disco
+  opzionale via `SLOW_QUERY_SNAPSHOT_PATH`.
+- **`backend/middleware/requestContext.js`** (nuovo): `AsyncLocalStorage`
+  con `requestId`/`route`/`userId`, propagato all'hook `logging` di
+  Sequelize che altrimenti non vede `req`.
+- **`backend/config/database.js`**: `benchmark: true` sempre attivo (anche
+  in prod, overhead trascurabile). Hook `logging` chiama
+  `recorder.record({ sql, durationMs })` per ogni query che supera la soglia.
+- **`backend/routes/ops.js`**: 2 endpoint admin-only nuovi
+  `GET /api/admin/ops/slow-queries` (con filtri `limit`/`since`/`route`)
+  `GET /api/admin/ops/slow-queries/aggregate?by=route|model|pattern`
+- **`frontend/src/pages/admin/Ops.tsx`**: card "Slow queries" con tabella
+  aggregata per route (p50/p95/max) + lista top 10 recenti, polling 60s.
+- **Test**: 16 unit + 5 integration (RBAC, items+stats shape, limit cap,
+  aggregate raggruppamento, by invalido).
+
+### Feature B — N+1 audit mirato
+
+Audit dei top endpoint via `slowQueryRecorder`: la maggior parte aveva
+già include eager. L'unico hotspot puntuale era in
+`backend/services/bookingSuggestions.js`: i 5 candidati chiamavano
+`validateBooking` SENZA cache condivisa, generando 5 × ~6 query
+identiche su `BookingRule + BookingQuota + BookingRuleException + Room`.
+
+Fix: `createValidationCache()` condiviso tra i candidati, sourceRoom
+pre-popolata. Query attese da ~30 a ~10 per `findAlternatives`.
+
+### Feature C — Espansione suite E2E Playwright (4 nuove spec)
+
+- **`e2e/tests/booking-suggestions.spec.ts`** — verifica contratto
+  `409 BOOKING_CONFLICT` arricchito con `suggestions[]`; controlla shape
+  (reason ∈ enum, roomId/startTime/endTime ISO) e privacy
+  (`ownerLabel: null` per studenti).
+- **`e2e/tests/2fa-login.spec.ts`** — primo step 2FA: form UI password →
+  appare campo `#twofa-code`; verifica API che admin con `twoFaEnabled`
+  riceve `needsTwoFa + tempToken`, admin senza 2FA riceve direttamente
+  il JWT.
+- **`e2e/tests/checkin-qr.spec.ts`** — flusso completo docente:
+  `GET /api/bookings/checkin-candidates` → `POST /:id/checkin` con
+  `qrToken` corretto → `409 ALREADY_CHECKED_IN` sul re-checkin.
+- **`e2e/tests/monte-ore-approval.spec.ts`** — smoke su module gating;
+  flow completo in `test.fixme()` documentato (richiede
+  `moduleMonteOreEnabled` nel seed).
+
+Seed E2E esteso con `docente@test.local` approvato, `admin2fa@test.local`
+con 2FA attiva, Aula 101 con `qrToken` fisso e booking attiva del docente
+nella finestra eleggibile per il check-in.
+
+**Suite E2E**: 18 pass + 2 skipped (entrambi `test.fixme` preesistenti).
+
+---
+
 ## [1.11.3] — 20 maggio 2026
 
 Patch release operativa: nuovo script **`setup-pgbouncer.sh`** per abilitare
