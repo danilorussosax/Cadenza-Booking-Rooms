@@ -154,6 +154,101 @@ export default function AdminMonteOreSettings() {
   );
 }
 
+/**
+ * I 2 campi dailyBreak* sono un'unità logica: configurati insieme o nessuno
+ * dei due. Lo stato "uno solo valorizzato" è incoerente — il backend lo
+ * rifiuta con 400, ma vogliamo bloccare il salvataggio in UI prima del fetch.
+ */
+function hasBreakCoherenceError(form: Partial<MonteOreSettings>): boolean {
+  const a = form.dailyBreakAfterHours;
+  const b = form.dailyBreakMinutes;
+  const aSet = a !== null && a !== undefined;
+  const bSet = b !== null && b !== undefined;
+  return aSet !== bSet;
+}
+
+/** Trasforma il valore di un input number (eventualmente vuoto) in number|null. */
+function emptyToNull(v: string): number | null {
+  const trimmed = v.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
+function DailyConstraintsSection({
+  form,
+  update,
+}: {
+  form: Partial<MonteOreSettings>;
+  update: <K extends keyof MonteOreSettings>(k: K, v: MonteOreSettings[K]) => void;
+}) {
+  const breakError = hasBreakCoherenceError(form);
+  return (
+    <div className="rounded-md border border-border/60 bg-muted/30 p-4 space-y-4">
+      <div>
+        <h3 className="text-sm font-medium">Vincoli giornalieri (opzionali)</h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Limiti sul singolo giorno di lezione. Esempio: il Regolamento Tchaikovsky 2019 prevede max
+          9h/giorno e pausa di 30 min dopo 7h consecutive. Adatta i valori al regolamento del tuo
+          istituto. Lascia vuoti i campi per non applicare il vincolo.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <Label htmlFor="maxHoursPerDay">Max ore consecutive in un giorno</Label>
+          <Input
+            id="maxHoursPerDay"
+            type="number"
+            min={1}
+            max={24}
+            step={0.5}
+            placeholder="es. 9"
+            value={form.maxHoursPerDay ?? ''}
+            onChange={(e) => update('maxHoursPerDay', emptyToNull(e.target.value))}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">vuoto = nessun limite</p>
+        </div>
+        <div>
+          <Label htmlFor="dailyBreakAfterHours">Pausa obbligatoria dopo (ore)</Label>
+          <Input
+            id="dailyBreakAfterHours"
+            type="number"
+            min={1}
+            max={24}
+            step={0.5}
+            placeholder="es. 7"
+            value={form.dailyBreakAfterHours ?? ''}
+            onChange={(e) => update('dailyBreakAfterHours', emptyToNull(e.target.value))}
+            aria-invalid={breakError}
+          />
+        </div>
+        <div>
+          <Label htmlFor="dailyBreakMinutes">Durata pausa (minuti)</Label>
+          <Input
+            id="dailyBreakMinutes"
+            type="number"
+            min={1}
+            max={480}
+            step={1}
+            placeholder="es. 30"
+            value={form.dailyBreakMinutes ?? ''}
+            onChange={(e) => update('dailyBreakMinutes', emptyToNull(e.target.value))}
+            aria-invalid={breakError}
+          />
+        </div>
+      </div>
+      {breakError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Compila entrambi i campi della pausa (ore + minuti), oppure lasciali entrambi vuoti.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
 function SettingsForm({
   settings,
   onSave,
@@ -243,8 +338,11 @@ function SettingsForm({
             />
           </div>
         </div>
+
+        <DailyConstraintsSection form={form} update={update} />
+
         <div className="flex justify-end">
-          <Button onClick={() => onSave(form)} disabled={saving}>
+          <Button onClick={() => onSave(form)} disabled={saving || hasBreakCoherenceError(form)}>
             <Save className="h-4 w-4" />
             Salva impostazioni
           </Button>

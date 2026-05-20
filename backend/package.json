@@ -1,6 +1,6 @@
 {
   "name": "cadenza-backend",
-  "version": "1.13.1",
+  "version": "1.14.0",
   "private": true,
   "license": "UNLICENSED",
   "description": "Cadenza — backend Express+Sequelize per la gestione e prenotazione aule del conservatorio. Proprietary software, see LICENSE.",

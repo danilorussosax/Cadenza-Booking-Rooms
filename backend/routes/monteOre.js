@@ -44,6 +44,7 @@ const monteOreService = require('../services/monteOreService');
 const slotService = require('../services/monteOreSlotService');
 const calendarService = require('../services/monteOreCalendarService');
 const { resolveAnnualThreshold } = require('../services/monteOreThresholdService');
+const { validateDailyConstraints } = require('../services/monteOreDailyValidator');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 
 const router = express.Router();
@@ -120,7 +121,21 @@ router.get('/me/threshold', authenticate, requireApproved, async (req, res, next
   try {
     const year = req.query.year || currentAcademicYearLabel();
     const resolved = await resolveAnnualThreshold(req.user.id, year);
-    res.json({ academicYear: year, ...resolved });
+    // Esponi anche i vincoli giornalieri istituzionali (Z2/Z3) per consentire
+    // al frontend di mostrare warning inline durante l'editing del pattern.
+    const settings = await MonteOreSettings.findOne({
+      where: { academicYear: year },
+      attributes: ['maxHoursPerDay', 'dailyBreakAfterHours', 'dailyBreakMinutes'],
+    });
+    res.json({
+      academicYear: year,
+      ...resolved,
+      dailyConstraints: {
+        maxHoursPerDay: settings?.maxHoursPerDay ?? null,
+        dailyBreakAfterHours: settings?.dailyBreakAfterHours ?? null,
+        dailyBreakMinutes: settings?.dailyBreakMinutes ?? null,
+      },
+    });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
@@ -344,6 +359,19 @@ router.post('/me/submit', authenticate, requireApproved, async (req, res, next) 
             `Il monte ore deve essere almeno di ${minRequired} ore ` +
             `(attuali: ${totalHours.toFixed(1)} h). ${sourceMsg}`,
           code: 'HOURS_BELOW_THRESHOLD',
+        });
+      }
+
+      // Z2/Z3 — vincoli giornalieri configurabili (Regolamento Art. 2).
+      // Skip se le soglie nelle settings sono NULL (vincolo disabilitato).
+      const dailyResult = validateDailyConstraints(proposal.schedules, settings);
+      if (!dailyResult.ok) {
+        const first = dailyResult.violations[0];
+        const msg = formatDailyViolationMessage(first, dailyResult.violations.length);
+        return res.status(400).json({
+          error: msg,
+          code: first.code,
+          violations: dailyResult.violations,
         });
       }
     }
@@ -1054,7 +1082,34 @@ function sanitizeSettings(body) {
   if (body.minRequiredHours !== undefined) out.minRequiredHours = Number(body.minRequiredHours);
   if (body.maxAmendmentsPerYear !== undefined)
     out.maxAmendmentsPerYear = Number(body.maxAmendmentsPerYear);
+  // Vincoli giornalieri (Z2/Z3): nullable, "" o null → null, numero altrimenti.
+  // Il range è validato dal modello; qui ci limitiamo a normalizzare il tipo.
+  if (body.maxHoursPerDay !== undefined) out.maxHoursPerDay = nullableNumber(body.maxHoursPerDay);
+  if (body.dailyBreakAfterHours !== undefined)
+    out.dailyBreakAfterHours = nullableNumber(body.dailyBreakAfterHours);
+  if (body.dailyBreakMinutes !== undefined)
+    out.dailyBreakMinutes = nullableNumber(body.dailyBreakMinutes, { integer: true });
   return out;
+}
+
+function nullableNumber(v, { integer = false } = {}) {
+  if (v === null || v === '' || v === undefined) return null;
+  const n = integer ? parseInt(v, 10) : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Messaggio italiano per una violazione di vincolo giornaliero. */
+function formatDailyViolationMessage(v, totalViolations) {
+  const dayLabels = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+  const dayName = dayLabels[v.dayOfWeek] || `Giorno ${v.dayOfWeek}`;
+  const suffix = totalViolations > 1 ? ` (e altre ${totalViolations - 1} violazioni)` : '';
+  if (v.code === 'DAILY_HOURS_EXCEEDED') {
+    return `${dayName}: ${v.totalHours}h totali superano il massimo di ${v.limit}h giornaliere${suffix}`;
+  }
+  if (v.code === 'BREAK_REQUIRED') {
+    return `${dayName}: ${v.consecutiveHours}h consecutive richiedono una pausa di almeno ${v.breakNeeded} minuti dopo ${v.threshold}h${suffix}`;
+  }
+  return `Violazione vincolo giornaliero${suffix}`;
 }
 
 async function resolveDefaultInstituteId() {
@@ -1616,6 +1671,15 @@ adminRouter.put('/settings', authenticate, requireRole('admin'), async (req, res
     res.json({ settings: settings.toJSON() });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
+    // Errore di validazione model (es. range fuori scope o coerenza
+    // dailyBreakAfterHours/dailyBreakMinutes) → 400 con messaggio leggibile
+    // invece di 500 generico.
+    if (err.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        error: err.errors?.[0]?.message || err.message,
+        code: 'INVALID_SETTINGS',
+      });
+    }
     next(err);
   }
 });

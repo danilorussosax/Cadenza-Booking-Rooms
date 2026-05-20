@@ -22,6 +22,7 @@ import {
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
+import { validateDailyConstraints, describeDailyViolation } from '@/lib/monteOreDailyValidator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -132,6 +133,14 @@ export default function MonteOre() {
       out.push(
         `Ti mancano ${missing} h per raggiungere la soglia di ${threshold.minHours} h/anno.`,
       );
+    }
+    // Z2/Z3 — vincoli giornalieri (Regolamento Art. 2). Se l'admin non li
+    // ha configurati (tutti null), il validator ritorna ok=true senza warning.
+    if (threshold?.dailyConstraints && proposal.schedules.length > 0) {
+      const daily = validateDailyConstraints(proposal.schedules, threshold.dailyConstraints);
+      for (const v of daily.violations) {
+        out.push(describeDailyViolation(v));
+      }
     }
     return out;
   })();

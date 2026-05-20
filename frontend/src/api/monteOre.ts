@@ -138,6 +138,11 @@ export interface MonteOreSettings {
   minRequiredHours: number;
   maxAmendmentsPerYear: number;
   isActiveForTeachers: boolean;
+  // Vincoli giornalieri configurabili (Z2/Z3 Regolamento Art. 2).
+  // NULL = vincolo disabilitato. Le soglie variano tra istituti / nel tempo.
+  maxHoursPerDay: number | null;
+  dailyBreakAfterHours: number | null;
+  dailyBreakMinutes: number | null;
 }
 
 export type SuspensionKind = 'full_week' | 'partial';
@@ -294,6 +299,15 @@ export interface MonteOreThresholdResponse {
   contractType: 'titolare' | 'contratto_orario' | 'supplente' | 'altro' | null;
   reason: string | null;
   source: 'user_override' | 'institute_settings' | 'default';
+  /**
+   * Vincoli giornalieri istituzionali (Z2/Z3 Regolamento Art. 2).
+   * Tutti i campi null = nessun vincolo per questo AA.
+   */
+  dailyConstraints: {
+    maxHoursPerDay: number | null;
+    dailyBreakAfterHours: number | null;
+    dailyBreakMinutes: number | null;
+  };
 }
 
 export const monteOreApi = {

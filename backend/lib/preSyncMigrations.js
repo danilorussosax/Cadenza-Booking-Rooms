@@ -866,6 +866,19 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna audit_log.prevHash aggiunta (hash-chain integrità)');
   }
 
+  // Monte Ore — vincoli giornalieri configurabili (Z2/Z3 Regolamento Art. 2).
+  // NULL = vincolo disabilitato, comportamento legacy. Senza queste colonne,
+  // GET/PUT su /api/admin/monte-ore/settings esplodono coi DB pre-v1.14.
+  if (await ensureNullableFloatColumn('monte_ore_settings', 'maxHoursPerDay')) {
+    logger.info('  ✓ Colonna monte_ore_settings.maxHoursPerDay aggiunta');
+  }
+  if (await ensureNullableFloatColumn('monte_ore_settings', 'dailyBreakAfterHours')) {
+    logger.info('  ✓ Colonna monte_ore_settings.dailyBreakAfterHours aggiunta');
+  }
+  if (await ensureNullableIntColumn('monte_ore_settings', 'dailyBreakMinutes')) {
+    logger.info('  ✓ Colonna monte_ore_settings.dailyBreakMinutes aggiunta');
+  }
+
   // Indici compositi additivi su tabelle ad alta lettura. I model dichiarano
   // gli stessi indici per le installazioni fresche; qui li aggiungiamo a DB
   // esistenti che hanno solo i vecchi indici a colonna singola. CREATE INDEX

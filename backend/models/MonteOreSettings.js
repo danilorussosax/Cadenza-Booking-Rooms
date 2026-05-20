@@ -69,6 +69,25 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      // Vincoli giornalieri configurabili (Z2/Z3 del Regolamento Tchaikovsky
+      // 2019, Art. 2). Le soglie variano fra istituti e nel tempo, quindi
+      // vivono qui per-AA invece di essere hardcoded. NULL = vincolo
+      // disabilitato (comportamento legacy pre-v1.14).
+      maxHoursPerDay: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        validate: { min: 1, max: 24 },
+      },
+      dailyBreakAfterHours: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        validate: { min: 1, max: 24 },
+      },
+      dailyBreakMinutes: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        validate: { min: 1, max: 480 },
+      },
     },
     {
       tableName: 'monte_ore_settings',
@@ -80,6 +99,20 @@ module.exports = (sequelize) => {
           name: 'monte_ore_settings_inst_year_uq',
         },
       ],
+      validate: {
+        // I due campi della pausa formano un'unità logica: senza la durata
+        // minima la soglia "dopo X ore" non ha senso, e viceversa. Una sola
+        // valorizzazione produrrebbe un vincolo non applicabile.
+        breakConfigCoherence() {
+          const a = this.dailyBreakAfterHours;
+          const b = this.dailyBreakMinutes;
+          if ((a == null) !== (b == null)) {
+            throw new Error(
+              "I campi 'dailyBreakAfterHours' e 'dailyBreakMinutes' devono essere entrambi vuoti o entrambi valorizzati",
+            );
+          }
+        },
+      },
     },
   );
 

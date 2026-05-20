@@ -10,6 +10,106 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.14.0] — 20 maggio 2026
+
+Minor release **Vincoli giornalieri Monte Ore (Z2/Z3)**: il modulo Monte Ore
+applica adesso i vincoli previsti dall'Art. 2 del Regolamento Conservatorio
+(es. Delibera C.A. 163/2019 Tchaikovsky di Nocera Terinese) sul singolo
+giorno di lezione. Le soglie sono **configurabili dall'admin per anno
+accademico**, non hardcoded, perché i regolamenti variano tra istituti e
+nel tempo.
+
+### Z2 — Max ore consecutive in un giorno (Art. 2.2)
+
+> _"In nessun caso si possono superare le nove ore giornaliere."_
+
+Nuovo campo `MonteOreSettings.maxHoursPerDay` (FLOAT nullable, range 1-24).
+Al submit della proposta, se valorizzato, il backend verifica che la somma
+delle ore di TUTTE le schedules con lo stesso `dayOfWeek` non superi il
+limite — altrimenti `400 DAILY_HOURS_EXCEEDED` con dettaglio del giorno.
+
+### Z3 — Pausa obbligatoria dopo N ore consecutive (Art. 2.1)
+
+> _"Ove il numero delle ore superi le 7 ore consecutive giornaliere, deve
+> essere prevista una pausa di almeno mezz'ora."_
+
+Due nuovi campi accoppiati: `dailyBreakAfterHours` (soglia ore) e
+`dailyBreakMinutes` (durata minima della pausa che "spezza" il blocco).
+Devono essere entrambi NULL o entrambi valorizzati — incoerenza rifiutata
+dal modello con `400 INVALID_SETTINGS`. Al submit, se attivi, il
+validatore riordina le schedules per `startTime`, identifica i "blocchi
+consecutivi" (gap < `dailyBreakMinutes`) e segnala
+`400 BREAK_REQUIRED` se un blocco supera `dailyBreakAfterHours`.
+
+### UI admin — Schermata configurazione anno accademico
+
+Nuova sezione "Vincoli giornalieri (opzionali)" in
+`/admin/monte-ore/settings` con 3 input number. Campi vuoti = vincolo
+disabilitato. Il pulsante "Salva" si disabilita se l'admin compila solo
+uno dei due campi della pausa (warning UX prima del round-trip al server).
+Helper text con esempio testuale del Regolamento Tchaikovsky 2019 a titolo
+illustrativo.
+
+### UI docente — Warning inline
+
+La pagina docente `/monte-ore` mostra i vincoli giornalieri tra i
+"blockers di submit" non appena il pattern li viola. Stesso algoritmo del
+backend, replicato in TypeScript (`frontend/src/lib/monteOreDailyValidator.ts`)
+per feedback reattivo senza round-trip. L'endpoint
+`GET /api/monte-ore/me/threshold` espone le 3 soglie istituzionali sotto
+`dailyConstraints` per consentire il rendering client-side.
+
+### Backward compatibility
+
+100% additivo:
+
+- I 3 nuovi campi su `MonteOreSettings` sono aggiunti idempotentemente da
+  `runPreSyncMigrations()` al primo boot. Le settings esistenti hanno
+  tutti e 3 i campi NULL → vincoli disabilitati → comportamento identico
+  a v1.13.1.
+- Proposte già `approved` o `generated` non vengono ri-validate.
+- L'API admin accetta i nuovi campi opzionalmente: client legacy
+  continuano a funzionare.
+
+### Test
+
+- Backend: nuovo `tests/integration/monteOreDailyConstraints.test.js`
+  (11 test, unit + integration). Totale backend: 1793/1793 ✓.
+- Frontend: nuovo `tests/lib/monteOreDailyValidator.test.ts` (6 test).
+  Totale frontend: 272/272 ✓.
+- E2E: 20/20 ✓ con `TZ=UTC` (no regressioni — il seed E2E non valorizza
+  le nuove soglie quindi i vincoli restano disabilitati).
+
+### Note di operatività
+
+Al primo restart post-deploy i log di boot mostreranno:
+
+```
+✓ Colonna monte_ore_settings.maxHoursPerDay aggiunta
+✓ Colonna monte_ore_settings.dailyBreakAfterHours aggiunta
+✓ Colonna monte_ore_settings.dailyBreakMinutes aggiunta
+```
+
+Per attivare i vincoli del Regolamento Tchaikovsky 2019:
+
+1. `/admin/monte-ore/settings` → AA corrente
+2. Max ore consecutive in un giorno: `9`
+3. Pausa obbligatoria dopo `7` ore consecutive, durata almeno `30` min
+4. Salva
+
+---
+
+EN — short summary
+
+**New feature**: configurable daily constraints for the Monte Ore module,
+implementing Z2 (max hours per day) and Z3 (mandatory break after N
+consecutive hours) from Art. 2 of the Conservatory regulation. Thresholds
+live in `MonteOreSettings` per academic year (NULL = disabled,
+backward-compatible default). Validation enforced at proposal submit with
+specific error codes (`DAILY_HOURS_EXCEEDED`, `BREAK_REQUIRED`,
+`INVALID_SETTINGS`). New admin UI section and teacher-side inline
+warnings driven by a TypeScript replica of the backend validator.
+
 ## [1.13.1] — 20 maggio 2026
 
 Patch release **DB legacy + tooling test**: ripristina la portabilità GDPR
