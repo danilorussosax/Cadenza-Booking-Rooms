@@ -84,6 +84,7 @@ const MonteOreAmendment = require('./MonteOreAmendment')(sequelize);
 const ContractType = require('./ContractType')(sequelize);
 const PasswordResetToken = require('./PasswordResetToken')(sequelize);
 const BookingRecurrence = require('./BookingRecurrence')(sequelize);
+const SchedulerLease = require('./SchedulerLease')(sequelize);
 
 // ===========================================
 // Associazioni / Relazioni
@@ -463,4 +464,5 @@ module.exports = {
   BookingTypeCatalog,
   PasswordResetToken,
   BookingRecurrence,
+  SchedulerLease,
 };

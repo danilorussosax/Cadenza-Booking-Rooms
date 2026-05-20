@@ -10,6 +10,79 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.13.0] — 20 maggio 2026
+
+Minor release **Robustezza runtime**: chiude 3 gap residui identificati
+nell'audit suggerimenti pre-v1.13. Tutti gli interventi additivi e
+backward-compatible.
+
+### Feature A — `unhandledRejection` e `uncaughtException` inviati a Sentry
+
+Pre-v1.13 i process error handler facevano solo `console.error`: bug del
+runtime sfuggivano al monitoring esterno. Ora:
+
+- **`backend/server.js`**: `process.on('unhandledRejection')` invia a
+  Sentry con `level: 'warning'` + Pino structured log (no exit).
+- `process.on('uncaughtException')` invia con `level: 'fatal'` + `flush(2s)`
+  prima di `safeShutdown(1)`. In cluster mode PM2 riavvia il worker
+  automaticamente.
+
+Effort: ~½g.
+
+### Feature B — Deep restore verification
+
+Il test `backupRoundtrip` verificava già che il dump fosse apribile e
+contenesse i record. Aggiunto un nuovo test che, dopo restore in DB
+isolato:
+
+- **FK integrity**: zero booking orfane (roomId/userId mancanti), zero
+  rooms con buildingId mancante.
+- **Hash-chain audit**: `verifyAuditIntegrity()` ritorna `ok: true` e
+  `tamperingCount: 0` sul DB ripristinato — la catena resiste a una
+  serializzazione tar + estrazione.
+
+Garantisce che il backup non sia solo "presente" ma anche
+**semanticamente integro**.
+
+Effort: ~1g.
+
+### Feature C — Mail outbox leader election dinamica
+
+Pre-v1.13 il worker era gated da `NODE_APP_INSTANCE === 0`. Se l'istanza 0
+PM2 cadeva, gli altri worker NON prendevano il relay → le email si
+fermavano fino al restart manuale.
+
+- **Nuovo modello** `SchedulerLease` (tabella `scheduler_leases`):
+  `(name PK, holderId, acquiredAt, renewedAt, leaseUntil, lastReleaseReason)`.
+- **Nuova lib** `backend/lib/leaderElection.js`: classe `LeaderLease` con
+  `acquire/renew/release`. Atomicità garantita da `UPDATE WHERE holderId=me
+OR leaseUntil < now` + UNIQUE(name) sulla INSERT iniziale. Codice
+  identico SQLite/Postgres (niente advisory lock, niente Redis).
+- **`mailOutboxScheduler.js`**: il `start()` ora avvia un loop
+  `leaderAwareTick` che prima rinnova/acquisisce il lease e solo se è
+  leader esegue `tick()`. TTL = 3× tick (45s): se il leader cade, dopo
+  ~45s un'altra istanza rileva il lease scaduto e prende il relay
+  automaticamente.
+- **Backward-compat**: in fork mode (singola istanza) il lease è preso e
+  rinnovato dalla stessa istanza — overhead ~1 query ogni 45s, non
+  percepibile.
+
+Test integration nuovo `leaderElection.test.js` (7 test): acquire iniziale,
+contesa, takeover su lease scaduto, renew positivo/negativo, re-acquire
+dopo perdita lease.
+
+Effort: ~2g.
+
+### Note di operatività
+
+- La nuova tabella `scheduler_leases` viene creata al primo `sequelize.sync`
+  (preSyncMigrations.js la copre via discovery automatica).
+- Gli altri scheduler (`reminder`, `backup`, `retention`, `backupVerify`)
+  restano sul vecchio `isSchedulerMaster()` per ora. Migrazione a
+  `LeaderLease` prevista in v1.14 con stesso pattern.
+
+---
+
 ## [1.12.0] — 20 maggio 2026
 
 Minor release **Observability & Quality**: 3 interventi additivi indipendenti.

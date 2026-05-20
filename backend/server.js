@@ -208,11 +208,46 @@ async function safeShutdown(code = 0) {
 
 ['SIGINT', 'SIGTERM'].forEach((sig) => process.on(sig, () => safeShutdown(0)));
 
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled promise rejection:', reason);
+// Process-level error handlers (v1.13):
+// - unhandledRejection: una promise rifiutata senza .catch(). Severity=warning,
+//   non termina il processo (PM2/Node può continuare; il problema è un bug
+//   da correggere ma non sempre fatale).
+// - uncaughtException: un throw sincrono fuori da qualsiasi handler. Severity=
+//   fatal, shutdown ordinato dopo aver tentato il flush a Sentry (in cluster
+//   PM2 riavvia il worker).
+// Senza questi inoltri a Sentry, gli errori del runtime restavano solo nei
+// log Pino e sfuggivano al monitoring esterno.
+const sentry = require('./lib/sentry');
+const processLogger = require('./lib/logger').child({ scope: 'process' });
+
+process.on('unhandledRejection', (reason, promise) => {
+  processLogger.warn(
+    { err: reason instanceof Error ? reason : String(reason), promise: String(promise) },
+    'unhandled promise rejection',
+  );
+  if (sentry.isInitialized()) {
+    const Sentry = require('@sentry/node');
+    Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)), {
+      level: 'warning',
+      tags: { handler: 'unhandledRejection' },
+    });
+  }
 });
+
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
+  processLogger.fatal({ err }, 'uncaught exception — shutting down');
+  if (sentry.isInitialized()) {
+    const Sentry = require('@sentry/node');
+    Sentry.captureException(err, {
+      level: 'fatal',
+      tags: { handler: 'uncaughtException' },
+    });
+    // Best-effort flush (2s) per non perdere l'evento prima dell'exit.
+    Sentry.close(2000)
+      .catch(() => {})
+      .finally(() => safeShutdown(1));
+    return;
+  }
   safeShutdown(1);
 });
 

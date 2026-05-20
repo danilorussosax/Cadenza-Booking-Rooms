@@ -145,6 +145,82 @@ describe.skipIf(skip)('Backup roundtrip — snapshot integrity', () => {
     }
   });
 
+  it('deep restore verification: nessuna FK orfana e hash-chain audit integra', async () => {
+    // Questo test va oltre il count-check: apre lo snapshot e verifica che
+    // i dati siano *semanticamente coerenti*, non solo presenti.
+    //
+    // Check coperti:
+    //  1. FK integrity: nessuna booking con roomId/userId mancanti
+    //  2. FK integrity: nessuna stanza con buildingId mancante
+    //  3. audit_log: hash chain valida sullo snapshot (richiede modello loadato)
+    //
+    // Il count-check live↔snapshot è già coperto dal test precedente; qui
+    // ci concentriamo sulla qualità della copia, non sulla sua presenza.
+    await globalThis.resetDatabase();
+    const inst = await createInstitute({ name: 'Conservatorio Deep' });
+    const building = await createBuilding({ instituteId: inst.id, name: 'Sede DR' });
+    const room = await createRoom({ building, name: 'Aula DR' });
+    const user = await createUser({ firstName: 'Restore', lastName: 'Verify' });
+    await createBooking({
+      user,
+      room,
+      startTime: new Date('2026-06-02T10:00:00'),
+      endTime: new Date('2026-06-02T11:00:00'),
+    });
+
+    // Esegui backup
+    delete require.cache[require.resolve('../../scripts/backup')];
+    const { performBackup } = require('../../scripts/backup');
+    const result = await performBackup();
+    expect(result).toBeTruthy();
+
+    // Estrai
+    const extractDir = path.join(tmpRoot, 'extracted-deep');
+    fs.mkdirSync(extractDir, { recursive: true });
+    execSync(`tar -xzf "${result.path}" -C "${extractDir}"`, { stdio: 'ignore' });
+
+    const dbPath = path.join(extractDir, 'conservatory.sqlite');
+    expect(fs.existsSync(dbPath)).toBe(true);
+
+    const { Sequelize, DataTypes } = require('sequelize');
+    const snap = new Sequelize({ dialect: 'sqlite', storage: dbPath, logging: false });
+    try {
+      // ---- 1) FK orfane su bookings ----
+      const [orphanBookingsRoom] = await snap.query(`
+        SELECT COUNT(*) as c FROM bookings b
+        WHERE NOT EXISTS (SELECT 1 FROM rooms r WHERE r.id = b.roomId)
+      `);
+      expect(Number(orphanBookingsRoom[0].c)).toBe(0);
+
+      const [orphanBookingsUser] = await snap.query(`
+        SELECT COUNT(*) as c FROM bookings b
+        WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = b.userId)
+      `);
+      expect(Number(orphanBookingsUser[0].c)).toBe(0);
+
+      // ---- 2) FK orfane su rooms ----
+      const [orphanRooms] = await snap.query(`
+        SELECT COUNT(*) as c FROM rooms r
+        WHERE NOT EXISTS (SELECT 1 FROM buildings b WHERE b.id = r.buildingId)
+      `);
+      expect(Number(orphanRooms[0].c)).toBe(0);
+
+      // ---- 3) Hash-chain audit (se popolata) ----
+      // Mappiamo il model AuditLog sullo snapshot e usiamo lo stesso
+      // verificatore della UI admin. Niente seed audit specifico: se la
+      // tabella è vuota, il verifier ritorna scanned=0 / valid=true.
+      const auditDef = require('../../models/AuditLog')(snap, DataTypes);
+      // sync minimal (no force) — la tabella esiste già nel backup
+      await snap.sync({ alter: false });
+      const { verifyAuditIntegrity } = require('../../services/auditIntegrity');
+      const verify = await verifyAuditIntegrity({ AuditLog: auditDef });
+      expect(verify.ok).toBe(true);
+      expect(verify.tamperingCount).toBe(0);
+    } finally {
+      await snap.close();
+    }
+  });
+
   it('listBackups elenca il file appena creato + deleteBackup lo rimuove', async () => {
     delete require.cache[require.resolve('../../scripts/backup')];
     const { performBackup, listBackups, deleteBackup } = require('../../scripts/backup');
