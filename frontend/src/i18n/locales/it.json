@@ -529,6 +529,26 @@
       "on_behalf_self": "Me stesso",
       "updated_success": "Prenotazione aggiornata"
     },
+    "suggestions": {
+      "title": "Alternative disponibili",
+      "subtitle": "Lo slot richiesto è occupato. Scegli un'alternativa qui sotto oppure modifica i campi manualmente.",
+      "applied": "Slot aggiornato. Conferma per prenotare.",
+      "manual": "Cambia manualmente",
+      "none": "Nessuna alternativa vicina trovata.",
+      "conflict_owner": "Già prenotato da {{name}}",
+      "chip_aria": "{{room}} dalle {{start}} alle {{end}} — {{reason}}",
+      "unknown_room": "Aula #{{id}}",
+      "reason": {
+        "same_room_shifted_30_after": "Stessa aula, 30 min dopo",
+        "same_room_shifted_30_before": "Stessa aula, 30 min prima",
+        "same_room_shifted_60_after": "Stessa aula, 1 ora dopo",
+        "same_room_shifted_60_before": "Stessa aula, 1 ora prima",
+        "same_room_shifted_120_after": "Stessa aula, 2 ore dopo",
+        "similar_room_same_time": "Aula simile, stesso orario",
+        "same_room_next_day": "Stessa aula, domani",
+        "same_room_two_days_later": "Stessa aula, fra 2 giorni"
+      }
+    },
     "template": {
       "save_dialog_title": "Salva come template",
       "save_dialog_description": "Memorizza la combinazione corrente (aula, giorno della settimana, orario, tipo, scopo) per riusarla con un click dal Dashboard.",

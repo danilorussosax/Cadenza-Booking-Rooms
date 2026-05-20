@@ -526,6 +526,26 @@
       "on_behalf_self": "Moi-même",
       "updated_success": "Réservation mise à jour"
     },
+    "suggestions": {
+      "title": "Alternatives disponibles",
+      "subtitle": "Le créneau demandé est occupé. Choisis une alternative ci-dessous ou modifie les champs manuellement.",
+      "applied": "Créneau mis à jour. Confirme pour réserver.",
+      "manual": "Modifier manuellement",
+      "none": "Aucune alternative proche trouvée.",
+      "conflict_owner": "Déjà réservé par {{name}}",
+      "chip_aria": "{{room}} de {{start}} à {{end}} — {{reason}}",
+      "unknown_room": "Salle #{{id}}",
+      "reason": {
+        "same_room_shifted_30_after": "Même salle, 30 min plus tard",
+        "same_room_shifted_30_before": "Même salle, 30 min plus tôt",
+        "same_room_shifted_60_after": "Même salle, 1 heure plus tard",
+        "same_room_shifted_60_before": "Même salle, 1 heure plus tôt",
+        "same_room_shifted_120_after": "Même salle, 2 heures plus tard",
+        "similar_room_same_time": "Salle similaire, même horaire",
+        "same_room_next_day": "Même salle, demain",
+        "same_room_two_days_later": "Même salle, dans 2 jours"
+      }
+    },
     "template": {
       "save_dialog_title": "Enregistrer comme modèle",
       "save_dialog_description": "Mémorise la combinaison actuelle (salle, jour de la semaine, horaire, type, objet) pour la réutiliser en un clic depuis le tableau de bord.",

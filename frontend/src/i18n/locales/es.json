@@ -526,6 +526,26 @@
       "on_behalf_self": "Yo mismo",
       "updated_success": "Reserva actualizada"
     },
+    "suggestions": {
+      "title": "Alternativas disponibles",
+      "subtitle": "El horario solicitado está ocupado. Elige una alternativa abajo o modifica los campos manualmente.",
+      "applied": "Horario actualizado. Confirma para reservar.",
+      "manual": "Cambiar manualmente",
+      "none": "No se encontraron alternativas cercanas.",
+      "conflict_owner": "Ya reservado por {{name}}",
+      "chip_aria": "{{room}} de {{start}} a {{end}} — {{reason}}",
+      "unknown_room": "Aula #{{id}}",
+      "reason": {
+        "same_room_shifted_30_after": "Misma aula, 30 min después",
+        "same_room_shifted_30_before": "Misma aula, 30 min antes",
+        "same_room_shifted_60_after": "Misma aula, 1 hora después",
+        "same_room_shifted_60_before": "Misma aula, 1 hora antes",
+        "same_room_shifted_120_after": "Misma aula, 2 horas después",
+        "similar_room_same_time": "Aula similar, mismo horario",
+        "same_room_next_day": "Misma aula, mañana",
+        "same_room_two_days_later": "Misma aula, en 2 días"
+      }
+    },
     "template": {
       "save_dialog_title": "Guardar como plantilla",
       "save_dialog_description": "Almacena la combinación actual (aula, día de la semana, hora, tipo, motivo) para reutilizarla con un clic desde el panel.",

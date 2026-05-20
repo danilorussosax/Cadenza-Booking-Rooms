@@ -527,6 +527,26 @@
       "on_behalf_self": "Myself",
       "updated_success": "Booking updated"
     },
+    "suggestions": {
+      "title": "Available alternatives",
+      "subtitle": "The requested slot is busy. Pick an alternative below or edit the fields manually.",
+      "applied": "Slot updated. Confirm to book.",
+      "manual": "Change manually",
+      "none": "No nearby alternatives found.",
+      "conflict_owner": "Already booked by {{name}}",
+      "chip_aria": "{{room}} from {{start}} to {{end}} — {{reason}}",
+      "unknown_room": "Room #{{id}}",
+      "reason": {
+        "same_room_shifted_30_after": "Same room, 30 min later",
+        "same_room_shifted_30_before": "Same room, 30 min earlier",
+        "same_room_shifted_60_after": "Same room, 1 hour later",
+        "same_room_shifted_60_before": "Same room, 1 hour earlier",
+        "same_room_shifted_120_after": "Same room, 2 hours later",
+        "similar_room_same_time": "Similar room, same time",
+        "same_room_next_day": "Same room, tomorrow",
+        "same_room_two_days_later": "Same room, in 2 days"
+      }
+    },
     "template": {
       "save_dialog_title": "Save as template",
       "save_dialog_description": "Store the current combination (room, weekday, time, type, purpose) so you can reuse it with one click from the Dashboard.",

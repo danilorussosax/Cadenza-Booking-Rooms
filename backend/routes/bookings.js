@@ -48,6 +48,7 @@ const {
   canCancel,
   createValidationCache,
 } = require('../services/bookingValidator');
+const { findAlternativesWithTimeout } = require('../services/bookingSuggestions');
 const { sendBookingEmail } = require('../services/emailService');
 const { buildIcs } = require('../services/icalService');
 const { extractClientIp, isIpInCidrList, normalizeIp } = require('../lib/network');
@@ -369,12 +370,15 @@ router.post(
       return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
 
     const { roomId, startTime, endTime, purpose, type, notes, onBehalfOfUserId } = req.body;
+    // `owner` dichiarato fuori dal try così resta disponibile nel catch
+    // (serve a buildConflictExtras per valutare le suggestion contro il
+    // ruolo/permessi dell'utente target nelle prenotazioni on-behalf-of).
+    let owner = req.user;
 
     try {
       // Risolve il proprietario della prenotazione: se admin specifica
       // `onBehalfOfUserId` differente dal proprio id, prenota PER quell'utente.
       // Per gli utenti non-admin il campo viene ignorato silenziosamente.
-      let owner = req.user;
       const targetId = Number(onBehalfOfUserId);
       const isOnBehalf =
         req.user.role === 'admin' && Number.isInteger(targetId) && targetId !== req.user.id;
@@ -463,16 +467,46 @@ router.post(
       res.status(201).json({ booking: full });
     } catch (err) {
       if (err.status === 400) {
+        const isConflict = err.code === 'BOOKING_CONFLICT';
+        const extras = isConflict
+          ? await buildConflictExtras({ req, owner, roomId, startTime, endTime, type })
+          : {};
         return res.status(400).json({
           error: err.message,
           issues: err.issues,
           code: err.code || 'BOOKING_INVALID',
+          ...extras,
         });
       }
       if (err.name === 'SequelizeUniqueConstraintError') {
-        return res
-          .status(409)
-          .json({ error: 'Conflitto: prenotazione già esistente', code: 'BOOKING_CONFLICT' });
+        const extras = await buildConflictExtras({
+          req,
+          owner,
+          roomId,
+          startTime,
+          endTime,
+          type,
+        });
+        return res.status(409).json({
+          error: 'Conflitto: prenotazione già esistente',
+          code: 'BOOKING_CONFLICT',
+          ...extras,
+        });
+      }
+      if (err.name === 'SequelizeExclusionConstraintError') {
+        const extras = await buildConflictExtras({
+          req,
+          owner,
+          roomId,
+          startTime,
+          endTime,
+          type,
+        });
+        return res.status(409).json({
+          error: 'Aula già occupata in questa fascia oraria',
+          code: 'BOOKING_CONFLICT',
+          ...extras,
+        });
       }
       if (err.name === 'SequelizeForeignKeyConstraintError') {
         return res.status(400).json({
@@ -484,6 +518,63 @@ router.post(
     }
   },
 );
+
+// =====================================================
+// Helper: arricchisce la response di conflitto con `suggestions` e
+// `conflictsWith`. Read-only, hard timeout (vedi findAlternativesWithTimeout),
+// fail-soft: in caso di errore restituisce `{ suggestions: [] }`.
+//
+// Privacy:
+//   - studente NON vede mai il nome del proprietario (`ownerLabel: null`)
+//   - docente/admin vedono `ownerLabel` per coordinarsi
+// =====================================================
+async function buildConflictExtras({ req, owner, roomId, startTime, endTime, type }) {
+  try {
+    const candidateUser = owner || req.user;
+    const suggestions = await findAlternativesWithTimeout({
+      roomId: Number(roomId),
+      startTime,
+      endTime,
+      type: type || null,
+      user: candidateUser,
+    });
+
+    let conflictsWith = null;
+    try {
+      const existing = await Booking.findOne({
+        where: {
+          roomId: Number(roomId),
+          status: 'confirmed',
+          [Op.and]: [
+            { startTime: { [Op.lt]: new Date(endTime) } },
+            { endTime: { [Op.gt]: new Date(startTime) } },
+          ],
+        },
+        attributes: ['id', 'userId'],
+      });
+      if (existing) {
+        const callerRole = req.user?.role;
+        const showOwner = callerRole === 'admin' || callerRole === 'docente';
+        let ownerLabel = null;
+        if (showOwner && existing.userId) {
+          const ownerUser = await User.findByPk(existing.userId, {
+            attributes: ['firstName', 'lastName'],
+          });
+          if (ownerUser) {
+            ownerLabel = `${ownerUser.firstName ?? ''} ${ownerUser.lastName ?? ''}`.trim() || null;
+          }
+        }
+        conflictsWith = { bookingId: existing.id, ownerLabel };
+      }
+    } catch {
+      conflictsWith = null;
+    }
+
+    return { suggestions, conflictsWith };
+  } catch {
+    return { suggestions: [] };
+  }
+}
 
 // =====================================================
 // POST /api/bookings/bulk-cancel — admin. Broadcast cancel multi-selezione.

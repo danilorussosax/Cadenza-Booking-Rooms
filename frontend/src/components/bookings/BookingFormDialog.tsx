@@ -42,8 +42,9 @@ import {
 } from '@/components/ui/select';
 import { RecurrenceForm } from './RecurrenceForm';
 import { BookingRuleHint } from './BookingRuleHint';
+import { BookingSuggestionsPanel } from './BookingSuggestionsPanel';
 import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
-import type { Booking, BookingType } from '@/types';
+import type { Booking, BookingConflictsWith, BookingSuggestion, BookingType } from '@/types';
 
 // Floor specifico per le prenotazioni di tipo "studio individuale" (vedi
 // STUDIO_MIN_DURATION_MINUTES in services/bookingValidator.js): 1 ora minima
@@ -134,6 +135,11 @@ export function BookingFormDialog({
     purpose?: string;
     roomLabel: string | null;
   } | null>(null);
+  // §2.11 Slot alternativi: se il backend invia `suggestions` nel 409 le
+  // mostriamo INLINE sopra il form; il popup waitlist resta solo per il caso
+  // suggestions vuoto (vedi onError).
+  const [suggestions, setSuggestions] = useState<BookingSuggestion[]>([]);
+  const [conflictsWith, setConflictsWith] = useState<BookingConflictsWith | null>(null);
 
   const tBookingError = (key?: string) => (key ? t(`booking.form_validation.${key}`) : undefined);
 
@@ -220,6 +226,8 @@ export function BookingFormDialog({
     if (open) {
       reset(initialValues);
       setServerError(null);
+      setSuggestions([]);
+      setConflictsWith(null);
       // In edit mode pre-seleziono l'owner corrente; in create mode default = self.
       setOnBehalfOfUserId(booking ? booking.userId : null);
       // Resetta anche lo state della ricorrenza ad ogni apertura per evitare
@@ -358,10 +366,27 @@ export function BookingFormDialog({
         return;
       }
       // Estraggo BOOKING_CONFLICT (anche EXCLUSION_VIOLATION lato DB-level)
-      // per offrire l'opzione waitlist. Considero solo le creazioni single
-      // (la ricorrente ha skipped[] separato).
+      // per offrire l'opzione waitlist o, da §2.11, slot alternativi inline.
+      // Considero solo le creazioni single (la ricorrente ha skipped[] separato).
       const isConflict = code === 'BOOKING_CONFLICT' || code === 'EXCLUSION_VIOLATION';
       if (isConflict && !recurrence.enabled && values.roomId) {
+        const payload = err instanceof HttpError ? err.payload : null;
+        const incomingSuggestions = payload?.suggestions ?? [];
+        const incomingConflict = payload?.conflictsWith ?? null;
+
+        if (incomingSuggestions.length > 0) {
+          // §2.11: mostra le alternative INLINE; non chiudere il dialog,
+          // non aprire il popup waitlist. L'utente clicca una chip e
+          // ri-conferma il form. Il bottone waitlist resta accessibile in
+          // fondo (popup) come fallback se nessuna alternativa convince.
+          setSuggestions(incomingSuggestions);
+          setConflictsWith(incomingConflict);
+          setConflictPayload(null);
+          setServerError(null);
+          return;
+        }
+
+        // Nessuna alternativa: comportamento pre-§2.11 (popup waitlist).
         const roomId = Number(values.roomId);
         const room = roomsQuery.data?.rooms.find((x) => x.id === roomId);
         const roomLabel = room
@@ -377,14 +402,36 @@ export function BookingFormDialog({
         });
         // Niente serverError inline: chiudiamo questo dialog e lasciamo
         // che sia il popup waitlist (sibling) a comunicare il conflict.
+        setSuggestions([]);
+        setConflictsWith(null);
         setServerError(null);
         onOpenChange(false);
       } else {
         setConflictPayload(null);
+        setSuggestions([]);
+        setConflictsWith(null);
         setServerError(httpErrorMessage(err));
       }
     },
   });
+
+  // Applica un suggerimento al form (pre-compila roomId/startTime/endTime,
+  // mantenendo type/purpose già impostati dall'utente) e azzera la lista
+  // di suggestion così la UI torna pulita. L'utente conferma con "Prenota".
+  const applySuggestion = (s: BookingSuggestion) => {
+    setValue('roomId', String(s.roomId), { shouldValidate: true, shouldDirty: true });
+    setValue('startTime', toLocalDateTimeInput(new Date(s.startTime)), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setValue('endTime', toLocalDateTimeInput(new Date(s.endTime)), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setSuggestions([]);
+    setConflictsWith(null);
+    toast.info(t('booking.suggestions.applied'));
+  };
 
   const waitlistMutation = useMutation({
     mutationFn: () => {
@@ -404,6 +451,8 @@ export function BookingFormDialog({
   const onSubmit = (values: FormValues) => {
     setServerError(null);
     setConflictPayload(null);
+    setSuggestions([]);
+    setConflictsWith(null);
     createMutation.mutate(values);
   };
 
@@ -442,6 +491,16 @@ export function BookingFormDialog({
               <Alert variant="destructive">
                 <AlertDescription>{serverError}</AlertDescription>
               </Alert>
+            )}
+
+            {suggestions.length > 0 && (
+              <BookingSuggestionsPanel
+                suggestions={suggestions}
+                rooms={roomsQuery.data?.rooms ?? []}
+                onPick={applySuggestion}
+                disabled={isSubmitting}
+                conflictOwner={conflictsWith?.ownerLabel ?? null}
+              />
             )}
 
             {/* Hint sui limiti del ruolo (durata, anticipo, fascia oraria,

@@ -10,6 +10,69 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.11.2] — 20 maggio 2026
+
+Patch release additiva: **slot alternativi su conflitto** (§2.11). Il
+`409 BOOKING_CONFLICT` non è più un dead-end: il backend propone fino a 5
+alternative ordinate per vicinanza all'intent originale, e il frontend le
+presenta come chip cliccabili che pre-compilano il form. La risposta legacy
+resta invariata (`error`, `code: 'BOOKING_CONFLICT'`): `suggestions` e
+`conflictsWith` sono campi additivi — client legacy continuano a funzionare.
+
+### Backend
+
+#### Servizio `services/bookingSuggestions.js` (nuovo)
+
+- 3 strategie deterministiche (A* shift stessa aula, B* aula simile stesso
+  building/orario, C* stessa aula +1/+2 giorni) con cap totale 5, mix
+  garantito (max 3 A* per lasciare spazio a B*/C*).
+- Filtri: overlap check, `isBookable=true`, ruoli/corsi permessi, quote,
+  fascia oraria della `BookingRule` — riusa `validateBooking` per non
+  duplicare le regole.
+- Hard timeout 200 ms in `findAlternativesWithTimeout`: se scade, la
+  response 409 è inviata senza `suggestions` (fail-soft) e si logga.
+
+#### Route `routes/bookings.js`
+
+- `POST /api/bookings` arricchisce la response 409 (e 400 `BOOKING_CONFLICT`)
+  con `suggestions[]` e `conflictsWith: { bookingId, ownerLabel }`.
+- Privacy: `ownerLabel` valorizzato solo per docenti/admin; per gli studenti
+  è `null` (nessun leak del proprietario della booking conflittuale).
+- Gestito anche `SequelizeExclusionConstraintError` direttamente nel route
+  (status 409 `BOOKING_CONFLICT`) per allineare il payload arricchito.
+
+### Frontend
+
+#### Componente `BookingSuggestionsPanel.tsx` (nuovo)
+
+- Pannello accessibile (`role="list"`, `aria-label` per ogni chip, focus
+  ring) con icona per ogni `reason` (orologio, edificio, calendario).
+- Standalone, riusabile (utile per la futura §2.12 bulk-booking docenti).
+
+#### `BookingFormDialog.tsx`
+
+- Su `BOOKING_CONFLICT`: se il backend invia `suggestions[]`, il pannello
+  appare INLINE sopra il form; il popup waitlist resta come fallback per
+  il caso `suggestions: []`.
+- `applySuggestion()` pre-compila `roomId`/`startTime`/`endTime` mantenendo
+  `type` e `purpose`, e mostra toast info "Slot aggiornato, conferma per
+  prenotare".
+
+### i18n
+
+- Nuovo namespace `booking.suggestions.*` con 14 chiavi tradotte in IT, EN,
+  ES, DE, FR (titolo, sottotitolo, banner privacy, label per ogni `reason`
+  code, messaggio "nessuna alternativa").
+
+### Test
+
+- `backend/tests/integration/bookingSuggestions.test.js` (14 test) — copre
+  A*/B*/C\*, permessi, quote, finestre orarie, cap 5, privacy, backward-compat.
+- `frontend/tests/components/BookingSuggestionsPanel.test.tsx` (6 test) —
+  rendering, onPick, banner conflict owner, disabled, aria-label.
+
+---
+
 ## [1.11.0] — 19 maggio 2026
 
 Minor release di **hardening sicurezza, performance e qualità test**.

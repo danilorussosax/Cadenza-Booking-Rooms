@@ -246,6 +246,36 @@ export type BookingStatus =
   | 'no_show'
   | 'pending_approval';
 
+/**
+ * Slot alternativo proposto dal backend quando una richiesta di prenotazione
+ * fallisce per BOOKING_CONFLICT. Vedi backend/services/bookingSuggestions.js.
+ *
+ * I `reason` code sono stabili lato API; il frontend traduce via i18n
+ * (chiavi `booking.suggestions.reason.<code>`).
+ */
+export type BookingSuggestionReason =
+  | 'same_room_shifted_30_after'
+  | 'same_room_shifted_30_before'
+  | 'same_room_shifted_60_after'
+  | 'same_room_shifted_60_before'
+  | 'same_room_shifted_120_after'
+  | 'similar_room_same_time'
+  | 'same_room_next_day'
+  | 'same_room_two_days_later';
+
+export interface BookingSuggestion {
+  roomId: number;
+  startTime: string;
+  endTime: string;
+  reason: BookingSuggestionReason;
+}
+
+export interface BookingConflictsWith {
+  bookingId: number;
+  /** Visibile solo a docente/admin. `null` per studenti (privacy). */
+  ownerLabel: string | null;
+}
+
 export interface Booking {
   id: number;
   userId: number;
@@ -502,6 +532,14 @@ export interface ApiError {
   /** Lista strutturata di motivi (es. BOOKING_INVALID expone i vincoli falliti
    *  uno per uno: "Durata massima 120 minuti", "Fuori finestra oraria", ...). */
   issues?: string[];
+  /** §2.11 — Slot alternativi nel 409 BOOKING_CONFLICT (vedi BookingSuggestion). */
+  suggestions?: BookingSuggestion[];
+  /** §2.11 — Info opzionale sulla booking che ha generato il conflitto. */
+  conflictsWith?: BookingConflictsWith;
+  /** Riportato da alcuni endpoint per ulteriore contesto (RECURRENCE_CONFLICTS). */
+  conflicts?: unknown[];
+  /** Numero di occorrenze valide (RECURRENCE_CONFLICTS). */
+  validCount?: number;
 }
 
 // =====================================================

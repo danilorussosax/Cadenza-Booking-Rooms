@@ -526,6 +526,26 @@
       "on_behalf_self": "Mir selbst",
       "updated_success": "Buchung aktualisiert"
     },
+    "suggestions": {
+      "title": "Verfügbare Alternativen",
+      "subtitle": "Das gewünschte Zeitfenster ist belegt. Wähle unten eine Alternative oder ändere die Felder manuell.",
+      "applied": "Zeitfenster aktualisiert. Zum Buchen bestätigen.",
+      "manual": "Manuell ändern",
+      "none": "Keine nahegelegenen Alternativen gefunden.",
+      "conflict_owner": "Bereits gebucht von {{name}}",
+      "chip_aria": "{{room}} von {{start}} bis {{end}} — {{reason}}",
+      "unknown_room": "Raum #{{id}}",
+      "reason": {
+        "same_room_shifted_30_after": "Selber Raum, 30 Min später",
+        "same_room_shifted_30_before": "Selber Raum, 30 Min früher",
+        "same_room_shifted_60_after": "Selber Raum, 1 Stunde später",
+        "same_room_shifted_60_before": "Selber Raum, 1 Stunde früher",
+        "same_room_shifted_120_after": "Selber Raum, 2 Stunden später",
+        "similar_room_same_time": "Ähnlicher Raum, gleiche Zeit",
+        "same_room_next_day": "Selber Raum, morgen",
+        "same_room_two_days_later": "Selber Raum, in 2 Tagen"
+      }
+    },
     "template": {
       "save_dialog_title": "Als Vorlage speichern",
       "save_dialog_description": "Speichert die aktuelle Kombination (Raum, Wochentag, Uhrzeit, Typ, Zweck), um sie mit einem Klick aus dem Dashboard wiederzuverwenden.",
