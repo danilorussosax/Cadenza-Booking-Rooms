@@ -98,6 +98,21 @@ if (dialect === 'sqlite') {
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
     };
   }
+
+  // Quando il backend punta a PgBouncer (DB_PORT=6432 o flag esplicito):
+  //   - prepared_statements=false: PgBouncer in transaction pooling non
+  //     supporta prepared statement named (ogni transazione può finire su
+  //     una connessione server diversa).
+  //   - statement_timeout / idle_in_transaction_session_timeout vengono
+  //     passati come startup parameter e PgBouncer li inoltra a Postgres.
+  //     In transaction pooling, DISCARD ALL al termine della tx NON
+  //     resetta i parametri settati via startup packet (solo quelli via
+  //     SET SESSION). Quindi sono sicuri da usare.
+  const isPgBouncer = process.env.DB_PORT === '6432' || process.env.DB_PGBOUNCER === 'true';
+  if (isPgBouncer) {
+    dialectOptions.prepared_statements = false;
+  }
+
   // Timeout server-side per evitare query stuck (planner cattivo, lock
   // GiST, deadlock SERIALIZABLE) che esauriscano il pool. Override via env.
   //   statement_timeout: kill della query dopo N ms

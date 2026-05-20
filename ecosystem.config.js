@@ -3,13 +3,18 @@
 // Default: fork mode (1 istanza), compatibile col deploy esistente.
 // Per attivare cluster mode (parallelismo HTTP + zero-downtime reload):
 //
-//   1. Cambia `instances: 1` → `instances: 'max'` (o un numero, es. 2)
-//   2. Cambia `exec_mode: 'fork'` → `exec_mode: 'cluster'`
-//   3. Sul VPS:
+//   1. Installa PgBouncer: sudo bash scripts/setup-pgbouncer.sh
+//   2. Cambia `instances: 1` → `instances: 'max'` (o un numero, es. 2)
+//   3. Cambia `exec_mode: 'fork'` → `exec_mode: 'cluster'`
+//   4. Sul VPS:
 //        pm2 delete cadenza-backend
 //        pm2 start ecosystem.config.js
 //        pm2 save
 //        pm2 startup    # se non già configurato per systemd
+//
+// PgBouncer è necessario in cluster mode: N istanze × pool Sequelize (20)
+// saturerebbero max_connections Postgres (50). PgBouncer in transaction
+// pooling multiplexa le connessioni applicative su ~25 connessioni reali.
 //
 // In cluster mode tutti gli scheduler (reminder, backup, verify, mail
 // outbox, retention, excel export) girano SOLO sull'istanza 0 grazie
