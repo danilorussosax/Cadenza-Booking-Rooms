@@ -10,6 +10,62 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.11.3] — 20 maggio 2026
+
+Patch release operativa: nuovo script **`setup-pgbouncer.sh`** per abilitare
+PgBouncer in transaction pooling davanti a Postgres — prerequisito per attivare
+il PM2 cluster mode senza saturare `max_connections` del DB.
+
+### Operations
+
+#### `scripts/setup-pgbouncer.sh` (nuovo)
+
+- Installer idempotente: `--dry-run`, `--rollback`, `--no-restart`.
+- Configura `/etc/pgbouncer/pgbouncer.ini` in `pool_mode=transaction` con
+  `max_client_conn=200`, `default_pool_size=APP_POOL_MAX+5`, timeout calibrati.
+- Userlist `/etc/pgbouncer/userlist.txt` con perm `600`; listen solo su
+  `127.0.0.1:6432` (nessuna esposizione di rete).
+- Aggiorna `pg_hba.conf` per `127.0.0.1/32` md5 e `backend/.env` a `DB_PORT=6432`.
+- Verifica prerequisito `pg-tune-4gb.sh` (warn se `max_connections < 40`).
+- Riavvio automatico dell'app PM2 (`cadenza-backend --update-env`).
+- Backup `.env.bak-pgbouncer` prima delle modifiche.
+
+#### `backend/config/database.js`
+
+- Guard-rail: quando `DB_PORT=6432` o `DB_PGBOUNCER=true`, imposta
+  `dialectOptions.prepared_statements=false`. Documentazione esplicita del
+  motivo (in transaction pooling ogni transazione può cadere su una
+  connessione server diversa).
+
+#### `backend/.env.example`
+
+- Sezione PgBouncer documentata con note di compatibilità (FOR UPDATE SKIP
+  LOCKED in `mailOutboxScheduler`, SERIALIZABLE in `withTransaction.js`).
+
+#### `ecosystem.config.js`
+
+- Cluster mode ora elenca `setup-pgbouncer.sh` come step 1 (prima di portare
+  `instances` a `'max'` ed `exec_mode` a `'cluster'`). Spiega aritmeticamente
+  perché serve: N istanze × pool 20 saturano `max_connections=50`.
+
+### Fix bug critico nello script
+
+- Sostituito `PGB_CONFIG_CONTENT=$(cat <<EOC ... EOC)` con scrittura via
+  `mktemp` + `mv`. Causa: gli apostrofi italiani nei commenti dentro
+  l'heredoc (`l'applicazione`, `dell'app`, `'cadenza'`) sono interpretati come
+  shell-quote quando l'heredoc è dentro una command substitution — `bash -n`
+  falliva prima dell'esecuzione, lo script originale **non sarebbe mai partito**.
+
+### Note di compatibilità
+
+Pattern incompatibili con `pool_mode=transaction` verificati e assenti dal
+codebase: nessun `SET SESSION`, nessun `LISTEN/NOTIFY`, nessun
+`pg_advisory_lock`. `FOR UPDATE SKIP LOCKED` (mailOutbox) e isolation level
+`SERIALIZABLE` (validator booking) restano compatibili perché applicati
+dentro transazioni.
+
+---
+
 ## [1.11.2] — 20 maggio 2026
 
 Patch release additiva: **slot alternativi su conflitto** (§2.11). Il
