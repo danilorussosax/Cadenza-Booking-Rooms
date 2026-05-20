@@ -48,10 +48,12 @@ async function login(page, creds) {
  * e si finisce nel race condition descritto sopra.
  */
 async function dismissModals(page) {
-  // Legal docs dialog: aspetta fino a 5s che eventualmente appaia
-  // (gli admin sono esclusi da ConsentGate, per loro non comparira').
+  // Legal docs dialog: aspetta brevemente che eventualmente appaia.
+  // Con il seed E2E corrente i consensi sono pre-popolati per tutti i
+  // non-admin (UserConsent), quindi il dialog tipicamente NON compare:
+  // un timeout aggressivo evita di sprecare ~5s × N login nei flow lunghi.
   const legalDialog = page.getByRole('dialog', { name: /aggiornamento dei documenti legali/i });
-  await legalDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await legalDialog.waitFor({ state: 'visible', timeout: 500 }).catch(() => {});
   if (await legalDialog.isVisible().catch(() => false)) {
     await legalDialog.getByRole('checkbox').first().check();
     await legalDialog.getByRole('checkbox').nth(1).check();

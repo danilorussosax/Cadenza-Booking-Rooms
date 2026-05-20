@@ -29,7 +29,8 @@ test.describe('Studente: login → crea booking → cancella', () => {
     await expect(newBtn).toBeVisible({ timeout: 15000 });
     await newBtn.click();
 
-    const dialog = page.getByRole('dialog');
+    // Stretto via titolo per non beccare il CookieBanner (anche lui role=dialog).
+    const dialog = page.getByRole('dialog').filter({ hasText: /nuova prenotazione/i });
     await expect(dialog).toBeVisible();
 
     // Selettore Aula (primo combobox del dialog)
@@ -38,26 +39,34 @@ test.describe('Studente: login → crea booking → cancella', () => {
 
     // Popola direttamente i campi datetime-local: il flow del calendar
     // (click su cella oraria) li pre-riempie via onSlotClick, ma in test
-    // popolarli per ID è più deterministico. Slot: domani alle 10-11.
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const ymd = tomorrow.toISOString().slice(0, 10);
-    await dialog.locator('#startTime').fill(`${ymd}T10:00`);
-    await dialog.locator('#endTime').fill(`${ymd}T11:00`);
+    // popolarli per ID è più deterministico.
+    //
+    // Slot: dopodomani 15-16 LOCAL — non coincide con gli slot usati dagli
+    // altri spec E2E che bloccano "domani 10:00 UTC" in Aula 101
+    // (booking-suggestions, waitlist-claim). Senza questa differenziazione
+    // in CI (TZ=UTC) i fuso orario coincidono e i test confliggono.
+    const slot = new Date();
+    slot.setDate(slot.getDate() + 2);
+    const ymd = slot.toISOString().slice(0, 10);
+    await dialog.locator('#startTime').fill(`${ymd}T15:00`);
+    await dialog.locator('#endTime').fill(`${ymd}T16:00`);
 
     // Submit del form: il bottone in italiano dice "Prenota". Stretto via
     // `type=submit` per non beccare per errore il bottone "Salva come template"
     // che vive nello stesso footer.
     await dialog.locator('button[type="submit"]').click();
 
-    await expect(page.getByText(/prenotazione creata/i)).toBeVisible({ timeout: 5000 });
+    // Successo = il Dialog si chiude (onSuccess chiama onOpenChange(false)).
+    // Più affidabile del toast Sonner, che in CI può svanire prima del check.
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
-    // Cleanup deterministico via API: la suite E2E condivide il backend
-    // (reuseExistingServer in dev), quindi una booking lasciata in DB qui
-    // genera conflitti negli spec successivi (es. waitlist-claim che usa
-    // lo stesso slot di "domani"). Il click su /my-bookings UI sarebbe
-    // best-effort, qui invece cancelliamo TUTTE le booking dello studente.
-    const apiCtx = await plRequest.newContext({ baseURL: page.url().split('/').slice(0, 3).join('/') });
+    // Verifica via API che la booking sia effettivamente nel DB. Fa anche da
+    // cleanup deterministico: la suite E2E condivide il backend
+    // (reuseExistingServer in dev), una booking residua qui genera conflitti
+    // negli spec successivi (es. waitlist-claim che usa lo stesso slot).
+    const apiCtx = await plRequest.newContext({
+      baseURL: page.url().split('/').slice(0, 3).join('/'),
+    });
     const login = await apiCtx.post('/api/auth/login', {
       data: { email: 'studente@test.local', password: 'Password1!' },
     });
@@ -65,6 +74,10 @@ test.describe('Studente: login → crea booking → cancella', () => {
     const auth = { Authorization: `Bearer ${token}` };
     const mine = await apiCtx.get('/api/bookings?mine=true', { headers: auth });
     const bookings: Array<{ id: number }> = (await mine.json()).bookings ?? [];
+    expect(
+      bookings.length,
+      `nessuna booking trovata per lo studente — submit del form probabilmente fallito (vedi screenshot)`,
+    ).toBeGreaterThan(0);
     for (const b of bookings) {
       await apiCtx.delete(`/api/bookings/${b.id}`, { headers: auth });
     }
