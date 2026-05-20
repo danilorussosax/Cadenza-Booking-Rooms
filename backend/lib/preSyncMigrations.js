@@ -854,6 +854,18 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna institutes.initialSetupLinkTtlDays aggiunta (default 14gg)');
   }
 
+  // Audit log hash-chain (integrità): rowHash + prevHash. Le righe pre-esistenti
+  // restano NULL (vengono classificate come "legacy" dalla verifica di integrità).
+  // Senza queste colonne ogni AuditLog.findAll() esplode con
+  // "column 'rowHash' does not exist" — colpisce ad es. l'export GDPR
+  // dal profilo utente che legge la propria audit trail.
+  if (await ensureNullableStringColumn('audit_log', 'rowHash', 64)) {
+    logger.info('  ✓ Colonna audit_log.rowHash aggiunta (hash-chain integrità)');
+  }
+  if (await ensureNullableStringColumn('audit_log', 'prevHash', 64)) {
+    logger.info('  ✓ Colonna audit_log.prevHash aggiunta (hash-chain integrità)');
+  }
+
   // Indici compositi additivi su tabelle ad alta lettura. I model dichiarano
   // gli stessi indici per le installazioni fresche; qui li aggiungiamo a DB
   // esistenti che hanno solo i vecchi indici a colonna singola. CREATE INDEX
