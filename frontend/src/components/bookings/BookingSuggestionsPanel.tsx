@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Building2, CalendarClock, Clock, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import type { BookingSuggestion, BookingSuggestionReason, Room } from '@/types';
 
 interface Props {
@@ -93,31 +92,33 @@ export function BookingSuggestionsPanel({
 
           return (
             <li key={`${s.roomId}-${s.startTime}-${idx}`} role="listitem">
-              <Button
+              {/* Pulsante nativo (non Button shadcn) per garantire stack
+                  verticale dei contenuti: il Button base ha `items-center` +
+                  `whitespace-nowrap` che provocavano sovrapposizione delle
+                  tre righe (aula / orario / motivo) nella chip. */}
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 disabled={disabled}
                 onClick={() => {
                   onPick(s);
                 }}
                 aria-label={ariaLabel}
-                className="h-auto w-full justify-start gap-2 border-amber-300 bg-white/70 px-3 py-2 text-left whitespace-normal hover:bg-white dark:border-amber-800 dark:bg-amber-950/60 dark:hover:bg-amber-950"
+                className="group flex w-full items-start gap-3 rounded-md border border-amber-300 bg-white/70 px-3 py-2.5 text-left text-sm transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/60 dark:hover:bg-amber-950"
               >
                 <Icon
                   className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300"
                   aria-hidden="true"
                 />
-                <span className="flex-1 space-y-0.5">
-                  <span className="block font-medium">{roomLabel}</span>
-                  <span className="block text-xs text-muted-foreground">
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate font-medium text-foreground">{roomLabel}</span>
+                  <span className="text-xs text-muted-foreground">
                     {formatRangeLabel(start, end, locale)}
                   </span>
-                  <span className="block text-xs italic text-amber-800 dark:text-amber-200">
+                  <span className="text-xs italic text-amber-800 dark:text-amber-200">
                     {reasonLabel}
                   </span>
                 </span>
-              </Button>
+              </button>
             </li>
           );
         })}
