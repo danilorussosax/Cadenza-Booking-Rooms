@@ -41,12 +41,14 @@ test.describe('Studente: login → crea booking → cancella', () => {
     // (click su cella oraria) li pre-riempie via onSlotClick, ma in test
     // popolarli per ID è più deterministico.
     //
-    // Slot: dopodomani 15-16 LOCAL — non coincide con gli slot usati dagli
-    // altri spec E2E che bloccano "domani 10:00 UTC" in Aula 101
-    // (booking-suggestions, waitlist-claim). Senza questa differenziazione
-    // in CI (TZ=UTC) i fuso orario coincidono e i test confliggono.
+    // Slot deterministico in UTC (+2 giorni, 15:00) — non coincide con gli
+    // altri spec E2E (booking-suggestions/+1d 10 UTC blocker non cancellato,
+    // booking-cancel/+2d 09 UTC cancellato, gdpr-export/+3d 11 UTC,
+    // waitlist-claim/+3d 13 UTC). Uso setUTCDate per coerenza col resto
+    // della suite, anche se l'input datetime-local è interpretato dal
+    // browser come local time.
     const slot = new Date();
-    slot.setDate(slot.getDate() + 2);
+    slot.setUTCDate(slot.getUTCDate() + 2);
     const ymd = slot.toISOString().slice(0, 10);
     await dialog.locator('#startTime').fill(`${ymd}T15:00`);
     await dialog.locator('#endTime').fill(`${ymd}T16:00`);
