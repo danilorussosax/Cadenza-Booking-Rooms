@@ -22,7 +22,7 @@
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { Booking, Room } = require('../models');
-const { validateBooking } = require('./bookingValidator');
+const { validateBooking, createValidationCache } = require('./bookingValidator');
 
 const MAX_SUGGESTIONS = 5;
 
@@ -67,6 +67,15 @@ async function findAlternatives({ roomId, startTime, endTime, type, user }) {
   const sourceRoom = await Room.findByPk(roomId);
   if (!sourceRoom) return [];
 
+  // N+1 mitigation (v1.12): la cache è condivisa tra i ~5 candidati che
+  // chiamano validateBooking. Senza, ogni candidato fa 4-6 query identiche
+  // (BookingRule, BookingQuota, BookingRuleException) per il ruolo dell'utente.
+  // Con la cache, le query "invarianti per batch" vengono fatte 1 sola volta.
+  const validationCache = createValidationCache();
+  // Pre-fetch della source room nella cache così validateBooking non
+  // ri-fetcha la Room per i candidati di tipo A* / C*.
+  validationCache.room.set(sourceRoom.id, sourceRoom);
+
   const suggestions = [];
   const seenKeys = new Set();
   const pushIfValid = async (candidate) => {
@@ -74,7 +83,7 @@ async function findAlternatives({ roomId, startTime, endTime, type, user }) {
     const key = `${candidate.roomId}|${candidate.startTime.toISOString()}|${candidate.endTime.toISOString()}`;
     if (seenKeys.has(key)) return;
     seenKeys.add(key);
-    const ok = await isCandidateValid({ candidate, type, user });
+    const ok = await isCandidateValid({ candidate, type, user, cache: validationCache });
     if (ok) {
       suggestions.push({
         roomId: candidate.roomId,
@@ -164,7 +173,7 @@ async function findAlternatives({ roomId, startTime, endTime, type, user }) {
  *  - controllo overlap rapido (Booking.findOne sullo stesso roomId)
  *  - validateBooking standard (regole/quote/finestre orarie/permessi)
  */
-async function isCandidateValid({ candidate, type, user }) {
+async function isCandidateValid({ candidate, type, user, cache = null }) {
   // Quick overlap check (libera 80% dei candidati senza eseguire il
   // validator completo).
   const conflict = await Booking.findOne({
@@ -185,6 +194,8 @@ async function isCandidateValid({ candidate, type, user }) {
   // bypassAdvance:true perché il candidato è temporalmente vicino alla
   // richiesta originale già passata: i check min/maxAdvance si applicano
   // soprattutto al "futuro lontano", non a uno shift di ±2h o ±2 giorni.
+  // `cache` (v1.12 N+1 fix): condiviso tra i 5 candidati per riusare le query
+  // su BookingRule / BookingQuota / Exceptions invarianti per batch.
   try {
     const validation = await validateBooking({
       user,
@@ -193,6 +204,7 @@ async function isCandidateValid({ candidate, type, user }) {
       endTime: candidate.endTime.toDate(),
       type,
       bypassAdvance: true,
+      cache,
     });
     return validation.valid;
   } catch {
