@@ -72,7 +72,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Rotazione building / concerti / annunci con timer per-edificio
 - Modalità offline-soft via Service Worker (banner "Connessione persa")
 - Privacy granulare: opzione per nascondere i nomi sul display per edificio
-- **Restrizione per IP** (opzionale): limita la visibilità del kiosk e degli endpoint `/api/public/*` ai soli IP dell'istituto via nginx — vedi [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)
+- **Restrizione per IP** (opzionale): limita la visibilità del kiosk e degli endpoint `/api/public/*` ai soli IP dell'istituto via `allow`/`deny` nginx (CIDR pubblici dell'edificio + LAN privata)
 
 ### 📢 Bacheca avvisi e comunicazione
 
@@ -131,11 +131,11 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 ### 💾 Business continuity
 
 - **Mirror Excel periodico** delle prenotazioni su disco (default `/var/cadenza/sync/`), una tab per ogni edificio con celle colorate per tipo (`studio_individuale` verde, `lezione` azzurro, `prova` ambra, `concerto` rosa, `altro` viola) e merge orizzontale dei blocchi multi-slot — replica fedele del Display kiosk
-- Sync della cartella su cloud personale (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + cron OS — indipendente dal backend: se Cadenza è giù, l'ultima copia del foglio resta nel cloud, la portineria la apre dal telefono. Direzione volutamente unidirezionale (Cadenza → file): le modifiche al foglio NON tornano nel DB, niente conflict resolution oscura al ripristino. Setup completo in [docs/EXCEL_SYNC.md](docs/EXCEL_SYNC.md)
+- Sync della cartella su cloud personale (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + cron OS — indipendente dal backend: se Cadenza è giù, l'ultima copia del foglio resta nel cloud, la portineria la apre dal telefono. Direzione volutamente unidirezionale (Cadenza → file): le modifiche al foglio NON tornano nel DB, niente conflict resolution oscura al ripristino. Setup interattivo via `scripts/setup-rclone-sync.sh`
 - Backup automatico DB + uploads (snapshot tar.gz con retention giornaliera/settimanale/mensile)
 - **Verifica integrità backup automatica** (v1.9.0): scheduler weekly che applica 7 check sull'ultimo `.tar.gz` (età, tarball safety, manifest, dump non vuoto, tabelle critiche, sezione dati, schema vs prod). Mail admin solo su fallimento (silent-on-success) con idempotency per giorno+reason. Widget dedicato in `/admin/ops`
 - **Backup off-site multi-cloud opt-in** (v1.10.0): `scripts/setup-rclone-backups.sh` installa il cron giornaliero che copia i backup su un remote rclone (OneDrive Personal/Business, Dropbox, S3, Hetzner Storage Box, Backblaze B2 — 70+ backend supportati). Cleanup mensile con retention configurabile (default 90gg)
-- **PITR opt-in** (v1.10.0): `scripts/setup-wal-archiving.sh` abilita Postgres `archive_mode=on` con `archive_command` che pusha ogni WAL allo stesso remote rclone. RPO scende da 24h a ~1 min (`archive_timeout` 60s). Procedura restore completa in [docs/DISASTER_RECOVERY.md §5.6](docs/DISASTER_RECOVERY.md)
+- **PITR opt-in** (v1.10.0): `scripts/setup-wal-archiving.sh` abilita Postgres `archive_mode=on` con `archive_command` che pusha ogni WAL allo stesso remote rclone. RPO scende da 24h a ~1 min (`archive_timeout` 60s). Procedura di restore: `recovery.conf` + `restore_command` standard PostgreSQL su una directory `base` ripristinata da snapshot.
 - **PM2 cluster mode opt-in** (v1.10.0): `ecosystem.config.js` pronto per il passaggio a cluster mode. Scheduler cluster-safe via `backend/lib/clusterRole.js`: solo l'istanza master li esegue, le altre servono solo richieste HTTP
 
 ### 🌍 Internazionalizzazione
@@ -351,7 +351,7 @@ npm run build                     # build frontend → frontend/dist
 npm run start                     # avvia backend (serve API + dist statico)
 ```
 
-Per un deploy completo su VPS Ubuntu 24.04 (con nginx + Let's Encrypt + scheduler) usare lo script `scripts/install.sh` (idempotente, supporta modalità domain HTTPS / IP-only / IP self-signed). Vedi [`docs/install.md`](docs/install.md) per la guida passo-passo (esempio Hetzner incluso).
+Per un deploy completo su server Linux (con nginx + Let's Encrypt + scheduler) usare lo script `scripts/install.sh` (idempotente, supporta modalità domain HTTPS / IP-only / IP self-signed). Vedi [`docs/install.md`](docs/install.md) per la guida passo-passo provider-agnostic e il dimensionamento per 500 / 1.500 / 3.000 utenti.
 
 ### Comandi utili (dalla root)
 
@@ -431,21 +431,15 @@ AUTO_RESTART_ENABLED=false         # se true, abilita restart endpoint
 
 ## 7. Documentazione
 
-La cartella `docs/` contiene la documentazione tecnica e operativa completa:
+La cartella `docs/` contiene la documentazione tecnica e operativa essenziale:
 
-| Documento                                                 | Contenuto                                                                            |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                 | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti    |
-| [`SECURITY.md`](docs/SECURITY.md)                         | 2FA email OTP — flusso, enforcement admin, recovery, riferimenti normativi           |
-| [`SSO.md`](docs/SSO.md)                                   | Setup SSO Microsoft 365 / Entra ID e Google Workspace passo-passo                    |
-| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)               | Bot Telegram / WhatsApp / Signal / Email — setup, comandi, costi, sicurezza          |
-| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md) | Import manuale anagrafiche da Isidata (CSV/XLSX) con preview + diff transazionale    |
-| [`BACKUP.md`](docs/BACKUP.md)                             | Backup automatico, restore via UI admin, upload remoto (S3, Hetzner, rclone, GPG)    |
-| [`db-constraints.md`](docs/db-constraints.md)             | EXCLUDE constraint anti-overlap su PostgreSQL — debug e procedura emergenza          |
-| [`DEPLOY.md`](docs/DEPLOY.md)                             | Flusso `./deploy.sh` (8 step), setup SSH alias, verifiche PWA, troubleshooting nginx |
-| [`TESTING.md`](docs/TESTING.md)                           | Strategia di test, copertura, esecuzione locale e CI                                 |
-| [`install.md`](docs/install.md)                           | Guida installazione VPS (esempio Hetzner) con `install.sh`                           |
-| [`KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)     | Restrizione `/display` + `/api/public/*` ai soli IP dell'istituto via nginx          |
+| Documento                                                                                                                                         | Contenuto                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                                                                         | Architettura del sistema (IT/EN), modelli dati, routing, i18n, check-in, prestiti |
+| [`AUDIT_QUALITA_PRODUZIONE.md`](docs/AUDIT_QUALITA_PRODUZIONE.md)                                                                                 | Audit di qualità e checklist di produzione                                        |
+| [`install.md`](docs/install.md)                                                                                                                   | Installazione su server Linux, provider VPS, sizing per 500/1500/3000 utenti      |
+| [`develop.md`](develop.md)                                                                                                                        | Piano di sviluppo: gestione eventi (ASIMUT-like), backlog e sprint correnti       |
+| [`MANUALE_ADMIN.md`](docs/MANUALE_ADMIN.md) · [`MANUALE_DOCENTE.md`](docs/MANUALE_DOCENTE.md) · [`MANUALE_STUDENTE.md`](docs/MANUALE_STUDENTE.md) | Manuali in-app serviti via `/help` (filtrati per ruolo)                           |
 
 ### Materiale strategico (riservato)
 
@@ -486,7 +480,7 @@ npm run test:e2e
 
 **Copertura attuale (v1.11.0)**: **1.730** test backend (98 file integration + unit, 16 skippati con motivazione) + **258** component test frontend (26 file, ~10 dei quali a11y `vitest-axe`, 2 skippati) + **12 spec** Playwright (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocco + loans pagination contract + 6 spec pre-esistenti su prestiti/waitlist/a11y) — **2.000 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
 
-**Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico, ognuna documentata in [`docs/TESTING.md`](docs/TESTING.md):
+**Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico:
 
 - **Backup roundtrip** (`backend/tests/integration/backupRoundtrip.test.js`): `performBackup()` → estrae tar.gz → riapre lo snapshot con connessione separata → verifica conteggi e join nominativi vs DB vivo.
 - **Time-travel calendario** (`backend/tests/unit/timeTravel.test.js`): 20 test su rollover AA, finestra submission Monte Ore, Computus pasquale 2024-2033, override admin (fake timers).

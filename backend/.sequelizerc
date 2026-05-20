@@ -7,8 +7,7 @@ const path = require('path');
 //   - models/index.js  → custom (associations, hooks)
 //   - seeders/initial.js  → seeder custom (idempotente, gira a startup)
 // Le migration introdotte da sequelize-cli vivono in migrations/, separate
-// dal sistema preSyncMigrations.js che resta come compat layer (vedi
-// docs/MIGRATIONS.md).
+// dal sistema preSyncMigrations.js che resta come compat layer.
 module.exports = {
   config: path.resolve(__dirname, 'config', 'sequelize-cli.js'),
   'migrations-path': path.resolve(__dirname, 'migrations'),

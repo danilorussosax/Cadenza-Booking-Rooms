@@ -3,7 +3,7 @@
 // =============================================================================
 // Adapter WhatsApp Cloud API (Meta diretta).
 //
-// Setup (vedi docs/BOT-MESSAGING.md):
+// Setup (admin UI Messaging Settings):
 //   1. Crea una Meta Business app + WhatsApp Business → ottieni:
 //      - phoneNumberId (quale numero usare)
 //      - accessToken (Bearer token long-lived)

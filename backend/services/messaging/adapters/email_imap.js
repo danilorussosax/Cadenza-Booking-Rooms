@@ -4,7 +4,7 @@
 // Adapter Email-in (IMAP poll). Adapter "fallback always-on" che usa la
 // mailbox dedicata (es. book@conservatorio.it) come canale conversazionale.
 //
-// Setup (vedi docs/BOT-MESSAGING.md):
+// Setup (admin UI Messaging Settings — IMAP non ancora implementato):
 //   1. Crea casella IMAP dedicata sul server di posta del Conservatorio.
 //   2. Configura su Cadenza (admin → messaging):
 //      - host, port, secure (true per IMAPS porta 993)
@@ -61,7 +61,7 @@ function escapeHtml(s) {
 }
 
 async function testConnection(_config) {
-  // Non implementato: richiede client IMAP. Vedi docs/BOT-MESSAGING.md
+  // Non implementato: richiede client IMAP (es. node-imap + parser MIME).
   // per il roadmap del poller.
   return { ok: false, error: 'IMAP poll non ancora implementato (stub)' };
 }

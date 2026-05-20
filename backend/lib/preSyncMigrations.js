@@ -978,7 +978,7 @@ async function ensureNullableFloatColumn(table, name) {
  *   - Se l'ALTER fallisce per dati pre-esistenti che già si sovrappongono
  *     (ERRCODE 23P01 = exclusion_violation), logga un warn e prosegue:
  *     lo startup non viene bloccato. L'amministratore vedrà il warn e
- *     potrà ripulire i duplicati a mano (vedi docs/db-constraints.md).
+ *     potrà ripulire i duplicati a mano via psql / UI admin booking.
  *
  * Idempotente: rieseguibile.
  */

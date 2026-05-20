@@ -18,7 +18,7 @@
 // Le chiamate sono **idempotenti**: ri-eseguire l'auto-configure non rompe
 // nulla, semplicemente ri-imposta gli stessi valori.
 //
-// Vedi docs/BOT-MESSAGING.md per il flusso completo.
+// Flusso autoconfigure: POST /api/admin/messaging/configure dalla UI.
 // =============================================================================
 
 const TELEGRAM_API = 'https://api.telegram.org';

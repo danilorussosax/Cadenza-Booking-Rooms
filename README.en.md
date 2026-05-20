@@ -71,7 +71,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - Building / concerts / announcements rotation with per-building timers
 - Soft-offline mode via Service Worker (a "Connection lost" banner)
 - Granular privacy: option to hide names on the display per building
-- **IP restriction** (optional): limit kiosk visibility and `/api/public/*` endpoints to the institute's IPs via nginx — see [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)
+- **IP restriction** (optional): limit kiosk visibility and `/api/public/*` endpoints to the institute's IPs via nginx `allow`/`deny` (public CIDRs of the building + private LAN)
 
 ### 📢 Announcements board & communications
 
@@ -126,7 +126,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - **Google OAuth** and **Microsoft 365 / Entra ID OAuth** (configurable in the UI with encrypted secrets)
 - Profile completion with `matricola` and `courseId` for students
 - Roadmap: SPID/CIE (Sprint 6), LDAP/AD (enterprise sprint)
-- Step-by-step SSO setup with links to official Microsoft Learn / Google Cloud docs — see [`docs/SSO.md`](docs/SSO.md)
+- Step-by-step SSO setup configurable from the admin UI (Server Settings → OAuth) with links to official Microsoft Learn / Google Cloud documentation
 
 ### 🌍 Internationalisation
 
@@ -156,11 +156,11 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 ### 💾 Business continuity
 
 - **Periodic Excel mirror** of bookings on disk (default `/var/cadenza/sync/`), one tab per building with cells colour-coded by type — a faithful copy of the public kiosk display
-- Folder sync to a personal cloud (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + OS cron — fully decoupled from the backend: if Cadenza is down the last copy stays in the cloud and the front desk opens it from a phone. Deliberately one-way (Cadenza → file): edits on the sheet do NOT flow back into the DB, so there's no obscure conflict resolution at restore time. Full setup in [docs/EXCEL_SYNC.md](docs/EXCEL_SYNC.md)
+- Folder sync to a personal cloud (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + OS cron — fully decoupled from the backend: if Cadenza is down the last copy stays in the cloud and the front desk opens it from a phone. Deliberately one-way (Cadenza → file): edits on the sheet do NOT flow back into the DB, so there's no obscure conflict resolution at restore time. Interactive setup via `scripts/setup-rclone-sync.sh`
 - Automatic DB + uploads backups (`.tar.gz` snapshot with daily/weekly/monthly retention)
 - **Automated backup integrity check** (v1.9.0): weekly scheduler running 7 checks on the latest `.tar.gz` (age, tarball safety, manifest, non-empty dump, critical tables, data section, schema vs prod). Admin email only on failure (silent-on-success), idempotent per day+reason. Dedicated widget in `/admin/ops`
 - **Multi-cloud off-site backup, opt-in** (v1.10.0): `scripts/setup-rclone-backups.sh` installs the daily cron copying backups to an rclone remote (OneDrive Personal/Business, Dropbox, S3, Hetzner Storage Box, Backblaze B2 — 70+ supported backends). Monthly cleanup with configurable retention (default 90 days)
-- **PITR, opt-in** (v1.10.0): `scripts/setup-wal-archiving.sh` enables Postgres `archive_mode=on` with an `archive_command` pushing each WAL to the same rclone remote. RPO drops from 24h to ~1 min (`archive_timeout` 60s). Full restore procedure in [docs/DISASTER_RECOVERY.md §5.6](docs/DISASTER_RECOVERY.md)
+- **PITR, opt-in** (v1.10.0): `scripts/setup-wal-archiving.sh` enables Postgres `archive_mode=on` with an `archive_command` pushing each WAL to the same rclone remote. RPO drops from 24h to ~1 min (`archive_timeout` 60s). Restore: standard PostgreSQL `recovery.conf` + `restore_command` against a `base` directory restored from snapshot.
 - **PM2 cluster mode, opt-in** (v1.10.0): `ecosystem.config.js` is ready to switch into cluster mode. Cluster-safe schedulers via `backend/lib/clusterRole.js`: only the master instance runs them, the others only serve HTTP traffic
 
 ### 📥 Management-system integrations
@@ -352,7 +352,7 @@ npm run build                     # build frontend → frontend/dist
 npm run start                     # start backend (serves API + static dist)
 ```
 
-For a full deployment on Ubuntu 24.04 VPS (with nginx + Let's Encrypt + scheduler) use the `scripts/install.sh` script (idempotent, supports HTTPS domain / IP-only / IP self-signed modes). See [`docs/install.md`](docs/install.md) for the step-by-step guide (Hetzner example included).
+For a full deployment on a Linux server (with nginx + Let's Encrypt + scheduler) use the `scripts/install.sh` script (idempotent, supports HTTPS domain / IP-only / IP self-signed modes). See [`docs/install.md`](docs/install.md) for the provider-agnostic step-by-step guide and the sizing tables for 500 / 1,500 / 3,000 users.
 
 ### Useful commands (from the repo root)
 
@@ -432,21 +432,15 @@ AUTO_RESTART_ENABLED=false         # if true, enables restart endpoint
 
 ## 7. Documentation
 
-The `docs/` folder contains the full technical and operational documentation. **Most documents are currently in Italian**; translation to English is on the roadmap.
+The `docs/` folder contains the essential technical and operational documentation. **Most documents are in Italian**; translation to English is on the roadmap.
 
-| Document                                                  | Contents                                                                         |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                 | System architecture (IT/EN), data models, routing, i18n, check-in, loans         |
-| [`SECURITY.md`](docs/SECURITY.md)                         | Email-based 2FA OTP — flow, admin enforcement, recovery, regulatory references   |
-| [`SSO.md`](docs/SSO.md)                                   | Step-by-step SSO setup for Microsoft 365 / Entra ID and Google Workspace         |
-| [`BOT-MESSAGING.md`](docs/BOT-MESSAGING.md)               | Telegram / WhatsApp / Signal / Email bots — setup, commands, costs, security     |
-| [`INTEGRATIONS-ISIDATA.md`](docs/INTEGRATIONS-ISIDATA.md) | Manual Isidata roster import (CSV/XLSX) with preview + transactional diff        |
-| [`BACKUP.md`](docs/BACKUP.md)                             | Automatic backup, admin-UI restore, remote upload (S3, Hetzner, rclone, GPG)     |
-| [`db-constraints.md`](docs/db-constraints.md)             | PostgreSQL anti-overlap EXCLUDE constraint — debugging and emergency procedure   |
-| [`DEPLOY.md`](docs/DEPLOY.md)                             | `./deploy.sh` flow (8 steps), SSH alias setup, PWA checks, nginx troubleshooting |
-| [`TESTING.md`](docs/TESTING.md)                           | Testing strategy, coverage, local and CI execution                               |
-| [`install.md`](docs/install.md)                           | VPS install guide (Hetzner example) with `install.sh`                            |
-| [`KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md)     | Restrict `/display` + `/api/public/*` to the institute's IPs via nginx           |
+| Document                                                                                                                                          | Contents                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                                                                         | System architecture (IT/EN), data models, routing, i18n, check-in, loans      |
+| [`AUDIT_QUALITA_PRODUZIONE.md`](docs/AUDIT_QUALITA_PRODUZIONE.md)                                                                                 | Production-readiness audit & checklist                                        |
+| [`install.md`](docs/install.md)                                                                                                                   | Linux server install, VPS providers, sizing for 500/1500/3000 users           |
+| [`develop.md`](develop.md)                                                                                                                        | Development roadmap: event management (ASIMUT-like), backlog, current sprints |
+| [`MANUALE_ADMIN.md`](docs/MANUALE_ADMIN.md) · [`MANUALE_DOCENTE.md`](docs/MANUALE_DOCENTE.md) · [`MANUALE_STUDENTE.md`](docs/MANUALE_STUDENTE.md) | In-app role-based manuals served via `/help`                                  |
 
 ### Strategic material (private)
 
@@ -487,7 +481,7 @@ npm run test:e2e
 
 **Current coverage (v1.11.0)**: **1,730** backend tests (98 integration + unit files, 16 skipped with rationale) + **258** frontend component tests (26 files, ~10 of which a11y via `vitest-axe`, 2 skipped) + **12 Playwright specs** (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocking + loans pagination contract + 6 pre-existing on loans/waitlist/a11y) — **2,000 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
 
-**Stability suites (v1.5.1)** — beyond the classic unit/integration scope, each documented in [`docs/TESTING.md`](docs/TESTING.md):
+**Stability suites (v1.5.1)** — beyond the classic unit/integration scope:
 
 - **Backup roundtrip** (`backend/tests/integration/backupRoundtrip.test.js`): `performBackup()` → extract tar.gz → reopen the snapshot with a separate connection → verify counts and named joins against the live DB.
 - **Calendar time-travel** (`backend/tests/unit/timeTravel.test.js`): 20 tests on AY rollover, Monte Ore submission window, Easter Computus 2024-2033, admin overrides (fake timers).

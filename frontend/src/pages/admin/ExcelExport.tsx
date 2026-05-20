@@ -152,7 +152,8 @@ export default function AdminExcelExport() {
                   </li>
                   <li>Riavvia il backend</li>
                   <li>
-                    Configura il sync verso il cloud — vedi <code>docs/EXCEL_SYNC.md</code>
+                    Configura il sync verso il cloud lanciando{' '}
+                    <code>scripts/setup-rclone-sync.sh</code> (procedura guidata)
                   </li>
                 </ol>
               </AlertDescription>

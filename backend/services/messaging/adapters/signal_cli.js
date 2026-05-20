@@ -3,7 +3,7 @@
 // =============================================================================
 // Adapter Signal — pluggable via signal-cli REST.
 //
-// Setup (vedi docs/BOT-MESSAGING.md):
+// Setup (admin UI Messaging Settings):
 //   1. Installa signal-cli su un host raggiungibile dal backend (Docker
 //      consigliato): https://github.com/AsamK/signal-cli
 //   2. Registra un numero dedicato (anche prepagato) e attiva la modalità

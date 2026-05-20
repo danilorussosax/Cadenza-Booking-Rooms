@@ -18,7 +18,10 @@
 #   PG_PASSWORD       (default: letto da .env, fallback prompt)
 #   SANDBOX_DB        (default: cadenza_dr_sandbox)
 #
-# Vedi docs/DISASTER_RECOVERY.md §7 per la procedura e i target RTO.
+# Esegue un drill di Disaster Recovery: backup -> ripristino in DB sandbox
+# isolato -> verifiche di integrita. Target RTO interno: ~10 min su DB
+# fino a ~100k record. Lanciato manualmente o via cron settimanale per
+# validare che il backup sia effettivamente ripristinabile.
 
 set -euo pipefail
 

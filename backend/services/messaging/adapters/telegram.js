@@ -3,7 +3,7 @@
 // =============================================================================
 // Adapter Telegram Bot API.
 //
-// Setup (vedi docs/BOT-MESSAGING.md):
+// Setup (admin UI Messaging Settings):
 //   1. /newbot via @BotFather → ottieni botToken
 //   2. Scegli un secret HMAC random (es. crypto.randomBytes(32).toString('hex'))
 //   3. Salva botToken + webhookSecret in MessagingSettings via UI admin

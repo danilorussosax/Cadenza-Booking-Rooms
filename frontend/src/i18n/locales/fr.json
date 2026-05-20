@@ -715,7 +715,7 @@
       "otp_title": "Code généré — valable {{minutes}} minutes",
       "otp_help": "Ouvrez la conversation du bot (Telegram/WhatsApp/Signal) et envoyez exactement :",
       "otp_send_hint": "Une fois envoyé, le bot répond avec la confirmation de la liaison.",
-      "guide_text": "Voir docs/BOT-MESSAGING.md pour la liste des bots officiels du Conservatoire.",
+      "guide_text": "Voir admin UI Messaging Settings pour la liste des bots officiels du Conservatoire.",
       "toast": {
         "otp_generated": "Code généré",
         "copied": "Commande copiée dans le presse-papiers",

@@ -51,9 +51,17 @@ Ogni fase è deploybile da sola; le successive estendono senza riscrivere.
 
 #### Fase 0 — Preparare le tipologie (½ giornata)
 
-Eseguire l'**Opzione B** già istruita in [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](docs/ANALISI_TIPI_PRENOTAZIONE.md) aggiungendo all'ENUM `Booking.type` i valori `masterclass`, `esame`, `seminario`, `evento` + entries seed in `BookingTypeCatalog`.
+Estensione dell'ENUM `Booking.type` con i valori `masterclass`, `esame`, `seminario`, `evento` e seed corrispondenti su `BookingTypeCatalog`.
 
-Procedura passo-passo: `docs/ANALISI_TIPI_PRENOTAZIONE.md:113-206`.
+Procedura (additiva, non-breaking):
+
+1. **Migration formale** `backend/migrations/<ts>-extend-booking-type-enum.js` con `ALTER TYPE "enum_bookings_type" ADD VALUE IF NOT EXISTS '...'` per ciascun valore nuovo, su `bookings` e `booking_templates`. Postgres `ADD VALUE` è atomico e non blocca le tabelle; SQLite (dev) ricrea la colonna in safe-sync.
+2. **Allargare gli array hardcoded** in 4 file: `backend/models/Booking.js`, `backend/models/BookingTemplate.js`, `backend/routes/bookings.js` (validator `isIn`), `backend/routes/bookingTemplates.js` (`TYPE_VALUES`).
+3. **Frontend**: estendere `frontend/src/types/index.ts` (`type BookingType`), aggiungere entries in `frontend/src/lib/bookings.ts` (`BOOKING_TYPE_OPTIONS` + `BOOKING_TYPE_STYLES` con classi Tailwind per colore/dot/ring) e nelle traduzioni `i18n/locales/*.json` (chiavi `booking.form.type_<code>`).
+4. **Seeder** `backend/seeders/initial.js`: aggiungere entries `BookingTypeCatalog` (`code`, `label`, `color`, `icon`, `sortOrder`, `defaultDurationMinutes`, `description`). Il seeder è idempotente (`findOrCreate` su `code`).
+5. **Test regression** sui file che hanno la lista hardcoded (`bookingTypes.test.js` array di codici).
+
+Effort ~3-4 ore, di cui ~½ ora di overhead fisso. Rischio basso (ENUM additivo, nessuna modifica a righe esistenti).
 
 #### Fase 1 — Modello `Event` + relazione 1:N con `Booking` (2-3 giorni)
 
@@ -156,7 +164,7 @@ Permessi:
 
 ### 1.6 Rischi e scelte non scontate
 
-- **Non riscrivere `Booking`**: tenere `Event` come aggregatore preserva validator, anti-overlap, check-in QR, statistiche, audit. Coerente con la filosofia "meno invasiva" di [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](docs/ANALISI_TIPI_PRENOTAZIONE.md).
+- **Non riscrivere `Booking`**: tenere `Event` come aggregatore preserva validator, anti-overlap, check-in QR, statistiche, audit. Filosofia "meno invasiva".
 - **`ConcertInfo` deprecata ma non rotta**: la migration backfilla `Event`, la vecchia tabella resta read-only per N release. Sezione dedicata di check + test di parity in [§ 1.7](#17-check-retro-compatibilit-concertinfo).
 - **Niente `task dependencies` né `Gantt`** in v1: KISS.
 - **Visibilità separata dallo stato**: un evento può essere `confirmed` ma `private` (logistica interna prima della comunicazione pubblica) — come Asimut.
@@ -241,7 +249,7 @@ quando tutti questi check sono verdi**:
 - [ ] Zero hit sui path legacy `/api/bookings/:id/concert*` e `/api/public/concerts`
       per ≥ 30 giorni (verificato via access log / Sentry breadcrumb).
 - [ ] Frontend completamente migrato: `grep -r "concertInfo\|ConcertInfo"
-    frontend/src` ritorna 0 occorrenze (tranne `types/index.ts` se mantenuto
+  frontend/src` ritorna 0 occorrenze (tranne `types/index.ts` se mantenuto
       come alias `@deprecated`).
 - [ ] Export Excel migrato a `Event.title` (rimosso include condizionale
       `excelExporter.js:422`).
@@ -288,7 +296,7 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 
 ### 2.1 Sicurezza kiosk — device token per schermi mobili
 
-**Perché**: la [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md) (nginx allowlist) copre il caso "kiosk fisso in sede", ma non protegge tablet/laptop che escono dall'istituto (eventi, sedi temporanee, kiosk mobili al saggio in teatro).
+**Perché**: l'allowlist nginx (CIDR pubblici dell'edificio + LAN privata) copre il caso "kiosk fisso in sede", ma non protegge tablet/laptop che escono dall'istituto (eventi, sedi temporanee, kiosk mobili al saggio in teatro).
 
 **Cosa**: nuovo modello `DisplayToken` (`jti` + `buildingId` + `expiresAt` + `revokedAt`), endpoint admin per emettere un URL `/display?b=<slug>&t=<jwt-30gg>`. Il kiosk lo salva in `localStorage` e lo invia in header `X-Display-Token` su tutte le `/api/public/*`. Middleware `requireDisplayToken` skippabile tramite feature flag globale per backwards compatibility. UI in `/admin/display` per generare/revocare/listare i token attivi.
 
@@ -512,8 +520,9 @@ Sezione da popolare man mano che vengono aperti gli sprint operativi. Per ora ri
 ## 4. Riferimenti
 
 - [`README.md`](README.md) — overview, stack, stato production-ready
-- [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](docs/ANALISI_TIPI_PRENOTAZIONE.md) — studio sui tipi di prenotazione (Opzione B referenziata in Fase 0)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architettura sistema, modelli dati
-- [`docs/KIOSK_IP_ALLOWLIST.md`](docs/KIOSK_IP_ALLOWLIST.md) — restrizione IP nginx del kiosk (base sopra cui poggiano 2.1-2.3)
+- [`docs/install.md`](docs/install.md) — installazione + provider VPS + sizing utenti
+- [`docs/AUDIT_QUALITA_PRODUZIONE.md`](docs/AUDIT_QUALITA_PRODUZIONE.md) — audit qualità & checklist produzione
 - [`scripts/pg-tune-4gb.sh`](scripts/pg-tune-4gb.sh) — tuning Postgres VPS 4 GB (prerequisito di 2.5)
+- [`scripts/setup-pgbouncer.sh`](scripts/setup-pgbouncer.sh) — transaction pooling (prerequisito cluster mode)
 - [`develop-enterprise.md`](develop-enterprise.md) — roadmap enterprise (LDAP, SAML, RFID)

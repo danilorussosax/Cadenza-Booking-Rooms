@@ -36,3 +36,6 @@ backend/reports/mutation/
 
 # Claude Code
 .claude/
+
+# Service account keys / secrets (NEVER commit)
+backend/secrets/

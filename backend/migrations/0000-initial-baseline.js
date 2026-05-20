@@ -4,8 +4,7 @@
  * BASELINE — punto zero del sistema sequelize-cli.
  *
  * Questa migration NON crea/modifica tabelle: lo schema corrente è già
- * stato sincronizzato da `sequelize.sync()` + `lib/preSyncMigrations.js`
- * (vedi docs/MIGRATIONS.md per la strategia di transizione).
+ * stato sincronizzato da `sequelize.sync()` + `lib/preSyncMigrations.js`.
  *
  * Il suo unico scopo è:
  *   - registrare in `SequelizeMeta` un marker "0000-initial-baseline" così

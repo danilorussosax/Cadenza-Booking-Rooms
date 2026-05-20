@@ -6,7 +6,7 @@
 # Prerequisito (manuale, una volta sola):
 #   1) Installa rclone:   curl https://rclone.org/install.sh | sudo bash
 #   2) Configura il remote: rclone config
-#      Segui la procedura guidata (vedi docs/EXCEL_SYNC.md).
+#      Segui la procedura guidata.
 #      Annotati il NOME del remote (es. "cadenza-cloud"), ti serve sotto.
 #
 # Uso:
@@ -68,7 +68,7 @@ if ! $RCLONE_AS_OWNER listremotes 2>/dev/null | grep -q "^${REMOTE_NAME}:$"; the
   echo ""
   echo "  Procedura: n (new remote) → nome=\"${REMOTE_NAME}\" → scegli storage"
   echo "  (onedrive/dropbox/...) → account personal → autorizza"
-  echo "  Vedi docs/EXCEL_SYNC.md per i dettagli (anche modalità headless)."
+  echo " Modalità headless supportata via env."
   echo ""
   echo "  Remote attualmente configurati per '$OWNER':"
   $RCLONE_AS_OWNER listremotes 2>/dev/null | sed 's/^/    /' || echo "    (nessuno)"
