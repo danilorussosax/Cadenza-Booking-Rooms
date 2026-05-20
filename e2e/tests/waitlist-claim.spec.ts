@@ -40,8 +40,13 @@ test.describe('Waitlist: conflict → claim', () => {
     expect(roomsRes.status()).toBe(200);
     const room = (await roomsRes.json()).rooms[0];
 
-    const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    start.setMinutes(0, 0, 0);
+    // Slot deterministico (+3 giorni, 13:00 UTC) per non collidere con
+    // booking-suggestions.spec ("+1 giorno 10:00 UTC", blocker non
+    // cancellato) o login-booking.spec ("+2 giorni 15:00 local").
+    // L'orario flakkato pre-fix (top-of-hour locale) faceva 1/24 fail in CI.
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() + 3);
+    start.setUTCHours(13, 0, 0, 0);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
     // L'admin prenota lo slot
