@@ -18,10 +18,33 @@
 const path = require('node:path');
 const BACKEND_DIR = path.resolve(__dirname, '..', '..', 'backend');
 
+// Versioni delle policy correnti: devono coincidere con
+// frontend/src/pages/legal/policyVersions.ts altrimenti il ConsentGate
+// scatta in E2E e blocca i flussi con un Dialog modale full-screen.
+const PRIVACY_POLICY_VERSION = '2026-04-29';
+const TERMS_VERSION = '2026-04-27';
+
 async function seedE2E() {
   const {
-    User, Course, Institute, Building, Room, BookingRule, Instrument, Booking,
+    User, Course, Institute, Building, Room, BookingRule, Instrument, Booking, UserConsent,
+    MonteOreSettings,
   } = require(path.join(BACKEND_DIR, 'models'));
+  const { currentAcademicYear } = require(path.join(BACKEND_DIR, 'services', 'monteOreCalendarService'));
+
+  async function grantConsents(user) {
+    await UserConsent.create({
+      userId: user.id,
+      consentType: 'privacy_policy',
+      granted: true,
+      policyVersion: PRIVACY_POLICY_VERSION,
+    });
+    await UserConsent.create({
+      userId: user.id,
+      consentType: 'terms',
+      granted: true,
+      policyVersion: TERMS_VERSION,
+    });
+  }
 
   const course = await Course.create({ code: 'PIA', name: 'Pianoforte', isActive: true });
 
@@ -35,7 +58,7 @@ async function seedE2E() {
     isActive: true,
   });
 
-  await User.create({
+  const studente = await User.create({
     email: 'studente@test.local',
     passwordHash: 'Password1!',
     firstName: 'Stud',
@@ -56,9 +79,12 @@ async function seedE2E() {
     status: 'approved',
     isActive: true,
     courseId: course.id,
+    // ContractType "titolare" è seeded di sistema da preSyncMigrations.
+    // Lo associamo al docente per attivare la threshold annual del monte-ore.
+    contractType: 'titolare',
   });
 
-  await User.create({
+  const pending = await User.create({
     email: 'pending@test.local',
     passwordHash: 'Password1!',
     firstName: 'Doc',
@@ -67,6 +93,12 @@ async function seedE2E() {
     status: 'pending',
     isActive: true,
   });
+
+  // ConsentGate scatta sui non-admin senza consensi correnti: pre-popoliamo
+  // per evitare backdrop modale sui flussi /booking etc.
+  await grantConsents(studente);
+  await grantConsents(docente);
+  await grantConsents(pending);
 
   // Admin con 2FA abilitata (twoFaEnabled) per il 2fa-login.spec.
   // L'enforcement è attivo: questo utente deve passare per il flusso OTP.
@@ -82,7 +114,35 @@ async function seedE2E() {
     twoFaActivatedAt: new Date(),
   });
 
-  const institute = await Institute.create({ name: 'Conservatorio E2E', city: 'Roma' });
+  const institute = await Institute.create({
+    name: 'Conservatorio E2E',
+    city: 'Roma',
+    // Esplicito anche se default=true: rende la dipendenza visibile per i
+    // test E2E che esercitano /api/monte-ore (vedi monte-ore-approval.spec).
+    moduleMonteOreEnabled: true,
+  });
+
+  // MonteOreSettings per l'AA corrente: finestra di submission ampia che
+  // include la data del test E2E (mese variabile). Senza queste settings la
+  // POST /me/submit fallirebbe con OUTSIDE_SUBMISSION_WINDOW.
+  // minRequiredHours=1 per non costringere il docente a inserire 324h
+  // settimanali nel test (il suo pattern è 11h/sett → ~330h/anno ok, ma
+  // restiamo permissivi così il flow non è bloccato da matematica fragile).
+  const year = currentAcademicYear();
+  const [aaStartYear] = year.split('/').map(Number);
+  await MonteOreSettings.create({
+    instituteId: institute.id,
+    academicYear: year,
+    academicYearStart: `${aaStartYear}-11-01`,
+    academicYearEnd: `${aaStartYear + 1}-10-31`,
+    lessonsStartDate: `${aaStartYear}-11-01`,
+    lessonsEndDate: `${aaStartYear + 1}-06-30`,
+    submissionWindowStart: `${aaStartYear}-09-01`,
+    submissionWindowEnd: `${aaStartYear + 1}-10-31`,
+    minRequiredHours: 1,
+    maxAmendmentsPerYear: 3,
+    isActiveForTeachers: true,
+  });
   const building = await Building.create({
     instituteId: institute.id,
     name: 'Edificio A',

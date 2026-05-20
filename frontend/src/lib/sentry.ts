@@ -10,10 +10,9 @@
  * dell'invio.
  *
  * Tagging utente: setSentryUser(user) chiamato da AuthContext quando
- * l'utente accede / si rinnova il profilo. user.id viene anonimizzato lato
- * server tramite hash (qui inviamo solo l'id "raw" perché la mappatura
- * SHA è gestita dall'envelope di Sentry su backend) — TODO se richiesto
- * di hashare anche lato client, replicare crypto.subtle.
+ * l'utente accede / si rinnova il profilo. user.id viene anonimizzato
+ * lato client via SHA-256 (vedi `hashUserId`) prima dell'invio a Sentry —
+ * l'id "raw" non lascia mai il browser.
  */
 
 import * as Sentry from '@sentry/react';

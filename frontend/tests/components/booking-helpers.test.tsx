@@ -6,9 +6,25 @@ import { CookieBanner } from '@/components/legal/CookieBanner';
 import { ConsentGate } from '@/components/legal/ConsentGate';
 import { OAuthButtons } from '@/components/auth/OAuthButtons';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
-import { HeatmapGrid } from '@/components/admin/HeatmapGrid';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+// useConsentGate: by default in test, needsConsent=false → il dialog non si
+// monta. Singoli test possono usare vi.mocked(...).mockReturnValueOnce(...)
+// per forzare il ramo opposto.
+vi.mock('@/components/legal/useConsentGate', () => ({
+  useConsentGate: vi.fn(() => ({ needsConsent: false, isLoading: false })),
+}));
+
+// useAuth: il ConsentGate chiama solo logout(); mockiamo il minimo indispensabile.
+vi.mock('@/contexts/AuthContext', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/contexts/AuthContext')>('@/contexts/AuthContext');
+  return {
+    ...actual,
+    useAuth: () => ({ logout: vi.fn() }),
+  };
+});
 
 describe('<WeeklyExportPrintView />', () => {
   it('si monta con array vuoto di edifici', () => {
@@ -50,7 +66,20 @@ describe('<CookieBanner />', () => {
 });
 
 describe('<ConsentGate />', () => {
-  it.skip('richiede AuthProvider — coperto da E2E', () => {});
+  it('ritorna null se needsConsent=false (default)', () => {
+    const { container } = renderWithProviders(<ConsentGate />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('apre il dialog se needsConsent=true', async () => {
+    const mod = await import('@/components/legal/useConsentGate');
+    vi.mocked(mod.useConsentGate).mockReturnValueOnce({
+      needsConsent: true,
+      isLoading: false,
+    });
+    renderWithProviders(<ConsentGate />);
+    expect(screen.getByText('Aggiornamento dei documenti legali')).toBeInTheDocument();
+  });
 });
 
 describe('<OAuthButtons />', () => {
@@ -89,8 +118,4 @@ describe('<ConfirmDeleteDialog />', () => {
     expect(screen.getByText('Elimina aula')).toBeInTheDocument();
     expect(screen.getByText('Azione irreversibile')).toBeInTheDocument();
   });
-});
-
-describe('<HeatmapGrid />', () => {
-  it.skip('shape props non standard — escluso, coperto da test admin dedicato', () => {});
 });

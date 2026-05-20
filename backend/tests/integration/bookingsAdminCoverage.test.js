@@ -66,7 +66,7 @@ describe('bookings admin coverage', () => {
     expect(res.status).toBe(400);
   });
 
-  it.skip('approve + reject pending — flusso complesso, skip per stabilità', async () => {
+  it('approve + reject pending — happy path', async () => {
     // Crea una room che richiede approvazione
     const { Building, Institute } = require('../../models');
     const inst = await Institute.create({ name: 'I', code: 'I', city: 'X', country: 'IT' });
@@ -74,6 +74,7 @@ describe('bookings admin coverage', () => {
     const room = await Room.create({
       name: 'Concerti',
       buildingId: building.id,
+      floor: 'Piano terra',
       type: 'aula_concerti',
       requiresApproval: true,
       capacity: 100,

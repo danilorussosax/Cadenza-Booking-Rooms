@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as plRequest } from '@playwright/test';
 import { loginAs } from './_helpers';
 
 /**
@@ -12,36 +12,23 @@ import { loginAs } from './_helpers';
  * e Aula 101 (no check-in obbligatorio).
  */
 test.describe('Studente: login → crea booking → cancella', () => {
-  // FIXME: il flow attuale di /booking richiede di cliccare una fascia
-  // oraria nel calendar per pre-popolare startTime/endTime nel dialog.
-  // Cliccare solo "Nuova prenotazione" lascia il form incompleto e il
-  // submit fallisce silenziosamente. Refactor del test richiesto:
-  // simulare il click in cella oraria 10:00 della griglia, oppure
-  // popolare i campi datetime-local direttamente. Tracciato come
-  // follow-up — fuori scope mobile-UX sprint.
-  test.fixme('flusso completo', async ({ page }) => {
+  test('flusso completo', async ({ page }) => {
     await loginAs(page, { email: 'studente@test.local', password: 'Password1!' });
 
-    // Andiamo alla pagina di prenotazione e aspettiamo che l'header
-    // sia idratato (lazy-loaded route con data fetching iniziale).
     await page.goto('/booking');
-    await expect(page.getByRole('heading', { name: /prenota un'?aula/i })).toBeVisible({
-      timeout: 10000,
+    // h1 in main: "Prenota un'aula" (il banner ha un h1 piu' generico).
+    // Match via locator+filter perche' role+name regex pareva non agganciare
+    // l'accessible name su alcune versioni Playwright.
+    await expect(page.locator('main h1').filter({ hasText: /prenota un.?aula/i })).toBeVisible({
+      timeout: 15000,
     });
 
-    // Click "Nuova prenotazione" → apre il dialog di create.
-    // `filter({ hasText })` invece di `name` perché alcuni snapshot di
-    // Playwright separano il text dall'icona in modi che fanno fallire
-    // l'accessible-name match.
-    const newBtn = page
-      .getByRole('button')
-      .filter({ hasText: /nuova prenotazione/i })
-      .first();
+    // Lucide icon SVG sporca l'accessible name (img senza alt) → getByRole
+    // con name regex non aggancia. Cerchiamo il button via il text node.
+    const newBtn = page.locator('main button').filter({ hasText: /nuova prenotazione/i }).first();
+    await expect(newBtn).toBeVisible({ timeout: 15000 });
     await newBtn.click();
 
-    // Il dialog è aperto. Lo selezioniamo come scope per evitare di
-    // confondere il combobox del dialog con quello della toolbar
-    // /booking (entrambi mostrano "Aula 101 · Edificio A").
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
@@ -49,24 +36,38 @@ test.describe('Studente: login → crea booking → cancella', () => {
     await dialog.getByRole('combobox').first().click();
     await page.getByRole('option', { name: /aula 101/i }).click();
 
-    // Submit del form. Pattern stretto per evitare "Salva come template".
-    await dialog.getByRole('button', { name: /conferma prenotazione/i }).click();
+    // Popola direttamente i campi datetime-local: il flow del calendar
+    // (click su cella oraria) li pre-riempie via onSlotClick, ma in test
+    // popolarli per ID è più deterministico. Slot: domani alle 10-11.
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const ymd = tomorrow.toISOString().slice(0, 10);
+    await dialog.locator('#startTime').fill(`${ymd}T10:00`);
+    await dialog.locator('#endTime').fill(`${ymd}T11:00`);
 
-    // Verifica notifica di successo (toast Sonner). Il pattern stretto
-    // evita strict-mode violation con elementi che contengono "prenotazione"
-    // (titolo dialog, sidebar header, ecc).
+    // Submit del form: il bottone in italiano dice "Prenota". Stretto via
+    // `type=submit` per non beccare per errore il bottone "Salva come template"
+    // che vive nello stesso footer.
+    await dialog.locator('button[type="submit"]').click();
+
     await expect(page.getByText(/prenotazione creata/i)).toBeVisible({ timeout: 5000 });
 
-    // Vai alle proprie prenotazioni e cancella la prima
-    await page.goto('/my-bookings');
-    const cancelBtn = page.getByRole('button', { name: /cancell|cancel/i }).first();
-    if (await cancelBtn.isVisible()) {
-      await cancelBtn.click();
-      // Conferma se chiede
-      const confirm = page.getByRole('button', { name: /conferma|elimina/i });
-      if (await confirm.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await confirm.click();
-      }
+    // Cleanup deterministico via API: la suite E2E condivide il backend
+    // (reuseExistingServer in dev), quindi una booking lasciata in DB qui
+    // genera conflitti negli spec successivi (es. waitlist-claim che usa
+    // lo stesso slot di "domani"). Il click su /my-bookings UI sarebbe
+    // best-effort, qui invece cancelliamo TUTTE le booking dello studente.
+    const apiCtx = await plRequest.newContext({ baseURL: page.url().split('/').slice(0, 3).join('/') });
+    const login = await apiCtx.post('/api/auth/login', {
+      data: { email: 'studente@test.local', password: 'Password1!' },
+    });
+    const token = (await login.json()).token;
+    const auth = { Authorization: `Bearer ${token}` };
+    const mine = await apiCtx.get('/api/bookings?mine=true', { headers: auth });
+    const bookings: Array<{ id: number }> = (await mine.json()).bookings ?? [];
+    for (const b of bookings) {
+      await apiCtx.delete(`/api/bookings/${b.id}`, { headers: auth });
     }
+    await apiCtx.dispose();
   });
 });
