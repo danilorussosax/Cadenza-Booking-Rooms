@@ -157,12 +157,119 @@ Permessi:
 ### 1.6 Rischi e scelte non scontate
 
 - **Non riscrivere `Booking`**: tenere `Event` come aggregatore preserva validator, anti-overlap, check-in QR, statistiche, audit. Coerente con la filosofia "meno invasiva" di [`docs/ANALISI_TIPI_PRENOTAZIONE.md`](docs/ANALISI_TIPI_PRENOTAZIONE.md).
-- **`ConcertInfo` deprecata ma non rotta**: la migration backfilla `Event`, la vecchia tabella resta read-only per N release.
+- **`ConcertInfo` deprecata ma non rotta**: la migration backfilla `Event`, la vecchia tabella resta read-only per N release. Sezione dedicata di check + test di parity in [§ 1.7](#17-check-retro-compatibilit-concertinfo).
 - **Niente `task dependencies` né `Gantt`** in v1: KISS.
 - **Visibilità separata dallo stato**: un evento può essere `confirmed` ma `private` (logistica interna prima della comunicazione pubblica) — come Asimut.
 - **Sign-up esterni (audience)**: opzionale con flag `allowSignup` e campi `externalName/Email`; rate-limit + captcha se mai esposto pubblicamente.
 
-### 1.7 Stato attuale
+### 1.7 Check retro-compatibilità `ConcertInfo`
+
+`ConcertInfo` è già usata da 3 endpoint admin, 2 endpoint pubblici, l'export Excel
+e 7 componenti frontend. La migrazione a `Event` deve essere **dual-read** finché
+tutti i consumer non sono migrati. Sezione di controllo da firmare prima di
+cancellare la tabella vecchia.
+
+#### 1.7.1 Inventario superficie d'uso (snapshot v1.11.2)
+
+| Tipo           | Path                                                                       | Ruolo                                                                                            |
+| -------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Model          | `backend/models/ConcertInfo.js`                                            | Tabella `concert_info`, UNIQUE su `bookingId`, paranoid (soft delete)                            |
+| Route admin    | `backend/routes/bookings.js:1597-1740`                                     | GET / PUT / DELETE `/api/bookings/:id/concert`; POST / DELETE `/api/bookings/:id/concert/poster` |
+| Route pubblica | `backend/routes/public.js:130-149`                                         | `/api/public/concerts` con `required: true` su `concertInfo`                                     |
+| Route pubblica | `backend/routes/public.js:223-260`                                         | Daily view kiosk: `concertTitle` derivato da `concertInfo.title`                                 |
+| Service        | `backend/services/excelExporter.js:206,396-423`                            | Export Excel: prefisso `🎵 <title>` nel cellTitle                                                |
+| Test           | `backend/tests/integration/publicAgendaCoverage.test.js`                   | Copertura listing pubblico                                                                       |
+| Types FE       | `frontend/src/types/index.ts` → `interface ConcertInfo`                    | Tipo TS condiviso                                                                                |
+| API FE         | `frontend/src/api/bookings.ts:117-138`                                     | `getConcert/saveConcert/deleteConcert/uploadConcertPoster/deleteConcertPoster`                   |
+| API FE         | `frontend/src/api/public.ts:22-23,87-92`                                   | `concertTitle`, `concertsEnabled/Days/Count` (per kiosk)                                         |
+| Componente     | `ConcertInfoDialog.tsx`                                                    | Form admin scheda concerto                                                                       |
+| Componente     | `BookingFormDialog.tsx`                                                    | Apertura dialog scheda per booking `concerto`                                                    |
+| Componenti     | `BookingListItem.tsx`, `DailyRoomTimetable.tsx`, `WeeklyRoomTimetable.tsx` | Rendering badge/titolo concerto                                                                  |
+| Lib FE         | `lib/weeklyBlocks.ts`, `lib/bookings.ts`                                   | Mapping/serializzazione                                                                          |
+
+#### 1.7.2 Strategia dual-read (fasi 1 → 4)
+
+Durante le fasi 1-4 la verità sta su **entrambe** le entità. La regola d'oro:
+**`ConcertInfo` non sparisce, viene ombreggiata da `Event`.**
+
+1. **Migration di Fase 1 backfilla `Event` da `ConcertInfo`**, ma NON elimina
+   le righe `concert_info`. Per ogni `ConcertInfo` esistente:
+   - crea `Event(type='concerto', status='published', visibility='public', title, programText=program, performersText=performers, posterUrl)`
+   - setta `Booking.eventId = event.id`
+   - **lascia intatta** la riga `concert_info` (per fallback e per il rollback rapido)
+2. **Hook Sequelize `afterCreate/afterUpdate` su `ConcertInfo`** (transitorio):
+   se qualcuno chiama ancora la vecchia API `PUT /api/bookings/:id/concert`,
+   il save viene propagato anche al `Event` collegato (write-through). Così
+   il display pubblico, che legge dal nuovo endpoint, resta coerente.
+3. **Endpoint legacy `/api/bookings/:id/concert*` restano vivi**: in Fase 1
+   solo aggiornano `ConcertInfo`; in Fase 2 diventano un wrapper che scrive
+   sull'`Event` corrispondente e sincronizza `ConcertInfo` (write-through);
+   in Fase 5 emettono header `Deprecation: true` + `Sunset: <data>` (RFC 8594).
+4. **Route pubblica `/api/public/concerts`** in Fase 5 viene marcato deprecato
+   ma resta funzionante per N release; il nuovo `/api/public/events?type=concerto`
+   è il path raccomandato.
+
+#### 1.7.3 Test di parity obbligatori (gate per ogni fase)
+
+Aggiunti a `backend/tests/integration/eventsBackcompat.test.js` (nuovo file).
+**Devono restare verdi a ogni rilascio fino alla rimozione di `ConcertInfo`.**
+
+| #   | Scenario                                                                   | Atteso                                                                                              |
+| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 1   | Backfill iniziale: 10 `ConcertInfo` pre-esistenti                          | Crea 10 `Event` con stessi `title/performers/program/posterUrl`; ogni `Booking.eventId` valorizzato |
+| 2   | `PUT /api/bookings/:id/concert` (API legacy)                               | Sia `ConcertInfo` che `Event` collegato risultano aggiornati con lo stesso `title`                  |
+| 3   | `POST /api/events/:id` (API nuova) su Event con backing `ConcertInfo`      | `ConcertInfo` write-through aggiornata (fase di transizione)                                        |
+| 4   | `GET /api/public/concerts` (legacy)                                        | Stesso array di concerti rispetto a v1.11.x: stessi campi `title/performers/program/posterUrl`      |
+| 5   | `GET /api/public/events?type=concerto` (nuovo)                             | Superset del precedente: include anche eventi non-`concerto` se filtro rilassato                    |
+| 6   | Daily kiosk view (`/api/public/agenda`)                                    | `concertTitle` resta valorizzato come prima (read da `Event.title` con fallback a `ConcertInfo`)    |
+| 7   | Excel export di un mese con 5 concerti                                     | Cell title contiene `🎵 <title>` identico a v1.11.x                                                 |
+| 8   | DELETE `ConcertInfo` (legacy)                                              | `Event` collegato resta vivo (è nuova fonte di verità); soft-delete su `concert_info` only          |
+| 9   | DELETE `Event` (nuovo) con backing `ConcertInfo`                           | Cascade: `ConcertInfo` cancellata via `Booking.eventId=null`                                        |
+| 10  | Upload poster via vecchia API + lettura via nuova                          | `Event.posterUrl` riflette l'URL appena caricato                                                    |
+| 11  | Snapshot iCal (`/api/bookings/ical?token=...`) di un utente con 1 concerto | Title nell'`SUMMARY` invariato bit-a-bit rispetto a v1.11.x (riuso `services/icalService.js`)       |
+| 12  | Public agenda con `concertsEnabled=true` su building                       | Stesso payload di v1.11.x (`concertsDays`, `concertsCount` rispettati)                              |
+
+> Test 11 e 12 sono "snapshot test": confronto byte-a-byte con fixture
+> generate da una v1.11.2 prima della migrazione (catturate in `tests/fixtures/v1.11.2-concerts/`).
+
+#### 1.7.4 Definition of Done della deprecazione
+
+`ConcertInfo` può essere rimossa (tabella + model + endpoint legacy) **solo
+quando tutti questi check sono verdi**:
+
+- [ ] Tutte le 12 righe della §1.7.3 verdi su CI per ≥ 3 release consecutive.
+- [ ] Zero hit sui path legacy `/api/bookings/:id/concert*` e `/api/public/concerts`
+      per ≥ 30 giorni (verificato via access log / Sentry breadcrumb).
+- [ ] Frontend completamente migrato: `grep -r "concertInfo\|ConcertInfo"
+    frontend/src` ritorna 0 occorrenze (tranne `types/index.ts` se mantenuto
+      come alias `@deprecated`).
+- [ ] Export Excel migrato a `Event.title` (rimosso include condizionale
+      `excelExporter.js:422`).
+- [ ] Bot Telegram: la lookup di "concerti del mese" punta a `/api/public/events?type=concerto`.
+- [ ] Migrazione finale rilasciata con header `Sunset` rispettato (almeno 90
+      giorni di preavviso negli header HTTP).
+- [ ] Backup pre-rimozione: snapshot esplicito di `concert_info` archiviato
+      off-site (Hetzner Storage Box / rclone) con retention 5 anni — per
+      eventuali audit / compliance.
+- [ ] Documentazione aggiornata: `docs/ARCHITECTURE.md`, `MANUALE_ADMIN.md`,
+      `MANUALE_DOCENTE.md` non menzionano più "scheda concerto" come entità a sé.
+
+#### 1.7.5 Rollback plan (Fase 1, primo deploy)
+
+Se dopo Fase 1 emergono problemi di parity, il rollback è banale perché
+`concert_info` non è stata toccata:
+
+```sql
+-- Sul DB
+UPDATE bookings SET "eventId" = NULL;          -- scollega
+DELETE FROM events;                             -- niente più Event (no FK out)
+ALTER TABLE bookings DROP COLUMN "eventId";    -- opzionale, in re-deploy
+```
+
+Lato codice basta tornare al tag precedente (`git checkout v1.11.x` per il
+backend). I dati storici dei concerti restano intatti in `concert_info`.
+
+### 1.8 Stato attuale
 
 ⏸ **In attesa di approvazione** — proposta architetturale documentata, implementazione non ancora avviata.
 
