@@ -147,6 +147,10 @@ router.get('/concerts', async (req, res) => {
       performers: b.concertInfo.performers || '',
       program: b.concertInfo.program || '',
       posterUrl: b.concertInfo.posterUrl || null,
+      // Campi v1.15 — fallback safe: i concerti pre-v1.15 hanno null.
+      eventType: b.concertInfo.eventType || 'concerto',
+      description: b.concertInfo.description || null,
+      language: b.concertInfo.language || null,
       room: b.room
         ? {
             id: b.room.id,

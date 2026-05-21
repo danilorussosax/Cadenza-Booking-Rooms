@@ -1,5 +1,12 @@
 import { api } from '@/lib/api';
-import type { Booking, BookingStatus, BookingType, BookingUsage, ConcertInfo } from '@/types';
+import type {
+  Booking,
+  BookingStatus,
+  BookingType,
+  BookingUsage,
+  ConcertInfo,
+  ConcertEventType,
+} from '@/types';
 
 export interface BookingsListParams {
   from?: string;
@@ -117,7 +124,14 @@ export const bookingsApi = {
     api<{ concertInfo: ConcertInfo }>(`/api/bookings/${bookingId}/concert`),
   saveConcert: (
     bookingId: number,
-    payload: { title: string; performers?: string; program?: string },
+    payload: {
+      title: string;
+      performers?: string;
+      program?: string;
+      eventType?: ConcertEventType;
+      description?: string | null;
+      language?: string | null;
+    },
   ) =>
     api<{ concertInfo: ConcertInfo }>(`/api/bookings/${bookingId}/concert`, {
       method: 'PUT',

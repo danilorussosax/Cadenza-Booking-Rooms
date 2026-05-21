@@ -967,12 +967,16 @@
       "secret_enter": "Saisissez la valeur",
       "test_button": "Tester la connexion",
       "toggle_aria": "Activer {{channel}}",
-      "badge": { "enabled": "Actif" },
+      "badge": {
+        "enabled": "Actif"
+      },
       "test": {
         "ok": "Connexion OK · {{info}}",
         "error": "Erreur : {{error}}"
       },
-      "toast": { "saved": "Paramètres enregistrés" },
+      "toast": {
+        "saved": "Paramètres enregistrés"
+      },
       "telegram": {
         "help": "Bot conversationnel gratuit. Configuration rapide via @BotFather.",
         "bot_token": "Bot token (BotFather)",
@@ -1811,7 +1815,13 @@
     "concert": {
       "upcoming_label": "Prochain concert",
       "performers": "Interprètes",
-      "program": "Programme"
+      "program": "Programme",
+      "label": {
+        "saggio": "Prochaine audition",
+        "masterclass": "Prochaine masterclass",
+        "conferenza": "Prochaine conférence",
+        "lezione_aperta": "Prochain cours ouvert"
+      }
     },
     "announcement": {
       "label": "Communication",
@@ -1840,10 +1850,24 @@
       "performers_help": "Une ligne par interprète — elles sont affichées sur l'Infopoint sous forme de liste.",
       "program": "Auteurs et programme",
       "program_placeholder": "Une ligne par œuvre (ex. « J. S. Bach · Partita n° 2 »)",
-      "program_help": "Une ligne par œuvre/auteur — elles sont affichées sur l'Infopoint sous forme de liste."
+      "program_help": "Une ligne par œuvre/auteur — elles sont affichées sur l'Infopoint sous forme de liste.",
+      "event_type": "Type d'événement",
+      "description": "Description courte",
+      "description_placeholder": "Ex. Bach et Schumann pour piano solo",
+      "description_help": "Sous-titre affiché sur le kiosque (max 500 caractères).",
+      "language": "Langue",
+      "language_none": "Aucune"
     },
     "errors": {
-      "title_required": "Saisissez un titre"
+      "title_required": "Saisissez un titre",
+      "lang_invalid": "Code langue invalide (ex. it, en)"
+    },
+    "event_type": {
+      "concerto": "Concert",
+      "saggio": "Audition d'élèves",
+      "masterclass": "Masterclass",
+      "conferenza": "Conférence",
+      "lezione_aperta": "Cours ouvert"
     }
   },
   "not_found": {

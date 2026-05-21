@@ -967,12 +967,16 @@
       "secret_enter": "Wert eingeben",
       "test_button": "Verbindung testen",
       "toggle_aria": "{{channel}} aktivieren",
-      "badge": { "enabled": "Aktiv" },
+      "badge": {
+        "enabled": "Aktiv"
+      },
       "test": {
         "ok": "Verbindung OK · {{info}}",
         "error": "Fehler: {{error}}"
       },
-      "toast": { "saved": "Einstellungen gespeichert" },
+      "toast": {
+        "saved": "Einstellungen gespeichert"
+      },
       "telegram": {
         "help": "Kostenloser Konversations-Bot. Schnelle Einrichtung über @BotFather.",
         "bot_token": "Bot-Token (BotFather)",
@@ -1811,7 +1815,13 @@
     "concert": {
       "upcoming_label": "Nächstes Konzert",
       "performers": "Ausführende",
-      "program": "Programm"
+      "program": "Programm",
+      "label": {
+        "saggio": "Nächstes Vorspiel",
+        "masterclass": "Nächster Meisterkurs",
+        "conferenza": "Nächster Vortrag",
+        "lezione_aperta": "Nächste offene Stunde"
+      }
     },
     "announcement": {
       "label": "Mitteilung",
@@ -1840,10 +1850,24 @@
       "performers_help": "Eine Zeile pro Ausführendem — sie werden im Infopoint als Liste angezeigt.",
       "program": "Komponisten und Programm",
       "program_placeholder": "Eine Zeile pro Stück (z. B. \"J. S. Bach · Partita Nr. 2\")",
-      "program_help": "Eine Zeile pro Stück/Komponist — sie werden im Infopoint als Liste angezeigt."
+      "program_help": "Eine Zeile pro Stück/Komponist — sie werden im Infopoint als Liste angezeigt.",
+      "event_type": "Veranstaltungsart",
+      "description": "Kurzbeschreibung",
+      "description_placeholder": "Z.B. Bach und Schumann für Klavier solo",
+      "description_help": "Untertitel im Kiosk (max. 500 Zeichen).",
+      "language": "Sprache",
+      "language_none": "Keine"
     },
     "errors": {
-      "title_required": "Geben Sie einen Titel ein"
+      "title_required": "Geben Sie einen Titel ein",
+      "lang_invalid": "Ungültiger Sprachcode (z.B. it, en)"
+    },
+    "event_type": {
+      "concerto": "Konzert",
+      "saggio": "Vorspiel",
+      "masterclass": "Meisterkurs",
+      "conferenza": "Vortrag",
+      "lezione_aperta": "Offene Unterrichtsstunde"
     }
   },
   "not_found": {

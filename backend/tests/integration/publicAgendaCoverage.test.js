@@ -163,6 +163,59 @@ describe('routes/public/concerts', () => {
     expect(res.body.concerts.length).toBeGreaterThan(0);
     expect(res.body.concerts[0].title).toBe('Sinfonia n.9');
   });
+
+  // v1.15: feed pubblico espone eventType (default 'concerto'), description, language.
+  it('feed pubblico v1.15 espone eventType/description/language', async () => {
+    const { b: building } = await seedMinimalStructure();
+    const room = await Room.findOne({ where: { buildingId: building.id } });
+    const start = new Date();
+    start.setDate(start.getDate() + 7);
+    start.setHours(18, 30, 0, 0);
+    const end = new Date(start);
+    end.setHours(20, 0, 0, 0);
+    const bk1 = await createBooking({
+      room,
+      startTime: start,
+      endTime: end,
+      type: 'concerto',
+      status: 'confirmed',
+    });
+    await ConcertInfo.create({
+      bookingId: bk1.id,
+      title: 'Lieder serata',
+      eventType: 'masterclass',
+      description: 'Repertorio liederistico tedesco',
+      language: 'de',
+    });
+    // Secondo concerto LEGACY (senza i nuovi campi) → fallback 'concerto' + null
+    const start2 = new Date(start);
+    start2.setDate(start2.getDate() + 1);
+    const end2 = new Date(start2);
+    end2.setHours(start2.getHours() + 1);
+    const bk2 = await createBooking({
+      room,
+      startTime: start2,
+      endTime: end2,
+      type: 'concerto',
+      status: 'confirmed',
+    });
+    await ConcertInfo.create({ bookingId: bk2.id, title: 'Concerto barocco' });
+
+    const res = await request(app).get('/api/public/concerts?days=30');
+    expect(res.status).toBe(200);
+    const masterclass = res.body.concerts.find((c) => c.title === 'Lieder serata');
+    expect(masterclass).toMatchObject({
+      eventType: 'masterclass',
+      description: 'Repertorio liederistico tedesco',
+      language: 'de',
+    });
+    const legacy = res.body.concerts.find((c) => c.title === 'Concerto barocco');
+    expect(legacy).toMatchObject({
+      eventType: 'concerto',
+      description: null,
+      language: null,
+    });
+  });
 });
 
 describe('routes/public/display-config', () => {

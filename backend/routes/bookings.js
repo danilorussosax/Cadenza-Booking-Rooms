@@ -1654,16 +1654,45 @@ router.put('/:id/concert', authenticate, async (req, res, next) => {
     }
     const performers = (req.body?.performers ?? '').toString();
     const program = (req.body?.program ?? '').toString();
+    // Campi v1.15: eventType ENUM applicativo, description max 500, language
+    // ISO 639-1. NULL ammesso (vincolo facoltativo).
+    const allowedTypes = ['concerto', 'saggio', 'masterclass', 'conferenza', 'lezione_aperta'];
+    const rawType = req.body?.eventType;
+    const eventType =
+      rawType == null || rawType === ''
+        ? null
+        : allowedTypes.includes(String(rawType))
+          ? String(rawType)
+          : undefined;
+    if (eventType === undefined) {
+      return res.status(400).json({ error: 'eventType non valido', code: 'CONCERT_INVALID_TYPE' });
+    }
+    const description = req.body?.description ? String(req.body.description).slice(0, 500) : null;
+    const rawLang = req.body?.language;
+    const language =
+      rawLang == null || rawLang === ''
+        ? null
+        : /^[a-z]{2}$/.test(String(rawLang).toLowerCase())
+          ? String(rawLang).toLowerCase()
+          : undefined;
+    if (language === undefined) {
+      return res
+        .status(400)
+        .json({
+          error: 'language deve essere ISO 639-1 (2 lettere)',
+          code: 'CONCERT_INVALID_LANG',
+        });
+    }
+
+    const payload = { title, performers, program, eventType, description, language };
 
     if (booking.concertInfo) {
-      await booking.concertInfo.update({ title, performers, program });
+      await booking.concertInfo.update(payload);
       return res.json({ concertInfo: booking.concertInfo });
     }
     const created = await ConcertInfo.create({
       bookingId: booking.id,
-      title,
-      performers,
-      program,
+      ...payload,
       posterUrl: null,
     });
     res.status(201).json({ concertInfo: created });

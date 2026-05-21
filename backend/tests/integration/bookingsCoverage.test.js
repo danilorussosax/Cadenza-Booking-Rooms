@@ -297,6 +297,48 @@ describe('routes/bookings — concert endpoints', () => {
     expect([200, 201, 404]).toContain(res.status);
   });
 
+  // ───── v1.15: campi eventType/description/language ─────────────────────
+
+  it('PUT /:id/concert accetta i nuovi campi v1.15 e li persiste', async () => {
+    const { user, authHeader } = await createAuthedUser();
+    const bk = await createBooking({ user, type: 'concerto' });
+    const res = await request(app)
+      .put(`/api/bookings/${bk.id}/concert`)
+      .set('Authorization', authHeader)
+      .send({
+        title: 'Schubertiade',
+        eventType: 'masterclass',
+        description: 'Lieder di Schubert con il M° Rossi',
+        language: 'it',
+      });
+    expect([200, 201]).toContain(res.status);
+    expect(res.body.concertInfo.eventType).toBe('masterclass');
+    expect(res.body.concertInfo.description).toBe('Lieder di Schubert con il M° Rossi');
+    expect(res.body.concertInfo.language).toBe('it');
+  });
+
+  it('PUT /:id/concert eventType non in enum → 400 CONCERT_INVALID_TYPE', async () => {
+    const { user, authHeader } = await createAuthedUser();
+    const bk = await createBooking({ user, type: 'concerto' });
+    const res = await request(app)
+      .put(`/api/bookings/${bk.id}/concert`)
+      .set('Authorization', authHeader)
+      .send({ title: 'X', eventType: 'rave_party' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('CONCERT_INVALID_TYPE');
+  });
+
+  it('PUT /:id/concert language non ISO 639-1 → 400 CONCERT_INVALID_LANG', async () => {
+    const { user, authHeader } = await createAuthedUser();
+    const bk = await createBooking({ user, type: 'concerto' });
+    const res = await request(app)
+      .put(`/api/bookings/${bk.id}/concert`)
+      .set('Authorization', authHeader)
+      .send({ title: 'X', language: 'italiano' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('CONCERT_INVALID_LANG');
+  });
+
   it('DELETE /:id/concert 403 su booking altrui', async () => {
     const { user: u1 } = await createAuthedUser({ email: 'a@x.it' });
     const { authHeader: h2 } = await createAuthedUser({ email: 'b@x.it' });

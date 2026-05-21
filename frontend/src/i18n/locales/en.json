@@ -1023,12 +1023,16 @@
       "secret_enter": "Enter the value",
       "test_button": "Test connection",
       "toggle_aria": "Enable {{channel}}",
-      "badge": { "enabled": "Active" },
+      "badge": {
+        "enabled": "Active"
+      },
       "test": {
         "ok": "Connection OK · {{info}}",
         "error": "Error: {{error}}"
       },
-      "toast": { "saved": "Settings saved" },
+      "toast": {
+        "saved": "Settings saved"
+      },
       "telegram": {
         "help": "Free conversational bot. Quick setup via @BotFather.",
         "bot_token": "Bot token (BotFather)",
@@ -1880,7 +1884,13 @@
     "concert": {
       "upcoming_label": "Upcoming concert",
       "performers": "Performers",
-      "program": "Program"
+      "program": "Program",
+      "label": {
+        "saggio": "Upcoming recital",
+        "masterclass": "Upcoming masterclass",
+        "conferenza": "Upcoming conference",
+        "lezione_aperta": "Upcoming open lesson"
+      }
     },
     "announcement": {
       "label": "Notice",
@@ -1909,10 +1919,24 @@
       "performers_help": "One line per performer — they show as a list on the Infopoint.",
       "program": "Composers and program",
       "program_placeholder": "One line per piece (e.g. \"J. S. Bach · Partita No. 2\")",
-      "program_help": "One line per piece/composer — they show as a list on the Infopoint."
+      "program_help": "One line per piece/composer — they show as a list on the Infopoint.",
+      "event_type": "Event type",
+      "description": "Short description",
+      "description_placeholder": "E.g. Bach and Schumann for solo piano",
+      "description_help": "Subtitle shown on the kiosk (max 500 chars).",
+      "language": "Language",
+      "language_none": "None"
     },
     "errors": {
-      "title_required": "Enter a title"
+      "title_required": "Enter a title",
+      "lang_invalid": "Invalid language code (e.g. it, en)"
+    },
+    "event_type": {
+      "concerto": "Concert",
+      "saggio": "Student recital",
+      "masterclass": "Masterclass",
+      "conferenza": "Conference",
+      "lezione_aperta": "Open lesson"
     }
   },
   "not_found": {

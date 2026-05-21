@@ -45,6 +45,29 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(500),
         allowNull: true,
       },
+      // Tipologia evento — rendering kiosk con chip colorato. NULL = comportamento
+      // legacy (renderizzato come 'concerto'). Validazione lato app perché su
+      // SQLite l'ENUM è un CHECK constraint solo, e vogliamo gestire i tipi
+      // futuri senza migration.
+      eventType: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+        validate: {
+          isIn: [['concerto', 'saggio', 'masterclass', 'conferenza', 'lezione_aperta']],
+        },
+      },
+      // Sub-headline mostrata sotto al title sulla slide kiosk.
+      description: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
+      // Codice ISO 639-1 (it, en, fr, de, es, ...) per masterclass/conferenze
+      // straniere. Renderizzato come bandierina nella riga della data.
+      language: {
+        type: DataTypes.STRING(2),
+        allowNull: true,
+        validate: { is: /^[a-z]{2}$/ },
+      },
     },
     {
       tableName: 'concert_info',

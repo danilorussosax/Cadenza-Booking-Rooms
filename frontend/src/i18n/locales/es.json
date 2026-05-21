@@ -882,12 +882,16 @@
       "secret_enter": "Introduce el valor",
       "test_button": "Probar conexión",
       "toggle_aria": "Habilitar {{channel}}",
-      "badge": { "enabled": "Activo" },
+      "badge": {
+        "enabled": "Activo"
+      },
       "test": {
         "ok": "Conexión OK · {{info}}",
         "error": "Error: {{error}}"
       },
-      "toast": { "saved": "Ajustes guardados" },
+      "toast": {
+        "saved": "Ajustes guardados"
+      },
       "telegram": {
         "help": "Bot conversacional gratuito. Configuración rápida vía @BotFather.",
         "bot_token": "Bot token (BotFather)",
@@ -1811,7 +1815,13 @@
     "concert": {
       "upcoming_label": "Próximo concierto",
       "performers": "Intérpretes",
-      "program": "Programa"
+      "program": "Programa",
+      "label": {
+        "saggio": "Próxima audición",
+        "masterclass": "Próxima masterclass",
+        "conferenza": "Próxima conferencia",
+        "lezione_aperta": "Próxima clase abierta"
+      }
     },
     "announcement": {
       "label": "Comunicación",
@@ -1840,10 +1850,24 @@
       "performers_help": "Una línea por intérprete — se muestran en lista en el Infopoint.",
       "program": "Autores y programa",
       "program_placeholder": "Una línea por obra (ej. \"J. S. Bach · Partita n.º 2\")",
-      "program_help": "Una línea por obra/autor — se muestran en lista en el Infopoint."
+      "program_help": "Una línea por obra/autor — se muestran en lista en el Infopoint.",
+      "event_type": "Tipo de evento",
+      "description": "Descripción breve",
+      "description_placeholder": "Ej. Bach y Schumann para piano solo",
+      "description_help": "Subtítulo mostrado en el kiosco (máx. 500 caracteres).",
+      "language": "Idioma",
+      "language_none": "Ninguno"
     },
     "errors": {
-      "title_required": "Introduce un título"
+      "title_required": "Introduce un título",
+      "lang_invalid": "Código de idioma no válido (ej. it, en)"
+    },
+    "event_type": {
+      "concerto": "Concierto",
+      "saggio": "Audición",
+      "masterclass": "Masterclass",
+      "conferenza": "Conferencia",
+      "lezione_aperta": "Clase abierta"
     }
   },
   "not_found": {

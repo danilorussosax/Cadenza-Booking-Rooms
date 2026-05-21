@@ -1038,12 +1038,16 @@
       "secret_enter": "Inserisci il valore",
       "test_button": "Test connessione",
       "toggle_aria": "Abilita {{channel}}",
-      "badge": { "enabled": "Attivo" },
+      "badge": {
+        "enabled": "Attivo"
+      },
       "test": {
         "ok": "Connessione OK · {{info}}",
         "error": "Errore: {{error}}"
       },
-      "toast": { "saved": "Impostazioni salvate" },
+      "toast": {
+        "saved": "Impostazioni salvate"
+      },
       "telegram": {
         "help": "Bot conversazionale gratuito. Setup rapido tramite @BotFather.",
         "bot_token": "Bot token (BotFather)",
@@ -1882,7 +1886,13 @@
     "concert": {
       "upcoming_label": "Prossimo concerto",
       "performers": "Esecutori",
-      "program": "Programma"
+      "program": "Programma",
+      "label": {
+        "saggio": "Prossimo saggio",
+        "masterclass": "Prossima masterclass",
+        "conferenza": "Prossima conferenza",
+        "lezione_aperta": "Prossima lezione aperta"
+      }
     },
     "announcement": {
       "label": "Comunicazione",
@@ -1911,10 +1921,24 @@
       "performers_help": "Una riga per ogni esecutore — vengono mostrate sull'Infopoint in elenco.",
       "program": "Autori e programma",
       "program_placeholder": "Una riga per ciascun brano (es. \"J. S. Bach · Partita n.2\")",
-      "program_help": "Una riga per ogni brano/autore — vengono mostrati sull'Infopoint in elenco."
+      "program_help": "Una riga per ogni brano/autore — vengono mostrati sull'Infopoint in elenco.",
+      "event_type": "Tipologia evento",
+      "description": "Descrizione breve",
+      "description_placeholder": "Es. Musiche di Bach e Schumann per pianoforte solo",
+      "description_help": "Sotto-titolo mostrato sull'Infopoint (max 500 caratteri).",
+      "language": "Lingua",
+      "language_none": "Nessuna"
     },
     "errors": {
-      "title_required": "Inserisci un titolo"
+      "title_required": "Inserisci un titolo",
+      "lang_invalid": "Codice lingua non valido (es. it, en)"
+    },
+    "event_type": {
+      "concerto": "Concerto",
+      "saggio": "Saggio",
+      "masterclass": "Masterclass",
+      "conferenza": "Conferenza",
+      "lezione_aperta": "Lezione aperta"
     }
   },
   "not_found": {

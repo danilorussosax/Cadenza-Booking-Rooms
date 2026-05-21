@@ -10,6 +10,110 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.15.0] — 21 maggio 2026
+
+Minor release **Concerti arricchiti sul kiosk**: la scheda concerto
+(`ConcertInfo`) si estende per supportare tipologie di evento diverse
+(concerto / saggio / masterclass / conferenza / lezione aperta) con
+rendering differenziato sul kiosk, una sub-headline descrittiva e una
+bandierina opzionale per la lingua di eventi internazionali.
+
+Tutto **additivo e backward-compatible**: i concerti già in DB
+renderizzano identici a prima (eventType default = 'concerto').
+
+### Backend
+
+**Modello `ConcertInfo`** — 3 nuovi campi nullable in `concert_info`:
+
+| Campo         | Tipo                        | Note                                                            |
+| ------------- | --------------------------- | --------------------------------------------------------------- |
+| `eventType`   | STRING(40) ENUM applicativo | `concerto`/`saggio`/`masterclass`/`conferenza`/`lezione_aperta` |
+| `description` | STRING(500)                 | Sub-headline sotto al title sulla slide kiosk                   |
+| `language`    | STRING(2) ISO 639-1         | Bandierina opzionale (it/en/fr/de/es)                           |
+
+**`PUT /api/bookings/:id/concert`** — valida i nuovi campi con error
+codes specifici:
+
+- `CONCERT_INVALID_TYPE` (eventType fuori enum) → 400
+- `CONCERT_INVALID_LANG` (language non ISO 639-1) → 400
+
+**`GET /api/public/concerts`** — il feed pubblico (usato dal kiosk)
+espone i 3 nuovi campi con fallback safe: i concerti pre-v1.15 ricevono
+`eventType: 'concerto'`, `description: null`, `language: null`.
+
+**`preSyncMigrations.js`** — 3 chiamate `ensureNullableStringColumn`
+idempotenti per i DB legacy. Pattern già provato su v1.13.1/v1.14.0.
+
+### Frontend admin
+
+`ConcertInfoDialog` aggiunge 3 nuovi controlli:
+
+- **Select tipologia evento** (5 opzioni i18n)
+- **Textarea descrizione** (max 500 char) come sub-headline
+- **Select lingua** opzionale (— / IT / EN / FR / DE / ES)
+
+Validazione client-side via zod. Il dialog mantiene il pattern dirty-close
+esistente.
+
+### Frontend kiosk
+
+`ConcertSlide` in `Display.tsx`:
+
+- **Chip eventType colorato** in alto-sinistra al posto della pill ambra
+  fissa. Mappa colori:
+
+| Tipologia      | Colore                  |
+| -------------- | ----------------------- |
+| concerto       | ambra (default storico) |
+| saggio         | cyan                    |
+| masterclass    | fucsia                  |
+| conferenza     | grigio chiaro           |
+| lezione aperta | smeraldo                |
+
+- **Sub-headline** (description) sotto al title quando presente
+- **Bandierina lingua** (🇮🇹🇬🇧🇫🇷🇩🇪🇪🇸) nella riga della data quando valorizzata
+
+### i18n
+
+Aggiornate 5 lingue (it/en/fr/de/es) con:
+
+- `concert.event_type.*` (5 chiavi per le tipologie)
+- `concert.field.event_type` / `description` / `description_placeholder` /
+  `description_help` / `language` / `language_none`
+- `concert.errors.lang_invalid`
+- `display.concert.label.{saggio,masterclass,conferenza,lezione_aperta}`
+
+### Verifica
+
+- Backend: 1797/1797 ✓ (+4 nuovi test su PUT concert + feed pubblico)
+- Frontend: 272/272 ✓ + typecheck strict + build OK
+- E2E: 20/20 ✓ con `TZ=UTC`
+
+### Note di operatività
+
+Al primo restart post-deploy:
+
+```
+✓ Colonna concert_info.eventType aggiunta (kiosk slide)
+✓ Colonna concert_info.description aggiunta (sub-headline)
+✓ Colonna concert_info.language aggiunta (ISO 639-1)
+```
+
+Nessuna azione admin richiesta: i concerti esistenti restano "concerto"
+con chip ambra. L'admin può iniziare a usare i nuovi campi sulla scheda
+concerto direttamente.
+
+---
+
+EN — short summary
+
+**New feature**: `ConcertInfo` extended with `eventType` (5 categories:
+concert/student-recital/masterclass/conference/open-lesson),
+`description` (kiosk sub-headline) and `language` (ISO 639-1 flag). Kiosk
+slide renders a colored chip + sub-headline + flag emoji. 100%
+backward-compatible — existing concerts default to 'concerto' (amber chip,
+same as before).
+
 ## [1.14.1] — 20 maggio 2026
 
 Patch release **Performance Monte Ore (Categoria A audit)**: 4 ottimizzazioni

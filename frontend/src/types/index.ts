@@ -297,6 +297,18 @@ export interface Booking {
   concertInfo?: ConcertInfo | null;
 }
 
+/**
+ * Tipologie di evento riconosciute (v1.15+). Determinano il colore del chip
+ * sul kiosk e potenziali filtri admin futuri. NULL = legacy → renderizzato
+ * come 'concerto'.
+ */
+export type ConcertEventType =
+  | 'concerto'
+  | 'saggio'
+  | 'masterclass'
+  | 'conferenza'
+  | 'lezione_aperta';
+
 export interface ConcertInfo {
   id: number;
   bookingId: number;
@@ -306,6 +318,12 @@ export interface ConcertInfo {
   /** Locandina caricata (formato `/storage/concert-{id}-{ts}.webp`).
    *  Se null la pagina display usa il fallback `/assets/concerto.png` blurato. */
   posterUrl?: string | null;
+  /** v1.15: tipologia evento (chip colorato sul kiosk). NULL = 'concerto'. */
+  eventType?: ConcertEventType | null;
+  /** v1.15: sub-headline sotto al title nella slide kiosk (max 500). */
+  description?: string | null;
+  /** v1.15: ISO 639-1 (it/en/fr/de/es/...) — bandierina opzionale. */
+  language?: string | null;
 }
 
 export interface PublicConcert {
@@ -316,6 +334,10 @@ export interface PublicConcert {
   performers: string;
   program: string;
   posterUrl: string | null;
+  /** v1.15: sempre presente nel feed pubblico, default 'concerto' per i record pre-v1.15. */
+  eventType: ConcertEventType;
+  description: string | null;
+  language: string | null;
   room: {
     id: number;
     name: string;

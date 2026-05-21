@@ -14,6 +14,13 @@ import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { useDirtyDialogClose } from '@/hooks/useDirtyDialogClose';
 import {
@@ -24,12 +31,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { ConcertInfo } from '@/types';
+import type { ConcertInfo, ConcertEventType } from '@/types';
+
+const EVENT_TYPES: ConcertEventType[] = [
+  'concerto',
+  'saggio',
+  'masterclass',
+  'conferenza',
+  'lezione_aperta',
+];
+
+const LANGUAGE_OPTIONS = ['', 'it', 'en', 'fr', 'de', 'es'] as const;
 
 const schema = z.object({
   title: z.string().min(1, 'title_required').max(255),
   performers: z.string().max(4000).optional(),
   program: z.string().max(4000).optional(),
+  eventType: z.enum(EVENT_TYPES as [ConcertEventType, ...ConcertEventType[]]),
+  description: z.string().max(500).optional(),
+  language: z
+    .string()
+    .regex(/^([a-z]{2})?$/, 'lang_invalid')
+    .optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -75,10 +98,19 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', performers: '', program: '' },
+    defaultValues: {
+      title: '',
+      performers: '',
+      program: '',
+      eventType: 'concerto',
+      description: '',
+      language: '',
+    },
   });
 
   useEffect(() => {
@@ -88,6 +120,9 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
       title: info?.title ?? '',
       performers: info?.performers ?? '',
       program: info?.program ?? '',
+      eventType: info?.eventType ?? 'concerto',
+      description: info?.description ?? '',
+      language: info?.language ?? '',
     });
     setPosterUrl(info?.posterUrl ?? null);
     setHasInfo(!!info);
@@ -100,6 +135,9 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
         title: values.title.trim(),
         performers: values.performers?.trim() ?? '',
         program: values.program?.trim() ?? '',
+        eventType: values.eventType,
+        description: values.description?.trim() || null,
+        language: values.language?.trim() || null,
       }),
     onSuccess: ({ concertInfo }) => {
       toast.success(t('concert.saved'));
@@ -189,6 +227,64 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
             <FieldError id="c-title-error">
               {errors.title && tFieldError(errors.title.message)}
             </FieldError>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="space-y-2">
+              <Label htmlFor="c-event-type">{t('concert.field.event_type')}</Label>
+              <Select
+                value={watch('eventType') ?? 'concerto'}
+                onValueChange={(v) =>
+                  setValue('eventType', v as ConcertEventType, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger id="c-event-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENT_TYPES.map((et) => (
+                    <SelectItem key={et} value={et}>
+                      {t(`concert.event_type.${et}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-language">{t('concert.field.language')}</Label>
+              <Select
+                value={watch('language') || ''}
+                onValueChange={(v) =>
+                  setValue('language', v === '_none' ? '' : v, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger id="c-language" className="w-32">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— {t('concert.field.language_none')}</SelectItem>
+                  {LANGUAGE_OPTIONS.filter((l) => l !== '').map((lang) => (
+                    <SelectItem key={lang} value={lang}>
+                      {lang.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="c-description">{t('concert.field.description')}</Label>
+            <Textarea
+              id="c-description"
+              rows={2}
+              maxLength={500}
+              placeholder={t('concert.field.description_placeholder')}
+              {...register('description')}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              {t('concert.field.description_help')}
+            </p>
           </div>
 
           <div className="space-y-2">

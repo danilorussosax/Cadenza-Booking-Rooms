@@ -879,6 +879,18 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna monte_ore_settings.dailyBreakMinutes aggiunta');
   }
 
+  // ConcertInfo — campi aggiuntivi per il rendering arricchito sul kiosk
+  // (v1.15.0). Tutti nullable: i concerti esistenti renderizzano come prima.
+  if (await ensureNullableStringColumn('concert_info', 'eventType', 40)) {
+    logger.info('  ✓ Colonna concert_info.eventType aggiunta (kiosk slide)');
+  }
+  if (await ensureNullableStringColumn('concert_info', 'description', 500)) {
+    logger.info('  ✓ Colonna concert_info.description aggiunta (sub-headline)');
+  }
+  if (await ensureNullableStringColumn('concert_info', 'language', 2)) {
+    logger.info('  ✓ Colonna concert_info.language aggiunta (ISO 639-1)');
+  }
+
   // Indici compositi additivi su tabelle ad alta lettura. I model dichiarano
   // gli stessi indici per le installazioni fresche; qui li aggiungiamo a DB
   // esistenti che hanno solo i vecchi indici a colonna singola. CREATE INDEX
