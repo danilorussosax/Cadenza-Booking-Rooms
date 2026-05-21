@@ -69,6 +69,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 
 - Three configurable cards: bookings, concerts, announcements
 - Building / concerts / announcements rotation with per-building timers
+- ⭐ **Rich concert slides** (v1.15): colored chip for event type (concert · student recital · masterclass · conference · open lesson), descriptive subtitle, language flag for international events
 - Soft-offline mode via Service Worker (a "Connection lost" banner)
 - Granular privacy: option to hide names on the display per building
 - **IP restriction** (optional): limit kiosk visibility and `/api/public/*` endpoints to the institute's IPs via nginx `allow`/`deny` (public CIDRs of the building + private LAN)

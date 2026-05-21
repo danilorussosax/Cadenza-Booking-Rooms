@@ -1,10 +1,19 @@
 # Cadenza · Manuale Amministratore
 
-> **Versione**: 1.6 · **Data**: 14 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.15 · **Data**: 21 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: Direttori, DSGA e coordinatori didattici dei Conservatori
 > **Prerequisiti**: account con ruolo `admin` su una installazione Cadenza già attiva
 
 ---
+
+## ⭐ Cosa c'è di nuovo nelle release v1.13.1 → v1.15.0 (20-21 maggio 2026)
+
+> Quattro release in cascata che chiudono un bug GDPR critico, applicano i vincoli normativi dell'Art. 2 del Regolamento Monte Ore (Tchaikovsky 2019), ottimizzano la performance e arricchiscono la rotazione dei concerti sul kiosk.
+
+- ⭐ **v1.15.0 — Concerti arricchiti sul kiosk**: la scheda concerto (`ConcertInfo`) supporta ora 5 **tipologie evento** (concerto / saggio / masterclass / conferenza / lezione aperta), una **sub-headline descrittiva** e una **bandierina lingua** per eventi internazionali. Il Display kiosk renderizza un chip colorato distintivo per tipologia, la descrizione sotto al titolo e l'emoji bandiera. Vedi §7.4 (gestione scheda) e §12.7 → card Concerti.
+- ⭐ **v1.14.0 — Vincoli giornalieri Monte Ore configurabili (Z2/Z3 Art. 2 Regolamento)**: tre nuovi campi in `MonteOreSettings` (`maxHoursPerDay`, `dailyBreakAfterHours`, `dailyBreakMinutes`) implementano i limiti del Regolamento Tchaikovsky 2019 senza essere hardcoded. L'admin imposta le soglie dalla schermata Calendario didattico (§8.3); i docenti vedono warning inline quando violano i limiti. Backward-compatible: NULL = vincoli disabilitati. Vedi §8.3 sub-sezione "Vincoli giornalieri".
+- **v1.14.1 — Performance Monte Ore**: indice composito su `monte_ore_slots`, `bulkCreate` nell'import schedule, `React.memo` sulla griglia annuale (~312 celle), invalidation React Query granulare. Internal, nessuna azione admin.
+- **v1.13.1 — Fix DB legacy GDPR export**: ripristinato `GET /api/users/me/gdpr/export` su Postgres installazioni aggiornate da pre-v1.13 (bug `column "rowHash" does not exist`). Migration hash-chain audit log ora idempotente al boot. Riattivati anche 3 test e implementati 2 spec E2E.
 
 ## ⭐ Cosa c'è di nuovo nell'update v1.5.1 (14 maggio 2026)
 
@@ -870,6 +879,54 @@ URL: `/admin/bookings` — alias deprecato di `/admin/activity-log`. Mantenuto s
 
 ![Pagina Bookings (alias) — stessa tabella del Registro attività](screenshots/bookings-overview.png)
 
+### 7.4 ⭐ Scheda concerto (v1.15)
+
+Le prenotazioni di tipo **`concerto`** possono avere una **scheda informativa** dedicata che viene mostrata in rotazione sul Display kiosk (vedi §12.7) e nei feed pubblici. La scheda è gestita dal proprietario della prenotazione (docente) o dall'admin.
+
+#### Come aprirla
+
+Dal Registro attività o dalla Dashboard utente, individua una prenotazione con tipo `concerto`, click su **"⋮"** → **"Scheda concerto"**. Si apre un dialog (`ConcertInfoDialog`). Se la scheda non esiste ancora, il form parte vuoto e il primo salvataggio la crea.
+
+#### Campi della scheda
+
+| Campo                          | Obbligatorio            | Note                                                                                                                              |
+| ------------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Titolo**                     | Sì                      | Es. "Concerto di primavera" — max 255 caratteri                                                                                   |
+| **Tipologia evento** ⭐ v1.15  | Sì (default `concerto`) | 5 opzioni: Concerto · Saggio · Masterclass · Conferenza · Lezione aperta                                                          |
+| **Descrizione breve** ⭐ v1.15 | No                      | Sub-headline mostrata sotto al titolo sul kiosk (max 500 caratteri)                                                               |
+| **Lingua** ⭐ v1.15            | No                      | Bandierina sul kiosk: IT · EN · FR · DE · ES o "Nessuna"                                                                          |
+| **Esecutori e strumenti**      | No                      | Una riga per ciascun esecutore — vengono renderizzati come elenco sul kiosk (max 6 visibili)                                      |
+| **Autori e programma**         | No                      | Una riga per brano/autore — idem                                                                                                  |
+| **Locandina**                  | No                      | Upload PNG/JPEG/WEBP/HEIC. Ridimensionata automaticamente a 1200×675 WebP. Se assente, il kiosk usa l'immagine di default blurata |
+
+#### Come appare sul kiosk
+
+La slide concerto (in rotazione sul Display kiosk dopo le griglie aule) mostra:
+
+- **Chip colorato in alto-sinistra** con la tipologia dell'evento. v1.15 introduce 5 temi cromatici distintivi:
+
+| Tipologia        | Colore chip                |
+| ---------------- | -------------------------- |
+| `concerto`       | 🟡 ambra (default storico) |
+| `saggio`         | 🔵 cyan                    |
+| `masterclass`    | 🟣 fucsia                  |
+| `conferenza`     | ⚪ grigio chiaro           |
+| `lezione_aperta` | 🟢 smeraldo                |
+
+- **Riga data + venue + 🇮🇹 lingua** (la bandierina compare solo se hai valorizzato il campo)
+- **Titolo grande**
+- **Sub-headline (descrizione)** sotto al titolo, se valorizzata
+- **Esecutori** (colonna sinistra) e **Programma** (colonna destra)
+- Background: la locandina caricata (nitida) oppure l'immagine default blurata
+
+> **Backward-compatible**: tutte le schede concerto create prima della v1.15 vengono renderizzate come `concerto` (chip ambra) — esattamente come prima. Non serve aggiornare manualmente i record esistenti.
+
+#### Quando aggiornare la scheda
+
+- **Subito dopo aver prenotato la sala**, anche se mancano dettagli — almeno il titolo. Il kiosk inizia a mostrarla al pubblico nelle giornate precedenti il concerto (default: 30 giorni di look-ahead, configurabile per edificio in §12.7).
+- **Aggiungi la locandina** appena disponibile — il kiosk diventa molto più attrattivo.
+- **Imposta la tipologia corretta** se non è un concerto in senso stretto — il chip cyan/fucsia/grigio/smeraldo cattura l'attenzione e comunica subito di che evento si tratta.
+
 ---
 
 ## 8. ⭐ Gestione Monte Ore
@@ -1004,18 +1061,56 @@ URL diretto: `/admin/monte-ore/settings`.
 
 ![Tab Settings Monte Ore — soglia 324h, finestra lezioni, finestra inserimento](screenshots/monteore-settings.png)
 
-| Campo                         | Esempio                 | Note                                                                                |
-| ----------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
-| Anno accademico start / end   | 2026-09-01 / 2027-08-31 | Periodo di riferimento contrattuale                                                 |
-| Finestra lezioni start / end  | 2026-10-01 / 2027-06-30 | I docenti possono pianificare lezioni solo dentro questa finestra                   |
-| Finestra inserimento proposte | 2026-09-15 / 2026-10-15 | Periodo in cui i docenti possono compilare/sottomettere proposte                    |
-| Soglia ore annue              | 324                     | Default contratto AFAM. Personalizzabile (es. 270h per docenti part-time)           |
-| Max richieste variazione      | 3                       | Tetto annuale di amendments per proposta                                            |
-| Max giorni / settimana        | 4                       | Vincolo CCNL                                                                        |
-| Min giorni / settimana        | 2                       | Vincolo CCNL                                                                        |
-| Bypass durata massima         | vero                    | Se vero, le lezioni Monte Ore possono superare la durata max della regola del ruolo |
+| Campo                               | Esempio                 | Note                                                                                |
+| ----------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| Anno accademico start / end         | 2026-09-01 / 2027-08-31 | Periodo di riferimento contrattuale                                                 |
+| Finestra lezioni start / end        | 2026-10-01 / 2027-06-30 | I docenti possono pianificare lezioni solo dentro questa finestra                   |
+| Finestra inserimento proposte       | 2026-09-15 / 2026-10-15 | Periodo in cui i docenti possono compilare/sottomettere proposte                    |
+| Soglia ore annue                    | 324                     | Default contratto AFAM. Personalizzabile (es. 270h per docenti part-time)           |
+| Max richieste variazione            | 3                       | Tetto annuale di amendments per proposta                                            |
+| Max giorni / settimana              | 4                       | Vincolo CCNL                                                                        |
+| Min giorni / settimana              | 2                       | Vincolo CCNL                                                                        |
+| Bypass durata massima               | vero                    | Se vero, le lezioni Monte Ore possono superare la durata max della regola del ruolo |
+| ⭐ Max ore consecutive in un giorno | 9 (oppure vuoto)        | v1.14: vincolo Art. 2.2 Regolamento. Vuoto = nessun limite                          |
+| ⭐ Pausa obbligatoria dopo (ore)    | 7 (oppure vuoto)        | v1.14: vincolo Art. 2.1 Regolamento. Soglia ore consecutive oltre cui scatta pausa  |
+| ⭐ Durata pausa (minuti)            | 30 (oppure vuoto)       | v1.14: durata minima della pausa che "spezza" un blocco consecutivo                 |
 
 > **Importante**: una volta che le proposte sono state approvate e generate, modificare i settings **non rigenera** automaticamente le prenotazioni. Per cambiare la finestra lezioni a metà anno servono variazioni (amendments) per ogni proposta interessata.
+
+#### ⭐ Vincoli giornalieri (v1.14, opzionali)
+
+I tre campi `maxHoursPerDay`, `dailyBreakAfterHours` e `dailyBreakMinutes` sono **opzionali** e implementano l'Art. 2 del Regolamento per l'Espletamento del Monte Ore Docenti (es. Delibera C.A. 163/2019 — Conservatorio Tchaikovsky):
+
+- **`maxHoursPerDay`** — somma massima di ore di lezione nello stesso giorno. La verifica somma TUTTE le schedules con lo stesso `dayOfWeek`. Vuoto = nessun limite.
+- **`dailyBreakAfterHours`** + **`dailyBreakMinutes`** — vincolo pausa: oltre N ore consecutive scatta l'obbligo di una pausa di almeno X minuti. Un blocco di lezioni è considerato "consecutivo" se le schedules sono separate da meno di X minuti.
+
+**Regola di coerenza**: i due campi della pausa devono essere **entrambi vuoti** o **entrambi valorizzati**. Compilare solo uno dei due → il pulsante "Salva" si disabilita con messaggio rosso _"Compilare entrambi o lasciarli entrambi vuoti"_.
+
+**Come si comporta il sistema:**
+
+| Situazione                         | Risultato                                                |
+| ---------------------------------- | -------------------------------------------------------- |
+| Tutti i 3 campi vuoti (default)    | Vincoli disabilitati — comportamento pre-v1.14 invariato |
+| Solo `maxHoursPerDay` valorizzato  | Solo controllo somma ore giornaliere                     |
+| Entrambi i break-field valorizzati | Solo controllo pausa dopo X ore consecutive              |
+| Tutti e 3 valorizzati              | Entrambi i controlli applicati                           |
+
+**Cosa vede il docente** quando viola i vincoli mentre compone il proprio monte ore (sotto al pulsante "Invia"):
+
+```
+⚠️ Attenzione — vincoli giornalieri violati
+   • Lunedì: 10h totali (massimo: 9h)
+   • Mercoledì: 8h consecutive senza pausa di almeno 30 min
+```
+
+Il submit è **bloccato** finché non risolve le violazioni: il backend ritorna 400 con error code `DAILY_HOURS_EXCEEDED` o `BREAK_REQUIRED` e payload `violations[]` con dettaglio per ogni giorno problematico.
+
+**Esempio pratico — Regolamento Tchaikovsky 2019:**
+
+```
+Max ore consecutive in un giorno: 9
+Pausa obbligatoria dopo: 7 ore consecutive, durata almeno 30 minuti
+```
 
 ### 8.4 Sospensioni didattiche
 
@@ -1928,6 +2023,8 @@ Se lo slug non matcha alcun edificio (es. typo nell'URL), Cadenza ricade automat
 | Giorni look-ahead | Da 0 a 365              |
 | Numero massimo    | Da 0 a 50 (`0` = tutti) |
 | Intervallo (sec)  | Da 5 a 600              |
+
+⭐ Da v1.15 il rendering delle slide concerto è arricchito: chip colorato per **tipologia evento** (concerto/saggio/masterclass/conferenza/lezione aperta), **sub-headline descrittiva** sotto al titolo e **bandierina lingua** per eventi internazionali. Vedi §7.4 per la gestione della scheda concerto e l'elenco delle tipologie con i relativi colori chip.
 
 #### Card "Annunci"
 

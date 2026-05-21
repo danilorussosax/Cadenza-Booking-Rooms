@@ -33,9 +33,17 @@ header-includes:
 
 # Cadenza · Manuale Docente
 
-> **Versione**: 1.0 · **Data**: 13 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
+> **Versione**: 1.15 · **Data**: 21 maggio 2026 · **Lingua**: italiano · **Formato stampa**: A4
 > **Destinatari**: docenti titolari, supplenti, contrattisti, collaboratori e accompagnatori del Conservatorio
 > **Prerequisiti**: account su una installazione Cadenza già attiva (te lo crea la Segreteria o ti registri al primo accesso)
+
+---
+
+## ⭐ Cosa cambia nelle ultime release (maggio 2026)
+
+- ⭐ **v1.15.0 — Scheda concerto arricchita**: quando crei una prenotazione di tipo `concerto` puoi ora scegliere fra 5 **tipologie** (Concerto · Saggio · Masterclass · Conferenza · Lezione aperta) con un colore distintivo sul Display kiosk; aggiungere una **descrizione breve** che fa da sottotitolo; segnalare la **lingua** dell'evento con una bandierina (utile per masterclass internazionali). Vedi §4.5.
+- ⭐ **v1.14.0 — Vincoli giornalieri Monte Ore (Regolamento Art. 2)**: se l'amministrazione del Conservatorio configura le soglie (es. max 9h/giorno, pausa di 30 min dopo 7h consecutive), il sistema verifica il tuo pattern e ti segnala in tempo reale eventuali violazioni con un warning sotto il bottone "Invia". Vedi §8.6.
+- **v1.13.1 — Bug fix GDPR**: il download dei propri dati personali dal profilo (`Profilo → Scarica i miei dati`) ora funziona di nuovo correttamente.
 
 ---
 
@@ -227,6 +235,24 @@ Alcune aule (sala concerti, auditorium, sale di rappresentanza) hanno il flag "r
 Se prenoti regolarmente la stessa aula nello stesso orario (es. lezione lunedì 14-16 in Aula 12), puoi salvare un **template** dalla Dashboard. Click su "Salva come template" dopo aver creato una prenotazione, dagli un nome (es. "Lezione lunedì"), e per i prossimi giorni della stessa fascia trovi un bottone "Quick book" che precompila tutto in un click.
 
 > **Differenza con il Monte Ore**: il Quick book è per prenotazioni occasionali ricorrenti. Per le **lezioni annuali** che ripeti ogni settimana per tutto l'anno accademico, usa direttamente il **Monte Ore** (§8): è pensato apposta.
+
+### 4.5 ⭐ Scheda concerto (per prenotazioni di tipo `concerto`)
+
+Quando crei una prenotazione di tipo **"Concerto"**, accanto al bottone di modifica trovi un'icona **🎵** che apre la **scheda concerto**: un piccolo form per dare un nome all'evento e farlo apparire nel Display kiosk del Conservatorio (corridoi, ingresso, atrio).
+
+Campi disponibili:
+
+| Campo                          | Obbligatorio            | A cosa serve                                                                                                       |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Titolo**                     | Sì                      | Comparirà in grande sulla slide kiosk                                                                              |
+| **Tipologia evento** ⭐ v1.15  | Sì (default `Concerto`) | Determina il colore del badge sul kiosk: Concerto · Saggio · Masterclass · Conferenza · Lezione aperta             |
+| **Descrizione breve** ⭐ v1.15 | No                      | Sottotitolo sotto al titolo principale (max 500 caratteri). Es. _"Musiche di Bach e Schumann per pianoforte solo"_ |
+| **Lingua** ⭐ v1.15            | No                      | Bandierina opzionale, utile per masterclass internazionali (IT · EN · FR · DE · ES)                                |
+| **Esecutori**                  | No                      | Una riga per esecutore — appaiono come elenco sulla slide                                                          |
+| **Programma**                  | No                      | Una riga per brano — idem                                                                                          |
+| **Locandina**                  | No                      | Carica un'immagine: viene ridimensionata automaticamente. Se assente, il kiosk usa lo sfondo musicale di default   |
+
+> **Consiglio operativo**: compila almeno **titolo + tipologia + locandina** appena hai prenotato la sala. Il kiosk inizia a far vedere la slide nei 30 giorni precedenti l'evento (configurabile dall'admin), quindi prima la compili e prima la comunità del Conservatorio sa cosa sta arrivando.
 
 ---
 
@@ -431,7 +457,27 @@ Il sistema controlla un'ultima volta:
 
 - Almeno 2 fasce orarie nel pattern;
 - Giorni distinti fra 2 e 4 (a meno della tua eventuale deroga);
-- Totale ore ≥ soglia.
+- Totale ore ≥ soglia;
+- ⭐ **v1.14**: vincoli giornalieri configurati dall'amministrazione (se attivi).
+
+#### ⭐ Vincoli giornalieri (Art. 2 Regolamento, dove configurato — v1.14)
+
+Se l'amministrazione del Conservatorio ha attivato i vincoli giornalieri previsti dal Regolamento (es. _Delibera C.A. 163/2019_ del Conservatorio Tchaikovsky), il sistema verifica per ogni giorno della tua settimana:
+
+- **Max ore di lezione al giorno** (es. 9h): la somma di tutte le tue fasce sullo stesso giorno non può superare il limite.
+- **Pausa obbligatoria dopo N ore consecutive** (es. 7h con pausa di 30 min): se metti due o più fasce con un intervallo inferiore alla durata minima della pausa, il sistema le considera "consecutive" e calcola il blocco totale.
+
+Esempio di warning che vedi sotto il pulsante "Invia" prima di poter inviare:
+
+```
+⚠️ Attenzione — vincoli giornalieri violati
+   • Lunedì: 10h totali (massimo: 9h)
+   • Mercoledì: 8h consecutive senza pausa di almeno 30 min
+```
+
+Devi modificare il pattern (rimuovere/spostare fasce, allungare una pausa esistente) finché tutti i warning spariscono. Solo allora "Invia" diventa cliccabile.
+
+> **Quando questi vincoli non si applicano**: se l'amministrazione non ha valorizzato i campi corrispondenti nelle impostazioni dell'anno accademico, non vedi alcun warning relativo — il submit funziona come prima della v1.14.
 
 Se manca qualcosa, vedi un **Alert** che ti elenca cosa correggere prima di inviare. Il bottone "Invia" è disabilitato finché tutto è verde.
 

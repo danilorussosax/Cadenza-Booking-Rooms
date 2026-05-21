@@ -91,6 +91,32 @@ BookingRule        ── 1 record per ruolo (studente/docente/admin)
 - **PasswordResetToken** — token monouso per reset password self-service: `userId`, `tokenHash` (SHA-256 hex, mai plain in DB), `expiresAt` (default +1h), `usedAt` (null finché non usato), `requestIp`, `requestUserAgent`. Gate per-utente: max 3 token attivi nell'ultima ora (anti-abuse mirato).
 - **AuditLog** — append-only, retention 24 mesi. Campi: `actorId`, `action` (HTTP method), `targetType` (`user` · `booking` · `room` · …), `targetId`, `path`, `statusCode`, `payload` (sanitizzato: password/token redacted), `response` (summary), `ip`, `userAgent`. Da v1.11.0 ogni riga porta una **hash-chain di integrità** SHA-256: `rowHash` calcolato come hash di `canonicalString(record) + '|' + prevHash`, dove `prevHash` è il `rowHash` della riga precedente in ordine `(createdAt, id)`. `canonicalString` usa `stableStringify` (chiavi alfabeticamente ordinate) per produrre lo stesso hash a parità di payload semantico. Endpoint admin di verifica: `GET /api/admin/audit-log/verify-integrity` (vedi `services/auditIntegrity.js`).
 
+### Schema additions (release maggio 2026)
+
+Aggiunte di colonne nullable additive ai modelli esistenti, applicate idempotentemente da `backend/lib/preSyncMigrations.js` al boot. Tutte le colonne `NULL` = comportamento legacy invariato.
+
+**v1.13.1** — `audit_log`:
+
+- `rowHash` (STRING 64) + `prevHash` (STRING 64): hash-chain di integrità. Erano dichiarate nel modello dalla v1.13.0 ma una migration sequelize-cli non eseguita le aveva lasciate fuori da prod (`column "rowHash" does not exist` su `GET /api/users/me/gdpr/export`). Ora aggiunte idempotentemente da preSyncMigrations.
+
+**v1.14.0** — `monte_ore_settings`:
+
+- `maxHoursPerDay` (FLOAT [1,24]): Z2 Art. 2.2 Regolamento — max ore di lezione nello stesso giorno.
+- `dailyBreakAfterHours` (FLOAT [1,24]): Z3 Art. 2.1 — soglia ore consecutive oltre cui scatta pausa obbligatoria.
+- `dailyBreakMinutes` (INTEGER [1,480]): Z3 — durata minima della pausa che spezza un blocco consecutivo.
+- Validate hook a livello model: `dailyBreakAfterHours` e `dailyBreakMinutes` devono essere entrambi NULL o entrambi valorizzati (catch in route → `400 INVALID_SETTINGS`).
+- Validatore puro riusabile: `backend/services/monteOreDailyValidator.js` (no I/O, testabile). Replica TypeScript per warning client-side: `frontend/src/lib/monteOreDailyValidator.ts`.
+
+**v1.14.1** — `monte_ore_slots`:
+
+- Indice composito `(proposalId, isActive, isLocked)` (`monte_ore_slots_proposal_active_locked_idx`) per il hot-path di `generateBookingsForProposal` e `recomputeTotals` su ~15.000 righe per istituto.
+
+**v1.15.0** — `concert_info`:
+
+- `eventType` (STRING 40, ENUM applicativo): `concerto` / `saggio` / `masterclass` / `conferenza` / `lezione_aperta`. NULL = legacy → renderizzato come `concerto`.
+- `description` (STRING 500): sub-headline mostrata sotto al titolo nella slide kiosk.
+- `language` (STRING 2): ISO 639-1 (`it`/`en`/`fr`/`de`/`es`). Bandierina opzionale nella slide.
+
 ## 4. Autenticazione e autorizzazione
 
 - **JWT** firmato lato server (`HS256`), salvato in `localStorage`

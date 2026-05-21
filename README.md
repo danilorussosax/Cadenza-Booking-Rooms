@@ -70,6 +70,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 
 - Tre card configurabili: prenotazioni, concerti, avvisi
 - Rotazione building / concerti / annunci con timer per-edificio
+- ⭐ **Slide concerti arricchite** (v1.15): chip colorato per tipologia (concerto · saggio · masterclass · conferenza · lezione aperta), sub-headline descrittiva, bandierina lingua per eventi internazionali
 - Modalità offline-soft via Service Worker (banner "Connessione persa")
 - Privacy granulare: opzione per nascondere i nomi sul display per edificio
 - **Restrizione per IP** (opzionale): limita la visibilità del kiosk e degli endpoint `/api/public/*` ai soli IP dell'istituto via `allow`/`deny` nginx (CIDR pubblici dell'edificio + LAN privata)
