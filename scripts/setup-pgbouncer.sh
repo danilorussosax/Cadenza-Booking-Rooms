@@ -203,6 +203,13 @@ else
   fi
 fi
 
+# Utente con cui systemd avvia pgbouncer (Debian/Ubuntu: postgres). Config e
+# userlist DEVONO essere leggibili da lui, altrimenti il servizio non parte
+# ("Permission denied" su pgbouncer.ini). Lo rileviamo dall'unit, fallback postgres.
+PGB_SVC_USER="$(systemctl show -p User --value pgbouncer 2>/dev/null)"
+PGB_SVC_USER="${PGB_SVC_USER:-postgres}"
+ok "Service user pgbouncer: $PGB_SVC_USER"
+
 # ---------- userlist ----------
 hdr "3. Userlist ($PGB_USERLIST)"
 
@@ -224,8 +231,9 @@ if [[ $DRY_RUN -eq 1 ]]; then
   rm -f "$PGB_USERLIST_TMP"
 else
   mv "$PGB_USERLIST_TMP" "$PGB_USERLIST"
+  chown "$PGB_SVC_USER":"$PGB_SVC_USER" "$PGB_USERLIST"
   chmod 600 "$PGB_USERLIST"
-  ok "Userlist scritta (permessi 600)"
+  ok "Userlist scritta (proprietario $PGB_SVC_USER, permessi 600)"
 fi
 
 # ---------- configurazione pgbouncer.ini ----------
@@ -344,14 +352,26 @@ if [[ $DRY_RUN -eq 1 ]]; then
 fi
 
 mv "$PGB_CONFIG_TMP" "$PGB_CONFIG"
+chown "$PGB_SVC_USER":"$PGB_SVC_USER" "$PGB_CONFIG"
 chmod 640 "$PGB_CONFIG"
-ok "Configurazione scritta in $PGB_CONFIG"
+ok "Configurazione scritta in $PGB_CONFIG (proprietario $PGB_SVC_USER)"
 
-# ---------- log directory ----------
-if [[ ! -d "$(dirname "$PGB_LOG")" ]]; then
-  mkdir -p "$(dirname "$PGB_LOG")"
-  chown postgres:postgres "$(dirname "$PGB_LOG")"
-fi
+# ---------- log + pid directory ----------
+# Entrambe devono appartenere al service user. La pidfile dir vive sotto
+# /run (tmpfs, azzerata a ogni reboot): oltre a crearla ora, registriamo una
+# regola tmpfiles.d così systemd la ricrea automaticamente all'avvio,
+# altrimenti pgbouncer non ripartirebbe dopo un riavvio del VPS.
+LOG_DIR="$(dirname "$PGB_LOG")"
+PID_DIR="$(dirname "$(grep -E '^pidfile' "$PGB_CONFIG" | head -1 | cut -d= -f2- | tr -d '[:space:]')")"
+PID_DIR="${PID_DIR:-/var/run/pgbouncer}"
+
+install -d -o "$PGB_SVC_USER" -g "$PGB_SVC_USER" -m 755 "$LOG_DIR"
+install -d -o "$PGB_SVC_USER" -g "$PGB_SVC_USER" -m 755 "$PID_DIR"
+ok "Directory log ($LOG_DIR) e pid ($PID_DIR) pronte"
+
+# Persistenza della pid dir attraverso i reboot (tmpfs /run)
+printf 'd %s 0755 %s %s -\n' "$PID_DIR" "$PGB_SVC_USER" "$PGB_SVC_USER" > /etc/tmpfiles.d/pgbouncer.conf
+ok "tmpfiles.d: $PID_DIR ricreata a ogni avvio"
 
 # ---------- pg_hba per accesso locale (se non già presente) ----------
 hdr "5. Accesso Postgres (pg_hba.conf)"
