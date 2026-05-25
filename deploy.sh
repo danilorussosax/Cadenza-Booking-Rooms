@@ -454,7 +454,11 @@ HEALTH_HTTP=""
 HEALTH_BODY=""
 for attempt in 1 2 3 4 5; do
   sleep 3
-  HEALTH_RESP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /tmp/cadenza-health.json -w '%{http_code}' http://127.0.0.1:3000/api/ready && cat /tmp/cadenza-health.json && rm -f /tmp/cadenza-health.json")
+  # `|| true`: durante il restart PM2 il backend può non ascoltare ancora →
+  # curl esce 7 (connection refused) e con `set -e` la command-substitution
+  # abortirebbe l'intero script (falso fallimento, exit 7) vanificando i retry.
+  # Con `|| true` HEALTH_RESP resta "000" e il loop riprova come previsto.
+  HEALTH_RESP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /tmp/cadenza-health.json -w '%{http_code}' http://127.0.0.1:3000/api/ready && cat /tmp/cadenza-health.json && rm -f /tmp/cadenza-health.json") || true
   # La prima riga è il codice HTTP (3 cifre), il resto è il body JSON.
   HEALTH_HTTP="${HEALTH_RESP:0:3}"
   HEALTH_BODY="${HEALTH_RESP:3}"
