@@ -224,6 +224,10 @@
     text-size-adjust: 100%;
   }
   html,
+  body {
+    @apply bg-background;
+  }
+  html,
   body,
   #root {
     height: 100%;
