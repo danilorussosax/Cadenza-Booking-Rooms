@@ -109,14 +109,22 @@ DB_PASSWORD="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 APP_POOL_MAX="$(grep -E '^DB_POOL_MAX=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 set -e
 
+# DB_USER veniva davvero dal .env, o stiamo per usare un default?
+# Serve più sotto per NON azzerare una userlist funzionante (l'app in prod
+# si autentica con un ruolo che NON è nel file .env).
+DB_USER_FROM_ENV=1
+[[ -z "$DB_USER" ]] && DB_USER_FROM_ENV=0
+
 # Default di fallback
 DB_NAME="${DB_NAME:-cadenza}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 APP_POOL_MAX="${APP_POOL_MAX:-20}"
 
+USER_SRC=""
+if [[ "$DB_USER_FROM_ENV" -eq 0 ]]; then USER_SRC=" (default: NON da .env)"; fi
 ok "Database: $DB_NAME"
-ok "Utente:   $DB_USER"
+ok "Utente:   ${DB_USER}${USER_SRC}"
 ok "Pool app: $APP_POOL_MAX (sequelize pool.max)"
 
 # Calcola default_pool_size: allinea con il pool dell'app,
@@ -214,26 +222,52 @@ ok "Service user pgbouncer: $PGB_SVC_USER"
 hdr "3. Userlist ($PGB_USERLIST)"
 
 # PgBouncer userlist: coppia "user password" in formato auth_file.
-# La password può essere in chiaro (dev/VPS fidato) o md5 (produzione).
 # NOTA: il formato è "nome_utente" "password" (con virgolette e spazio).
 #
-# Scrittura via tempfile + mv per evitare il bug bash "heredoc dentro $()"
-# (apostrofi e quote shell rompono il parser quando l'heredoc è collettato
-# in una variabile via command substitution).
+# MERGE, non overwrite. Regressione nota: l'app in prod si autentica con un
+# ruolo (es. cadenza_user) che NON è nel file .env → il default 'postgres'
+# riscriveva la userlist e perdeva quel ruolo aggiunto a mano, rompendo il
+# cluster. Quindi: preserviamo le righe esistenti e tocchiamo SOLO quella
+# di $DB_USER. E se $DB_USER è un default senza password reale, non scriviamo
+# nulla (per non sovrascrivere una password vera già presente) e avvisiamo.
 PGB_USERLIST_TMP="$(mktemp)"
-cat > "$PGB_USERLIST_TMP" <<EOUSERLIST
-"$DB_USER" "$DB_PASSWORD"
-EOUSERLIST
+if [[ -f "$PGB_USERLIST" ]]; then cat "$PGB_USERLIST" > "$PGB_USERLIST_TMP"; fi
+
+WRITE_ENTRY=1
+if [[ "$DB_USER_FROM_ENV" -eq 0 && -z "$DB_PASSWORD" ]]; then
+  WRITE_ENTRY=0
+fi
+
+if [[ "$WRITE_ENTRY" -eq 1 ]]; then
+  # rimuove l'eventuale vecchia riga di $DB_USER e la riaggiunge aggiornata,
+  # lasciando intatti tutti gli altri utenti
+  grep -v -E "^\"${DB_USER}\"[[:space:]]" "$PGB_USERLIST_TMP" > "${PGB_USERLIST_TMP}.new" 2>/dev/null || true
+  mv "${PGB_USERLIST_TMP}.new" "$PGB_USERLIST_TMP"
+  printf '"%s" "%s"\n' "$DB_USER" "$DB_PASSWORD" >> "$PGB_USERLIST_TMP"
+fi
+
+# Avviso se l'utente è un default: la userlist potrebbe non contenere il
+# ruolo reale dell'app.
+if [[ "$DB_USER_FROM_ENV" -eq 0 ]]; then
+  warn "DB_USER non è in $ENV_FILE → uso default '$DB_USER'."
+  warn "Se l'app si autentica con un ALTRO ruolo, aggiungilo a mano (preservato ai prossimi run):"
+  warn "  printf '\"<ruolo>\" \"<password>\"\\\\n' | sudo tee -a $PGB_USERLIST && sudo systemctl reload pgbouncer"
+fi
+
+USERS_IN_LIST="$(grep -oE '^"[^"]+"' "$PGB_USERLIST_TMP" 2>/dev/null | tr -d '"' | paste -sd, - || true)"
 
 if [[ $DRY_RUN -eq 1 ]]; then
-  echo "  [dry-run] Scriverei in $PGB_USERLIST:"
-  sed 's/"[^"]*"$/***/' "$PGB_USERLIST_TMP"
+  echo "  [dry-run] userlist risultante (password mascherate):"
+  sed 's/"[^"]*"$/***/' "$PGB_USERLIST_TMP" | sed 's/^/    /'
   rm -f "$PGB_USERLIST_TMP"
 else
+  if [[ ! -s "$PGB_USERLIST_TMP" ]]; then
+    warn "Userlist vuota: nessuna credenziale disponibile. PgBouncer non autenticherà nessuno."
+  fi
   mv "$PGB_USERLIST_TMP" "$PGB_USERLIST"
   chown "$PGB_SVC_USER":"$PGB_SVC_USER" "$PGB_USERLIST"
   chmod 600 "$PGB_USERLIST"
-  ok "Userlist scritta (proprietario $PGB_SVC_USER, permessi 600)"
+  ok "Userlist aggiornata (merge) — utenti: ${USERS_IN_LIST:-nessuno} · owner $PGB_SVC_USER · 600"
 fi
 
 # ---------- configurazione pgbouncer.ini ----------
