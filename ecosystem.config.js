@@ -1,16 +1,15 @@
 // ecosystem.config.js — configurazione PM2 per Cadenza
 //
-// Default: fork mode (1 istanza), compatibile col deploy esistente.
-// Per attivare cluster mode (parallelismo HTTP + zero-downtime reload):
+// Attivo: cluster mode, 3 istanze (VPS 4 vCPU / 4GB + PgBouncer).
+// Prerequisito già soddisfatto: PgBouncer in transaction pooling su :6432.
 //
-//   1. Installa PgBouncer: sudo bash scripts/setup-pgbouncer.sh
-//   2. Cambia `instances: 1` → `instances: 'max'` (o un numero, es. 2)
-//   3. Cambia `exec_mode: 'fork'` → `exec_mode: 'cluster'`
-//   4. Sul VPS:
+// Cambio fork→cluster: NON basta `pm2 restart`/`reload` (non cambia
+// exec_mode). Va fatto il cutover una tantum sul VPS:
 //        pm2 delete cadenza-backend
 //        pm2 start ecosystem.config.js
 //        pm2 save
 //        pm2 startup    # se non già configurato per systemd
+// Per tornare a fork: instances:1 + exec_mode:'fork' e ripeti il cutover.
 //
 // PgBouncer è necessario in cluster mode: N istanze × pool Sequelize (20)
 // saturerebbero max_connections Postgres (50). PgBouncer in transaction
@@ -33,11 +32,18 @@ module.exports = {
       name: 'cadenza-backend',
       script: 'backend/server.js',
       cwd: __dirname,
-      instances: 1,
-      exec_mode: 'fork',
+      // Cluster mode su VPS 4 vCPU: 3 istanze HTTP in parallelo, 1 core
+      // lasciato a Postgres + sistema. PgBouncer (transaction pooling)
+      // multiplexa i pool Sequelize delle 3 istanze su ~25 conn reali.
+      // Scheduler: 5 girano solo su NODE_APP_INSTANCE=0 (clusterRole.js),
+      // mailOutbox gira ovunque ma è safe via FOR UPDATE SKIP LOCKED.
+      instances: 3,
+      exec_mode: 'cluster',
       autorestart: true,
       watch: false,
-      max_memory_restart: '1G',
+      // 512M × 3 = 1.5G di tetto worst-case: sicuro su 4GB lasciando spazio
+      // a Postgres (shared_buffers ~1G tunato per 4GB). Uso normale ~250M/ist.
+      max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
       },
