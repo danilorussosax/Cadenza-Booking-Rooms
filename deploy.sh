@@ -20,7 +20,10 @@ set -euo pipefail
 # Cosa fa:
 #   0. (opzionale, --update-deps) npm outdated su backend/ e frontend/, chiede
 #      se applicare gli aggiornamenti semver-safe (npm update) prima del deploy
-#   1. Build frontend in locale (typecheck + bundle)
+#   0b. Snapshot pulito del ref (git archive HEAD, override --ref=<x>) in una
+#      dir temporanea: il deploy parte da lì, MAI dal working tree → niente
+#      file non committati/non tracciati spediti in prod
+#   1. Build frontend DENTRO lo snapshot (typecheck + bundle da codice committato)
 #   2. Mostra cosa cambierebbe sul VPS (dry-run) e chiede conferma
 #   3. Verifica che il server NON abbia moduli più moderni del locale
 #      (in tal caso annulla il deploy per non regredire il VPS)
@@ -47,6 +50,7 @@ set -euo pipefail
 #   ./deploy.sh --update-deps   # prima del deploy: npm outdated + scelta y/N per workspace
 #   ./deploy.sh --skip-pgbouncer    # non toccare PgBouncer su questo deploy
 #   ./deploy.sh --setup-pgbouncer   # forza la riesecuzione del setup PgBouncer (anche se già attivo)
+#   ./deploy.sh --ref=<commit/tag>  # deploya un ref specifico invece di HEAD
 # ============================================================
 
 # Alias definito in ~/.ssh/config (HostName + User + IdentityFile lì).
@@ -73,6 +77,7 @@ SKIP_BUILD=0
 UPDATE_DEPS=0
 SKIP_PGBOUNCER=0
 SETUP_PGBOUNCER=0
+DEPLOY_REF="HEAD"
 for arg in "$@"; do
   case "$arg" in
     --yes|-y)          AUTO_YES=1 ;;
@@ -80,7 +85,8 @@ for arg in "$@"; do
     --update-deps)     UPDATE_DEPS=1 ;;
     --skip-pgbouncer)  SKIP_PGBOUNCER=1 ;;
     --setup-pgbouncer) SETUP_PGBOUNCER=1 ;;
-    --help|-h)         sed -n '2,49p' "$0"; exit 0 ;;
+    --ref=*)           DEPLOY_REF="${arg#--ref=}" ;;
+    --help|-h)         sed -n '2,53p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $arg"; exit 2 ;;
   esac
 done
@@ -130,14 +136,39 @@ if [[ "$UPDATE_DEPS" -eq 1 ]]; then
 fi
 
 # ------------------------------------------------------------
-# 1. Build frontend
+# 0b. Snapshot pulito del ref da deployare (git archive).
+#     Il deploy parte da QUESTA copia, non dal working tree: così non
+#     finiscono in produzione file non committati o non tracciati (bug visto
+#     a maggio 2026: un index.css modificato e non committato spedito in prod).
+#     Default: HEAD. Override con --ref=<commit/tag/branch>.
+# ------------------------------------------------------------
+git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null \
+  || { red "[ERR] ref git non valido: $DEPLOY_REF"; exit 1; }
+DEPLOY_SHA="$(git rev-parse --short "$DEPLOY_REF")"
+DEPLOY_SRC="$(mktemp -d)"
+trap 'rm -rf "$DEPLOY_SRC"' EXIT
+blue "[0/9] Snapshot pulito da ${DEPLOY_REF} (${DEPLOY_SHA})…"
+git archive "$DEPLOY_REF" | tar -x -C "$DEPLOY_SRC"
+# Avvisa se il working tree ha modifiche non committate (NON verranno deployate)
+if ! git diff --quiet HEAD -- 2>/dev/null || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  yellow "    ⚠ Working tree con modifiche non committate: NON verranno deployate (deploy da ${DEPLOY_REF})."
+fi
+green "    ✓ snapshot pronto"
+
+# ------------------------------------------------------------
+# 1. Build frontend (DENTRO lo snapshot pulito, così la dist deriva solo
+#    da codice committato).
 # ------------------------------------------------------------
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  blue "[1/9] Build frontend in locale…"
-  ( cd frontend && npm run build )
-  green "    ✓ build ok ($(du -sh frontend/dist | cut -f1))"
+  blue "[1/9] Build frontend (da snapshot ${DEPLOY_SHA})…"
+  # Riusa node_modules del working tree via symlink: build veloce senza npm ci.
+  # Rimosso prima del rsync per non spedire il symlink.
+  ln -s "$LOCAL_ROOT/frontend/node_modules" "$DEPLOY_SRC/frontend/node_modules"
+  ( cd "$DEPLOY_SRC/frontend" && npm run build )
+  rm -f "$DEPLOY_SRC/frontend/node_modules"
+  green "    ✓ build ok ($(du -sh "$DEPLOY_SRC/frontend/dist" | cut -f1))"
 else
-  yellow "[1/9] Build frontend SALTATA (--no-build)"
+  yellow "[1/9] Build frontend SALTATA (--no-build) — dist del working tree copiata nello snapshot"
   [[ -d frontend/dist ]] || { red "[ERR] frontend/dist non esiste, non posso saltare la build"; exit 1; }
   # Stale-check: se almeno un sorgente in frontend/src e' piu' recente del
   # bundle in dist, --no-build pubblicherebbe codice obsoleto. Tailwind in
@@ -152,6 +183,10 @@ else
     yellow "      Lancia ./deploy.sh senza --no-build, oppure 'npm --prefix frontend run build' a mano."
     exit 1
   fi
+  # Copia la dist già costruita nello snapshot (lo snapshot da git non la
+  # contiene: dist/ è gitignored). Nota: con --no-build la dist può derivare
+  # da sorgenti del working tree non committati — è il trade-off di --no-build.
+  cp -R "$LOCAL_ROOT/frontend/dist" "$DEPLOY_SRC/frontend/dist"
   green "    ✓ dist attuale (build presunta valida — niente file src piu' recenti)"
 fi
 
@@ -184,7 +219,7 @@ blue "[2/9] Calcolo modifiche da inviare al VPS (dry-run)…"
 DRY_OUTPUT="$(mktemp)"
 rsync -avzn --itemize-changes "${RSYNC_EXCLUDES[@]}" \
   -e "ssh ${SSH_OPTS}" \
-  "$LOCAL_ROOT/" "${SSH_TARGET}:${VPS_PATH}/" \
+  "$DEPLOY_SRC/" "${SSH_TARGET}:${VPS_PATH}/" \
   | grep -E '^[<>ch.*]' | grep -v '^cd' > "$DRY_OUTPUT" || true
 
 CHANGE_COUNT=$(wc -l < "$DRY_OUTPUT" | tr -d ' ')
@@ -209,7 +244,7 @@ blue "[3/9] Verifica versioni moduli (lock-based, locale vs server)…"
 
 NEWER_REPORT="$(mktemp)"
 for sub in backend frontend; do
-  LOCAL_LOCK="$LOCAL_ROOT/${sub}/package-lock.json"
+  LOCAL_LOCK="$DEPLOY_SRC/${sub}/package-lock.json"
   if [[ ! -f "$LOCAL_LOCK" ]]; then
     yellow "    ${sub}/package-lock.json mancante in locale, salto controllo"
     continue
@@ -328,7 +363,7 @@ fi
 #    DOPO il rsync, il lockfile remoto sarebbe già stato sovrascritto da
 #    quello locale e gli hash matcherebbero sempre → npm ci mai eseguito.
 # ------------------------------------------------------------
-LOCAL_HASH="$(shasum -a 256 backend/package-lock.json | awk '{print $1}')"
+LOCAL_HASH="$(shasum -a 256 "$DEPLOY_SRC/backend/package-lock.json" | awk '{print $1}')"
 PRE_RSYNC_REMOTE_HASH="$(ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH}/backend/package-lock.json 2>/dev/null | awk '{print \$1}'" || echo "")"
 
 # ------------------------------------------------------------
@@ -340,8 +375,8 @@ if [[ "$CHANGE_COUNT" -gt 0 ]]; then
   # progress il deploy funziona lo stesso, lo stdout resta più pulito.
   rsync -avz "${RSYNC_EXCLUDES[@]}" \
     -e "ssh ${SSH_OPTS}" \
-    "$LOCAL_ROOT/" "${SSH_TARGET}:${VPS_PATH}/"
-  green "    ✓ codice trasferito"
+    "$DEPLOY_SRC/" "${SSH_TARGET}:${VPS_PATH}/"
+  green "    ✓ codice trasferito (da snapshot ${DEPLOY_SHA})"
 else
   blue "[4/9] rsync saltato (nessuna modifica)"
 fi
