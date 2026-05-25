@@ -291,10 +291,14 @@ server_idle_timeout = 600
 client_idle_timeout = 3600
 query_wait_timeout = 120
 
-;; Startup parameters ignorati: extra_float_digits viene inviato dal driver
-;; pg ma non serve passarlo a Postgres. Non ignorare statement_timeout e
-;; idle_in_transaction_session_timeout - li vogliamo applicare.
-ignore_startup_parameters = extra_float_digits
+;; Startup parameters ignorati. Il driver node-postgres invia
+;; extra_float_digits, statement_timeout e idle_in_transaction_session_timeout
+;; come STARTUP parameter alla connessione. In transaction pooling PgBouncer
+;; rifiuta i parametri non elencati qui con "unsupported startup parameter"
+;; (l app non riesce a connettersi). Vanno quindi ignorati da PgBouncer e
+;; applicati a livello database via ALTER DATABASE (vedi step "Timeout a
+;; livello database" nello script), cosi restano effettivi anche col pooling.
+ignore_startup_parameters = extra_float_digits, statement_timeout, idle_in_transaction_session_timeout
 
 ;; DISCARD ALL al termine di ogni transazione: pulisce SET LOCAL, pg_temp,
 ;; prepared statement, listen/notify ecc. Garantisce che le connessioni
@@ -363,6 +367,25 @@ if [[ -f "$PG_HBA" ]]; then
   fi
 else
   warn "pg_hba.conf non trovato ($PG_HBA). Assicurati che Postgres accetti connessioni locali."
+fi
+
+# ---------- timeout a livello database ----------
+hdr "5b. Timeout a livello database (ALTER DATABASE)"
+
+# In transaction pooling PgBouncer IGNORA statement_timeout e
+# idle_in_transaction_session_timeout ricevuti come startup parameter dal
+# driver (vedi ignore_startup_parameters sopra). Per mantenerli effettivi li
+# impostiamo direttamente sul database: valgono per ogni NUOVA connessione,
+# indipendentemente dal pooling. I valori (in ms) arrivano dal .env, con gli
+# stessi default di backend/config/database.js (30000 / 60000).
+if sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+    -c "ALTER DATABASE \"$DB_NAME\" SET statement_timeout = ${STMT_TIMEOUT_STRING}" \
+    -c "ALTER DATABASE \"$DB_NAME\" SET idle_in_transaction_session_timeout = ${IDLE_TX_STRING}" \
+    >/dev/null 2>&1; then
+  ok "statement_timeout=${STMT_TIMEOUT_STRING}ms · idle_in_transaction_session_timeout=${IDLE_TX_STRING}ms su DB $DB_NAME"
+  warn "Effettivi dalle nuove connessioni: PM2 verrà riavviato a fine script."
+else
+  warn "ALTER DATABASE non riuscito su $DB_NAME (controlla i permessi dell'utente postgres)."
 fi
 
 # ---------- avvia PgBouncer ----------

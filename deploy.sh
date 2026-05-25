@@ -29,16 +29,24 @@ set -euo pipefail
 #      rsync preserva i mode del Mac → dir con 700 farebbero crashare nginx
 #      (500 EACCES sui file statici, 404 sugli alias)
 #   6. npm ci --omit=dev sul backend del VPS solo se package-lock.json è cambiato
-#   7. pm2 restart cadenza-backend
-#   8. Healthcheck robusto (/api/ready, 5 retry × 3s) — verifica anche DB
+#   7. PgBouncer: assicura che il transaction pooler sia attivo sul VPS.
+#      Idempotente — la PRIMA volta installa+configura via
+#      scripts/setup-pgbouncer.sh (appena trasferito col rsync); ai deploy
+#      successivi, se pgbouncer è già attivo, non fa nulla. Richiede sudo
+#      passwordless sul VPS (lo script gira come root): se manca, il deploy
+#      prosegue e stampa il comando da lanciare a mano una volta.
+#   8. pm2 restart cadenza-backend
+#   9. Healthcheck robusto (/api/ready, 5 retry × 3s) — verifica anche DB
 #      connesso, così intercetta migrazioni schema fallite invece di
 #      dichiarare deploy OK mentre il backend è in restart loop.
 #
 # Uso:
-#   ./deploy.sh                # deploy interattivo con conferma
-#   ./deploy.sh --yes          # senza conferma (per CI o uso rapido)
-#   ./deploy.sh --no-build     # salta la build frontend (se l'hai già fatta)
-#   ./deploy.sh --update-deps  # prima del deploy: npm outdated + scelta y/N per workspace
+#   ./deploy.sh                 # deploy interattivo con conferma
+#   ./deploy.sh --yes           # senza conferma (per CI o uso rapido)
+#   ./deploy.sh --no-build      # salta la build frontend (se l'hai già fatta)
+#   ./deploy.sh --update-deps   # prima del deploy: npm outdated + scelta y/N per workspace
+#   ./deploy.sh --skip-pgbouncer    # non toccare PgBouncer su questo deploy
+#   ./deploy.sh --setup-pgbouncer   # forza la riesecuzione del setup PgBouncer (anche se già attivo)
 # ============================================================
 
 # Alias definito in ~/.ssh/config (HostName + User + IdentityFile lì).
@@ -63,12 +71,16 @@ fi
 AUTO_YES=0
 SKIP_BUILD=0
 UPDATE_DEPS=0
+SKIP_PGBOUNCER=0
+SETUP_PGBOUNCER=0
 for arg in "$@"; do
   case "$arg" in
-    --yes|-y)        AUTO_YES=1 ;;
-    --no-build)      SKIP_BUILD=1 ;;
-    --update-deps)   UPDATE_DEPS=1 ;;
-    --help|-h)       sed -n '2,36p' "$0"; exit 0 ;;
+    --yes|-y)          AUTO_YES=1 ;;
+    --no-build)        SKIP_BUILD=1 ;;
+    --update-deps)     UPDATE_DEPS=1 ;;
+    --skip-pgbouncer)  SKIP_PGBOUNCER=1 ;;
+    --setup-pgbouncer) SETUP_PGBOUNCER=1 ;;
+    --help|-h)         sed -n '2,49p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $arg"; exit 2 ;;
   esac
 done
@@ -121,11 +133,11 @@ fi
 # 1. Build frontend
 # ------------------------------------------------------------
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  blue "[1/8] Build frontend in locale…"
+  blue "[1/9] Build frontend in locale…"
   ( cd frontend && npm run build )
   green "    ✓ build ok ($(du -sh frontend/dist | cut -f1))"
 else
-  yellow "[1/8] Build frontend SALTATA (--no-build)"
+  yellow "[1/9] Build frontend SALTATA (--no-build)"
   [[ -d frontend/dist ]] || { red "[ERR] frontend/dist non esiste, non posso saltare la build"; exit 1; }
   # Stale-check: se almeno un sorgente in frontend/src e' piu' recente del
   # bundle in dist, --no-build pubblicherebbe codice obsoleto. Tailwind in
@@ -168,7 +180,7 @@ RSYNC_EXCLUDES=(
 # ------------------------------------------------------------
 # 3. Dry-run: cosa cambierebbe?
 # ------------------------------------------------------------
-blue "[2/8] Calcolo modifiche da inviare al VPS (dry-run)…"
+blue "[2/9] Calcolo modifiche da inviare al VPS (dry-run)…"
 DRY_OUTPUT="$(mktemp)"
 rsync -avzn --itemize-changes "${RSYNC_EXCLUDES[@]}" \
   -e "ssh ${SSH_OPTS}" \
@@ -193,7 +205,7 @@ rm -f "$DRY_OUTPUT"
 #    risolta sul server con quella MAX risolta in locale; se anche una sola è
 #    più alta sul server → STOP, nessun file viene toccato sul VPS.
 # ------------------------------------------------------------
-blue "[3/8] Verifica versioni moduli (lock-based, locale vs server)…"
+blue "[3/9] Verifica versioni moduli (lock-based, locale vs server)…"
 
 NEWER_REPORT="$(mktemp)"
 for sub in backend frontend; do
@@ -323,7 +335,7 @@ PRE_RSYNC_REMOTE_HASH="$(ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH
 # 6. rsync vero
 # ------------------------------------------------------------
 if [[ "$CHANGE_COUNT" -gt 0 ]]; then
-  blue "[4/8] rsync verso VPS…"
+  blue "[4/9] rsync verso VPS…"
   # --info=progress2 / --progress non supportati da openrsync (Apple). Senza
   # progress il deploy funziona lo stesso, lo stdout resta più pulito.
   rsync -avz "${RSYNC_EXCLUDES[@]}" \
@@ -331,7 +343,7 @@ if [[ "$CHANGE_COUNT" -gt 0 ]]; then
     "$LOCAL_ROOT/" "${SSH_TARGET}:${VPS_PATH}/"
   green "    ✓ codice trasferito"
 else
-  blue "[4/8] rsync saltato (nessuna modifica)"
+  blue "[4/9] rsync saltato (nessuna modifica)"
 fi
 
 # ------------------------------------------------------------
@@ -346,7 +358,7 @@ fi
 #    Forziamo 755 sulle dir e 644 sui file. Sempre, anche se rsync non
 #    ha toccato nulla, per recuperare da stati pregressi.
 # ------------------------------------------------------------
-blue "[5/8] Normalizzo permessi statici sul VPS (dist + public + uploads)…"
+blue "[5/9] Normalizzo permessi statici sul VPS (dist + public + uploads)…"
 ssh ${SSH_OPTS} "$SSH_TARGET" "
   # Path padre — nginx deve poterli attraversare
   chmod 755 '${VPS_PATH}' '${VPS_PATH}/frontend' '${VPS_PATH}/backend' 2>/dev/null || true
@@ -376,7 +388,7 @@ green "    ✓ permessi normalizzati (755 dir · 644 file)"
 # 7. npm ci --omit=dev se package-lock.json del backend è cambiato.
 #    Confronto basato sull'hash remoto SNAPSHOTTED prima del rsync (vedi 5).
 # ------------------------------------------------------------
-blue "[6/8] Verifico se le dipendenze backend sono cambiate…"
+blue "[6/9] Verifico se le dipendenze backend sono cambiate…"
 if [[ "$LOCAL_HASH" == "$PRE_RSYNC_REMOTE_HASH" ]]; then
   green "    ✓ package-lock invariato, niente npm ci"
 else
@@ -386,13 +398,49 @@ else
 fi
 
 # ------------------------------------------------------------
-# 7. Restart PM2
+# 7. PgBouncer: assicura il transaction pooler attivo sul VPS (idempotente).
+#    Lo script di setup è già stato trasferito dal rsync. Strategia:
+#      - --skip-pgbouncer       → non fare nulla
+#      - default                → configura SOLO se pgbouncer non è già attivo
+#      - --setup-pgbouncer      → riesegui il setup anche se già attivo
+#    setup-pgbouncer.sh gira come root: usiamo `sudo -n` (no prompt). Se manca
+#    il sudo passwordless non blocchiamo il deploy, stampiamo il comando manuale.
+#    Lo script stesso flippa DB_PORT→6432 nel .env del VPS e riavvia PM2; il
+#    restart [8/9] qui sotto è quindi un secondo restart (innocuo) solo la prima
+#    volta. L'healthcheck [9/9] valida l'intero percorso app→PgBouncer→Postgres.
 # ------------------------------------------------------------
-blue "[7/8] Restart backend (pm2)…"
+blue "[7/9] PgBouncer su VPS (transaction pooling)…"
+if [[ "$SKIP_PGBOUNCER" -eq 1 ]]; then
+  yellow "    saltato (--skip-pgbouncer)"
+else
+  PGB_ACTIVE="$(ssh ${SSH_OPTS} "$SSH_TARGET" "systemctl is-active pgbouncer 2>/dev/null || true")"
+  if [[ "$PGB_ACTIVE" == "active" && "$SETUP_PGBOUNCER" -eq 0 ]]; then
+    green "    ✓ PgBouncer già attivo sul VPS (nessuna azione · usa --setup-pgbouncer per riconfigurare)"
+  else
+    if [[ "$PGB_ACTIVE" == "active" ]]; then
+      yellow "    PgBouncer attivo → riconfigurazione forzata (--setup-pgbouncer)…"
+    else
+      yellow "    PgBouncer non attivo → configurazione automatica via setup-pgbouncer.sh…"
+    fi
+    if ssh ${SSH_OPTS} "$SSH_TARGET" "sudo -n bash ${VPS_PATH}/scripts/setup-pgbouncer.sh"; then
+      green "    ✓ PgBouncer configurato e attivo"
+    else
+      red    "    ✗ Setup PgBouncer non riuscito (probabile: sudo richiede password sul VPS)."
+      yellow "      Lancialo a mano UNA volta, poi i deploy successivi lo troveranno già attivo:"
+      yellow "        ssh ${SSH_TARGET} 'sudo bash ${VPS_PATH}/scripts/setup-pgbouncer.sh'"
+      yellow "      Il deploy prosegue: l'app resta su Postgres diretto (:5432) finché non lo esegui."
+    fi
+  fi
+fi
+
+# ------------------------------------------------------------
+# 8. Restart PM2
+# ------------------------------------------------------------
+blue "[8/9] Restart backend (pm2)…"
 ssh ${SSH_OPTS} "$SSH_TARGET" "pm2 restart cadenza-backend --update-env >/dev/null && pm2 status cadenza-backend --no-color | tail -3"
 
 # ------------------------------------------------------------
-# 8. Healthcheck robusto: /api/ready (testa anche connessione DB e
+# 9. Healthcheck robusto: /api/ready (testa anche connessione DB e
 #    quindi indirettamente la riuscita delle preSyncMigrations).
 #    5 tentativi con sleep 3s tra uno e l'altro = fino a ~15s di tolleranza
 #    per gestire restart PM2 lenti + sync schema iniziale. Accetta SOLO 200.
@@ -400,7 +448,7 @@ ssh ${SSH_OPTS} "$SSH_TARGET" "pm2 restart cadenza-backend --update-env >/dev/nu
 #    questo loop lo intercetta entro pochi secondi, invece di dichiarare
 #    "deploy completo" mentre il backend è in restart loop infinito.
 # ------------------------------------------------------------
-blue "[8/8] Healthcheck post-deploy (/api/ready · max 5 tentativi)…"
+blue "[9/9] Healthcheck post-deploy (/api/ready · max 5 tentativi)…"
 HEALTH_OK=0
 HEALTH_HTTP=""
 HEALTH_BODY=""
