@@ -1,15 +1,26 @@
 // ecosystem.config.js — configurazione PM2 per Cadenza
 //
-// Attivo: cluster mode, 3 istanze (VPS 4 vCPU / 4GB + PgBouncer).
-// Prerequisito già soddisfatto: PgBouncer in transaction pooling su :6432.
+// Attivo: fork mode (1 istanza) — stato known-good in produzione.
 //
-// Cambio fork→cluster: NON basta `pm2 restart`/`reload` (non cambia
-// exec_mode). Va fatto il cutover una tantum sul VPS:
-//        pm2 delete cadenza-backend
-//        pm2 start ecosystem.config.js
-//        pm2 save
-//        pm2 startup    # se non già configurato per systemd
-// Per tornare a fork: instances:1 + exec_mode:'fork' e ripeti il cutover.
+// Cluster mode (3 istanze) è PRONTO nel codice (scheduler gated su
+// NODE_APP_INSTANCE=0 + mailOutbox FOR UPDATE SKIP LOCKED) ma BLOCCATO da un
+// problema di credenziali in prod:
+//   - il backend si autentica al DB come PGUSER=cadenza_user (var libpq
+//     nell'ambiente), NON dal backend/.env (che non ha DB_USER/PASSWORD);
+//   - la userlist di PgBouncer contiene solo `postgres` (setup-pgbouncer.sh
+//     ha defaultato lì perché .env non espone DB_USER).
+// Risultato: in cluster+PgBouncer l'app va su :6432 come cadenza_user →
+// "no such user" → auth fail → crash loop. (In fork+diretto :5432 funziona
+// perché cadenza_user è un ruolo reale di Postgres.)
+//
+// Per attivare cluster in sicurezza servono DUE cose:
+//   1. aggiungere cadenza_user (con la sua password) alla userlist PgBouncer
+//      → /etc/pgbouncer/pgbouncer_userlist, poi `systemctl reload pgbouncer`
+//   2. riportare backend/.env a DB_PORT=6432 (così il pool passa da PgBouncer)
+// poi: instances:3 + exec_mode:'cluster' e cutover:
+//        pm2 delete cadenza-backend && pm2 start ecosystem.config.js && pm2 save
+// Senza PgBouncer NON mettere 3 istanze su :5432 diretto: 3×pool 20 = 60 > 50
+// max_connections.
 //
 // PgBouncer è necessario in cluster mode: N istanze × pool Sequelize (20)
 // saturerebbero max_connections Postgres (50). PgBouncer in transaction
@@ -32,18 +43,12 @@ module.exports = {
       name: 'cadenza-backend',
       script: 'backend/server.js',
       cwd: __dirname,
-      // Cluster mode su VPS 4 vCPU: 3 istanze HTTP in parallelo, 1 core
-      // lasciato a Postgres + sistema. PgBouncer (transaction pooling)
-      // multiplexa i pool Sequelize delle 3 istanze su ~25 conn reali.
-      // Scheduler: 5 girano solo su NODE_APP_INSTANCE=0 (clusterRole.js),
-      // mailOutbox gira ovunque ma è safe via FOR UPDATE SKIP LOCKED.
-      instances: 3,
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
       watch: false,
-      // 512M × 3 = 1.5G di tetto worst-case: sicuro su 4GB lasciando spazio
-      // a Postgres (shared_buffers ~1G tunato per 4GB). Uso normale ~250M/ist.
-      max_memory_restart: '512M',
+      // In cluster usare 512M (3×512M=1.5G, sicuro su 4GB con Postgres).
+      max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
       },
