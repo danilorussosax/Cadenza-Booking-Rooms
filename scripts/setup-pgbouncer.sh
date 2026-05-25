@@ -98,10 +98,16 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# Le chiavi opzionali possono MANCARE nel .env (es. DB_POOL_MAX). Con
+# `set -o pipefail`+`set -e` un grep senza match esce 1 e farebbe abortire lo
+# script SENZA messaggio, prima dei fallback qui sotto. Disabilitiamo errexit
+# solo per queste letture best-effort, poi lo riattiviamo.
+set +e
 DB_NAME="$(grep -E '^DB_NAME=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 DB_USER="$(grep -E '^DB_USER=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 DB_PASSWORD="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 APP_POOL_MAX="$(grep -E '^DB_POOL_MAX=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
+set -e
 
 # Default di fallback
 DB_NAME="${DB_NAME:-cadenza}"
@@ -230,9 +236,11 @@ PG_PORT="$(sudo -u postgres psql -tAc "SHOW port;" | tr -d '[:space:]')"
 PG_PORT="${PG_PORT:-5432}"
 
 # Calcola statement_timeout e idle_in_transaction_session_timeout dal .env
-# per configurarli anche lato PgBouncer come fallback
+# (chiavi opzionali → set +e per non morire sul grep senza match, vedi sopra).
+set +e
 STMT_TIMEOUT="$(grep -E '^DB_STATEMENT_TIMEOUT_MS=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)"
 IDLE_TX_TIMEOUT="$(grep -E '^DB_IDLE_IN_TX_TIMEOUT_MS=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)"
+set -e
 STMT_TIMEOUT_STRING="${STMT_TIMEOUT:-30000}"
 IDLE_TX_STRING="${IDLE_TX_TIMEOUT:-60000}"
 
@@ -429,10 +437,19 @@ if [[ $DRY_RUN -eq 0 ]]; then
   # Backuppa il .env originale
   cp "$ENV_FILE" "${ENV_FILE}.bak-pgbouncer"
 
-  # Aggiorna DB_PORT a 6432 (PgBouncer) — solo se è 5432
-  if grep -qE '^DB_PORT=5432' "$ENV_FILE"; then
-    sed -i'' 's/^DB_PORT=5432/DB_PORT=6432/' "$ENV_FILE"
-    ok "DB_PORT=5432 → 6432 in $ENV_FILE"
+  # Punta il backend a PgBouncer garantendo DB_PORT=6432. Tre casi:
+  #   - già 6432                         → nulla da fare
+  #   - presente con altro valore (5432) → sostituisci
+  #   - ASSENTE (il codice usa il default 5432) → aggiungi la riga, altrimenti
+  #     l'app resterebbe su Postgres diretto e PgBouncer non verrebbe usato.
+  if grep -qE '^DB_PORT=6432' "$ENV_FILE"; then
+    ok "DB_PORT già a 6432 in $ENV_FILE"
+  elif grep -qE '^DB_PORT=' "$ENV_FILE"; then
+    sed -i'' -E 's/^DB_PORT=.*/DB_PORT=6432/' "$ENV_FILE"
+    ok "DB_PORT → 6432 in $ENV_FILE"
+  else
+    printf 'DB_PORT=6432\n' >> "$ENV_FILE"
+    ok "DB_PORT=6432 aggiunto in $ENV_FILE (era assente → usava il default 5432)"
   fi
 
   # Aggiungi flag PgBouncer se non presente
