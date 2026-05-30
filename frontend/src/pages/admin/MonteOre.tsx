@@ -273,23 +273,21 @@ export default function AdminMonteOre() {
               key={tdef.value}
               type="button"
               onClick={() => setMacroTab(tdef.value)}
-              className={`flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all ${
+              className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-all ${
                 isActive
                   ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60'
               }`}
             >
-              <div className="flex w-full items-center gap-2">
-                <Icon className={`h-4 w-4 ${isActive ? tdef.iconColor : ''}`} />
-                {showBadge && (
-                  <Badge variant="secondary" className="ml-auto">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </div>
+              <Icon className={`h-4 w-4 shrink-0 ${isActive ? tdef.iconColor : ''}`} />
               <span className={`text-sm font-medium ${isActive ? 'text-foreground' : ''}`}>
                 {tdef.label}
               </span>
+              {showBadge && (
+                <Badge variant="secondary" className="ml-auto">
+                  {pendingCount}
+                </Badge>
+              )}
             </button>
           );
         })}

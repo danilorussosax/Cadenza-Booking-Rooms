@@ -278,7 +278,7 @@ export default function AdminServerSettings() {
                 onSelectMacro(mdef.value);
               }}
               className={cn(
-                'flex flex-col items-start gap-1 rounded-lg px-3 py-2.5 text-left transition-all',
+                'flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-all',
                 isActive
                   ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60',
