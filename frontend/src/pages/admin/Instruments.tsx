@@ -218,7 +218,7 @@ export default function AdminInstruments() {
                 onSelectTab(td.value);
               }}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-all',
+                'flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-center transition-all',
                 isActive
                   ? 'bg-background shadow-xs ring-1 ring-border'
                   : 'text-muted-foreground hover:bg-background/60',
