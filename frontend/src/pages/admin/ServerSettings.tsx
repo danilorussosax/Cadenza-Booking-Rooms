@@ -326,8 +326,8 @@ export default function AdminServerSettings() {
 
       {/* Header descrittivo */}
       <Card>
-        <CardContent className="flex items-start gap-3 p-4">
-          <div className={cn('mt-0.5 rounded-lg p-2', headerDef.iconBg)}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className={cn('rounded-lg p-2', headerDef.iconBg)}>
             <HeaderIcon className={cn('h-4 w-4', headerDef.iconColor)} />
           </div>
           <div className="space-y-0.5">
