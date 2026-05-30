@@ -377,6 +377,23 @@ if [[ "$CHANGE_COUNT" -gt 0 ]]; then
     -e "ssh ${SSH_OPTS}" \
     "$DEPLOY_SRC/" "${SSH_TARGET}:${VPS_PATH}/"
   green "    ✓ codice trasferito (da snapshot ${DEPLOY_SHA})"
+
+  # Prune dei chunk frontend orfani: dist/ è 100% generata dal build, quindi
+  # può essere mirrorata esatta. Senza --delete i bundle Vite vecchi (hash nel
+  # nome) si accumulano all'infinito sul VPS (centinaia di MonteOre-*.js ecc.):
+  # innocui per il runtime (l'entry referenzia solo quelli correnti) ma sprecano
+  # disco. --delete è confinato QUI a frontend/dist/: MAI sull'rsync principale,
+  # che cancellerebbe stato runtime non escluso (.env, uploads, …).
+  # Guard: con dist locale assente --delete azzererebbe il frontend remoto.
+  if [[ -f "$DEPLOY_SRC/frontend/dist/index.html" ]]; then
+    blue "    Prune chunk dist orfani sul VPS…"
+    rsync -avz --delete \
+      -e "ssh ${SSH_OPTS}" \
+      "$DEPLOY_SRC/frontend/dist/" "${SSH_TARGET}:${VPS_PATH}/frontend/dist/"
+    green "    ✓ dist mirrorata (chunk orfani rimossi)"
+  else
+    yellow "    ⚠ dist locale assente: salto il prune --delete (frontend remoto intatto)."
+  fi
 else
   blue "[4/9] rsync saltato (nessuna modifica)"
 fi
