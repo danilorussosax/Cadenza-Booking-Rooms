@@ -87,7 +87,7 @@ export default function Instruments() {
 
       {/* Filtri */}
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto]">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
