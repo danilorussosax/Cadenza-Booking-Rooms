@@ -206,7 +206,7 @@ export default function AdminRules() {
       {/* Header descrittivo della macro tab attiva (il "titolo dentro" che
           chiede l'utente: ogni tab ha la sua intestazione contestuale). */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-4 sm:p-6">
           <div className={`rounded-lg p-2 ${activeTab.iconBg}`}>
             <ActiveIcon className={`h-4 w-4 ${activeTab.iconColor}`} />
           </div>

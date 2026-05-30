@@ -241,7 +241,7 @@ export default function AdminMonteOre() {
        *  Affiancato a destra dal bottone "Importa Excel" che apre il dialog
        *  multipart upload per il monte ore di un singolo docente. */}
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-3 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <AdminAcademicYearSelector value={selectedYear} onChange={setSelectedYear} />
           </div>
@@ -295,7 +295,7 @@ export default function AdminMonteOre() {
 
       {/* Header descrittivo della tab attiva */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-4 sm:p-6">
           <div className={`rounded-lg p-2 ${activeTab.iconBg}`}>
             <ActiveIcon className={`h-4 w-4 ${activeTab.iconColor}`} />
           </div>
@@ -310,7 +310,7 @@ export default function AdminMonteOre() {
       {macroTab === 'proposals' && (
         <>
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-4 sm:p-6">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Filtra:
               </Label>
@@ -351,7 +351,7 @@ export default function AdminMonteOre() {
                     className="cursor-pointer transition hover:shadow-md"
                     onClick={() => setSelectedId(p.id)}
                   >
-                    <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+                    <CardContent className="grid gap-3 p-4 sm:p-6 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
                       <div>
                         <p className="font-medium flex items-center gap-2 flex-wrap">
                           {p.user ? `${p.user.lastName} ${p.user.firstName}` : `User #${p.userId}`}

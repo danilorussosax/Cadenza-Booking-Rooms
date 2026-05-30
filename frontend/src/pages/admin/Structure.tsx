@@ -308,7 +308,7 @@ export default function AdminStructure() {
 
       {/* Header descrittivo della tab attiva */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-4 sm:p-6">
           <div className={cn('rounded-lg p-2', activeTab.iconBg)}>
             <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
           </div>

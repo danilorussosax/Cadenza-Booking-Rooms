@@ -105,7 +105,7 @@ export default function AdminMonteOreSettings() {
       </header>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
           <AdminAcademicYearSelector value={year} onChange={setYear} />
           <div className="flex flex-wrap items-center gap-2">
             <Button

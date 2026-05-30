@@ -221,7 +221,7 @@ function RoleLoanQuotaGroup({
   const activeCount = quotas.filter((q) => q.isActive).length;
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-4 sm:p-6">
         <div className="flex items-center justify-between border-b pb-2">
           <h3 className="font-display text-base font-medium">{t(`admin.quotas.role.${role}`)}</h3>
           <span className="text-xs text-muted-foreground tabular-nums">

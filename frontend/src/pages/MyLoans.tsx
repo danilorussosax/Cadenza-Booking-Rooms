@@ -196,7 +196,7 @@ function LoanRow({
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
+      <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:gap-5">
         {/* Foto strumento 16:9 mini */}
         <div className="relative aspect-video w-full overflow-hidden rounded-md bg-muted sm:w-40 sm:shrink-0">
           <img

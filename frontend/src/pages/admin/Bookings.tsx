@@ -114,7 +114,7 @@ export function AdminBookingsContent() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <CardContent className="flex flex-col gap-3 p-4 sm:p-6 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -135,7 +135,7 @@ export function AdminBookingsContent() {
       {selected.size > 0 && (
         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <CardContent className="flex flex-col gap-3 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-medium">
                 {t('admin.bookings.selected_count', { count: selected.size })}
               </p>

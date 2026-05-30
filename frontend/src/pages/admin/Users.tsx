@@ -338,7 +338,7 @@ export default function AdminUsers() {
           </div>
 
           <Card>
-            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+            <CardContent className="grid gap-3 p-4 sm:p-6 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -388,7 +388,7 @@ export default function AdminUsers() {
           {selected.size > 0 && (
             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <CardContent className="flex flex-col gap-3 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-medium">
                     {t('admin.users.bulk.selected_count', {
                       count: selected.size,

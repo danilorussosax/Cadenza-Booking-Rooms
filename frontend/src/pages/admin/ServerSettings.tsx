@@ -326,7 +326,7 @@ export default function AdminServerSettings() {
 
       {/* Header descrittivo */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-4 sm:p-6">
           <div className={cn('rounded-lg p-2', headerDef.iconBg)}>
             <HeaderIcon className={cn('h-4 w-4', headerDef.iconColor)} />
           </div>

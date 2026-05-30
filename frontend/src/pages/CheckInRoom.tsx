@@ -191,7 +191,7 @@ function BookingCheckinCard({
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
       <Card>
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="space-y-4 p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <h2 className="font-display text-xl font-medium">

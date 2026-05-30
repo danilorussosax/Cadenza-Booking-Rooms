@@ -350,7 +350,7 @@ export default function AdminBackups() {
       {/* Restore success card with restart prompt */}
       {restoreResult && (
         <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-4 sm:p-6">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <div className="space-y-1">

@@ -49,7 +49,7 @@ export function AnnouncementsCard() {
     <>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="border-rose-200/60 bg-rose-50/30 dark:border-rose-500/20 dark:bg-rose-500/5">
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 sm:p-6">
             <div className="flex items-center justify-between gap-2">
               <h2 className="inline-flex items-center gap-2 font-display text-lg font-medium">
                 <Megaphone className="h-5 w-5 text-rose-600 dark:text-rose-400" />

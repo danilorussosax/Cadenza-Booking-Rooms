@@ -97,7 +97,7 @@ export default function AdminApprovals() {
         className="block rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <Card className="transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/20">
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-4 sm:p-6">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-400">
               <GitPullRequest className="h-5 w-5" />
             </div>
@@ -218,7 +218,7 @@ function ApprovalRow({
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
       <Card>
-        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{t('bookings.status.pending_approval')}</Badge>

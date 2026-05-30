@@ -80,7 +80,7 @@ export function WaitlistDashboardCard() {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <Card className="border-emerald-300/60 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-        <CardContent className="space-y-3 p-5">
+        <CardContent className="space-y-3 p-5 sm:p-6">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-500/20 dark:ring-emerald-400/40">
               <ListChecks className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />

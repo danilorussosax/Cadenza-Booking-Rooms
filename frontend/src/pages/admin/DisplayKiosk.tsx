@@ -327,7 +327,7 @@ export default function AdminDisplayKiosk() {
               Disattivando il master, l'intera tabella perde l'effetto sulla
               rotazione del kiosk (le slide edifici non vengono inserite). */}
           <Card className={cn(!bookings.enabled && 'opacity-90')}>
-            <CardContent className="space-y-5 p-5">
+            <CardContent className="space-y-5 p-5 sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 ring-1 ring-blue-300/60 dark:bg-blue-500/15 dark:ring-blue-400/30">
@@ -474,7 +474,7 @@ export default function AdminDisplayKiosk() {
               ?<slug>) e il match a 3 livelli (code esatto, nome esatto,
               substring del nome). */}
           <Card>
-            <CardContent className="space-y-4 p-5">
+            <CardContent className="space-y-4 p-5 sm:p-6">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 ring-1 ring-indigo-300/60 dark:bg-indigo-500/15 dark:ring-indigo-400/30">
                   <Link2 className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
@@ -564,7 +564,7 @@ export default function AdminDisplayKiosk() {
           {/* Card concerti: impostazioni globali della rotazione concerti.
               Replica gli stessi valori su tutti gli edifici al salvataggio. */}
           <Card className={cn(!concerts.enabled && 'opacity-90')}>
-            <CardContent className="space-y-5 p-5">
+            <CardContent className="space-y-5 p-5 sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 ring-1 ring-amber-300/60 dark:bg-amber-500/15 dark:ring-amber-400/30">
@@ -670,7 +670,7 @@ export default function AdminDisplayKiosk() {
           {/* Card annunci: impostazioni globali della rotazione annunci.
               Replica gli stessi valori su tutti gli edifici al salvataggio. */}
           <Card className={cn(!announcements.enabled && 'opacity-90')}>
-            <CardContent className="space-y-5 p-5">
+            <CardContent className="space-y-5 p-5 sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 ring-1 ring-rose-300/60 dark:bg-rose-500/15 dark:ring-rose-400/30">

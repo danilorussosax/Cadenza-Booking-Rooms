@@ -54,7 +54,7 @@ export default function AnnouncementsPage() {
         {all.map((a) => (
           <motion.div key={a.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
-              <CardContent className="space-y-2 p-5">
+              <CardContent className="space-y-2 p-5 sm:p-6">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {a.isPinned && (
                     <Badge variant="default" className="gap-1">

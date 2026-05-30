@@ -78,7 +78,7 @@ export function RulesPreview({ defaultRole }: { defaultRole: Role }) {
 
   return (
     <Card>
-      <CardContent className="space-y-4 p-5">
+      <CardContent className="space-y-4 p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-500/15">
             <FlaskConical className="h-4 w-4 text-purple-600 dark:text-purple-400" />

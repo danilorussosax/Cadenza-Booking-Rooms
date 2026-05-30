@@ -106,7 +106,7 @@ export default function AdminAnalytics() {
 
       {/* Filtri range */}
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-3 sm:items-end">
+        <CardContent className="grid gap-3 p-4 sm:p-6 sm:grid-cols-3 sm:items-end">
           <div>
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {t('admin.analytics.filter.date_from')}
@@ -180,7 +180,7 @@ export default function AdminAnalytics() {
 
       {/* Heatmap settimanale */}
       <Card>
-        <CardContent className="space-y-3 p-5">
+        <CardContent className="space-y-3 p-5 sm:p-6">
           <div>
             <h2 className="font-display text-xl font-medium">
               {t('admin.analytics.heatmap.title')}
@@ -197,7 +197,7 @@ export default function AdminAnalytics() {
 
       {/* Trend ultime 8 settimane */}
       <Card>
-        <CardContent className="space-y-3 p-5">
+        <CardContent className="space-y-3 p-5 sm:p-6">
           <div>
             <h2 className="font-display text-xl font-medium">{t('admin.analytics.trend.title')}</h2>
             <p className="text-xs text-muted-foreground">{t('admin.analytics.trend.help')}</p>
@@ -263,7 +263,7 @@ export default function AdminAnalytics() {
       {/* Top 10 rooms + users */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-sky-600 dark:text-sky-400" />
               <h2 className="font-display text-lg font-medium">
@@ -283,7 +283,7 @@ export default function AdminAnalytics() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="space-y-3 p-5">
+          <CardContent className="space-y-3 p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <UsersIcon className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               <h2 className="font-display text-lg font-medium">
@@ -331,7 +331,7 @@ function KpiCard({
   } as const;
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
+      <CardContent className="flex items-center gap-3 p-4 sm:p-6">
         <span
           className={cn(
             'flex h-10 w-10 items-center justify-center rounded-lg',

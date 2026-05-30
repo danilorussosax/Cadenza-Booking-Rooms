@@ -573,7 +573,7 @@ export default function Rooms() {
                             </div>
                           </div>
 
-                          <CardContent className="flex flex-1 flex-col gap-3 p-5">
+                          <CardContent className="flex flex-1 flex-col gap-3 p-5 sm:p-6">
                             <div>
                               <h3 className="font-display text-lg font-medium leading-tight">
                                 {r.name}

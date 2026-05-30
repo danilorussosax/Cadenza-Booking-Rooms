@@ -83,7 +83,7 @@ export function AuditLogPanel() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <CardContent className="grid gap-3 p-4 sm:p-6 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {t('admin.audit_log.filter.action')}

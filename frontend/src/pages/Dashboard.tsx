@@ -539,7 +539,7 @@ export default function Dashboard() {
 
       {/* Prossima sessione (mobile-only) — info piu' actionable in primo piano */}
       <Card className="border-primary/20 bg-primary/5 lg:hidden">
-        <CardContent className="p-4">
+        <CardContent className="p-4 sm:p-6">
           {next ? (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-primary">
@@ -597,7 +597,7 @@ export default function Dashboard() {
       {(pendingApprovalsQuery.data?.bookings.length ?? 0) > 0 && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
+            <CardContent className="flex flex-col gap-3 p-5 sm:p-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:ring-amber-400/40">
                   <Clock className="h-5 w-5 text-amber-700 dark:text-amber-300" />
@@ -639,7 +639,7 @@ export default function Dashboard() {
       {checkinNeeded.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <CardContent className="flex flex-col gap-3 p-5 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:ring-amber-400/40">
                   <CheckCircle2 className="h-5 w-5 text-amber-700 dark:text-amber-300" />
