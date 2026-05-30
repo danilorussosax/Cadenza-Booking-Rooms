@@ -332,7 +332,7 @@ export default function MonteOre() {
             Anno accademico {proposal.academicYear}
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-3 pt-0 sm:pt-0">
           <div>
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Inizio validità
@@ -467,7 +467,7 @@ export default function MonteOre() {
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           {proposal.schedules.length === 0 ? (
             <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center">
               <CalendarRange className="mx-auto h-8 w-8 text-muted-foreground" />

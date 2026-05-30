@@ -206,7 +206,7 @@ export default function AdminBackups() {
             {t('admin.backups.scheduler.title')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0 sm:pt-0">
           {!scheduler ? (
             <Skeleton className="h-16 w-full" />
           ) : (
@@ -274,7 +274,7 @@ export default function AdminBackups() {
         <CardHeader>
           <CardTitle className="font-display text-lg">{t('admin.backups.list.title')}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           {query.isLoading && <Skeleton className="h-32 w-full" />}
           {!query.isLoading && backups.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">

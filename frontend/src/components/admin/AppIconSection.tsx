@@ -68,7 +68,7 @@ export function AppIconSection() {
           {t('profile.app_icon.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">{t('profile.app_icon.description')}</p>
 
         {iconsQuery.isError && (

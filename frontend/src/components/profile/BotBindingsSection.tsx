@@ -105,7 +105,7 @@ export function BotBindingsSection() {
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">{t('profile.bot_bindings.subtitle')}</p>
 
         {/* OTP appena generato */}

@@ -363,7 +363,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
               {tk('step1_title')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 pt-0 sm:pt-0">
             <label
               htmlFor="isidata-file"
               onDrop={handleDrop}
@@ -524,7 +524,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
             {tk('history_title')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           {runsQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
           ) : (runsQuery.data?.runs ?? []).length === 0 ? (
@@ -663,7 +663,7 @@ function PreviewView({
           />
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pt-0 sm:pt-0">
         {criticalWarnings.length > 0 && (
           <div
             className="rounded-lg border-2 border-rose-400 bg-rose-50 p-4 text-sm dark:border-rose-500/50 dark:bg-rose-500/10"
@@ -1097,7 +1097,7 @@ function MappingCard({
         <CardTitle className="text-base">{tk('mapping_title')}</CardTitle>
         <p className="text-xs text-muted-foreground">{tk('mapping_hint')}</p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-0 sm:pt-0">
         <div className="overflow-x-auto rounded-md border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">

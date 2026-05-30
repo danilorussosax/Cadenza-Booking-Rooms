@@ -211,7 +211,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">
           {t('profile.twofa.subtitle_email', { email: userEmail || user.email })}
         </p>

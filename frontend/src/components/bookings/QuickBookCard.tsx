@@ -77,7 +77,7 @@ export function QuickBookCard() {
           </p>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {favorites.map((tpl) => (
             <QuickBookButton

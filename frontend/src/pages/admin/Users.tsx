@@ -899,7 +899,7 @@ function SsoTabContent() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0 sm:pt-0">
           <p className="text-sm text-muted-foreground">
             Limita il login Google/Microsoft agli utenti la cui email appartiene a uno dei domini
             indicati. Lascia vuoto per accettare qualunque account.
@@ -967,7 +967,7 @@ function SsoTabContent() {
               />
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-0 sm:pt-0">
             <div className="space-y-1.5">
               <Label htmlFor="g-cid">Client ID</Label>
               <Input
@@ -1064,7 +1064,7 @@ function SsoTabContent() {
               />
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-0 sm:pt-0">
             <div className="space-y-1.5">
               <Label htmlFor="m-cid">Client ID (Application ID)</Label>
               <Input
@@ -1196,7 +1196,7 @@ function IsidataImportCard() {
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 sm:pt-0">
           <p className="text-sm text-muted-foreground">{t('integrations.isidata.subtitle')}</p>
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>· XLSX o CSV, max 10 MB / 5000 record</li>
@@ -1253,7 +1253,7 @@ function Esse3ImportCard() {
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 sm:pt-0">
           <p className="text-sm text-muted-foreground">
             Import anagrafica dagli export standard ESSE3 CINECA. Riconosce header "CodiceCdS",
             "DescrizioneCdS", "StatoIscrizione" e mappa gli stati "Laureato/Trasferito/Cessato" come

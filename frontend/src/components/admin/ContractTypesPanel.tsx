@@ -121,7 +121,7 @@ export function ContractTypesPanel() {
             Nuova tipologia
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           <div className="mb-3 flex items-center gap-2">
             <Button
               size="sm"

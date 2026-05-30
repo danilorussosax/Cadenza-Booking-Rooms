@@ -70,7 +70,7 @@ export function CopyrightSection() {
           {t('admin.appearance.copyright.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <form
           onSubmit={handleSubmit((v) => {
             setServerError(null);

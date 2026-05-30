@@ -123,7 +123,7 @@ function VpsCard({ data }: { data: OpsSnapshot['vps'] }) {
           {t('admin.ops.vps.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-3 text-sm pt-0 sm:pt-0">
         <Row
           label={
             <span className="inline-flex items-center gap-1.5">
@@ -200,7 +200,7 @@ function PostgresCard({ data }: { data: OpsSnapshot['postgres'] }) {
             {t('admin.ops.postgres.title')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-sm text-muted-foreground pt-0 sm:pt-0">
           {t('admin.ops.postgres.unavailable', { dialect: data.dialect })}
         </CardContent>
       </Card>
@@ -215,7 +215,7 @@ function PostgresCard({ data }: { data: OpsSnapshot['postgres'] }) {
           {t('admin.ops.postgres.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-3 text-sm pt-0 sm:pt-0">
         {conns ? (
           <>
             <Row
@@ -297,7 +297,7 @@ function MailOutboxCard({ data }: { data: OpsSnapshot['mailOutbox'] }) {
             {t('admin.ops.mailOutbox.title')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-destructive">{data.error}</CardContent>
+        <CardContent className="text-sm text-destructive pt-0 sm:pt-0">{data.error}</CardContent>
       </Card>
     );
   }
@@ -309,7 +309,7 @@ function MailOutboxCard({ data }: { data: OpsSnapshot['mailOutbox'] }) {
           {t('admin.ops.mailOutbox.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-3 text-sm pt-0 sm:pt-0">
         <Row
           label={t('admin.ops.mailOutbox.pending')}
           value={
@@ -365,7 +365,7 @@ function BackupCard({ data }: { data: OpsSnapshot['backups'] }) {
             {t('admin.ops.backup.title')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-destructive">{data.error}</CardContent>
+        <CardContent className="text-sm text-destructive pt-0 sm:pt-0">{data.error}</CardContent>
       </Card>
     );
   }
@@ -378,7 +378,7 @@ function BackupCard({ data }: { data: OpsSnapshot['backups'] }) {
           {t('admin.ops.backup.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-3 text-sm pt-0 sm:pt-0">
         {data.lastBackup ? (
           <>
             <Row
@@ -539,7 +539,7 @@ function SchedulersCard({ data }: { data: OpsSnapshot['schedulers'] }) {
           {t('admin.ops.scheduler.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <div className="divide-y">
           {data.map((s) => (
             <SchedulerRow key={s.name} s={s} />
@@ -672,7 +672,7 @@ function SlowQueriesCard() {
           </span>
         )}
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pt-0 sm:pt-0">
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('admin.ops.slow_queries.aggregate_by_route')}

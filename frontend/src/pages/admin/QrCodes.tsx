@@ -85,7 +85,7 @@ function BuildingCheckInCard() {
           questa.
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         {items.length === 0 ? (
           <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
             Nessun edificio configurato.
@@ -266,7 +266,7 @@ function CheckInSecurityCard() {
           Chi scansiona il QR da una rete esterna riceverà un errore esplicito.
         </p>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-5 pt-0 sm:pt-0">
         {serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>
@@ -529,7 +529,7 @@ function RoomsQrTable() {
           Rigenera tutti
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         {rooms.length === 0 ? (
           <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
             Nessuna aula configurata.

@@ -267,7 +267,7 @@ function SettingsForm({
       <CardHeader>
         <CardTitle className="text-lg">Periodo lezioni e finestra inserimento</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Inizio anno accademico</Label>
@@ -388,7 +388,7 @@ function SuspensionsCard({
           <Plus className="h-4 w-4" /> Aggiungi
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         {loading ? (
           <Skeleton className="h-32 w-full" />
         ) : suspensions.length === 0 ? (

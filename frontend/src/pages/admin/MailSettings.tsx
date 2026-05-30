@@ -285,7 +285,7 @@ export default function AdminMailSettings() {
               Server SMTP
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 pt-0 sm:pt-0">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <p className="text-sm font-medium">Notifiche email attive</p>
@@ -413,7 +413,7 @@ export default function AdminMailSettings() {
           <CardHeader>
             <CardTitle className="font-display text-xl">Mittente</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 pt-0 sm:pt-0">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="m-from-name">Nome mittente</Label>
@@ -524,7 +524,7 @@ export default function AdminMailSettings() {
               Test invio
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-0 sm:pt-0">
             <p className="text-sm text-muted-foreground">
               Invia un messaggio di prova per verificare che la configurazione funzioni. Salva prima
               eventuali modifiche. Puoi testare anche un modello specifico: verrà renderizzato con
@@ -632,7 +632,7 @@ function MailTemplatesSection() {
           Modelli email
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <p className="mb-4 text-sm text-muted-foreground">
           Personalizza oggetto e corpo HTML delle email automatiche. Le variabili tra{' '}
           <code className="rounded bg-muted px-1">{'{{ }}'}</code> vengono sostituite con i dati

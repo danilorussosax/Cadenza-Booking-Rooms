@@ -308,7 +308,7 @@ function PersonalSection({
           Informazioni personali
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <form
           onSubmit={handleSubmit((v) => {
             setServerError(null);
@@ -453,7 +453,7 @@ function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
           Sicurezza · Cambio password
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <form
           onSubmit={handleSubmit((v) => {
             setServerError(null);
@@ -620,7 +620,7 @@ function NotificationsSection({
           {t('profile.notifications.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">{t('profile.notifications.description')}</p>
 
         {/* Master switch */}
@@ -752,7 +752,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
           Privacy e dati personali
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-5 pt-0 sm:pt-0">
         {/* Documenti legali */}
         <div className="space-y-2">
           <p className="text-sm font-medium">Documenti</p>
@@ -1038,7 +1038,7 @@ function AccountSection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
           Informazioni account
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           {items.map((item, i) => (
             <div

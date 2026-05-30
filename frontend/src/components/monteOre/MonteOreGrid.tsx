@@ -207,7 +207,7 @@ export default function MonteOreGrid({
         <CardHeader>
           <CardTitle className="text-lg">Griglia annuale</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           <Skeleton className="h-64 w-full" />
         </CardContent>
       </Card>
@@ -223,7 +223,7 @@ export default function MonteOreGrid({
             Griglia annuale
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 sm:pt-0">
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -297,7 +297,7 @@ export default function MonteOreGrid({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-0 sm:pt-0">
         {hasPendingPattern && (
           <Alert>
             <AlertCircle className="h-4 w-4" />

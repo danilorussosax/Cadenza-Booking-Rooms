@@ -69,7 +69,7 @@ export function ExamSessionsEditor({ academicYear }: Props) {
           Aggiungi sessione
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         {listQuery.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : sessions.length === 0 ? (

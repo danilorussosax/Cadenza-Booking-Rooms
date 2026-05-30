@@ -266,7 +266,7 @@ export default function AdminMailOutbox() {
             Coda
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 sm:pt-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <StatusPills
               current={status}

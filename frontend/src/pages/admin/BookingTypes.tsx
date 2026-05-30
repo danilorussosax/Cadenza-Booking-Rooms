@@ -221,7 +221,7 @@ function BookingTypeCard({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor={`label-${type.code}`}>Etichetta visibile</Label>

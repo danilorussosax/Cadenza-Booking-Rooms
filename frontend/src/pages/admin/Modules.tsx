@@ -94,7 +94,7 @@ export default function AdminModules() {
             {t('admin.server_settings.modules.subtitle')}
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 sm:pt-0">
           {isLoading ? (
             <>
               <Skeleton className="h-24 w-full" />

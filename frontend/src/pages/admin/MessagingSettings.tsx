@@ -256,7 +256,7 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">{t(def.helpKey)}</p>
 
         {/* Settings non-secret */}

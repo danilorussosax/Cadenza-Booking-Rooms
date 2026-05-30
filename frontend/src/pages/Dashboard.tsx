@@ -732,7 +732,7 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-0 sm:pt-0">
           {roomsQuery.isLoading || calendarBookingsQuery.isLoading ? (
             <>
               {[0, 1, 2, 3].map((i) => (
@@ -947,7 +947,7 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0 sm:pt-0">
           {/* Building tabs */}
           {buildings.length > 1 && (
             <Tabs value={buildingTab} onValueChange={setBuildingTab}>
@@ -1015,7 +1015,7 @@ export default function Dashboard() {
               </Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-0 sm:pt-0">
             {dashboardLoans.map((loan) => (
               <LoanDashboardRow key={loan.id} loan={loan} />
             ))}

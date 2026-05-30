@@ -134,7 +134,7 @@ export default function AdminExcelExport() {
                   : 'In attesa primo export'}
           </Badge>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 sm:pt-0">
           {!status.enabled && (
             <Alert>
               <AlertCircle className="h-4 w-4" />

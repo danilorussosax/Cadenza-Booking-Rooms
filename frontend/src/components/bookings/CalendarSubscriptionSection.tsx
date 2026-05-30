@@ -100,7 +100,7 @@ export function CalendarSubscriptionSection() {
           {t('calendar_subscription.title')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0 sm:pt-0">
         <p className="text-sm text-muted-foreground">{t('calendar_subscription.description')}</p>
 
         {tokenQuery.isLoading ? (
