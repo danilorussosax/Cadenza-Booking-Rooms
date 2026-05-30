@@ -221,8 +221,8 @@ export default function AdminCourses() {
 
       {/* Header descrittivo della tab attiva */}
       <Card>
-        <CardContent className="flex items-start gap-3 p-4">
-          <div className={cn('mt-0.5 rounded-lg p-2', activeTab.iconBg)}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className={cn('rounded-lg p-2', activeTab.iconBg)}>
             <ActiveIcon className={cn('h-4 w-4', activeTab.iconColor)} />
           </div>
           <div className="space-y-0.5">
@@ -281,7 +281,7 @@ export default function AdminCourses() {
           </div>
 
           <Card>
-            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto]">
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input

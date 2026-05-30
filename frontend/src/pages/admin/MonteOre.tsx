@@ -295,8 +295,8 @@ export default function AdminMonteOre() {
 
       {/* Header descrittivo della tab attiva */}
       <Card>
-        <CardContent className="flex items-start gap-3 p-4">
-          <div className={`mt-0.5 rounded-lg p-2 ${activeTab.iconBg}`}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className={`rounded-lg p-2 ${activeTab.iconBg}`}>
             <ActiveIcon className={`h-4 w-4 ${activeTab.iconColor}`} />
           </div>
           <div className="space-y-0.5">
