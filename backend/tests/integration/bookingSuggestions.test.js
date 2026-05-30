@@ -33,7 +33,17 @@ const app = buildApp({ serveFrontend: false });
 // Slot deterministico in un giorno futuro a un orario centrale,
 // per evitare collisioni con finestre allowedStartTime/EndTime.
 function futureSlot({ daysAhead = 7, hour = 10, durationMin = 60 } = {}) {
-  const start = dayjs().add(daysAhead, 'day').hour(hour).minute(0).second(0).millisecond(0);
+  let start = dayjs().add(daysAhead, 'day').hour(hour).minute(0).second(0).millisecond(0);
+  // Ancoriamo a mercoledì (giorno 3, dom=0) per rendere lo slot deterministico
+  // rispetto al giorno in cui gira la CI. Due assunzioni dei test dipendono dal
+  // giorno della settimana e altrimenti si contraddicono:
+  //   • la quota è SETTIMANALE (ISO lun-dom) e il motore genera shift +1/+2gg
+  //     → con slot di ven/sab lo shift sfora alla settimana dopo (quota a zero)
+  //       e compaiono suggestion dove i test ne attendono zero;
+  //   • il ranking di alcuni test cambia se lo slot cade di lunedì.
+  // Mercoledì soddisfa entrambi: non è lunedì e +2gg = venerdì (stessa
+  // settimana). Mai weekend, così nessun vincolo giorno-feriale interferisce.
+  start = start.add((3 - start.day() + 7) % 7, 'day');
   const end = start.add(durationMin, 'minute');
   return { start, end, startTime: start.toISOString(), endTime: end.toISOString() };
 }
@@ -250,13 +260,20 @@ describe('POST /api/bookings — suggestions', () => {
     const course = await createCourse();
     const { user, authHeader } = await studentWithProfile(course.id, 'quota');
     const room = await createRoom();
-    const slot = futureSlot();
-    // Una booking già esistente dell'utente che satura la quota.
+    // Ancoriamo lo slot a lunedì: il motore genera shift di giorno (+1/+2gg)
+    // e la quota è settimanale (ISO lun-dom). Se lo slot cadesse di ven/sab,
+    // lo shift +2gg sforerebbe alla settimana successiva — dove la quota è di
+    // nuovo a zero — e una suggestion "valida" comparirebbe dove il test ne
+    // attende zero (flaky a seconda del giorno in cui gira la CI).
+    const toMonday = (8 - dayjs().add(7, 'day').day()) % 7; // 0=Dom,1=Lun → avanza a lun
+    const slot = futureSlot({ daysAhead: 7 + toMonday });
+    // Booking esistente dell'utente che satura la quota, lo STESSO giorno
+    // dello slot: così ogni shift generato ricade nella medesima settimana.
     await createBooking({
       user,
       room,
-      startTime: dayjs().add(7, 'day').hour(8).toDate(),
-      endTime: dayjs().add(7, 'day').hour(9).toDate(),
+      startTime: slot.start.hour(8).minute(0).toDate(),
+      endTime: slot.start.hour(9).minute(0).toDate(),
     });
     // Slot conflittuale (un altro utente blocca lo slot 10-11).
     const { user: blocker } = await createAuthedUser({ role: 'studente', courseId: course.id });
