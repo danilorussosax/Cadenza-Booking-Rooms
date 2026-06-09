@@ -36,7 +36,10 @@ export function useAppIcon(): string {
     staleTime: 5 * 60 * 1000,
   });
   const url = data?.institute?.appIconUrl;
-  const icon = url && url.trim().length > 0 ? url : DEFAULT_ICON;
+  // Whitelist schema: solo path relativo o http(s). Un valore tipo `data:` o
+  // `javascript:` salvato lato server non deve finire nel <link rel="icon">.
+  const trimmed = url?.trim() ?? '';
+  const icon = /^(https?:\/\/|\/)/.test(trimmed) ? trimmed : DEFAULT_ICON;
 
   useEffect(() => {
     syncFaviconLink('icon', icon);

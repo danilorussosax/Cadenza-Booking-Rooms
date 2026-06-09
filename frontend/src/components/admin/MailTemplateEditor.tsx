@@ -235,6 +235,7 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
               srcDoc={previewHtml}
               className="h-[420px] w-full border-0"
               sandbox=""
+              referrerPolicy="no-referrer"
             />
           </div>
         </div>

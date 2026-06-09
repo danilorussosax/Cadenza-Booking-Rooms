@@ -139,7 +139,7 @@ function signPre2faToken(userId) {
 }
 
 function verifyPre2faToken(token) {
-  const payload = jwt.verify(token, getJwtSecret());
+  const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
   if (payload.tfa !== 'pre') {
     const err = new Error('Token pre2FA non valido');
     err.code = 'TWO_FA_BAD_TEMP_TOKEN';

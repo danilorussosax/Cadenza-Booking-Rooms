@@ -41,7 +41,11 @@ export const gdprApi = {
     const blob = await res.blob();
     const cd = res.headers.get('content-disposition') ?? '';
     const m = /filename="([^"]+)"/.exec(cd);
-    const filename = m ? m[1] : `dati-personali-${Date.now()}.json`;
+    // Sanitizza: il valore arriva da un header di risposta — niente separatori
+    // di path o caratteri speciali nel nome usato per a.download.
+    const filename = (m ? m[1] : `dati-personali-${Date.now()}.json`)
+      .replace(/[/\\?%*:|"<>]/g, '_')
+      .slice(0, 100);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

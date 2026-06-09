@@ -19,6 +19,12 @@ const {
 } = require('../services/auth/sendSetupLink');
 const logger = require('../lib/logger');
 
+// Policy password: identica a quella di registrazione/reset (routes/auth.js).
+// Tenere sincronizzate per evitare downgrade della robustezza via rotte admin.
+const PASSWORD_MIN_LEN = 10;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
+const PASSWORD_POLICY_MSG = `La password deve avere almeno ${PASSWORD_MIN_LEN} caratteri, con almeno una maiuscola e una cifra`;
+
 /**
  * Anti-lockout: previene la trasformazione dell'ULTIMO admin in non-admin
  * (sia diretta — `role: 'docente'`, sia indiretta — `isActive: false`,
@@ -174,10 +180,8 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
       .status(400)
       .json({ error: 'Nome, cognome ed email sono obbligatori', code: 'VALIDATION_FAILED' });
   }
-  if (!password || password.length < 8) {
-    return res
-      .status(400)
-      .json({ error: 'La password deve essere di almeno 8 caratteri', code: 'PASSWORD_TOO_SHORT' });
+  if (!password || !PASSWORD_REGEX.test(password)) {
+    return res.status(400).json({ error: PASSWORD_POLICY_MSG, code: 'PASSWORD_POLICY' });
   }
 
   const existing = await User.findOne({ where: { email: email.toLowerCase().trim() } });
@@ -511,13 +515,17 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
 
     // Reset password (gestito separatamente: NON è in pickAllowed perché viene
     // sotto un nome diverso `newPassword` e ha la propria policy).
-    if (typeof req.body.newPassword === 'string' && req.body.newPassword.length >= 8) {
+    if (typeof req.body.newPassword === 'string' && PASSWORD_REGEX.test(req.body.newPassword)) {
       updates.passwordHash = req.body.newPassword;
+      // Bump tokenVersion: un reset forzato dall'admin deve invalidare TUTTI
+      // i JWT già emessi per l'utente (es. dopo sospetta compromissione),
+      // altrimenti le sessioni del vecchio possessore restano valide fino a scadenza.
+      updates.tokenVersion = (user.tokenVersion ?? 0) + 1;
     } else if (typeof req.body.newPassword === 'string') {
-      // Stringa fornita ma troppo corta → errore esplicito (vs ignorare).
+      // Stringa fornita ma non conforme alla policy → errore esplicito (vs ignorare).
       return res.status(400).json({
-        error: 'La password deve avere almeno 8 caratteri',
-        code: 'PASSWORD_TOO_SHORT',
+        error: PASSWORD_POLICY_MSG,
+        code: 'PASSWORD_POLICY',
       });
     }
 

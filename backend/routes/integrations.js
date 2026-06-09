@@ -816,7 +816,13 @@ router.post('/esse3-csv/apply', authenticate, requireRole('admin'), makeApplyHan
 router.get('/runs', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const where = {};
-    if (req.query.provider) where.provider = String(req.query.provider);
+    if (req.query.provider) {
+      const ALLOWED_PROVIDERS = ['isidata', 'esse3'];
+      if (!ALLOWED_PROVIDERS.includes(String(req.query.provider))) {
+        return res.status(400).json({ error: 'provider non valido', code: 'VALIDATION_FAILED' });
+      }
+      where.provider = String(req.query.provider);
+    }
     if (req.query.configId) where.configId = Number(req.query.configId);
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
     const runs = await IntegrationSyncRun.findAll({

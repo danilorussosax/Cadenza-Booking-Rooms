@@ -17,19 +17,20 @@
 // di stringa costante.
 // =============================================================================
 
+const crypto = require('crypto');
+
 const TELEGRAM_API = 'https://api.telegram.org';
 
 function verifyWebhook(req, config) {
   const expected = config?.credentials?.webhookSecret;
   if (!expected) return false;
   const got = req.get('X-Telegram-Bot-Api-Secret-Token');
-  // Confronto a tempo costante per evitare timing attack
-  if (typeof got !== 'string' || got.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < got.length; i += 1) {
-    diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return diff === 0;
+  if (typeof got !== 'string') return false;
+  // Confronto a tempo costante: hash di entrambi i lati così timingSafeEqual
+  // opera su buffer di lunghezza identica e non leakiamo la lunghezza del secret.
+  const a = crypto.createHash('sha256').update(got).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 /** Telegram update payload — ci interessa solo `message.text` o `edited_message.text`. */

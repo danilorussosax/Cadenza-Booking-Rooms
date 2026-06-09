@@ -21,15 +21,27 @@
 // =============================================================================
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const logger = require('../lib/logger').child({ scope: 'csp.violation' });
 const sentryLib = require('../lib/sentry');
+
+// Endpoint pubblico: oltre al limiter globale /api/ serve un tetto dedicato
+// più severo — un'estensione rumorosa o un flood doloso non deve saturare
+// log e quota Sentry.
+const cspReportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Body parser dedicato: il browser usa due content-type. Express bodyParser
 // di default gestisce solo `application/json` → senza override perderemmo
 // i report `application/csp-report`.
 router.post(
   '/',
+  cspReportLimiter,
   express.json({
     type: ['application/json', 'application/csp-report', 'application/reports+json'],
   }),

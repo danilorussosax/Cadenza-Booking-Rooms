@@ -259,6 +259,15 @@ export default function HelpPage() {
                         </a>
                       );
                     }
+                    // Whitelist degli schemi: tutto ciò che non è anchor,
+                    // http(s) o path relativo (es. `javascript:`) viene reso
+                    // come testo — un link malevolo nel Markdown non deve
+                    // poter eseguire codice nel contesto della pagina.
+                    const isSafe =
+                      isExternal || (typeof href === 'string' && href.startsWith('/'));
+                    if (!isSafe) {
+                      return <span {...rest}>{children}</span>;
+                    }
                     return (
                       <a
                         href={href}

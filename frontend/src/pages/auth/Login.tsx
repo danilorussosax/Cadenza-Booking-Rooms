@@ -78,8 +78,11 @@ export default function Login() {
   const currentEmail = watch('email');
 
   const proceedAfterLogin = (user: User) => {
-    const redirectTo =
+    const rawRedirect =
       (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? null;
+    // Solo path relativi same-origin (`/foo`, non `//evil.com` né URL assoluti):
+    // evita open redirect se lo state arriva da una navigazione manipolata.
+    const redirectTo = rawRedirect && /^\/(?!\/)/.test(rawRedirect) ? rawRedirect : null;
     const profileComplete =
       user.role === 'admin' ||
       (Boolean(user.courseId) && (user.role !== 'studente' || Boolean(user.matricola)));

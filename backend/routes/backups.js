@@ -153,7 +153,18 @@ router.post(
           code: 'INVALID_FILENAME',
         });
       }
-      const target = path.join(BACKUP_DIR, original);
+      const target = path.resolve(BACKUP_DIR, original);
+      // Difesa-in-profondità: `original` è già passato da path.basename + regex,
+      // ma asseriamo il containment esplicito così un refactor a monte non può
+      // reintrodurre un path traversal verso fuori da BACKUP_DIR.
+      if (!target.startsWith(path.resolve(BACKUP_DIR) + path.sep)) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch {
+          /* noop */
+        }
+        return res.status(400).json({ error: 'Percorso non valido', code: 'INVALID_FILENAME' });
+      }
       if (fs.existsSync(target)) {
         try {
           fs.unlinkSync(req.file.path);

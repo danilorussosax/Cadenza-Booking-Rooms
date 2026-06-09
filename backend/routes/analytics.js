@@ -319,7 +319,11 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
       ],
       delimiter: ',',
     });
-    const filename = `analytics-${dayjs(range.from).format('YYYYMMDD')}-${dayjs(range.to).format('YYYYMMDD')}.csv`;
+    const filename =
+      `analytics-${dayjs(range.from).format('YYYYMMDD')}-${dayjs(range.to).format('YYYYMMDD')}.csv`.replace(
+        /[^\w\-.]/g,
+        '_',
+      );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send('﻿' + csv); // BOM per Excel italiano
@@ -350,7 +354,11 @@ router.get('/export.pdf', authenticate, requireRole('admin'), async (req, res, n
 
     const data = await gatherAnalytics(range);
 
-    const filename = `analytics-${dayjs(range.from).format('YYYYMMDD')}-${dayjs(range.to).format('YYYYMMDD')}.pdf`;
+    const filename =
+      `analytics-${dayjs(range.from).format('YYYYMMDD')}-${dayjs(range.to).format('YYYYMMDD')}.pdf`.replace(
+        /[^\w\-.]/g,
+        '_',
+      );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 

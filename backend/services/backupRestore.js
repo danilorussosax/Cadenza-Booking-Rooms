@@ -212,6 +212,15 @@ async function performRestore({ archivePath, dryRun = false }) {
     if (fs.existsSync(manifestPath)) {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     }
+    // Il manifest arriva dall'archivio caricato: non fidarsi del contenuto.
+    // Un dialect arbitrario potrebbe forzare il ramo di restore sbagliato
+    // (es. psql su contenuto SQL attacker-controlled in ambiente sqlite).
+    const ALLOWED_DIALECTS = ['sqlite', 'postgres'];
+    if (manifest.dialect != null && !ALLOWED_DIALECTS.includes(manifest.dialect)) {
+      throw Object.assign(new Error(`manifest.dialect non valido: ${String(manifest.dialect)}`), {
+        code: 'BACKUP_BAD_MANIFEST',
+      });
+    }
     logger.info({ manifest }, '[restore] manifest letto');
 
     if (dryRun) {

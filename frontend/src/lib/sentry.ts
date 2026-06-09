@@ -138,6 +138,12 @@ export function setSentryUser(user: { id: number; role: string } | null) {
     return;
   }
   const salt = import.meta.env.VITE_SENTRY_USER_ID_SALT ?? '';
+  // Senza salt l'hash di un ID sequenziale è de-anonimizzabile per forza
+  // bruta: in produzione meglio nessun id utente che uno pseudo-anonimo.
+  if (!salt && import.meta.env.PROD) {
+    Sentry.setTag('user_role', user.role);
+    return;
+  }
   void hashUserId(user.id, salt).then((hash) => {
     Sentry.setUser({ id: hash, role: user.role });
     Sentry.setTag('user_role', user.role);

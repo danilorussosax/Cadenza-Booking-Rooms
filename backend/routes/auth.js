@@ -537,10 +537,23 @@ router.post('/ical-token', authenticate, async (req, res) => {
 router.post(
   '/change-password',
   authenticate,
-  [body('currentPassword').optional(), body('newPassword').isLength({ min: 8 })],
+  [
+    body('currentPassword').optional(),
+    body('newPassword')
+      .isLength({ min: PASSWORD_MIN_LEN })
+      .matches(PASSWORD_REGEX)
+      .withMessage(
+        `Password di almeno ${PASSWORD_MIN_LEN} caratteri, con almeno una maiuscola e una cifra`,
+      ),
+  ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty()) return res.status(400).json({ error: 'Password troppo corta' });
+    if (!errs.isEmpty()) {
+      return res.status(400).json({
+        error: `Password di almeno ${PASSWORD_MIN_LEN} caratteri, con almeno una maiuscola e una cifra`,
+        code: 'PASSWORD_POLICY',
+      });
+    }
 
     const { currentPassword, newPassword } = req.body;
 

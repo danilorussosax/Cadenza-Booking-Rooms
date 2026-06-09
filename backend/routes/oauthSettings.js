@@ -52,16 +52,42 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 // PUT /api/oauth-settings  (admin)
 // Body: tutti i campi sopra; per i secret, usare SECRET_PLACEHOLDER per mantenere l'attuale,
 // stringa vuota per cancellarlo, qualunque altra stringa per impostarlo nuovo.
+// Callback URL: accettiamo path relativo (`/api/auth/google/callback`) o URL
+// assoluto http/https. Tutto il resto (schemi esotici, stringhe malformate)
+// viene rifiutato: un callback arbitrario dirotterebbe l'authorization code
+// OAuth verso un host controllato dall'attaccante.
+function validateCallbackUrl(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/')) return trimmed;
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw Object.assign(new Error('Callback URL non valido'), { status: 400 });
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw Object.assign(new Error('Callback URL deve usare http o https'), { status: 400 });
+  }
+  return trimmed;
+}
+
 router.put('/', authenticate, requireRole('admin'), async (req, res) => {
   const settings = await getOrCreate();
   const body = req.body || {};
 
   const updates = {};
+  try {
+    if (typeof body.googleCallbackUrl === 'string')
+      updates.googleCallbackUrl = validateCallbackUrl(body.googleCallbackUrl);
+    if (typeof body.microsoftCallbackUrl === 'string')
+      updates.microsoftCallbackUrl = validateCallbackUrl(body.microsoftCallbackUrl);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message, code: 'VALIDATION_FAILED' });
+  }
   if (typeof body.googleEnabled === 'boolean') updates.googleEnabled = body.googleEnabled;
   if (typeof body.googleClientId === 'string')
     updates.googleClientId = body.googleClientId.trim() || null;
-  if (typeof body.googleCallbackUrl === 'string')
-    updates.googleCallbackUrl = body.googleCallbackUrl.trim() || null;
   if (
     typeof body.googleClientSecret === 'string' &&
     body.googleClientSecret !== SECRET_PLACEHOLDER
@@ -74,8 +100,6 @@ router.put('/', authenticate, requireRole('admin'), async (req, res) => {
   if (typeof body.microsoftEnabled === 'boolean') updates.microsoftEnabled = body.microsoftEnabled;
   if (typeof body.microsoftClientId === 'string')
     updates.microsoftClientId = body.microsoftClientId.trim() || null;
-  if (typeof body.microsoftCallbackUrl === 'string')
-    updates.microsoftCallbackUrl = body.microsoftCallbackUrl.trim() || null;
   if (typeof body.microsoftTenant === 'string')
     updates.microsoftTenant = body.microsoftTenant.trim() || 'common';
   if (

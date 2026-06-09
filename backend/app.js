@@ -257,7 +257,20 @@ function buildApp({ serveFrontend = true } = {}) {
       }),
     );
     const UPLOADS_DIR = path.join(__dirname, 'uploads');
-    app.use('/storage', express.static(UPLOADS_DIR, { maxAge: '7d', etag: true }));
+    // Content-Disposition: attachment sui file caricati dagli utenti: i browser
+    // la ignorano per le subresource (<img> continua a funzionare) ma impedisce
+    // il rendering inline in navigazione diretta — un file malevolo caricato
+    // non può essere eseguito nel contesto dell'origin.
+    app.use(
+      '/storage',
+      express.static(UPLOADS_DIR, {
+        maxAge: '7d',
+        etag: true,
+        setHeaders(res) {
+          res.setHeader('Content-Disposition', 'attachment');
+        },
+      }),
+    );
   }
 
   // ============== API routes ==============

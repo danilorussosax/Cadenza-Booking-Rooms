@@ -23,7 +23,7 @@ async function authenticate(req, res, next) {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     if (!token) return res.status(401).json({ error: 'Token mancante' });
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const user = await User.findByPk(decoded.id);
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Utente non valido o disabilitato' });
