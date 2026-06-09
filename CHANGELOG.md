@@ -10,6 +10,98 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.16.0] — 9 giugno 2026
+
+Minor release **Security hardening**: audit di sicurezza completo su
+backend e frontend con 19 interventi puntuali, più la migrazione del
+token iCal a **hash-only at rest** — un dump del database non espone più
+URL di calendario funzionanti.
+
+Tutto **backward-compatible**: nessuna azione richiesta agli utenti, i
+calendari già sottoscritti continuano a funzionare.
+
+### Token iCal: solo hash nel database
+
+Il token di sottoscrizione calendario non viene più salvato in chiaro:
+
+- al rest persiste solo lo SHA-256 (`icalTokenHash`); il valore in chiaro
+  è mostrato **una sola volta**, alla generazione o rigenerazione
+  (pattern API-key)
+- migrazione automatica al boot: backfill dell'hash dai token legacy,
+  azzeramento del plaintext, `DROP COLUMN` su Postgres
+- `GET /api/auth/ical-token` ora risponde `{ token: null, hasToken: true }`
+  se il token esiste già; il fallback di lookup in chiaro su
+  `GET /api/bookings/ical` è stato rimosso
+- UI: notice dedicata (nelle 5 lingue) quando il link non è più
+  visualizzabile, con invito a rigenerare
+
+### Hardening backend
+
+- **JWT**: pinning esplicito dell'algoritmo `HS256` su tutte le verifiche
+  (middleware, 2FA, passport) — chiude la classe "algorithm confusion"
+- **Policy password uniforme** (10+ caratteri, maiuscola+cifra) anche su
+  cambio password e rotte admin: prima era possibile il downgrade a 8
+  caratteri
+- **Reset password da admin** ora invalida tutte le sessioni attive
+  dell'utente (bump `tokenVersion`)
+- **Restore backup**: `manifest.dialect` validato contro whitelist
+  (l'archivio caricato non è più fidato) + assert di containment
+  esplicito sull'upload
+- **Webhook Telegram/Signal**: confronto del secret a tempo costante
+  reale (SHA-256 + `timingSafeEqual`, niente leak della lunghezza);
+  `daemonUrl` signal-cli limitato a http/https
+- **OAuth**: i callback URL ora accettano solo path relativi o URL
+  http/https validi
+- Rate-limit dedicato su `/api/csp-report`, whitelist `provider` sulle
+  run integrazioni, sanitizzazione filename negli export analytics,
+  `Content-Disposition: attachment` sui file in `/storage`
+- **Dipendenze**: `js-cookie` (high), `tmp` (high), `qs` (moderate)
+  aggiornate — `npm audit` pulito su backend e frontend
+
+### Hardening frontend
+
+- Link `javascript:` nel Markdown del manuale resi come testo semplice
+  (stored XSS che aggirava la CSP)
+- Guard anti open-redirect sul redirect post-login
+- Sentry: nessun id utente inviato in produzione senza
+  `VITE_SENTRY_USER_ID_SALT` configurato
+- Sanitizzazione del filename nell'export GDPR, whitelist di schema su
+  favicon dinamica, `referrerPolicy="no-referrer"` sull'anteprima email
+
+### Test
+
+- Backend: 1794+ ✓ (asserzioni iCal aggiornate al nuovo contratto)
+- Frontend: 272/272 ✓ + typecheck strict
+- `npm audit`: 0 vulnerabilità su entrambi i package
+
+### Note di operatività
+
+Al primo restart post-deploy:
+
+```
+✓ Backfill icalTokenHash per N utenti esistenti
+✓ Colonna legacy users.icalToken droppata        (Postgres)
+```
+
+Gli utenti che riaprono la sezione "Sottoscrizione calendario" non
+rivedono più l'URL salvato: per ri-copiarlo devono rigenerare il token
+(i client già collegati non sono toccati).
+
+---
+
+EN — short summary
+
+**Security release.** Full security audit with 19 fixes: JWT algorithm
+pinning (HS256), uniform password policy on all routes, admin password
+reset now revokes active sessions, backup manifest validation, true
+constant-time webhook secret comparison, OAuth callback URL validation,
+`javascript:` link neutralization in manual Markdown (stored XSS),
+anti open-redirect guard after login, dependency updates (`js-cookie`,
+`tmp`, `qs` — npm audit clean). Plus: the iCal subscription token is now
+stored **hash-only at rest** (SHA-256) — the plaintext is shown once at
+generation, a DB dump no longer exposes working calendar URLs. Automatic
+boot-time migration; already-subscribed calendars keep working.
+
 ## [1.15.0] — 21 maggio 2026
 
 Minor release **Concerti arricchiti sul kiosk**: la scheda concerto
