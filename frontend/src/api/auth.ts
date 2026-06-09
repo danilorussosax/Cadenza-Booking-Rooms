@@ -111,7 +111,10 @@ export const authApi = {
 
   deletePhoto: () => api<{ user: User }>('/api/auth/me/photo', { method: 'DELETE' }),
 
-  // Sottoscrizione iCal — token a sola lettura
-  getIcalToken: () => api<{ token: string }>('/api/auth/ical-token'),
-  regenerateIcalToken: () => api<{ token: string }>('/api/auth/ical-token', { method: 'POST' }),
+  // Sottoscrizione iCal — token a sola lettura. `token` è il plain, presente
+  // SOLO alla prima generazione o dopo un POST: al rest il server conserva
+  // l'hash, quindi un GET successivo torna null.
+  getIcalToken: () => api<{ token: string | null; hasToken: boolean }>('/api/auth/ical-token'),
+  regenerateIcalToken: () =>
+    api<{ token: string; hasToken: boolean }>('/api/auth/ical-token', { method: 'POST' }),
 };

@@ -424,7 +424,8 @@
     "copy_failed": "Automatisches Kopieren nicht möglich — bitte manuell auswählen und kopieren",
     "label_webcal": "Webcal-Link",
     "label_https": "Https-Link",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "hidden_notice": "Aus Sicherheitsgründen wird der Abonnement-Link nur bei der Generierung angezeigt. Dein Token ist aktiv und bereits verbundene Kalender funktionieren weiterhin. Um einen neuen Link zu erhalten, generiere den Token neu (der vorherige funktioniert dann nicht mehr)."
   },
   "booking": {
     "title": "Raum buchen",

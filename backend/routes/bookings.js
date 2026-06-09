@@ -110,11 +110,6 @@ router.get('/ical', icalLimiter, async (req, res, next) => {
       // niente full scan, niente leak del plain in caso di DB dump).
       const hash = crypto.createHash('sha256').update(queryToken).digest('hex');
       user = await User.findOne({ where: { icalTokenHash: hash } });
-      // Fallback per token preesistenti il cui backfill non è ancora avvenuto
-      // (es. boot in corso). Verrà rimosso in una release successiva.
-      if (!user) {
-        user = await User.findOne({ where: { icalToken: queryToken } });
-      }
     } else if (!queryToken) {
       const auth = req.headers.authorization || '';
       const m = auth.match(/^Bearer\s+(.+)$/i);

@@ -223,7 +223,7 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
           googleId: null,
           microsoftId: null,
           profilePhotoUrl: null,
-          icalToken: null,
+          icalTokenHash: null,
           isActive: false,
           emailNotifications: false,
           notifyOnConfirmation: false,

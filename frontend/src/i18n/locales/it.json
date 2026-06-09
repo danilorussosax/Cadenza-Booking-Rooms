@@ -427,7 +427,8 @@
     "copy_failed": "Impossibile copiare automaticamente — seleziona e copia manualmente",
     "label_webcal": "Link webcal",
     "label_https": "Link https",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "hidden_notice": "Per sicurezza il link di sottoscrizione è visibile solo al momento della generazione. Il tuo token è attivo e i calendari già collegati continuano a funzionare. Per ottenere un nuovo link, rigenera il token (il precedente smetterà di funzionare)."
   },
   "booking": {
     "title": "Prenota un'aula",

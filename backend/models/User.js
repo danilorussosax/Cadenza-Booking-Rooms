@@ -114,15 +114,10 @@ module.exports = (sequelize) => {
       },
       // Token a sola lettura usato per la sottoscrizione iCal (webcal://) dai client di calendario.
       // Senza scadenza esplicita; rigenerabile dall'utente per invalidare il link precedente.
-      // `icalToken` è il valore in chiaro mostrato all'utente (URL della
-      // sottoscrizione). `icalTokenHash` è SHA-256 del plain ed è il campo
-      // usato per i lookup: questo evita che un dump del DB esponga URL
-      // funzionanti. I token preesistenti vengono migrati al boot.
-      icalToken: {
-        type: DataTypes.STRING(64),
-        allowNull: true,
-        unique: true,
-      },
+      // Al rest persiste SOLO `icalTokenHash` (SHA-256): il plain è mostrato
+      // una volta alla generazione e mai più recuperabile — un dump del DB
+      // non espone URL funzionanti. La colonna legacy `icalToken` viene
+      // azzerata/droppata al boot da preSyncMigrations.
       icalTokenHash: {
         type: DataTypes.STRING(64),
         allowNull: true,

@@ -424,7 +424,8 @@
     "copy_failed": "Impossible de copier automatiquement — sélectionnez et copiez manuellement",
     "label_webcal": "Lien webcal",
     "label_https": "Lien https",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "hidden_notice": "Pour des raisons de sécurité, le lien d'abonnement n'est affiché qu'au moment de sa génération. Votre jeton est actif et les calendriers déjà connectés continuent de fonctionner. Pour obtenir un nouveau lien, régénérez le jeton (le précédent cessera de fonctionner)."
   },
   "booking": {
     "title": "Réserver une salle",

@@ -769,32 +769,45 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ ENUM monte_ore_amendments_kind: valore move_to aggiunto');
   }
 
-  // iCal token — hash SHA-256 al rest. Backfill idempotente dai token
-  // preesistenti in chiaro (zero-rottura per i client già subscribed).
+  // iCal token — hash SHA-256 al rest, plaintext rimosso dal DB.
+  // Sequenza idempotente (la colonna legacy `icalToken` non è più nel modello,
+  // quindi tutto via raw SQL):
+  //   1. backfill: hash dei token in chiaro che non hanno ancora l'hash
+  //      (zero-rottura per i client già subscribed: il lookup è via hash);
+  //   2. wipe: azzera il plaintext residuo;
+  //   3. drop colonna (solo Postgres: su SQLite removeColumn ricostruisce la
+  //      tabella, rischioso — la colonna vuota resta, inerte).
   if (await ensureNullableStringColumn('users', 'icalTokenHash', 64)) {
     logger.info('  ✓ Colonna users.icalTokenHash aggiunta');
   }
   try {
-    const cryptoMod = require('crypto');
-    const { User } = require('../models');
-    const rows = await User.findAll({
-      where: {
-        icalToken: { [require('sequelize').Op.ne]: null },
-        icalTokenHash: null,
-      },
-      attributes: ['id', 'icalToken'],
-      paranoid: false,
-    });
-    for (const u of rows) {
-      const hash = cryptoMod.createHash('sha256').update(u.icalToken).digest('hex');
-      await User.update({ icalTokenHash: hash }, { where: { id: u.id }, paranoid: false });
-    }
-    if (rows.length > 0) {
-      logger.info(`  ✓ Backfill icalTokenHash per ${rows.length} utenti esistenti`);
+    const qi = sequelize.getQueryInterface();
+    const desc = await qi.describeTable('users');
+    if (desc.icalToken) {
+      const cryptoMod = require('crypto');
+      const [rows] = await sequelize.query(
+        'SELECT id, "icalToken" AS plain FROM users WHERE "icalToken" IS NOT NULL AND "icalTokenHash" IS NULL',
+      );
+      for (const u of rows) {
+        const hash = cryptoMod.createHash('sha256').update(u.plain).digest('hex');
+        await sequelize.query('UPDATE users SET "icalTokenHash" = $hash WHERE id = $id', {
+          bind: { hash, id: u.id },
+        });
+      }
+      if (rows.length > 0) {
+        logger.info(`  ✓ Backfill icalTokenHash per ${rows.length} utenti esistenti`);
+      }
+      await sequelize.query('UPDATE users SET "icalToken" = NULL WHERE "icalToken" IS NOT NULL');
+      if (sequelize.getDialect() === 'postgres') {
+        await sequelize.query('ALTER TABLE users DROP COLUMN IF EXISTS "icalToken"');
+        logger.info('  ✓ Colonna legacy users.icalToken droppata');
+      } else {
+        logger.info('  ✓ Plaintext iCal azzerato (colonna legacy lasciata vuota su sqlite)');
+      }
     }
   } catch (err) {
     if (!/no such table|does not exist|relation .* does not exist/i.test(err.message)) {
-      logger.warn(`  ⚠ Backfill icalTokenHash fallito: ${err.message}`);
+      logger.warn(`  ⚠ Migrazione icalToken→hash fallita: ${err.message}`);
     }
   }
 

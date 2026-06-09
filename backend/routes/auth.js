@@ -501,18 +501,15 @@ function sha256Hex(s) {
   return crypto.createHash('sha256').update(s).digest('hex');
 }
 
+// Al rest persiste SOLO l'hash SHA-256: il plain è mostrato una sola volta,
+// alla generazione (pattern API-key). Un dump del DB non espone URL funzionanti.
 async function ensureIcalToken(user) {
-  if (user.icalToken) {
-    // Token preesistente: assicura che l'hash sia popolato (utenti
-    // migrati dal vecchio schema potrebbero avere solo il plain).
-    if (!user.icalTokenHash) {
-      user.icalTokenHash = sha256Hex(user.icalToken);
-      await user.save();
-    }
-    return user.icalToken;
+  if (user.icalTokenHash) {
+    // Token già esistente: il plain non è recuperabile. Il client può solo
+    // rigenerare (POST) per ottenere un nuovo URL.
+    return null;
   }
   const plain = crypto.randomBytes(32).toString('hex');
-  user.icalToken = plain;
   user.icalTokenHash = sha256Hex(plain);
   await user.save();
   return plain;
@@ -520,15 +517,14 @@ async function ensureIcalToken(user) {
 
 router.get('/ical-token', authenticate, async (req, res) => {
   const token = await ensureIcalToken(req.user);
-  res.json({ token });
+  res.json({ token, hasToken: true });
 });
 
 router.post('/ical-token', authenticate, async (req, res) => {
   const plain = crypto.randomBytes(32).toString('hex');
-  req.user.icalToken = plain;
   req.user.icalTokenHash = sha256Hex(plain);
   await req.user.save();
-  res.json({ token: plain });
+  res.json({ token: plain, hasToken: true });
 });
 
 // =====================================================

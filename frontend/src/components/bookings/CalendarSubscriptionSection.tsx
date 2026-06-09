@@ -31,7 +31,7 @@ export function CalendarSubscriptionSection() {
     mutationFn: () => authApi.regenerateIcalToken(),
     onSuccess: ({ token }) => {
       toast.success(t('calendar_subscription.regenerated'));
-      qc.setQueryData(['auth', 'ical-token'], { token });
+      qc.setQueryData(['auth', 'ical-token'], { token, hasToken: true });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -124,6 +124,11 @@ export function CalendarSubscriptionSection() {
           </Alert>
         ) : (
           <>
+            {/* Il plain è visibile solo alla generazione/rigenerazione: se il
+                token esiste ma non è in cache, mostriamo solo l'invito a
+                rigenerare per ottenere un nuovo URL. */}
+            {token ? (
+              <>
             <div className="space-y-1.5">
               <Label htmlFor="ical-webcal" className="flex items-center gap-1.5">
                 <CalendarPlus className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
@@ -200,6 +205,14 @@ export function CalendarSubscriptionSection() {
                 {t('calendar_subscription.warning')}
               </AlertDescription>
             </Alert>
+              </>
+            ) : (
+              <Alert variant="info">
+                <AlertDescription className="text-xs">
+                  {t('calendar_subscription.hidden_notice')}
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="flex justify-end">
               <Button

@@ -385,11 +385,17 @@ describe('iCal token: hash at rest', () => {
     expect(typeof plain).toBe('string');
     expect(plain.length).toBeGreaterThanOrEqual(32);
 
-    // DB: l'hash deve combaciare con sha256(plain), il plain è ancora salvato.
+    // DB: l'hash deve combaciare con sha256(plain); il plain NON è persistito.
     const reloaded = await User.findByPk(user.id);
     const expectedHash = crypto.createHash('sha256').update(plain).digest('hex');
     expect(reloaded.icalTokenHash).toBe(expectedHash);
-    expect(reloaded.icalToken).toBe(plain);
+    expect(reloaded.icalToken).toBeUndefined();
+
+    // Secondo GET: il plain non è più recuperabile (mostrato solo alla generazione).
+    const r2 = await request(app).get('/api/auth/ical-token').set('Authorization', authHeader);
+    expect(r2.status).toBe(200);
+    expect(r2.body.token).toBeNull();
+    expect(r2.body.hasToken).toBe(true);
 
     // Endpoint /api/bookings/ical accetta il token (lookup via hash).
     const ok = await request(app).get(`/api/bookings/ical?token=${plain}`);

@@ -425,7 +425,8 @@
     "copy_failed": "Could not copy automatically — please select and copy manually",
     "label_webcal": "Webcal link",
     "label_https": "Https link",
-    "retry": "Retry"
+    "retry": "Retry",
+    "hidden_notice": "For security, the subscription link is only shown when it is generated. Your token is active and calendars already connected keep working. To get a new link, regenerate the token (the previous one will stop working)."
   },
   "booking": {
     "title": "Book a room",
