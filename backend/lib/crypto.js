@@ -10,7 +10,7 @@
 
 const crypto = require('crypto');
 
-const { getJwtSecret } = require('./secrets');
+const { getSettingsEncryptionSecret } = require('./secrets');
 
 const SCRYPT_SALT = 'aulabook-settings-salt-v1';
 
@@ -23,10 +23,9 @@ function deriveKey(secret) {
 let cachedKey = null;
 function getKey() {
   if (cachedKey) return cachedKey;
-  // Preferiamo SETTINGS_ENCRYPTION_KEY dedicata; fallback su JWT_SECRET via
-  // helper, che fa fail-fast in produzione se non impostato.
-  const secret = process.env.SETTINGS_ENCRYPTION_KEY || getJwtSecret();
-  cachedKey = deriveKey(secret);
+  // Chiave dedicata SETTINGS_ENCRYPTION_KEY (fail-fast in prod se manca);
+  // fallback su JWT_SECRET solo in dev/test — vedi lib/secrets.
+  cachedKey = deriveKey(getSettingsEncryptionSecret());
   return cachedKey;
 }
 

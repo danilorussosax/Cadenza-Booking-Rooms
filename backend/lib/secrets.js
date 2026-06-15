@@ -37,6 +37,42 @@ function getJwtSecret() {
   return cachedSecret;
 }
 
+let cachedSettingsSecret = null;
+
+/**
+ * Segreto per la cifratura delle credenziali (lib/crypto). In produzione DEVE
+ * essere `SETTINGS_ENCRYPTION_KEY` dedicata: separa la chiave dei dati cifrati
+ * (SMTP, bot token, OAuth secret, TOTP) da `JWT_SECRET`, così ruotare/compromettere
+ * uno non tocca l'altro. In dev/test si ricade su JWT_SECRET (retrocompatibile).
+ *
+ * Il deploy genera e persiste `SETTINGS_ENCRYPTION_KEY` automaticamente e
+ * migra i dati esistenti (scripts/ensure-encryption-key.sh + reencrypt-settings.js).
+ */
+function getSettingsEncryptionSecret() {
+  if (cachedSettingsSecret) return cachedSettingsSecret;
+  const v = process.env.SETTINGS_ENCRYPTION_KEY;
+  if (v) {
+    cachedSettingsSecret = v;
+    return cachedSettingsSecret;
+  }
+  if (isProductionLike()) {
+    throw new Error(
+      'SETTINGS_ENCRYPTION_KEY non impostato in produzione. Generane uno con ' +
+        '`openssl rand -hex 64` e impostalo nelle env del backend (il deploy lo fa ' +
+        'automaticamente e migra i dati con scripts/reencrypt-settings.js).',
+    );
+  }
+  // Dev/test: fallback su JWT_SECRET come da comportamento storico.
+  if (process.env.NODE_ENV !== 'test' && !global.__settingsKeyFallbackWarned) {
+    console.warn(
+      '  ⚠ SETTINGS_ENCRYPTION_KEY non impostato — uso JWT_SECRET come fallback (dev-only).',
+    );
+    global.__settingsKeyFallbackWarned = true;
+  }
+  cachedSettingsSecret = getJwtSecret();
+  return cachedSettingsSecret;
+}
+
 /**
  * Verifica all'avvio: se siamo in produzione e qualunque secret critico
  * manca, esce con codice 1. Da chiamare in server.js prima di buildApp().
@@ -45,6 +81,7 @@ function assertProductionSecrets() {
   if (!isProductionLike()) return;
   try {
     getJwtSecret();
+    getSettingsEncryptionSecret();
   } catch (err) {
     console.error(`✗ ${err.message}`);
     process.exit(1);
@@ -53,6 +90,7 @@ function assertProductionSecrets() {
 
 module.exports = {
   getJwtSecret,
+  getSettingsEncryptionSecret,
   assertProductionSecrets,
   INSECURE_DEFAULT,
 };

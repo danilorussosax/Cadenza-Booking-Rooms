@@ -145,8 +145,11 @@ if (require.main === module) {
       await sequelize.authenticate();
       const totals = await run({ dryRun });
       await sequelize.close();
-      // Exit !=0 se ci sono blob indecifrabili (probabile chiave sbagliata).
-      process.exit(totals.undecryptable > 0 ? 2 : 0);
+      // In --check i blob indecifrabili sono un segnale di chiave errata → exit 2.
+      // In run reale NON falliamo: i blob già ri-cifrati restano coerenti e quelli
+      // indecifrabili erano illeggibili anche con la vecchia chiave (già warn-ati),
+      // quindi far fallire il deploy dopo scritture parziali peggiorerebbe lo stato.
+      process.exit(dryRun && totals.undecryptable > 0 ? 2 : 0);
     } catch (err) {
       console.error(`\n❌ ${err.message}`);
       await sequelize.close().catch(() => {});

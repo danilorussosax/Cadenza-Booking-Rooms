@@ -486,6 +486,19 @@ else
 fi
 
 # ------------------------------------------------------------
+# 7b. Chiave di cifratura dedicata + migrazione dati (PRIMA del restart).
+#    Garantisce SETTINGS_ENCRYPTION_KEY nel .env del VPS (la genera la prima
+#    volta) e ri-cifra i blob esistenti dalla vecchia chiave (JWT_SECRET) alla
+#    nuova. Idempotente. Eseguito PRIMA del restart così il nuovo backend, che
+#    fa fail-fast se la chiave manca (lib/secrets.js), trova sempre la chiave e
+#    i dati già migrati → nessun downtime. Se fallisce, il deploy si ferma QUI
+#    (set -e) prima del restart: la prod resta sul processo vecchio.
+# ------------------------------------------------------------
+blue "[7b/9] Chiave cifratura credenziali + re-encrypt (VPS)…"
+ssh ${SSH_OPTS} "$SSH_TARGET" "cd ${VPS_PATH}/backend && bash scripts/ensure-encryption-key.sh"
+green "    ✓ chiave garantita e dati migrati"
+
+# ------------------------------------------------------------
 # 8. Restart PM2
 # ------------------------------------------------------------
 blue "[8/9] Restart backend (pm2)…"
