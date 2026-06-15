@@ -50,7 +50,7 @@ router.post('/init', async (req, res, next) => {
   try {
     // Genera OTP alfanumerico 6 chars (no chars ambigui 0/O/1/I).
     const otp = generateOtp(OTP_LEN);
-    const tokenHash = await bcrypt.hash(otp, 8);
+    const tokenHash = await bcrypt.hash(otp, 10);
     req.user.botBindingChallenge = {
       tokenHash,
       expiresAt: new Date(Date.now() + OTP_TTL_MIN * 60_000).toISOString(),

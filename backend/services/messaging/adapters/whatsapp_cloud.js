@@ -46,9 +46,16 @@ function verifyWebhook(req, config) {
     );
     return false;
   }
+  // Valida che `provided` sia hex puro: senza guard `Buffer.from(_, 'hex')`
+  // produrrebbe un buffer troncato/silenzioso e timingSafeEqual potrebbe
+  // lanciare su lunghezze diverse.
+  if (!/^[0-9a-f]+$/i.test(provided)) return false;
   const expected = crypto.createHmac('sha256', appSecret).update(req.rawBody).digest('hex');
-  if (provided.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
+  // Confronto a tempo costante: hash di entrambi i lati così timingSafeEqual
+  // opera su buffer di lunghezza identica e non leakiamo la lunghezza.
+  const a = crypto.createHash('sha256').update(provided).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 /** Estrae il primo messaggio testuale dal payload Meta. */
@@ -116,8 +123,14 @@ function handleVerify(req, config) {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  if (mode === 'subscribe' && expected && token === expected) {
-    return { ok: true, body: challenge };
+  if (mode === 'subscribe' && expected && typeof token === 'string') {
+    // Confronto a tempo costante: hash di entrambi i lati così timingSafeEqual
+    // opera su buffer di lunghezza identica e non leakiamo la lunghezza del token.
+    const a = crypto.createHash('sha256').update(token).digest();
+    const b = crypto.createHash('sha256').update(expected).digest();
+    if (crypto.timingSafeEqual(a, b)) {
+      return { ok: true, body: challenge };
+    }
   }
   return { ok: false };
 }

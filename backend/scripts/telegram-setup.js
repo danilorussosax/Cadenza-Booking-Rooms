@@ -15,10 +15,13 @@
 //        node scripts/telegram-setup.js --check
 //
 //   2. Configurazione completa (idempotente, ri-eseguibile):
+//      MODO SICURO E RACCOMANDATO — token solo come variabile d'ambiente:
 //        BOT_TOKEN=123456:AAEh... node scripts/telegram-setup.js
-//      oppure passando il token come argomento (meno sicuro: finisce in
-//      `ps`/history):
-//        node scripts/telegram-setup.js --token 123456:AAEh...
+//
+//      ⚠️  DEPRECATO / DA EVITARE: passare il token come argomento `--token`.
+//      Il flag resta supportato solo per retrocompatibilità, ma espone il
+//      token in chiaro in `ps aux` e nella shell history. NON usarlo:
+//        node scripts/telegram-setup.js --token 123456:AAEh...   ← NO
 //
 //      Se il token è già salvato in DB da una run precedente, puoi ometterlo
 //      e riusare quello esistente (utile per ri-registrare solo il webhook):
@@ -61,6 +64,16 @@ function maskToken(token) {
   const [id, secret] = token.split(':');
   const tail = secret ? secret.slice(-4) : '????';
   return `${id}:…${tail}`;
+}
+
+/**
+ * Maschera eventuali token Telegram (`<botId>:<segreto>`) presenti in un
+ * messaggio d'errore: gli errori dell'API Telegram possono includere il
+ * botToken in chiaro, da non far finire mai nei log.
+ */
+function maskMessage(msg) {
+  if (typeof msg !== 'string') return msg;
+  return msg.replace(/\d+:[A-Za-z0-9_-]{20,}/g, (m) => maskToken(m));
 }
 
 /** Carica la riga telegram + credenziali decifrate (o struttura vuota). */
@@ -120,7 +133,9 @@ async function runCheck() {
     console.log(`last error       : ${info.last_error_message || '— nessuno'}`);
     console.log(`webhook          : ${info.url ? '✅ attivo' : '❌ nessun webhook registrato'}`);
   } catch (err) {
-    console.log(`\n❌ getWebhookInfo fallito: ${err.message} (token errato o revocato?)`);
+    console.log(
+      `\n❌ getWebhookInfo fallito: ${maskMessage(err.message)} (token errato o revocato?)`,
+    );
   }
 }
 
@@ -182,7 +197,11 @@ async function runConfigure(args) {
   console.log(`   webhook → ${result.webhookUrl}\n`);
   for (const [step, info] of Object.entries(result.steps)) {
     const mark = info.ok ? '✅' : '⚠️ ';
-    const extra = info.error ? ` — ${info.error}` : info.count != null ? ` (${info.count})` : '';
+    const extra = info.error
+      ? ` — ${maskMessage(info.error)}`
+      : info.count != null
+        ? ` (${info.count})`
+        : '';
     console.log(`   ${mark} ${step}${extra}`);
   }
   if (result.warnings?.length) {
@@ -210,7 +229,7 @@ async function runConfigure(args) {
     await sequelize.close();
     process.exit(0);
   } catch (err) {
-    console.error(`\n❌ ${err.message}`);
+    console.error(`\n❌ ${maskMessage(err.message)}`);
     await sequelize.close().catch(() => {});
     process.exit(1);
   }
