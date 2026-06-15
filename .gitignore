@@ -43,3 +43,9 @@ backend/secrets/
 # PgBouncer local — userlist contiene la password DB, pid è runtime (l'.ini resta tracciato)
 backend/config/pgbouncer/userlist.txt
 backend/config/pgbouncer/*.pid
+
+# Dump/artefatti generati (contengono secret del codebase — NEVER commit)
+repomix-output.xml
+cadenza-repomix-compressed.md
+graphify-out/
+.repowise/
