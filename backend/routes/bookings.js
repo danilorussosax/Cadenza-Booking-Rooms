@@ -115,8 +115,14 @@ router.get('/ical', icalLimiter, async (req, res, next) => {
       const m = auth.match(/^Bearer\s+(.+)$/i);
       if (m) {
         try {
-          const payload = jwt.verify(m[1], getJwtSecret());
-          user = await User.findByPk(payload.id);
+          // Pin dell'algoritmo (evita alg-confusion) + replica del check
+          // tokenVersion del middleware `authenticate`: un JWT revocato
+          // (logout, cambio password, bump di tokenVersion) NON deve poter
+          // esportare il calendario fino alla scadenza naturale del token.
+          const payload = jwt.verify(m[1], getJwtSecret(), { algorithms: ['HS256'] });
+          const candidate = await User.findByPk(payload.id);
+          const tv = typeof payload.tokenVersion === 'number' ? payload.tokenVersion : -1;
+          user = candidate && tv === candidate.tokenVersion ? candidate : null;
         } catch {
           user = null;
         }
@@ -1671,12 +1677,10 @@ router.put('/:id/concert', authenticate, async (req, res, next) => {
           ? String(rawLang).toLowerCase()
           : undefined;
     if (language === undefined) {
-      return res
-        .status(400)
-        .json({
-          error: 'language deve essere ISO 639-1 (2 lettere)',
-          code: 'CONCERT_INVALID_LANG',
-        });
+      return res.status(400).json({
+        error: 'language deve essere ISO 639-1 (2 lettere)',
+        code: 'CONCERT_INVALID_LANG',
+      });
     }
 
     const payload = { title, performers, program, eventType, description, language };
