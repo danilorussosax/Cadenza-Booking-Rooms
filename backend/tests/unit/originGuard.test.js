@@ -37,6 +37,7 @@ describe('originGuard', () => {
   function makeReq({
     method = 'POST',
     path = '/api/bookings',
+    baseUrl = '',
     origin,
     referer,
     host = 'cadenza.example.it',
@@ -48,7 +49,8 @@ describe('originGuard', () => {
     return {
       method,
       path,
-      originalUrl: path,
+      baseUrl,
+      originalUrl: baseUrl + path,
       protocol: 'https',
       id: 'test-req-id',
       ip: '127.0.0.1',
@@ -149,6 +151,23 @@ describe('originGuard', () => {
 
   it('bypassa il guard sul CSP report endpoint', () => {
     const { nextCalled } = run(makeReq({ method: 'POST', path: '/api/csp-report' }));
+    expect(nextCalled).toBe(true);
+  });
+
+  // Regression: con `app.use('/api/', originGuard)` Express strippa il mount
+  // point, quindi a runtime `req.path` è `/messaging/...` e `req.baseUrl` è
+  // `/api`. Se l'esenzione guardasse solo `req.path` (prefissi con `/api/`),
+  // il webhook Telegram verrebbe bloccato con 403 (origin null) e il bot
+  // resterebbe muto — esattamente il bug osservato in produzione.
+  it('bypassa il webhook anche con path strippato dal mount /api (req.baseUrl)', () => {
+    const { nextCalled } = run(
+      makeReq({ method: 'POST', baseUrl: '/api', path: '/messaging/telegram/webhook' }),
+    );
+    expect(nextCalled).toBe(true);
+  });
+
+  it('bypassa il CSP report anche con path strippato dal mount /api', () => {
+    const { nextCalled } = run(makeReq({ method: 'POST', baseUrl: '/api', path: '/csp-report' }));
     expect(nextCalled).toBe(true);
   });
 

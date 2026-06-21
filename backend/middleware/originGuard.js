@@ -91,7 +91,11 @@ function isExempt(reqPath) {
 function originGuard(req, res, next) {
   if (process.env.NODE_ENV === 'test') return next();
   if (SAFE_METHODS.has(req.method)) return next();
-  if (isExempt(req.path)) return next();
+  // `req.path` è relativo al mount point: con `app.use('/api/', originGuard)`
+  // Express strippa `/api`, quindi qui arriverebbe `/messaging/...` e i prefissi
+  // EXEMPT_PREFIXES (che includono `/api/`) non matcherebbero mai. Ricostruiamo
+  // il path completo con `req.baseUrl` per confrontare contro l'URL reale.
+  if (isExempt((req.baseUrl || '') + req.path)) return next();
 
   const origin = normalizeOrigin(req.get('origin')) || normalizeOrigin(req.get('referer'));
   const allowed = getAllowedOrigins(req);
