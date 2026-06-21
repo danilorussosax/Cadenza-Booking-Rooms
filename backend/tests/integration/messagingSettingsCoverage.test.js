@@ -12,6 +12,10 @@ const { encrypt } = require('../../lib/crypto');
 
 const app = buildApp({ serveFrontend: false });
 
+// Token con formato valido Telegram (`<botId>:<segreto ≥30 char>`) per i test
+// che esercitano il salvataggio: la PUT ora rifiuta i token malformati.
+const VALID_TOKEN = '123456789:AAHfaketoken0123456789ABCDEFGHIJKL';
+
 describe('routes/messagingSettings', () => {
   beforeEach(async () => {
     await globalThis.resetDatabase();
@@ -93,10 +97,20 @@ describe('routes/messagingSettings', () => {
         .send({
           isEnabled: true,
           settings: { greeting: 'Ciao' },
-          credentials: { botToken: 'tok-123' },
+          credentials: { botToken: VALID_TOKEN },
         });
       expect(res.status).toBe(200);
       expect(res.body.credentialsSet.botToken).toBe(true);
+    });
+
+    it('400 TELEGRAM_TOKEN_INVALID su formato token malformato', async () => {
+      const { authHeader } = await createAdmin();
+      const res = await request(app)
+        .put('/api/admin/messaging-settings/telegram')
+        .set('Authorization', authHeader)
+        .send({ credentials: { botToken: 'non-un-token' } });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TELEGRAM_TOKEN_INVALID');
     });
 
     it('200 PUT con __KEEP__ mantiene il vecchio valore', async () => {
@@ -105,7 +119,7 @@ describe('routes/messagingSettings', () => {
       await request(app)
         .put('/api/admin/messaging-settings/telegram')
         .set('Authorization', authHeader)
-        .send({ credentials: { botToken: 'original' } });
+        .send({ credentials: { botToken: VALID_TOKEN } });
       // Seconda PUT con placeholder: il token resta
       const res = await request(app)
         .put('/api/admin/messaging-settings/telegram')
@@ -120,7 +134,7 @@ describe('routes/messagingSettings', () => {
       await request(app)
         .put('/api/admin/messaging-settings/telegram')
         .set('Authorization', authHeader)
-        .send({ credentials: { botToken: 'tok', webhookSecret: 'sec' } });
+        .send({ credentials: { botToken: VALID_TOKEN, webhookSecret: 'sec' } });
       const res = await request(app)
         .put('/api/admin/messaging-settings/telegram')
         .set('Authorization', authHeader)
@@ -200,6 +214,55 @@ describe('routes/messagingSettings', () => {
       // Senza un Bot Telegram vero, l'API call fallisce → 400
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('AUTO_CONFIGURE_FAILED');
+    });
+  });
+
+  describe('GET /:channel/webhook-info', () => {
+    it('400 WEBHOOK_INFO_UNSUPPORTED su canale non-telegram', async () => {
+      const { authHeader } = await createAdmin();
+      const res = await request(app)
+        .get('/api/admin/messaging-settings/whatsapp_cloud/webhook-info')
+        .set('Authorization', authHeader);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('WEBHOOK_INFO_UNSUPPORTED');
+    });
+
+    it('400 CREDENTIALS_MISSING senza row Telegram', async () => {
+      const { authHeader } = await createAdmin();
+      const res = await request(app)
+        .get('/api/admin/messaging-settings/telegram/webhook-info')
+        .set('Authorization', authHeader);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('CREDENTIALS_MISSING');
+    });
+
+    it('400 BOT_TOKEN_MISSING se credentials senza botToken', async () => {
+      const { authHeader } = await createAdmin();
+      await MessagingSettings.create({
+        channel: 'telegram',
+        isEnabled: false,
+        credentialsEncrypted: encrypt(JSON.stringify({ webhookSecret: 'x' })),
+      });
+      const res = await request(app)
+        .get('/api/admin/messaging-settings/telegram/webhook-info')
+        .set('Authorization', authHeader);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('BOT_TOKEN_MISSING');
+    });
+
+    it('200 ok:false se Telegram rifiuta il token (getWebhookInfo fallisce)', async () => {
+      const { authHeader } = await createAdmin();
+      await MessagingSettings.create({
+        channel: 'telegram',
+        isEnabled: true,
+        credentialsEncrypted: encrypt(JSON.stringify({ botToken: 'fake-token-123' })),
+      });
+      const res = await request(app)
+        .get('/api/admin/messaging-settings/telegram/webhook-info')
+        .set('Authorization', authHeader);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(false);
+      expect(typeof res.body.error).toBe('string');
     });
   });
 });

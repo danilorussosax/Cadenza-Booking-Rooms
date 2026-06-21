@@ -71,6 +71,19 @@ export interface TelegramAutoConfigureResult {
   warnings?: string[];
 }
 
+export interface TelegramWebhookInfo {
+  ok: boolean;
+  error?: string;
+  url?: string;
+  expectedUrl?: string;
+  matches?: boolean;
+  hasWebhook?: boolean;
+  hasSecret?: boolean;
+  pendingUpdateCount?: number;
+  lastErrorMessage?: string | null;
+  lastErrorDate?: number | null;
+}
+
 export const messagingSettingsApi = {
   list: () => api<{ settings: ChannelSettingsRow[] }>('/api/admin/messaging-settings'),
   update: (channel: MessagingChannel, payload: ChannelSettingsUpdate) =>
@@ -88,4 +101,6 @@ export const messagingSettingsApi = {
       method: 'POST',
       body: payload ?? {},
     }),
+  telegramWebhookInfo: () =>
+    api<TelegramWebhookInfo>('/api/admin/messaging-settings/telegram/webhook-info'),
 };

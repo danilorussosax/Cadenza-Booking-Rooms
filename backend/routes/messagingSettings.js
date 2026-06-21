@@ -28,6 +28,12 @@ router.use(authenticate, requireRole('admin'));
 
 const SECRET_PLACEHOLDER = '__KEEP__';
 
+// Formato token Telegram BotFather: `<botId numerico>:<segreto ~35 char>`.
+// Validato lato server per rifiutare subito incolla parziali/errati (es. il
+// placeholder lasciato, spazi, token troncato) prima che finiscano cifrati nel
+// DB e rompano silenziosamente getMe/setWebhook.
+const TELEGRAM_TOKEN_RE = /^\d{6,}:[A-Za-z0-9_-]{30,}$/;
+
 router.get('/', async (req, res, next) => {
   try {
     const rows = await MessagingSettings.findAll();
@@ -63,6 +69,21 @@ router.put('/:channel', async (req, res, next) => {
     if (typeof isEnabled === 'boolean') row.isEnabled = isEnabled;
     if (settings && typeof settings === 'object') row.settings = settings;
     if (credentials && typeof credentials === 'object') {
+      // Validazione formato del botToken Telegram quando ne arriva uno nuovo
+      // (non il placeholder, non vuoto). Blocca il salvataggio di token
+      // malformati invece di accettarli e fallire dopo su getMe/setWebhook.
+      if (channel === 'telegram') {
+        const tok = credentials.botToken;
+        if (typeof tok === 'string' && tok !== SECRET_PLACEHOLDER && tok !== '') {
+          if (!TELEGRAM_TOKEN_RE.test(tok.trim())) {
+            return res.status(400).json({
+              error:
+                'Formato botToken Telegram non valido. Atteso "<botId>:<segreto>" come fornito da @BotFather.',
+              code: 'TELEGRAM_TOKEN_INVALID',
+            });
+          }
+        }
+      }
       // Merge: se il client passa SECRET_PLACEHOLDER, mantieni il vecchio
       // valore. Permette di aggiornare un solo secret per volta.
       const previous = row.credentialsEncrypted
@@ -105,6 +126,60 @@ router.post('/:channel/test', async (req, res, next) => {
       return res.json({ ok: false, error: 'testConnection non implementato per questo canale' });
     const result = await adapter.testConnection(config);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// =============================================================================
+// GET /:channel/webhook-info
+//
+// Telegram: stato reale del webhook registrato su Telegram (getWebhookInfo),
+// così l'admin verifica dall'UI se è attivo/allineato senza CLI. Confronta
+// l'URL registrato con quello atteso (FRONTEND_URL) e riporta pending/last_error.
+// Read-only. Risponde { ok:false, error } se Telegram rifiuta (token errato).
+// =============================================================================
+router.get('/:channel/webhook-info', async (req, res, next) => {
+  try {
+    const { channel } = req.params;
+    if (channel !== 'telegram') {
+      return res.status(400).json({
+        error: `Verifica webhook non supportata per il canale "${channel}"`,
+        code: 'WEBHOOK_INFO_UNSUPPORTED',
+      });
+    }
+    const row = await MessagingSettings.findOne({ where: { channel } });
+    if (!row || !row.credentialsEncrypted) {
+      return res
+        .status(400)
+        .json({ error: 'Salva prima il botToken Telegram', code: 'CREDENTIALS_MISSING' });
+    }
+    const credentials = JSON.parse(decrypt(row.credentialsEncrypted));
+    if (!credentials.botToken) {
+      return res.status(400).json({ error: 'botToken non presente', code: 'BOT_TOKEN_MISSING' });
+    }
+    const expectedUrl = telegramSetup.buildWebhookUrl(
+      process.env.FRONTEND_URL || process.env.APP_URL || '',
+    );
+    let info;
+    try {
+      info = await telegramSetup.fetchWebhookInfo(credentials.botToken);
+    } catch (err) {
+      // Token revocato/errato o Telegram irraggiungibile: non è un 500 nostro.
+      return res.json({ ok: false, error: err.message });
+    }
+    const url = info?.url || '';
+    res.json({
+      ok: true,
+      url,
+      expectedUrl,
+      matches: Boolean(expectedUrl) && url === expectedUrl,
+      hasWebhook: Boolean(url),
+      hasSecret: Boolean(credentials.webhookSecret),
+      pendingUpdateCount: info?.pending_update_count ?? 0,
+      lastErrorMessage: info?.last_error_message ?? null,
+      lastErrorDate: info?.last_error_date ?? null,
+    });
   } catch (err) {
     next(err);
   }

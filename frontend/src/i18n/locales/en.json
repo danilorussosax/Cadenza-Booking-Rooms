@@ -1037,8 +1037,8 @@
       "telegram": {
         "help": "Free conversational bot. Quick setup via @BotFather.",
         "bot_token": "Bot token (BotFather)",
-        "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Save the token here (the webhook secret is generated automatically in the next step).\n3) Click \"Auto-configure\": Cadenza registers the webhook, the command list (/help, /book, /list, /cancel, /check) and the description directly on Telegram. No curl, no @BotFather.\n\nMANUAL FLOW (alternative):\n1) openssl rand -hex 32 for the secret\n2) curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook",
+        "webhook_secret": "Webhook secret (auto-generated)",
+        "setup_guide": "1) Open @BotFather on Telegram → /newbot → get the token.\n2) Paste the token here and click Save (the webhook secret is generated and managed automatically).\n3) Click \"Auto-configure\": Cadenza registers the webhook, commands (/help, /book, /list, /cancel, /check) and description on Telegram.\n4) Click \"Verify webhook\" to check the real status.\n\nNote: whenever you change the token, save and re-configure.",
         "auto": {
           "button": "Auto-configure",
           "button_title": "Generate secret + register webhook + set commands/description on Telegram",
@@ -1052,6 +1052,31 @@
           "step_setMyDescription": "Long description updated",
           "step_setMyShortDescription": "Short description updated",
           "step_getWebhookInfo": "Final confirmation: webhook active"
+        },
+        "token_invalid": "Invalid token format. Expected \"<botId>:<secret>\" as provided by @BotFather.",
+        "autogen_present": "Configured",
+        "autogen_missing": "To generate",
+        "gate_no_token": "Save a valid botToken first, then you can auto-configure.",
+        "gate_dirty": "You have unsaved changes: save before configuring (auto-config uses the saved token).",
+        "gate_invalid": "Fix the token format before saving or configuring.",
+        "steps": {
+          "title": "Steps to activate the bot:",
+          "token": "Paste the bot token from @BotFather",
+          "save": "Save the settings",
+          "configure": "Auto-configure (registers webhook + commands)",
+          "enable": "Channel enabled"
+        },
+        "verify": {
+          "button": "Verify webhook",
+          "button_title": "Query Telegram (getWebhookInfo) and show the real status",
+          "error": "Telegram error: {{error}}",
+          "active": "Webhook active and aligned",
+          "mismatch": "Webhook registered on a URL different from the expected one",
+          "none": "No webhook registered on Telegram",
+          "url": "Registered URL:",
+          "expected": "Expected:",
+          "pending": "{{count}} pending updates",
+          "last_error": "last error: {{error}}"
         }
       },
       "whatsapp": {

@@ -86,6 +86,14 @@ async function callTelegram(token, method, payload) {
   return json.result;
 }
 
+/** getWebhookInfo: stato corrente del webhook registrato su Telegram per il
+ *  token dato. Usato dall'endpoint admin "Verifica webhook" per mostrare
+ *  url/pending/last_error senza dover passare dalla CLI. Propaga l'errore
+ *  Telegram (token errato/revocato) al chiamante. */
+async function fetchWebhookInfo(botToken) {
+  return callTelegram(botToken, 'getWebhookInfo');
+}
+
 /** Verifica che `url` sia HTTPS pubblico (Telegram rifiuta http e localhost). */
 function assertWebhookUrlValid(url) {
   if (typeof url !== 'string' || !url) {
@@ -228,6 +236,7 @@ async function autoConfigure({ botToken, webhookSecret, frontendUrl, botName }) 
 
 module.exports = {
   autoConfigure,
+  fetchWebhookInfo,
   buildWebhookUrl,
   assertWebhookUrlValid,
   BOT_COMMANDS,

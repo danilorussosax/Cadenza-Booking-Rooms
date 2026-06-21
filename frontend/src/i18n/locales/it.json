@@ -1052,8 +1052,8 @@
       "telegram": {
         "help": "Bot conversazionale gratuito. Setup rapido tramite @BotFather.",
         "bot_token": "Bot token (BotFather)",
-        "webhook_secret": "Webhook secret (X-Telegram-Bot-Api-Secret-Token)",
-        "setup_guide": "1) Apri @BotFather su Telegram → /newbot → ottieni il token.\n2) Salva il token qui (il webhook secret viene generato automaticamente al passo dopo).\n3) Clicca \"Configura automaticamente\": Cadenza registra il webhook, la lista comandi (/help, /book, /list, /cancel, /check) e la descrizione direttamente su Telegram. Niente curl, niente @BotFather.\n\nFLUSSO MANUALE (alternativo):\n1) openssl rand -hex 32 per il secret\n2) curl -F \"url=https://cadenza.example.it/api/messaging/telegram/webhook\" -F \"secret_token=SECRET\" https://api.telegram.org/botTOKEN/setWebhook",
+        "webhook_secret": "Webhook secret (generato automaticamente)",
+        "setup_guide": "1) Apri @BotFather su Telegram → /newbot → ottieni il token.\n2) Incolla il token qui e premi Salva (il webhook secret è generato e gestito in automatico).\n3) Premi \"Configura automaticamente\": Cadenza registra webhook, comandi (/help, /book, /list, /cancel, /check) e descrizione su Telegram.\n4) Premi \"Verifica webhook\" per controllare lo stato reale.\n\nNota: ogni volta che cambi il token, salva e ri-configura.",
         "auto": {
           "button": "Configura automaticamente",
           "button_title": "Genera secret + registra webhook + imposta comandi/descrizione su Telegram",
@@ -1067,6 +1067,31 @@
           "step_setMyDescription": "Descrizione lunga aggiornata",
           "step_setMyShortDescription": "Descrizione breve aggiornata",
           "step_getWebhookInfo": "Conferma finale: webhook attivo"
+        },
+        "token_invalid": "Formato token non valido. Atteso \"<botId>:<segreto>\" come fornito da @BotFather.",
+        "autogen_present": "Configurato",
+        "autogen_missing": "Da generare",
+        "gate_no_token": "Salva prima un botToken valido, poi potrai configurare automaticamente.",
+        "gate_dirty": "Hai modifiche non salvate: salva prima di configurare (l’auto-config usa il token salvato).",
+        "gate_invalid": "Correggi il formato del token prima di salvare o configurare.",
+        "steps": {
+          "title": "Passaggi per attivare il bot:",
+          "token": "Incolla il bot token di @BotFather",
+          "save": "Salva le impostazioni",
+          "configure": "Configura automaticamente (registra webhook + comandi)",
+          "enable": "Canale attivo"
+        },
+        "verify": {
+          "button": "Verifica webhook",
+          "button_title": "Interroga Telegram (getWebhookInfo) e mostra lo stato reale",
+          "error": "Errore Telegram: {{error}}",
+          "active": "Webhook attivo e allineato",
+          "mismatch": "Webhook registrato su un URL diverso da quello atteso",
+          "none": "Nessun webhook registrato su Telegram",
+          "url": "URL registrato:",
+          "expected": "Atteso:",
+          "pending": "{{count}} update in coda",
+          "last_error": "ultimo errore: {{error}}"
         }
       },
       "whatsapp": {
