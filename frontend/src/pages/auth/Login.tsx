@@ -315,6 +315,17 @@ function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
           </Link>
         </Button>
       </div>
+
+      {/* Link al portale dei servizi (landing che sceglie l'app) */}
+      <p className="pt-1 text-center text-sm">
+        <a
+          href="https://prenotazioneaule.it"
+          className="inline-flex items-center gap-1.5 font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t('auth.login.back_to_portal', { defaultValue: 'Torna al portale dei servizi' })}
+        </a>
+      </p>
     </motion.div>
   );
 }
