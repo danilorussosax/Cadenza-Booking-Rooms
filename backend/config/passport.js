@@ -12,6 +12,7 @@ const {
   findOrCreateOAuthUser,
   OAuthDomainNotAllowedError,
 } = require('../services/users/findOrCreate');
+const { getUserGroupNames } = require('../lib/ms-graph');
 
 // =============================================
 // Strategy: Local (email + password)
@@ -111,12 +112,30 @@ function microsoftVerify() {
         profile._json?.mail ||
         profile._json?.userPrincipalName ||
         null;
+
+      // Gate gruppi M365 (additivo al gate dominio). Se attivo, leggo i gruppi
+      // via Graph e li passo al find-or-create per la risoluzione/allineamento
+      // ruolo (Decisione #2). Se il gate è off → groups resta undefined (legacy).
+      // Se Graph fallisce (null) → fallback legacy: NON blocchiamo il login
+      // (il gate dominio resta la prima linea, le credenziali locali sempre attive).
+      let groups;
+      try {
+        const { OAuthSettings } = require('../models');
+        const s = await OAuthSettings.findOne({ where: { id: 1 } });
+        if (s?.groupGateEnabled) {
+          groups = await getUserGroupNames(accessToken);
+        }
+      } catch {
+        groups = undefined;
+      }
+
       const user = await findOrCreateOAuthUser({
         provider: 'microsoft',
         providerUserId: profile.id,
         email,
         firstName: profile.name?.givenName || profile._json?.givenName,
         lastName: profile.name?.familyName || profile._json?.surname,
+        groups,
       });
       return done(null, user);
     } catch (err) {
@@ -202,7 +221,11 @@ async function initOAuthStrategies() {
           clientSecret: mSecret,
           callbackURL: mCallback,
           tenant: mTenant,
-          scope: ['user.read'],
+          // Col gate gruppi attivo serve lo scope Graph per leggere /me/memberOf.
+          // Richiede consenso admin in Azure su GroupMember.Read.All.
+          scope: dbSettings?.groupGateEnabled
+            ? ['user.read', 'GroupMember.Read.All']
+            : ['user.read'],
         },
         microsoftVerify(),
       ),

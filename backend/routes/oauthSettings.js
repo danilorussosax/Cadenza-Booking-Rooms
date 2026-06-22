@@ -40,6 +40,12 @@ function toSafe(settings) {
     // (per editing diretto) sia come array già normalizzato (comodo per UI).
     allowedEmailDomains: settings.allowedEmailDomains || '',
     allowedEmailDomainsList: parseAllowedDomains(settings.allowedEmailDomains),
+    // Gate gruppi M365 (Consigli non rilevanti per Cadenza → 4 gruppi).
+    groupGateEnabled: !!settings.groupGateEnabled,
+    groupStudenti: settings.groupStudenti || 'Studenti',
+    groupDocenti: settings.groupDocenti || 'Docenti',
+    groupAmministrazione: settings.groupAmministrazione || 'Amministrazione',
+    groupDirezione: settings.groupDirezione || 'Direzione',
   };
 }
 
@@ -120,12 +126,25 @@ router.put('/', authenticate, requireRole('admin'), async (req, res) => {
     updates.allowedEmailDomains = normalizeAllowedDomainsInput(raw);
   }
 
+  // Gate gruppi M365. `groupGateEnabled` cambia lo scope OAuth registrato al
+  // boot → richiede riavvio. I nomi gruppo sono letti al login (dinamici).
+  if (typeof body.groupGateEnabled === 'boolean') updates.groupGateEnabled = body.groupGateEnabled;
+  for (const k of ['groupStudenti', 'groupDocenti', 'groupAmministrazione', 'groupDirezione']) {
+    if (typeof body[k] === 'string') updates[k] = body[k].trim() || null;
+  }
+
   await settings.update(updates);
-  // restartRequired: le modifiche a client ID / secret / callback richiedono
-  // il riavvio (strategie passport registrate al boot). La whitelist domini è
-  // applicata dinamicamente nel verify callback (DB read per login), quindi
-  // ha effetto immediato.
-  const restartRequired = Object.keys(updates).some((k) => k !== 'allowedEmailDomains');
+  // restartRequired: le modifiche a client ID / secret / callback / gate-enabled
+  // richiedono il riavvio (strategie/scope passport registrati al boot). Whitelist
+  // domini e nomi gruppo sono applicati dinamicamente nel verify (DB read per login).
+  const DYNAMIC = new Set([
+    'allowedEmailDomains',
+    'groupStudenti',
+    'groupDocenti',
+    'groupAmministrazione',
+    'groupDirezione',
+  ]);
+  const restartRequired = Object.keys(updates).some((k) => !DYNAMIC.has(k));
   res.json({ settings: toSafe(settings), restartRequired });
 });
 

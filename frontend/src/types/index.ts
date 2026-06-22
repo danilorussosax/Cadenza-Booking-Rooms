@@ -477,6 +477,12 @@ export interface OAuthSettings {
   allowedEmailDomains: string;
   /** Stessa lista, già parsed in array di domini. */
   allowedEmailDomainsList: string[];
+  /** Gate gruppi M365: quando attivo, il ruolo è derivato dai gruppi al login. */
+  groupGateEnabled: boolean;
+  groupStudenti: string;
+  groupDocenti: string;
+  groupAmministrazione: string;
+  groupDirezione: string;
 }
 
 export interface BookingUsage {

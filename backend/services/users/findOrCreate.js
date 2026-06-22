@@ -62,6 +62,9 @@ async function getAllowedEmailDomains() {
  * @param {string} args.lastName - cognome dal profilo (fallback al provider name).
  * @param {string[]} [args.allowedDomains] - whitelist iniettata per test;
  *        in produzione viene letta dal DB se omessa.
+ * @param {string[]|null} [args.groups] - displayName gruppi M365 dell'utente
+ *        (solo provider microsoft col gate attivo). Se valorizzato attiva la
+ *        risoluzione ruolo + lo snapshot; se null/undefined comportamento legacy.
  * @returns {Promise<User>}
  * @throws {OAuthDomainNotAllowedError} se il dominio email non è in whitelist.
  */
@@ -72,6 +75,7 @@ async function findOrCreateOAuthUser({
   firstName,
   lastName,
   allowedDomains,
+  groups,
 }) {
   const idField = PROVIDER_ID_FIELD[provider];
   if (!idField) {
@@ -96,32 +100,84 @@ async function findOrCreateOAuthUser({
     throw new OAuthDomainNotAllowedError(domain);
   }
 
-  // 1) match per providerUserId — il path "veloce" per utenti che hanno
-  //    già fatto login una volta.
-  let user = await User.findOne({ where: { [idField]: providerUserId } });
-  if (user) return user;
+  // Gate gruppi M365 (Decisione #2: M365 autoritativo, auto-sync ad ogni login).
+  // Se `groups` è un array, risolviamo il ruolo dal mapping e prepariamo lo snapshot.
+  let mappedRole = null;
+  let snapshot = null;
+  if (Array.isArray(groups)) {
+    snapshot = groups.map((g) => String(g).toLowerCase());
+    let settings = null;
+    try {
+      const { OAuthSettings } = require('../../models');
+      settings = await OAuthSettings.findOne({ where: { id: 1 } });
+    } catch {
+      // tabella non ancora creata al primo avvio → resolver usa i default
+    }
+    const { loadCadenzaRules, resolveCadenzaRole } = require('../../lib/group-role-map');
+    const rules = await loadCadenzaRules(settings);
+    mappedRole = resolveCadenzaRole(snapshot, rules);
+  }
 
-  // 2) match per email — utenti registrati localmente che fanno il primo
-  //    login OAuth: linkiamo l'ID provider senza duplicare.
+  // 1) match per providerUserId — path "veloce" per chi ha già fatto login.
+  let user = await User.findOne({ where: { [idField]: providerUserId } });
+  if (user) return syncExistingOAuthUser(user, { mappedRole, snapshot });
+
+  // 2) match per email — utenti registrati localmente al primo login OAuth:
+  //    linkiamo l'ID provider senza duplicare.
   user = await User.findOne({ where: { email: lowerEmail } });
   if (user) {
     user[idField] = providerUserId;
-    await user.save();
-    return user;
+    return syncExistingOAuthUser(user, { mappedRole, snapshot });
   }
 
-  // 3) primo login: crea utente "pending" con ruolo studente di default.
-  //    L'admin lo approverà esplicitamente, oppure l'utente completerà il
-  //    profilo (scelta ruolo studente/docente + matricola/corso).
+  // 3) primo login.
+  //    - gruppo M365 noto → crea già col ruolo mappato + status approved (no pending).
+  //    - altrimenti → fallback legacy: pending con ruolo studente di default.
   const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
   return User.create({
     email: lowerEmail,
     [idField]: providerUserId,
     firstName: firstName || 'Utente',
     lastName: lastName || providerLabel,
-    role: 'studente',
-    status: 'pending',
+    role: mappedRole || 'studente',
+    status: mappedRole ? 'approved' : 'pending',
+    m365Groups: snapshot || [],
   });
+}
+
+/**
+ * Allinea un utente esistente al gruppo M365 (M365 autoritativo).
+ * - aggiorna sempre lo snapshot `m365Groups` se fornito;
+ * - se `mappedRole` è valorizzato e diverso → allinea il ruolo (promuove/cambia)
+ *   e, se l'utente era 'pending', lo porta ad 'approved' (mai tocca 'rejected');
+ * - GUARDRAIL: `mappedRole` null (nessun gruppo noto) → ruolo/stato INVARIATI
+ *   (utenti gestiti a mano via dominio non vengono declassati).
+ */
+async function syncExistingOAuthUser(user, { mappedRole, snapshot }) {
+  let changed = false;
+  if (snapshot) {
+    user.m365Groups = snapshot;
+    changed = true;
+  }
+  if (user.changed(PROVIDER_ID_FIELD.microsoft) || user.changed(PROVIDER_ID_FIELD.google)) {
+    changed = true;
+  }
+  if (mappedRole && user.role !== mappedRole) {
+    const previous = user.role;
+    user.role = mappedRole;
+    if (user.status === 'pending') user.status = 'approved';
+    changed = true;
+    try {
+      require('../../lib/logger').info(
+        { userId: user.id, email: user.email, from: previous, to: mappedRole },
+        'OAuth M365: ruolo allineato dal gruppo',
+      );
+    } catch {
+      /* logger non disponibile, swallow */
+    }
+  }
+  if (changed) await user.save();
+  return user;
 }
 
 module.exports = {

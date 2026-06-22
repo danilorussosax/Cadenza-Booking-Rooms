@@ -68,6 +68,14 @@ module.exports = (sequelize) => {
         allowNull: true,
         unique: true,
       },
+      // Snapshot dei displayName dei gruppi M365 all'ultimo login (lowercase).
+      // Usato dalla vista di allineamento gruppi↔ruoli (users-overview) per
+      // evitare una chiamata Graph per riga. JSON array; default [].
+      m365Groups: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+      },
       isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true,

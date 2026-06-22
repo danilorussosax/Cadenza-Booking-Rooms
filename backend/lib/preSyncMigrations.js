@@ -851,6 +851,28 @@ async function runPreSyncMigrations() {
     logger.info('  ✓ Colonna oauth_settings.allowedEmailDomains aggiunta (SSO whitelist)');
   }
 
+  // SSO — Gate per gruppi di sicurezza Microsoft 365. Additivo al gate dominio.
+  // Default disattivo + nomi gruppo standard → comportamento invariato finché
+  // l'admin non abilita. La tabella group_role_maps (mapping fine) la crea sync().
+  if (await ensureBooleanColumn('oauth_settings', 'groupGateEnabled', false)) {
+    logger.info('  ✓ Colonna oauth_settings.groupGateEnabled aggiunta (default false)');
+  }
+  for (const [col, def] of [
+    ['groupStudenti', 'Studenti'],
+    ['groupDocenti', 'Docenti'],
+    ['groupAmministrazione', 'Amministrazione'],
+    ['groupDirezione', 'Direzione'],
+  ]) {
+    if (await ensureNullableStringColumn('oauth_settings', col, 200)) {
+      logger.info(`  ✓ Colonna oauth_settings.${col} aggiunta (default "${def}" dal model)`);
+    }
+  }
+
+  // SSO — snapshot gruppi M365 per utente (vista allineamento). JSON array default [].
+  if (await ensureJsonArrayColumn('users', 'm365Groups')) {
+    logger.info('  ✓ Colonna users.m365Groups aggiunta (snapshot gruppi M365)');
+  }
+
   // Magic-link primo accesso (import Isidata / bulk admin).
   // - password_reset_tokens.purpose: distingue 'reset' (TTL 1h) da
   //   'initial_setup' (TTL configurabile, default 14gg).

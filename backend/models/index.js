@@ -60,6 +60,7 @@ const MailOutbox = require('./MailOutbox')(sequelize);
 const BackupSettings = require('./BackupSettings')(sequelize);
 const MailTemplate = require('./MailTemplate')(sequelize);
 const OAuthSettings = require('./OAuthSettings')(sequelize);
+const GroupRoleMap = require('./GroupRoleMap')(sequelize);
 const Instrument = require('./Instrument')(sequelize);
 const InstrumentLoan = require('./InstrumentLoan')(sequelize);
 const InstrumentLoanRule = require('./InstrumentLoanRule')(sequelize);
@@ -439,6 +440,7 @@ module.exports = {
   BackupSettings,
   MailTemplate,
   OAuthSettings,
+  GroupRoleMap,
   Instrument,
   InstrumentLoan,
   InstrumentLoanRule,

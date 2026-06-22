@@ -319,6 +319,8 @@ function buildApp({ serveFrontend = true } = {}) {
   app.use('/api/admin/excel-export', require('./routes/excelExport'));
   app.use('/api/admin/ops', require('./routes/ops'));
   app.use('/api/admin/oauth-settings', require('./routes/oauthSettings'));
+  app.use('/api/admin/group-role-map', require('./routes/groupRoleMap'));
+  app.use('/api/admin/users-overview', require('./routes/usersOverview'));
   app.use('/api/admin/messaging-settings', require('./routes/messagingSettings'));
   app.use('/api/admin/integrations', require('./routes/integrations'));
   // Monte Ore — proposte annuali del docente + gestione coordinatore.

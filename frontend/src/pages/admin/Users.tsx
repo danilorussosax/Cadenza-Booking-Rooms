@@ -35,6 +35,7 @@ import {
   SECRET_PLACEHOLDER,
   type UpsertOAuthSettings,
 } from '@/api/oauthSettings';
+import { OAuthGroupGateSection } from '@/components/admin/OAuthGroupGateSection';
 import { httpErrorMessage } from '@/lib/api';
 import { UsersCsvImportDialog } from '@/components/admin/UsersCsvImportDialog';
 import { Button } from '@/components/ui/button';
@@ -1169,6 +1170,9 @@ function SsoTabContent() {
             StatoIscrizione) ed externalSource='esse3' separato. */}
         <Esse3ImportCard />
       </div>
+
+      {/* Gate gruppi M365: toggle + nomi gruppo + mapping editabile + utenti risolti */}
+      <OAuthGroupGateSection />
     </div>
   );
 }

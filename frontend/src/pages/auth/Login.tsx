@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,6 +76,18 @@ export default function Login() {
     defaultValues: { email: '', password: '' },
   });
   const currentEmail = watch('email');
+
+  // SSO silente dal cruscotto: `?sso=m365` → redirect server-side a Microsoft
+  // senza mostrare il form. Cadenza usa Passport (non NextAuth): basta navigare
+  // all'endpoint OAuth, la sessione M365 attiva completa il login in silenzio.
+  const ssoMode = new URLSearchParams(location.search).get('sso') === 'm365';
+  const ssoFired = useRef(false);
+  useEffect(() => {
+    if (ssoMode && !ssoFired.current) {
+      ssoFired.current = true;
+      window.location.href = '/api/auth/microsoft';
+    }
+  }, [ssoMode]);
 
   const proceedAfterLogin = (user: User) => {
     const rawRedirect =
@@ -170,6 +182,16 @@ export default function Login() {
       setTwoFaSubmitting(false);
     }
   };
+
+  // SSO silente in corso: schermata minima, niente form (si sta per navigare a M365).
+  if (ssoMode) {
+    return (
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center gap-4 px-4 text-center">
+        <LoaderCircle className="h-7 w-7 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">{t('auth.login.continue_microsoft')}…</p>
+      </div>
+    );
+  }
 
   // Layout adottato da /complete-profile: AuthLayout split-panel (brand a sx,
   // form a dx). Le 3 viste (choices/email/2FA) restano come motion children

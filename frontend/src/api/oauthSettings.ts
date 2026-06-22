@@ -15,6 +15,12 @@ export interface UpsertOAuthSettings {
   microsoftTenant?: string;
   /** CSV o array; backend normalizza (lowercase, trim, dedup). Stringa vuota = rimuovi restrizione. */
   allowedEmailDomains?: string | string[];
+  /** Gate gruppi M365 (cambio → restartRequired, cambia lo scope OAuth al boot). */
+  groupGateEnabled?: boolean;
+  groupStudenti?: string;
+  groupDocenti?: string;
+  groupAmministrazione?: string;
+  groupDirezione?: string;
 }
 
 export const oauthSettingsApi = {

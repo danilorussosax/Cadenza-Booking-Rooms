@@ -63,6 +63,35 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(1000),
         allowNull: true,
       },
+      // ----- Gate per gruppi di sicurezza Microsoft 365 -----
+      // Quando attivo, dopo il login M365 si leggono i gruppi via Graph
+      // (/me/memberOf) e si assegna/allinea il ruolo Cadenza in base al mapping
+      // (vedi models/GroupRoleMap + lib/group-role-map). I Consigli (Opera) NON
+      // influenzano Cadenza → qui bastano i 4 gruppi con ruolo.
+      groupGateEnabled: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      groupStudenti: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: 'Studenti',
+      },
+      groupDocenti: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: 'Docenti',
+      },
+      groupAmministrazione: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: 'Amministrazione',
+      },
+      groupDirezione: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: 'Direzione',
+      },
     },
     { tableName: 'oauth_settings' },
   );
