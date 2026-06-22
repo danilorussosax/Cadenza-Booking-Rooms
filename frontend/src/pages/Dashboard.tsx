@@ -219,7 +219,7 @@ export default function Dashboard() {
     () => (upcomingQuery.data?.bookings ?? []).slice(0, 5),
     [upcomingQuery.data],
   );
-  const next = upcoming[0];
+  const next = upcoming.at(0);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const allLoans = loansQuery.data?.loans ?? [];
@@ -369,10 +369,8 @@ export default function Dashboard() {
     });
     stats.push({
       label: t('dashboard.stats.next_session'),
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       value: next ? dayjs(next.startTime).fromNow() : '—',
       icon: Sparkles,
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       hint: next
         ? formatDate(next.startTime, 'ddd D MMM, HH:mm')
         : t('dashboard.stats.next_session_none'),

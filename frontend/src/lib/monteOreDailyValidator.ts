@@ -41,7 +41,7 @@ export function validateDailyConstraints(
   settings: DailyConstraints,
 ): { ok: boolean; violations: DailyViolation[] } {
   const violations: DailyViolation[] = [];
-  if (!Array.isArray(schedules) || schedules.length === 0 || !settings) {
+  if (!Array.isArray(schedules) || schedules.length === 0) {
     return { ok: true, violations };
   }
   const { maxHoursPerDay, dailyBreakAfterHours, dailyBreakMinutes } = settings;
@@ -60,7 +60,7 @@ export function validateDailyConstraints(
     if (z2Active) {
       let total = 0;
       for (const s of daySchedules) total += hoursBetween(s.startTime, s.endTime);
-      if (total > (maxHoursPerDay) + 1e-6) {
+      if (total > maxHoursPerDay + 1e-6) {
         violations.push({
           code: 'DAILY_HOURS_EXCEEDED',
           dayOfWeek,
@@ -78,7 +78,7 @@ export function validateDailyConstraints(
       let blockEnd = minutesOf(sorted[0].endTime);
       for (let i = 1; i < sorted.length; i++) {
         const gap = minutesOf(sorted[i].startTime) - blockEnd;
-        if (gap >= (dailyBreakMinutes)) {
+        if (gap >= dailyBreakMinutes) {
           flushBlock(
             blockStart,
             blockEnd,

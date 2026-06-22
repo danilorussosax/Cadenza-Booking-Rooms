@@ -136,7 +136,9 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
         performers: values.performers?.trim() ?? '',
         program: values.program?.trim() ?? '',
         eventType: values.eventType,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- stringa vuota (anche dopo trim) deve diventare null, non ''
         description: values.description?.trim() || null,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- idem: '' → null
         language: values.language?.trim() || null,
       }),
     onSuccess: ({ concertInfo }) => {
@@ -233,7 +235,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
             <div className="space-y-2">
               <Label htmlFor="c-event-type">{t('concert.field.event_type')}</Label>
               <Select
-                value={watch('eventType') ?? 'concerto'}
+                value={watch('eventType')}
                 onValueChange={(v) =>
                   setValue('eventType', v as ConcertEventType, { shouldDirty: true })
                 }
@@ -253,7 +255,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
             <div className="space-y-2">
               <Label htmlFor="c-language">{t('concert.field.language')}</Label>
               <Select
-                value={watch('language') || ''}
+                value={watch('language') ?? ''}
                 onValueChange={(v) =>
                   setValue('language', v === '_none' ? '' : v, { shouldDirty: true })
                 }

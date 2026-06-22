@@ -113,7 +113,7 @@ function VpsCard({ data }: { data: OpsSnapshot['vps'] }) {
   const { t } = useTranslation();
   const memPct = data.memory.usedPercent ?? 0;
   const diskPct = data.disk?.usedPercent ?? 0;
-  const load1 = data.loadAvg[0] ?? 0;
+  const load1 = data.loadAvg[0];
   const cpuPct = data.cpuCount > 0 ? Math.round((load1 / data.cpuCount) * 100) : 0;
   return (
     <Card>
@@ -606,7 +606,7 @@ export default function AdminOps() {
         </Alert>
       )}
 
-      {query.isLoading && !query.data ? (
+      {query.isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-56 w-full" />
@@ -679,7 +679,7 @@ function SlowQueriesCard() {
           </h3>
           {aggregateQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
-          ) : aggregateQuery.data?.aggregate?.length ? (
+          ) : aggregateQuery.data?.aggregate.length ? (
             <AggregateTable rows={aggregateQuery.data.aggregate} />
           ) : (
             <p className="text-sm text-muted-foreground">{t('admin.ops.slow_queries.empty')}</p>
@@ -692,7 +692,7 @@ function SlowQueriesCard() {
           </h3>
           {recentQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
-          ) : recentQuery.data?.items?.length ? (
+          ) : recentQuery.data?.items.length ? (
             <ul className="space-y-1.5">
               {recentQuery.data.items.map((item, idx) => (
                 <li

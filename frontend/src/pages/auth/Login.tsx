@@ -125,7 +125,7 @@ export default function Login() {
     } catch (err) {
       setServerError(httpErrorMessage(err));
       if (err instanceof HttpError) {
-        const code = err.payload?.code;
+        const code = err.payload.code;
         if (code === 'PASSWORD_NOT_SET' || code === 'OAUTH_ONLY') {
           setServerErrorCode(code);
         }

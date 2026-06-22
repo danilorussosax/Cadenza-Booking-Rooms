@@ -445,7 +445,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
               creato utenti (createdUserIds non vuoto). L'admin può chiudere
               la modale per saltare: l'invio resta disponibile da pagina
               Utenti con la bulk action manuale. */}
-          {(lastApply?.createdUserIds?.length ?? 0) > 0 && (
+          {(lastApply?.createdUserIds.length ?? 0) > 0 && (
             <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20">
               <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
@@ -453,7 +453,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                   <div className="space-y-1">
                     <p className="font-medium">
                       {tk('setup_banner.title', {
-                        count: lastApply?.createdUserIds?.length ?? 0,
+                        count: lastApply?.createdUserIds.length ?? 0,
                       })}
                     </p>
                     <p className="text-xs text-muted-foreground">{tk('setup_banner.subtitle')}</p>
@@ -462,7 +462,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                 <Button onClick={() => setSetupDialogOpen(true)} className="shrink-0">
                   <Mail className="h-4 w-4" />
                   {tk('setup_banner.cta', {
-                    count: lastApply?.createdUserIds?.length ?? 0,
+                    count: lastApply?.createdUserIds.length ?? 0,
                   })}
                 </Button>
               </CardContent>
@@ -476,7 +476,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                 <DialogTitle>{tk('setup_dialog.title')}</DialogTitle>
                 <DialogDescription>
                   {tk('setup_dialog.description', {
-                    count: lastApply?.createdUserIds?.length ?? 0,
+                    count: lastApply?.createdUserIds.length ?? 0,
                   })}
                 </DialogDescription>
               </DialogHeader>
@@ -506,7 +506,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
                     <Mail className="h-4 w-4" />
                   )}
                   {tk('setup_dialog.confirm', {
-                    count: lastApply?.createdUserIds?.length ?? 0,
+                    count: lastApply?.createdUserIds.length ?? 0,
                   })}
                 </Button>
               </DialogFooter>

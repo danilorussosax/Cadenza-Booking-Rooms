@@ -72,12 +72,10 @@ interface ChannelDef {
 const TELEGRAM_TOKEN_RE = /^\d{6,}:[A-Za-z0-9_-]{30,}$/;
 function fieldError(validate: 'telegramToken' | undefined, value: string): 'invalid_token' | null {
   if (!validate) return null;
-  if (validate === 'telegramToken') {
-    // Vuoto o placeholder = nessun nuovo valore → niente errore.
-    if (value === '' || value === SECRET_PLACEHOLDER) return null;
-    return TELEGRAM_TOKEN_RE.test(value.trim()) ? null : 'invalid_token';
-  }
-  return null;
+  // `validate` può solo essere 'telegramToken' qui (unico valore non-undefined).
+  // Vuoto o placeholder = nessun nuovo valore → niente errore.
+  if (value === '' || value === SECRET_PLACEHOLDER) return null;
+  return TELEGRAM_TOKEN_RE.test(value.trim()) ? null : 'invalid_token';
 }
 
 const CHANNELS: ChannelDef[] = [
@@ -705,6 +703,7 @@ function GuidedSteps({
               <p className="text-muted-foreground">
                 {t('admin.messaging.telegram.verify.url')}{' '}
                 <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                  {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Telegram restituisce url:'' quando il webhook non è impostato → mostra '—' */}
                   {webhookInfo.url || '—'}
                 </code>
               </p>
