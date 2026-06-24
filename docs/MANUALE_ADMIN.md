@@ -10,6 +10,7 @@
 
 > Quattro release in cascata che chiudono un bug GDPR critico, applicano i vincoli normativi dell'Art. 2 del Regolamento Monte Ore (Tchaikovsky 2019), ottimizzano la performance e arricchiscono la rotazione dei concerti sul kiosk.
 
+- ⭐ **Gate gruppi Microsoft 365 + mapping ruoli editabile**: al login SSO Microsoft, Cadenza deriva automaticamente il ruolo (`admin` / `docente` / `studente`) dai gruppi di sicurezza M365 dell'utente, con tabella di mapping gruppo↔ruolo editabile e priority. Vedi §3.6bis.
 - ⭐ **v1.15.0 — Concerti arricchiti sul kiosk**: la scheda concerto (`ConcertInfo`) supporta ora 5 **tipologie evento** (concerto / saggio / masterclass / conferenza / lezione aperta), una **sub-headline descrittiva** e una **bandierina lingua** per eventi internazionali. Il Display kiosk renderizza un chip colorato distintivo per tipologia, la descrizione sotto al titolo e l'emoji bandiera. Vedi §7.4 (gestione scheda) e §12.7 → card Concerti.
 - ⭐ **v1.14.0 — Vincoli giornalieri Monte Ore configurabili (Z2/Z3 Art. 2 Regolamento)**: tre nuovi campi in `MonteOreSettings` (`maxHoursPerDay`, `dailyBreakAfterHours`, `dailyBreakMinutes`) implementano i limiti del Regolamento Tchaikovsky 2019 senza essere hardcoded. L'admin imposta le soglie dalla schermata Calendario didattico (§8.3); i docenti vedono warning inline quando violano i limiti. Backward-compatible: NULL = vincoli disabilitati. Vedi §8.3 sub-sezione "Vincoli giornalieri".
 - **v1.14.1 — Performance Monte Ore**: indice composito su `monte_ore_slots`, `bulkCreate` nell'import schedule, `React.memo` sulla griglia annuale (~312 celle), invalidation React Query granulare. Internal, nessuna azione admin.
@@ -249,6 +250,47 @@ Per ciascun provider devi inserire i parametri ricevuti dal pannello sviluppator
 > **Importante**: dopo aver attivato un provider, **riavvia il backend** (vedi §12.4) perché il provider sia effettivamente disponibile sul login. Cadenza ti mostra un alert informativo dopo il salvataggio.
 
 Per la procedura passo-passo (creazione applicazione, configurazione redirect URI, ecc.) vedi `docs/SSO.md`.
+
+### 3.6bis ⭐ Gate gruppi Microsoft 365 + Mapping ruoli editabile
+
+**Scopo**: derivare automaticamente il ruolo Cadenza (`admin` / `docente` / `studente`) dai **gruppi di sicurezza Microsoft 365** dell'utente nel momento del login SSO Microsoft. Così la regìa dei permessi resta dove la gestisce già la segreteria — su Entra ID / Microsoft 365 — e Cadenza si limita a leggerla e applicarla, senza dover aggiornare i ruoli a mano utente per utente.
+
+**Dove si trova**: Amministrazione → Utenti → tab **"SSO"**, in fondo alla pagina, nella card **"Gate gruppi Microsoft 365"**.
+
+![Gate gruppi Microsoft 365 e mapping ruoli](screenshots/users-m365-group-gate.png)
+
+**Prerequisiti**:
+
+1. Provider **Microsoft 365 / Entra ID** già configurato e attivo (vedi §3.6).
+2. Quando il gate è attivo, Cadenza richiede in più lo scope Microsoft Graph **`GroupMember.Read.All`** per poter leggere i gruppi dell'utente. Potrebbe servire un **nuovo consenso amministratore** sull'app Entra ID e un **riavvio del backend** (vedi §12.4) perché lo scope aggiuntivo entri in vigore.
+
+**Abilitazione**:
+
+1. Attiva l'interruttore **"Abilita gate gruppi"**.
+2. Inserisci i **nomi dei 4 gruppi** Microsoft 365 da sorvegliare — _Direzione_, _Amministrazione_, _Docenti_, _Studenti_ — esattamente come si chiamano su Entra ID.
+3. Le **priorità di default** mappano: _Direzione_ e _Amministrazione_ → **admin**, _Docenti_ → **docente**, _Studenti_ → **studente**.
+
+**Mapping ruoli editabile** — tabella **"Allineamento gruppi ↔ ruoli"**:
+
+- Ogni riga rappresenta un **gruppo M365 → ruolo** con un valore di **priority**.
+- Quando un utente appartiene a più gruppi noti, **vince la priority più bassa** (es. un docente che è anche in _Direzione_ diventa admin).
+- Il salvataggio del mapping diventa effettivo **al prossimo login** dell'utente.
+- La _source of truth_ del mapping è il **database**, con **fallback ai nomi configurati** nella card se una riga non è ancora stata personalizzata.
+
+**Tabella "Utenti e ruolo risolto"** — per ogni utente mostra:
+
+- i **gruppi M365** a cui appartiene;
+- il **ruolo attualmente in DB**;
+- il **ruolo risolto** dal mapping;
+- lo **stato**: _allineato_ / _disallineato_ / _non mappato_;
+- un pulsante per **forzare il riallineamento** immediato senza attendere il prossimo login.
+
+**Comportamento**:
+
+- **Microsoft 365 è autoritativo**: il ruolo viene **risincronizzato a ogni login** SSO Microsoft secondo il mapping.
+- **Guardrail**: se l'utente non appartiene a **nessun gruppo noto**, il ruolo in DB non viene toccato (nessun declassamento accidentale).
+- Le **credenziali email/password** locali restano invariate: il gate agisce solo sul login SSO Microsoft.
+- Il gate è **OFF di default**: nessun impatto finché non lo attivi esplicitamente.
 
 ### 3.7 Deroga Monte Ore per docenti a contratto orario
 
