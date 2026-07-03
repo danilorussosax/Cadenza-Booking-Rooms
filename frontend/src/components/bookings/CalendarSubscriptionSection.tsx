@@ -129,82 +129,86 @@ export function CalendarSubscriptionSection() {
                 rigenerare per ottenere un nuovo URL. */}
             {token ? (
               <>
-            <div className="space-y-1.5">
-              <Label htmlFor="ical-webcal" className="flex items-center gap-1.5">
-                <CalendarPlus className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                {t('calendar_subscription.webcal_label')}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="ical-webcal"
-                  readOnly
-                  value={revealed ? webcalUrl : webcalUrl.replace(/token=.*/, 'token=••••••••')}
-                  onFocus={(e) => {
-                    e.target.select();
-                  }}
-                  onCopy={handleMaskedCopy(webcalUrl)}
-                  className="font-mono text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setRevealed((v) => !v);
-                  }}
-                  title={
-                    revealed
-                      ? t('calendar_subscription.hide_token')
-                      : t('calendar_subscription.show_token')
-                  }
-                >
-                  {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copy(webcalUrl, t('calendar_subscription.label_webcal'))}
-                  title={t('calendar_subscription.copy_link')}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {t('calendar_subscription.webcal_help')}
-              </p>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ical-webcal" className="flex items-center gap-1.5">
+                    <CalendarPlus className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    {t('calendar_subscription.webcal_label')}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="ical-webcal"
+                      readOnly
+                      value={revealed ? webcalUrl : webcalUrl.replace(/token=.*/, 'token=••••••••')}
+                      onFocus={(e) => {
+                        e.target.select();
+                      }}
+                      onCopy={handleMaskedCopy(webcalUrl)}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setRevealed((v) => !v);
+                      }}
+                      title={
+                        revealed
+                          ? t('calendar_subscription.hide_token')
+                          : t('calendar_subscription.show_token')
+                      }
+                    >
+                      {revealed ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copy(webcalUrl, t('calendar_subscription.label_webcal'))}
+                      title={t('calendar_subscription.copy_link')}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t('calendar_subscription.webcal_help')}
+                  </p>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="ical-https">{t('calendar_subscription.https_label')}</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="ical-https"
-                  readOnly
-                  value={revealed ? httpUrl : httpUrl.replace(/token=.*/, 'token=••••••••')}
-                  onFocus={(e) => {
-                    e.target.select();
-                  }}
-                  onCopy={handleMaskedCopy(httpUrl)}
-                  className="font-mono text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copy(httpUrl, t('calendar_subscription.label_https'))}
-                  title={t('calendar_subscription.copy_link')}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ical-https">{t('calendar_subscription.https_label')}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="ical-https"
+                      readOnly
+                      value={revealed ? httpUrl : httpUrl.replace(/token=.*/, 'token=••••••••')}
+                      onFocus={(e) => {
+                        e.target.select();
+                      }}
+                      onCopy={handleMaskedCopy(httpUrl)}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copy(httpUrl, t('calendar_subscription.label_https'))}
+                      title={t('calendar_subscription.copy_link')}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
 
-            <Alert variant="info">
-              <AlertDescription className="text-xs">
-                {t('calendar_subscription.warning')}
-              </AlertDescription>
-            </Alert>
+                <Alert variant="info">
+                  <AlertDescription className="text-xs">
+                    {t('calendar_subscription.warning')}
+                  </AlertDescription>
+                </Alert>
               </>
             ) : (
               <Alert variant="info">
