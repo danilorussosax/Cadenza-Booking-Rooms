@@ -56,6 +56,7 @@ module.exports = (sequelize) => {
       // Numero massimo di richieste di variazione che un docente può
       // inviare durante l'AA dopo l'approvazione iniziale.
       maxAmendmentsPerYear: {
+        validate: { min: 0, isInt: true },
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 3,

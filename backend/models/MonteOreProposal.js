@@ -114,6 +114,9 @@ module.exports = (sequelize) => {
         defaultValue: 0,
       },
       // ---- Tracciamento modifiche post-approval ----
+      contractSnapshot: { type: DataTypes.JSON, allowNull: true },
+      revision: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      requestCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
       amendmentCount: {
         type: DataTypes.INTEGER,
         allowNull: false,

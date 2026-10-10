@@ -10,6 +10,19 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.17.0] — 10 ottobre 2026
+
+Gestione Monte Ore con revisione obbligatoria del piano e delle variazioni.
+
+- Contratti: cattedra intera 324 ore esatte, tempo definito fino a 162 ore, collaborazione con ore individuali obbligatorie alla creazione dell’utenza.
+- Pianificazione sulle date effettive: selezione per periodo, rigenerazione che conserva le selezioni e controllo di vacanze e blocchi didattici.
+- Approvazione con assegnazione definitiva delle aule, anteprima dei conflitti e creazione atomica delle prenotazioni.
+- Richieste composte con limite annuale configurabile, contatore per docente/anno, controllo degli invii ripetuti e revisione obbligatoria per ogni operazione.
+- Il revisore può approvare, rifiutare o modificare e approvare; originale e soluzione finale restano nello storico. Email accodata nella stessa transazione della decisione.
+- Modifiche al calendario mostrano l’impatto e richiedono conferma; la rivalidazione amministrativa non consuma richieste del docente.
+- Migrazione additiva e ripetibile, senza cancellare prenotazioni o storico. I piani operativi precedenti mantengono lo snapshot della vecchia soglia fino a rivalidazione esplicita. Il nuovo contatore parte da zero; quello precedente resta conservato.
+- Test di integrazione, concorrenza PostgreSQL e percorso completo in Playwright.
+
 ## [1.16.0] — 9 giugno 2026
 
 Minor release **Security hardening**: audit di sicurezza completo su

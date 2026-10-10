@@ -1,3 +1,5 @@
+import PlanApproval from '@/components/monteOre/PlanApproval';
+import { AmendmentEditor, AmendmentReview } from '@/components/monteOre/AmendmentEditor';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -94,6 +96,8 @@ const CONTRACT_LABEL: Record<
   contratto_orario: 'Contratto orario',
   supplente: 'Supplente',
   altro: 'Altro',
+  tempo_definito: 'Tempo definito',
+  collaborazione: 'Collaborazione',
 };
 
 const CCNL_STANDARD_HOURS = 324;
@@ -344,7 +348,12 @@ export default function AdminMonteOre() {
             <div className="grid gap-3">
               {proposals.map((p) => {
                 const threshold = resolveProposalThreshold(p);
-                const meetsThreshold = p.totalHoursRequested >= threshold.hours;
+                const meetsThreshold =
+                  p.contractSnapshot?.mode === 'maximum'
+                    ? p.totalHoursPlanned > 0 && p.totalHoursPlanned <= threshold.hours
+                    : p.contractSnapshot?.mode === 'exact'
+                      ? Math.round(p.totalHoursPlanned * 60) === Math.round(threshold.hours * 60)
+                      : p.totalHoursPlanned >= threshold.hours;
                 return (
                   <Card
                     key={p.id}
@@ -384,7 +393,7 @@ export default function AdminMonteOre() {
                                 : 'text-amber-600 dark:text-amber-400 font-medium'
                             }
                           >
-                            {p.totalHoursRequested.toFixed(1)} / {threshold.hours} h
+                            {p.totalHoursPlanned.toFixed(1)} / {threshold.hours} h
                           </span>
                           {threshold.isCustom && (
                             <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -463,18 +472,23 @@ function AmendmentActions({
   isApproving: boolean;
   isRejecting: boolean;
 }) {
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const qc = useQueryClient();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const isAddNewDay = amendment.kind === 'add_new_day';
 
   const handleApprove = () => {
-    if (isAddNewDay) setApproveOpen(true);
-    else onApprove({});
+    if (isAddNewDay && !amendment.operations) setApproveOpen(true);
+    else setReviewOpen(true);
   };
 
   return (
     <>
       <div className="inline-flex gap-1">
+        <Button size="sm" variant="outline" onClick={() => setReviewOpen(true)}>
+          Rivedi / modifica
+        </Button>
         <Button size="sm" variant="outline" onClick={handleApprove} disabled={isApproving}>
           <CheckCircle2 className="h-3.5 w-3.5" />
           Approva
@@ -490,6 +504,15 @@ function AmendmentActions({
           Rifiuta
         </Button>
       </div>
+      {reviewOpen && (
+        <AmendmentReview
+          amendment={amendment}
+          onClose={() => setReviewOpen(false)}
+          onDecided={() => {
+            void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+          }}
+        />
+      )}
       {isAddNewDay && approveOpen && (
         <ApproveNewDayDialog
           amendment={amendment}
@@ -773,6 +796,21 @@ function AmendmentsRequestsTab() {
                           {a.status === 'auto_approved' && 'Auto-approvata'}
                           {a.status === 'approved' && 'Approvata'}
                           {a.status === 'rejected' && 'Rifiutata'}
+                          {a.decisionNotes && (
+                            <span className="block text-xs text-muted-foreground">
+                              {a.decisionNotes}
+                            </span>
+                          )}
+                          {a.emailStatus && (
+                            <span className="block text-xs text-muted-foreground">
+                              Email:{' '}
+                              {a.emailStatus === 'sent'
+                                ? 'inviata al server SMTP'
+                                : a.emailStatus === 'dead'
+                                  ? 'invio fallito'
+                                  : 'accodata'}
+                            </span>
+                          )}
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-right">
@@ -816,6 +854,8 @@ function DetailDialog({
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
+  const [planApprovalOpen, setPlanApprovalOpen] = useState(false);
+  const [revalidateOpen, setRevalidateOpen] = useState(false);
   const detailQuery = useQuery({
     queryKey: ['admin', 'monte-ore', id],
     queryFn: () => monteOreAdminApi.get(id),
@@ -827,14 +867,6 @@ function DetailDialog({
     onChanged();
   };
 
-  const approveMutation = useMutation({
-    mutationFn: () => monteOreAdminApi.approve(id),
-    onSuccess: () => {
-      toast.success('Proposta approvata');
-      refresh();
-    },
-    onError: (err) => toast.error(httpErrorMessage(err)),
-  });
   const rejectMutation = useMutation({
     mutationFn: (reason: string) => monteOreAdminApi.reject(id, reason),
     onSuccess: () => {
@@ -925,7 +957,7 @@ function DetailDialog({
             {/* Riepilogo soglia ore: prominente, con confronto vs threshold. */}
             {(() => {
               const threshold = resolveProposalThreshold(proposal);
-              const meets = proposal.totalHoursRequested >= threshold.hours;
+              const meets = proposal.totalHoursPlanned >= threshold.hours;
               return (
                 <div
                   className={`rounded-lg border p-3 text-sm ${
@@ -947,7 +979,7 @@ function DetailDialog({
                               : 'text-amber-700 dark:text-amber-400'
                           }
                         >
-                          {proposal.totalHoursRequested.toFixed(1)}
+                          {proposal.totalHoursPlanned.toFixed(1)}
                         </span>
                         <span className="text-muted-foreground"> / {threshold.hours} h</span>
                       </p>
@@ -974,7 +1006,7 @@ function DetailDialog({
                   </div>
                   {!meets && (
                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                      Mancano {(threshold.hours - proposal.totalHoursRequested).toFixed(1)} h al
+                      Mancano {(threshold.hours - proposal.totalHoursPlanned).toFixed(1)} h al
                       raggiungimento della soglia.
                     </p>
                   )}
@@ -1129,6 +1161,22 @@ function DetailDialog({
               <AmendmentsSection proposalId={proposal.id} onAfterDecision={refresh} />
             )}
 
+            {proposal.requiresRevalidation && proposal.status === 'generated' && (
+              <Button variant="outline" onClick={() => setRevalidateOpen(true)}>
+                Rivalida piano e comunica al docente
+              </Button>
+            )}
+            {revalidateOpen && (
+              <AmendmentEditor
+                adminPlanId={id}
+                academicYear={proposal.academicYear}
+                slots={proposal.slots ?? []}
+                onClose={() => {
+                  setRevalidateOpen(false);
+                  refresh();
+                }}
+              />
+            )}
             {/* Footer azioni stato-dipendenti */}
             <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
               <Button variant="outline" onClick={onClose}>
@@ -1154,11 +1202,11 @@ function DetailDialog({
                       Rifiuta
                     </Button>
                     <Button
-                      onClick={() => approveMutation.mutate()}
-                      disabled={approveMutation.isPending}
+                      onClick={() => setPlanApprovalOpen(true)}
+                      disabled={detailQuery.isPending}
                     >
                       <CheckCircle2 className="h-4 w-4" />
-                      Approva
+                      Verifica aule e approva
                     </Button>
                   </>
                 )}
@@ -1174,8 +1222,7 @@ function DetailDialog({
                     </Button>
                     <Button
                       onClick={() => {
-                        setIncludePast(false);
-                        setConfirmGenerate(true);
+                        setPlanApprovalOpen(true);
                       }}
                       disabled={
                         generateMutation.isPending ||
@@ -1202,6 +1249,13 @@ function DetailDialog({
               </div>
             </DialogFooter>
 
+            {planApprovalOpen && (
+              <PlanApproval
+                proposalId={id}
+                onClose={() => setPlanApprovalOpen(false)}
+                onApproved={refresh}
+              />
+            )}
             {/* Edit/add schedule */}
             <ScheduleEditDialog
               open={adding || editingSchedule !== null}
@@ -1621,6 +1675,21 @@ function AmendmentsSection({
                       {a.status === 'auto_approved' && 'Auto-approvata'}
                       {a.status === 'approved' && 'Approvata'}
                       {a.status === 'rejected' && 'Rifiutata'}
+                      {a.decisionNotes && (
+                        <span className="block text-xs text-muted-foreground">
+                          {a.decisionNotes}
+                        </span>
+                      )}
+                      {a.emailStatus && (
+                        <span className="block text-xs text-muted-foreground">
+                          Email:{' '}
+                          {a.emailStatus === 'sent'
+                            ? 'inviata al server SMTP'
+                            : a.emailStatus === 'dead'
+                              ? 'invio fallito'
+                              : 'accodata'}
+                        </span>
+                      )}
                     </Badge>
                   </td>
                   <td className="px-3 py-2 text-right">

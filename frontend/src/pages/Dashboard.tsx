@@ -322,8 +322,14 @@ export default function Dashboard() {
     // annuale contrattuale — con "Monte Ore: pianificate/soglia".
     if (isDocente && hasMonteOreOverride && monteOreThresholdQuery.data) {
       const minH = monteOreThresholdQuery.data.minHours;
-      const planned = monteOreProposalQuery.data?.proposal.totalHoursRequested ?? 0;
-      const meets = planned >= minH;
+      const planned = monteOreProposalQuery.data?.proposal.totalHoursPlanned ?? 0;
+      const mode = monteOreThresholdQuery.data.mode;
+      const meets =
+        mode === 'maximum'
+          ? planned > 0 && planned <= minH
+          : mode === 'exact'
+            ? Math.round(planned * 60) === Math.round(minH * 60)
+            : planned >= minH;
       const ctLabel: Record<string, string> = {
         titolare: 'titolare',
         contratto_orario: 'contratto orario',
@@ -337,8 +343,8 @@ export default function Dashboard() {
         value: monteOreProposalQuery.isLoading ? '—' : `${planned.toFixed(1)} / ${minH} h`,
         icon: Hourglass,
         hint: meets
-          ? `✓ Soglia raggiunta · ${ctText}`
-          : `Mancano ${(minH - planned).toFixed(1)} h · ${ctText}`,
+          ? `✓ Piano conforme · ${ctText}`
+          : `Obiettivo${mode === 'maximum' ? ' massimo' : ''}: ${minH} h · ${ctText}`,
         tone: meets
           ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
           : 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',

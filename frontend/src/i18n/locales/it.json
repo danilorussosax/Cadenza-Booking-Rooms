@@ -2292,5 +2292,46 @@
       "compare_recovered_one": "Utente rientrato ({{count}})",
       "compare_recovered_other": "Utenti rientrati ({{count}})"
     }
+  },
+  "monteWorkflow": {
+    "change": "Modifica",
+    "occurrence": "Lezione da modificare",
+    "choose": "Seleziona",
+    "date": "Data",
+    "start": "Inizio",
+    "end": "Fine",
+    "room": "Aula",
+    "destination": "Destinazione",
+    "remove": "Rimuovi",
+    "addChange": "Aggiungi modifica",
+    "request": "Richiedi variazione",
+    "requestHelp": "Una richiesta può contenere più modifiche e conta una sola volta. Il piano resta valido fino alla decisione del revisore.",
+    "reason": "Motivazione",
+    "send": "Invia richiesta",
+    "sent": "Richiesta inviata al revisore",
+    "review": "Rivedi variazione",
+    "reviewHelp": "Verifica la richiesta e definisci la soluzione finale.",
+    "original": "Richiesta originale",
+    "modifyApprove": "Modifica e approva",
+    "approve": "Approva variazione",
+    "decided": "Variazione approvata; email accodata",
+    "budget": "Richieste inviate: {{used}}/{{max}} · Disponibili: {{remaining}}",
+    "budgetHelp": "Il limite conta anche le richieste rifiutate, a partire dall’attivazione del nuovo workflow.",
+    "selectPeriod": "Seleziona periodo",
+    "activate": "Seleziona date",
+    "deactivate": "Deseleziona date",
+    "allDays": "Tutti i giorni",
+    "preview": "Verifica piano e aule",
+    "approvePlan": "Approva e crea prenotazioni",
+    "noConflicts": "Nessun conflitto: piano pronto per l’approvazione",
+    "kinds": {
+      "toggle_off": "Cancella lezione",
+      "toggle_on": "Aggiungi lezione nel calendario",
+      "change_time": "Cambia orario",
+      "change_room": "Cambia aula",
+      "move_to": "Sposta lezione",
+      "add_new_day": "Nuova data"
+    },
+    "projectedHours": "Ore annuali risultanti (anteprima): {{hours}} h"
   }
 }

@@ -26,10 +26,20 @@ const TERMS_VERSION = '2026-04-27';
 
 async function seedE2E() {
   const {
-    User, Course, Institute, Building, Room, BookingRule, Instrument, Booking, UserConsent,
+    User,
+    Course,
+    Institute,
+    Building,
+    Room,
+    BookingRule,
+    Instrument,
+    Booking,
+    UserConsent,
     MonteOreSettings,
   } = require(path.join(BACKEND_DIR, 'models'));
-  const { currentAcademicYear } = require(path.join(BACKEND_DIR, 'services', 'monteOreCalendarService'));
+  const { currentAcademicYear } = require(
+    path.join(BACKEND_DIR, 'services', 'monteOreCalendarService'),
+  );
 
   async function grantConsents(user) {
     await UserConsent.create({
@@ -214,6 +224,41 @@ async function seedE2E() {
     endTime: end,
     type: 'lezione',
     status: 'confirmed',
+  });
+
+  const { ContractType } = require(path.join(BACKEND_DIR, 'models'));
+  await ContractType.create({
+    instituteId: institute.id,
+    code: 'collaborazione',
+    label: 'Collaborazione',
+    hoursMode: 'exact',
+    requiresIndividualHours: true,
+  });
+  const monteTeacher = await User.create({
+    email: 'monte@test.local',
+    passwordHash: 'Password1!',
+    firstName: 'Monte',
+    lastName: 'Workflow',
+    courseId: course.id,
+    role: 'docente',
+    status: 'approved',
+    isActive: true,
+    contractType: 'collaborazione',
+    monteOreAnnualHoursOverride: 2,
+    monteOreBypassDayConstraint: true,
+  });
+  await grantConsents(monteTeacher);
+  await MonteOreSettings.create({
+    instituteId: institute.id,
+    academicYear: '2027/2028',
+    academicYearStart: '2027-11-01',
+    academicYearEnd: '2028-10-31',
+    lessonsStartDate: '2027-11-01',
+    lessonsEndDate: '2028-06-30',
+    submissionWindowStart: '2026-01-01',
+    submissionWindowEnd: '2028-10-31',
+    maxAmendmentsPerYear: 3,
+    isActiveForTeachers: false,
   });
 
   // eslint-disable-next-line no-console

@@ -98,7 +98,7 @@ describe('routes/monteOre — GET/PUT /me', () => {
     expect(res.body.code).toBe('NOT_FOUND');
   });
 
-  it('PUT /me 200 aggiorna note/totalHoursRequested', async () => {
+  it('PUT /me aggiorna note e ignora il totale dichiarato dal client', async () => {
     const { authHeader } = await createAuthedUser({ role: 'docente' });
     await ensureMyProposal(authHeader);
     const res = await request(app)
@@ -107,7 +107,7 @@ describe('routes/monteOre — GET/PUT /me', () => {
       .send({ notes: 'note di test', totalHoursRequested: 250 });
     expect(res.status).toBe(200);
     expect(res.body.proposal.notes).toBe('note di test');
-    expect(res.body.proposal.totalHoursRequested).toBe(250);
+    expect(res.body.proposal.totalHoursRequested).toBe(0);
   });
 
   it('PUT /me 400 INVALID_STATE se proposta submitted', async () => {

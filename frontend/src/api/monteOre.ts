@@ -50,6 +50,10 @@ export interface MonteOreProposal {
   workingDaysCount: number | null;
   minRequiredHoursSnapshot: number | null;
   amendmentCount: number;
+  requestCount: number;
+  revision: number;
+  slots?: MonteOreSlot[];
+  contractSnapshot?: MonteOreThresholdResponse | null;
   /** Fase 6.3 — proposta da rivalidare dopo cambio contratto/ore admin. */
   requiresRevalidation?: boolean;
   revalidationReason?: string | null;
@@ -77,7 +81,7 @@ export interface MonteOreProposal {
     role: Role;
     matricola: string | null;
     /** Tipo contrattuale del docente — per UI admin: badge accanto al nome. */
-    contractType?: 'titolare' | 'contratto_orario' | 'supplente' | 'altro' | null;
+    contractType?: string | null;
     /** Soglia personalizzata override (se valorizzata sostituisce 324h CCNL). */
     monteOreAnnualHoursOverride?: number | null;
     monteOreBypassDayConstraint?: boolean;
@@ -251,7 +255,27 @@ export type AmendmentKind =
   | 'move_to';
 export type AmendmentStatus = 'pending' | 'auto_approved' | 'approved' | 'rejected';
 
+export interface AmendmentOperation {
+  kind: AmendmentKind;
+  slotId?: number;
+  payload: {
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    roomId?: number | null;
+    targetSlotId?: number;
+    bookingType?: string;
+    purpose?: string | null;
+  };
+}
+
 export interface MonteOreAmendment {
+  beforeSnapshot?: MonteOreSlot[] | null;
+  afterSnapshot?: MonteOreSlot[] | null;
+  operations?: AmendmentOperation[] | null;
+  finalOperations?: AmendmentOperation[] | null;
+  decisionNotes?: string | null;
+  emailStatus?: string | null;
   id: number;
   proposalId: number;
   requesterId: number;
@@ -293,6 +317,7 @@ export interface GenerateResult {
 // ============================================================
 
 export interface MonteOreThresholdResponse {
+  mode?: 'minimum' | 'exact' | 'maximum';
   academicYear: string;
   minHours: number;
   bypassDayConstraint: boolean;
@@ -334,20 +359,23 @@ export const monteOreApi = {
       body: payload,
     }),
 
-  addMySchedule: (payload: SchedulePayload) =>
+  addMySchedule: (payload: SchedulePayload, year?: string) =>
     api<{ schedule: MonteOreSchedule }>('/api/monte-ore/me/schedules', {
       method: 'POST',
-      body: payload,
+      body: { ...payload, academicYear: year },
     }),
 
-  updateMySchedule: (id: number, payload: Partial<SchedulePayload>) =>
+  updateMySchedule: (id: number, payload: Partial<SchedulePayload>, year?: string) =>
     api<{ schedule: MonteOreSchedule }>(`/api/monte-ore/me/schedules/${id}`, {
       method: 'PATCH',
-      body: payload,
+      body: { ...payload, academicYear: year },
     }),
 
-  removeMySchedule: (id: number) =>
-    api<{ message: string }>(`/api/monte-ore/me/schedules/${id}`, { method: 'DELETE' }),
+  removeMySchedule: (id: number, year?: string) =>
+    api<{ message: string }>(`/api/monte-ore/me/schedules/${id}`, {
+      method: 'DELETE',
+      query: year ? { year } : undefined,
+    }),
 
   submitMine: (academicYear?: string) =>
     api<{ proposal: MonteOreProposal }>('/api/monte-ore/me/submit', {
@@ -361,11 +389,19 @@ export const monteOreApi = {
       query: year ? { year } : undefined,
     }),
 
-  regenerateSlots: () =>
-    api<{ result: { created: number; locked: number; total: number } }>(
-      '/api/monte-ore/me/regenerate-slots',
-      { method: 'POST', body: {} },
-    ),
+  regenerateSlots: (year?: string, confirmRemoval = false) =>
+    api<{
+      result: {
+        created: number;
+        locked: number;
+        total: number;
+        requiresConfirmation?: boolean;
+        removedActive?: { date: string; startTime: string; endTime: string }[];
+      };
+    }>('/api/monte-ore/me/regenerate-slots', {
+      method: 'POST',
+      body: { academicYear: year, confirmRemoval },
+    }),
 
   getMySlots: (year?: string) =>
     api<{ slots: MonteOreSlot[] }>('/api/monte-ore/me/slots', {
@@ -378,6 +414,22 @@ export const monteOreApi = {
       { method: 'POST', body: notes ? { notes } : {} },
     ),
 
+  selectSlots: (body: {
+    academicYear?: string;
+    dateFrom: string;
+    dateTo: string;
+    dayOfWeek?: number;
+    isActive: boolean;
+  }) => api<{ ok: boolean }>('/api/monte-ore/me/slots/select', { method: 'POST', body }),
+
+  requestAmendment: (body: {
+    academicYear?: string;
+    operations: AmendmentOperation[];
+    notes: string;
+    requestKey: string;
+  }) =>
+    api<{ amendment: MonteOreAmendment }>('/api/monte-ore/me/amendments', { method: 'POST', body }),
+
   getMyAmendments: (year?: string) =>
     api<{ amendments: MonteOreAmendment[] }>('/api/monte-ore/me/amendments', {
       query: year ? { year } : undefined,
@@ -387,6 +439,7 @@ export const monteOreApi = {
   // Crea sempre un amendment pending (richiede approvazione del coordinatore).
   // Se roomId è omesso, il coordinatore assegnerà l'aula in fase di approve.
   requestNewDay: (payload: {
+    year?: string;
     date: string;
     startTime: string;
     endTime: string;
@@ -445,9 +498,50 @@ export const monteOreApi = {
 // Endpoints admin
 // ============================================================
 
+async function calendarRequest<T>(
+  url: string,
+  method: 'PUT' | 'POST' | 'PATCH',
+  body: object,
+): Promise<T> {
+  try {
+    return await api<T>(url, { method, body });
+  } catch (error) {
+    if (
+      error instanceof HttpError &&
+      error.payload.code === 'CALENDAR_IMPACT_CONFIRMATION' &&
+      window.confirm(error.message)
+    ) {
+      return api<T>(url, { method, body: { ...body, confirmImpact: true } });
+    }
+    throw error;
+  }
+}
+
 export const monteOreAdminApi = {
   list: (params: { status?: MonteOreStatus; academicYear?: string; userId?: number } = {}) =>
     api<{ proposals: MonteOreProposal[] }>('/api/admin/monte-ore', { query: { ...params } }),
+
+  revalidate: (id: number, body: { operations: AmendmentOperation[]; reason: string }) =>
+    api<{ amendment: MonteOreAmendment }>(`/api/admin/monte-ore/${id}/revalidate`, {
+      method: 'POST',
+      body,
+    }),
+
+  checkApproval: (id: number, assignments: { slotId: number; roomId: number }[]) =>
+    api<{
+      totalHours: number;
+      activeCount: number;
+      issues: { date?: string; message: string; code: string }[];
+      slots: MonteOreSlot[];
+    }>(`/api/admin/monte-ore/${id}/preview`, { method: 'POST', body: { assignments } }),
+
+  preview: (id: number) =>
+    api<{
+      totalHours: number;
+      activeCount: number;
+      issues: { date?: string; message: string; code: string }[];
+      slots: MonteOreSlot[];
+    }>(`/api/admin/monte-ore/${id}/preview`),
 
   get: (id: number) => api<{ proposal: MonteOreProposal }>(`/api/admin/monte-ore/${id}`),
 
@@ -466,10 +560,10 @@ export const monteOreAdminApi = {
   removeSchedule: (id: number, sid: number) =>
     api<{ message: string }>(`/api/admin/monte-ore/${id}/schedules/${sid}`, { method: 'DELETE' }),
 
-  approve: (id: number, notes?: string) =>
+  approve: (id: number, notes?: string, assignments?: { slotId: number; roomId: number }[]) =>
     api<{ proposal: MonteOreProposal }>(`/api/admin/monte-ore/${id}/approve`, {
       method: 'POST',
-      body: notes ? { notes } : {},
+      body: { notes, assignments },
     }),
 
   reject: (id: number, reason?: string) =>
@@ -511,10 +605,11 @@ export const monteOreAdminApi = {
     }),
 
   updateSettings: (payload: Partial<MonteOreSettings> & { academicYear?: string }) =>
-    api<{ settings: MonteOreSettings }>('/api/admin/monte-ore/settings', {
-      method: 'PUT',
-      body: payload,
-    }),
+    calendarRequest<{ settings: MonteOreSettings }>(
+      '/api/admin/monte-ore/settings',
+      'PUT',
+      payload,
+    ),
 
   listSettings: (academicYear?: string) =>
     api<{ settings: MonteOreSettings[] }>('/api/admin/monte-ore/settings/list', {
@@ -536,16 +631,18 @@ export const monteOreAdminApi = {
     notes?: string | null;
     applyToAllBookings?: boolean;
   }) =>
-    api<{ suspension: MonteOreSuspension }>('/api/admin/monte-ore/suspensions', {
-      method: 'POST',
-      body: payload,
-    }),
+    calendarRequest<{ suspension: MonteOreSuspension }>(
+      '/api/admin/monte-ore/suspensions',
+      'POST',
+      payload,
+    ),
 
   updateSuspension: (id: number, payload: Partial<MonteOreSuspension>) =>
-    api<{ suspension: MonteOreSuspension }>(`/api/admin/monte-ore/suspensions/${id}`, {
-      method: 'PATCH',
-      body: payload,
-    }),
+    calendarRequest<{ suspension: MonteOreSuspension }>(
+      `/api/admin/monte-ore/suspensions/${id}`,
+      'PATCH',
+      payload,
+    ),
 
   removeSuspension: (id: number) =>
     api<{ message: string }>(`/api/admin/monte-ore/suspensions/${id}`, { method: 'DELETE' }),
@@ -564,7 +661,11 @@ export const monteOreAdminApi = {
 
   // Per amendments `add_new_day` l'admin può fornire/sovrascrivere l'aula
   // in fase di approvazione; per gli altri kind l'argomento è ignorato.
-  approveAmendment: (id: number, aid: number, opts: { roomId?: number } = {}) =>
+  approveAmendment: (
+    id: number,
+    aid: number,
+    opts: { roomId?: number; operations?: AmendmentOperation[]; reason?: string } = {},
+  ) =>
     api<{ amendment: MonteOreAmendment }>(`/api/admin/monte-ore/${id}/amendments/${aid}/approve`, {
       method: 'POST',
       body: opts,
@@ -584,10 +685,7 @@ export const monteOreAdminApi = {
    * personalizzate clonate dall'AA precedente con +1 anno).
    */
   createAcademicYear: (payload: BootstrapAcademicYearPayload) =>
-    api<BootstrapResponse>('/api/admin/monte-ore/academic-years', {
-      method: 'POST',
-      body: payload,
-    }),
+    calendarRequest<BootstrapResponse>('/api/admin/monte-ore/academic-years', 'POST', payload),
 
   /**
    * Override admin: marca (o smarca) un AA come "attivo per i docenti".
@@ -609,16 +707,18 @@ export const monteOreAdminApi = {
     }),
 
   createExamSession: (payload: ExamSessionPayload) =>
-    api<{ examSession: MonteOreSuspension }>('/api/admin/monte-ore/exam-sessions', {
-      method: 'POST',
-      body: payload,
-    }),
+    calendarRequest<{ examSession: MonteOreSuspension }>(
+      '/api/admin/monte-ore/exam-sessions',
+      'POST',
+      payload,
+    ),
 
   updateExamSession: (id: number, patch: Partial<Omit<ExamSessionPayload, 'academicYear'>>) =>
-    api<{ examSession: MonteOreSuspension }>(`/api/admin/monte-ore/exam-sessions/${id}`, {
-      method: 'PATCH',
-      body: patch,
-    }),
+    calendarRequest<{ examSession: MonteOreSuspension }>(
+      `/api/admin/monte-ore/exam-sessions/${id}`,
+      'PATCH',
+      patch,
+    ),
 
   deleteExamSession: (id: number) =>
     api<{ message: string }>(`/api/admin/monte-ore/exam-sessions/${id}`, {

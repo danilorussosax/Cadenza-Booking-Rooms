@@ -523,116 +523,35 @@ Se entri in servizio **dopo che la finestra di inserimento è chiusa** (es. nomi
 
 ## 9. Spostamenti e variazioni dopo l'approvazione
 
-Una volta che la tua proposta è **"approvata"** o **"generata"**, le lezioni sono fisse nel calendario. In corso d'anno è normale aver bisogno di:
+Dalla versione 1.17 ogni variazione richiede una decisione del revisore. Il piano e le prenotazioni restano invariati fino all'approvazione.
 
-- Cancellare una lezione (visita medica, congresso, malattia)
-- Spostare una lezione di orario
-- Cambiare aula per una sola settimana
-- Recuperare una lezione in un altro giorno
-- Aggiungere una lezione fuori pattern (recupero compenso)
+### 9.1 Regole contrattuali e limite annuale
 
-Cadenza ti dà 5 strumenti diversi. Ogni richiesta è una **variazione** (in inglese: _amendment_).
+| Contratto       | Ore annuali                                         |
+| --------------- | --------------------------------------------------- |
+| Cattedra intera | Esattamente 324                                     |
+| Tempo definito  | Più di zero, fino a 162                             |
+| Collaborazione  | Esattamente le ore impostate dall'admin nell'utenza |
 
-### 9.1 Limite annuale di variazioni
+Il contatore mostra **Richieste inviate X/N · Disponibili Y**. Ogni invio consuma una richiesta, anche se rifiutata; una richiesta con più operazioni conta una sola volta. Il limite può essere zero. Per i piani precedenti il nuovo contatore decorre dall'attivazione di questo workflow; lo storico precedente resta consultabile.
 
-Per evitare che la proposta venga riscritta di settimana in settimana, la Direzione imposta un **massimo di variazioni all'anno** (default: **3** per proposta). Quando raggiungi il limite, le richieste successive sono bloccate fino al prossimo anno accademico (a meno di intervento manuale dell'admin).
+### 9.2 Come richiedere una variazione
 
-| Tipo di variazione          | Consuma una variazione?            |
-| --------------------------- | ---------------------------------- |
-| Disattivazione di una cella | **No** (libera ore, sempre lecita) |
-| Riattivazione               | Sì                                 |
-| Cambio orario               | Sì                                 |
-| Cambio aula puntuale        | Sì                                 |
-| Spostamento (off+on)        | Sì (**1 sola** variazione, non 2)  |
-| Nuovo giorno fuori pattern  | Sì                                 |
+1. Apri **Richiedi variazione** nella griglia annuale.
+2. Scegli cambio orario, aula, spostamento, cancellazione, riattivazione o nuovo giorno.
+3. Usa **Aggiungi modifica** per riunire più operazioni. Se il contratto richiede un totale esatto, inserisci cancellazione e recupero nella stessa richiesta.
+4. Inserisci la motivazione e invia. Il sistema verifica il totale finale e il calendario; non consente modifiche a date trascorse, giorni bloccati o occorrenze già coinvolte in richieste pendenti.
+5. Attendi la decisione: il revisore può approvare, rifiutare oppure modificare e approvare.
 
-### 9.2 Le 5 azioni di variazione
+Per i nuovi giorni puoi indicare un'aula preferita; prima dell'approvazione il revisore deve assegnare quella definitiva.
 
-#### 9.2.1 Disattivare una lezione (toggle off)
+### 9.3 Esiti, storico ed email
 
-> _"Cancella la lezione del 12 ottobre, sono in trasferta."_
+Lo storico mostra richiesta originale, soluzione finale e motivazione del revisore. L'email automatica riporta l'esito, date e orari, aule, ore risultanti e richieste residue. Lo stato **accodata** indica che il messaggio attende l'invio; **inviata al server SMTP** conferma l'accettazione da parte del server di posta. Le auto-approvazioni sono presenti soltanto nello storico precedente.
 
-Dalla griglia annuale, click sulla cella attiva del 12/10. Diventa vuota. La prenotazione corrispondente nel calendario aule si cancella automaticamente. **Auto-approvata sempre**.
+### 9.4 Piano da rivalidare
 
-#### 9.2.2 Riattivare una lezione
-
-> _"La lezione del 12 ottobre che avevo cancellato la voglio rimettere."_
-
-Click sulla cella vuota del 12/10 (sotto un giorno del pattern). Cadenza ricrea la prenotazione, **auto-approvata** se l'aula è ancora libera.
-
-#### 9.2.3 Cambiare orario di una sola occorrenza
-
-> _"Lunedì 6 novembre ho una visita medica alle 14: inizio alle 16 invece che alle 14."_
-
-Sulla cella attiva del 6/11, click sulla piccola icona "**⋮**" in alto a destra → si apre il dialog "Spostamento lezione" → tab **"Cambia orario"** → inserisci i nuovi orari (es. 16:00–19:00) → "Salva".
-
-- **Auto-approvata** se la cella era nel piano originale.
-- Tutte le altre lezioni del pattern restano invariate.
-- La prenotazione nel calendario aule si aggiorna ai nuovi orari.
-
-#### 9.2.4 Cambiare aula puntualmente
-
-> _"Mercoledì 8 novembre l'Aula 12 è occupata per un concerto: sposto solo quel mercoledì in Aula 5."_
-
-Cella attiva del 8/11 → icona "**⋮**" → tab **"Cambia aula"** → seleziona "Aula 5" → "Richiedi cambio aula".
-
-- **Sempre pending**: l'aula è risorsa condivisa, il coordinatore deve confermare che Aula 5 è davvero libera.
-- Quando il coordinatore approva, lo slot del 8/11 prende Aula 5 come aula. Il pattern e tutte le altre settimane restano in Aula 12.
-
-#### 9.2.5 Spostare una lezione su un altro giorno
-
-> _"La lezione di lunedì 13 novembre la sposto a giovedì 16 novembre."_
-
-Cella attiva del 13/11 → icona "**⋮**" → tab **"Sposta a…"** → scegli "16/11 14:00–17:00" dall'elenco delle celle libere → "Sposta".
-
-- **Auto-approvata** se sia la cella sorgente sia quella destinazione sono già nel tuo pattern settimanale.
-- **Pending** se la destinazione è fuori pattern.
-- Conta come **1 sola** variazione (non 2): la disattivazione del 13/11 e l'attivazione del 16/11 sono fatte in un'unica operazione atomica.
-
-#### 9.2.6 Aggiungere un giorno fuori pattern
-
-> _"Voglio aggiungere una lezione il sabato 18 novembre per recuperare il programma."_
-
-Pulsante **"Richiedi nuovo giorno"** in cima alla griglia. Si apre un dialog con:
-
-| Campo          | Cosa metti                                |
-| -------------- | ----------------------------------------- |
-| Data           | 2026-11-18                                |
-| Inizio – Fine  | 09:00 – 12:00                             |
-| Aula preferita | (facoltativa: il coordinatore la assegna) |
-| Tipo           | Lezione · Studio · Prova                  |
-| Etichetta      | "Recupero programma 3°"                   |
-| Note           | "Mi mancano 3 ore prima dell'esame"       |
-
-- **Sempre pending**: il coordinatore deve verificare aula + opportunità.
-- Quando approvato, viene creato uno slot "fuori pattern" + la prenotazione corrispondente.
-
-### 9.3 Dove vedere lo storico delle tue variazioni
-
-Sotto la griglia annuale c'è una card collassabile **"Storico variazioni"** con il conteggio:
-
-- **In attesa**: le pending in attesa di decisione del coordinatore
-- **Auto-approvate**: quelle che il sistema ha applicato automaticamente
-- **Approvate**: le pending che il coordinatore ha approvato
-- **Rifiutate**: quelle che il coordinatore ha rifiutato (con motivo visibile)
-
-### 9.4 Banner "proposta da rivalidare" in corso d'anno
-
-Se la Direzione **modifica il tuo contratto** (es. passi da titolare a titolare ridotto, o ti aggiunge ore per supplenza) **mentre la tua proposta è già attiva**, Cadenza ti mostra in cima alla pagina Monte Ore un banner rosso:
-
-```
-[!] Proposta da rivalidare
-    Variazione contratto (admin) in corso d'anno: rivedi e re-invia la proposta.
-```
-
-Cosa fare:
-
-1. Apri la pagina Monte Ore e leggi il motivo del banner.
-2. Verifica il pattern: con la nuova soglia ore, devi aggiungerne / toglierne?
-3. Se serve, aggiungi o rimuovi fasce dal pattern e ri-clicca "Invia al coordinatore".
-4. Il banner sparisce alla prossima submit.
-
-> Il banner è informativo, **non blocca** la didattica corrente. Le lezioni continuano regolarmente fino a quando non re-invii.
+Quando cambiano contratto o calendario, compare un avviso. Per un piano operativo contatta il revisore: può eseguire una rivalidazione amministrativa motivata, che non consuma il tuo limite. Le lezioni sospese dal nuovo calendario vengono cancellate soltanto dopo conferma dell'impatto; le altre restano attive. In bozza puoi correggere il piano e inviarlo nuovamente.
 
 ---
 

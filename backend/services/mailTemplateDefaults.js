@@ -59,6 +59,21 @@ const LOAN_ROWS = `      <div class="row"><div class="label">Strumento</div><div
       {{#if loan.notes}}<div class="row"><div class="label">Note</div><div class="val">{{loan.notes}}</div></div>{{/if}}`;
 
 const DEFAULTS = {
+  ...Object.fromEntries(
+    ['approved', 'rejected', 'modified'].map((decision) => [
+      `monte_ore_${decision}`,
+      {
+        subject: 'Monte ore {{academicYear}}: variazione {{outcome}}',
+        bodyHtml: wrap(
+          '',
+          'Variazione monte ore {{outcome}}',
+          'Gentile {{firstName}}, il revisore ha deciso la tua richiesta.',
+          '<p>Anno accademico: {{academicYear}}</p><p>Motivazione: {{reason}}</p><h2>Prima</h2><pre>{{before}}</pre><h2>Dopo</h2><pre>{{after}}</pre><p>Ore annuali: {{hours}} · Richieste residue: {{remaining}}</p><p><a href="{{url}}">Consulta la richiesta</a></p>',
+        ),
+      },
+    ]),
+  ),
+
   confirmation: {
     subject: 'Prenotazione confermata · {{institute.name}}',
     bodyHtml: wrap(

@@ -54,6 +54,11 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
     }
   }, [label, editing]);
 
+  const fixedRule = ['titolare', 'tempo_definito', 'collaborazione'].includes(editing?.code ?? '');
+  const [hoursMode, setHoursMode] = useState<'minimum' | 'exact' | 'maximum'>(
+    editing?.hoursMode ?? 'minimum',
+  );
+  const [individualHours, setIndividualHours] = useState(editing?.requiresIndividualHours ?? false);
   const isEdit = !!editing;
   const isSystem = editing?.isSystem ?? false;
 
@@ -62,6 +67,8 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
     onSave({
       ...(isEdit ? {} : { code: code || slugify(label) }),
       label: label.trim(),
+      hoursMode,
+      requiresIndividualHours: individualHours,
       defaultHours: defaultHoursEnabled ? Number(defaultHours) : null,
       bypassDayConstraintDefault: bypassDay,
       isActive,
@@ -122,6 +129,28 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
             </p>
           </div>
 
+          <label className="block text-sm">
+            Regola ore annuali
+            <select
+              className="mt-1 w-full rounded border bg-background p-2"
+              value={hoursMode}
+              disabled={fixedRule}
+              onChange={(e) => setHoursMode(e.target.value as 'minimum' | 'exact' | 'maximum')}
+            >
+              <option value="exact">Obiettivo esatto</option>
+              <option value="maximum">Massimo</option>
+              <option value="minimum">Minimo</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={individualHours}
+              disabled={fixedRule}
+              onChange={(e) => setIndividualHours(e.target.checked)}
+            />
+            Ore individuali obbligatorie nell’utenza docente
+          </label>
           {/* Ore default */}
           <div className="space-y-2 rounded-lg border p-3">
             <div className="flex items-center justify-between">
@@ -131,6 +160,7 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
               <Switch
                 id="ct-hours-toggle"
                 checked={defaultHoursEnabled}
+                disabled={fixedRule}
                 onCheckedChange={setDefaultHoursEnabled}
               />
             </div>
@@ -138,6 +168,7 @@ export function ContractTypeFormDialog({ open, editing, onClose, onSave, saving 
               <div className="flex items-center gap-2">
                 <Input
                   id="ct-hours"
+                  disabled={fixedRule}
                   type="number"
                   min={0}
                   max={1500}

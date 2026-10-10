@@ -21,8 +21,9 @@ const { MonteOreSettings, User, ContractType } = require('../models');
 
 const DEFAULT_MIN_HOURS = 324;
 
-async function resolveAnnualThreshold(userId, academicYear) {
+async function resolveAnnualThreshold(userId, academicYear, { transaction } = {}) {
   const user = await User.findByPk(userId, {
+    transaction,
     attributes: [
       'id',
       'role',
@@ -46,7 +47,17 @@ async function resolveAnnualThreshold(userId, academicYear) {
   if (user.contractType) {
     contractTypeRow = await ContractType.findOne({
       where: { code: user.contractType },
-      attributes: ['id', 'code', 'label', 'defaultHours', 'bypassDayConstraintDefault', 'isActive'],
+      transaction,
+      attributes: [
+        'id',
+        'code',
+        'label',
+        'defaultHours',
+        'bypassDayConstraintDefault',
+        'isActive',
+        'hoursMode',
+        'requiresIndividualHours',
+      ],
     });
   }
 
@@ -60,10 +71,34 @@ async function resolveAnnualThreshold(userId, academicYear) {
   const typeBypass = !!contractTypeRow?.bypassDayConstraintDefault;
   const bypassDayConstraint = userBypassExplicit || typeBypass;
 
+  const mode =
+    user.contractType === 'titolare' || user.contractType === 'collaborazione'
+      ? 'exact'
+      : user.contractType === 'tempo_definito'
+        ? 'maximum'
+        : contractTypeRow?.hoursMode || 'minimum';
+  if (
+    (user.contractType === 'collaborazione' || contractTypeRow?.requiresIndividualHours) &&
+    !(Number(user.monteOreAnnualHoursOverride) > 0)
+  ) {
+    const e = new Error(
+      'Definisci le ore annuali del contratto di collaborazione nell’utenza docente',
+    );
+    e.status = 400;
+    e.code = 'CONTRACT_HOURS_REQUIRED';
+    throw e;
+  }
+
   // 1) User override esplicito sulle ore
   if (user.monteOreAnnualHoursOverride != null) {
     return {
-      minHours: Number(user.monteOreAnnualHoursOverride),
+      mode,
+      minHours:
+        user.contractType === 'titolare'
+          ? 324
+          : user.contractType === 'tempo_definito'
+            ? Math.min(162, Number(user.monteOreAnnualHoursOverride))
+            : Number(user.monteOreAnnualHoursOverride),
       bypassDayConstraint,
       contractType: user.contractType || null,
       contractTypeLabel: contractTypeRow?.label || null,
@@ -75,7 +110,13 @@ async function resolveAnnualThreshold(userId, academicYear) {
   // 2) Default del tipo contratto (se valorizzato)
   if (contractTypeRow && contractTypeRow.defaultHours != null) {
     return {
-      minHours: Number(contractTypeRow.defaultHours),
+      mode,
+      minHours:
+        user.contractType === 'titolare'
+          ? 324
+          : user.contractType === 'tempo_definito'
+            ? 162
+            : Number(contractTypeRow.defaultHours),
       bypassDayConstraint,
       contractType: user.contractType || null,
       contractTypeLabel: contractTypeRow.label,
@@ -85,9 +126,15 @@ async function resolveAnnualThreshold(userId, academicYear) {
   }
 
   // 3) Settings istituzionali per AA
-  const settings = await MonteOreSettings.findOne({ where: { academicYear } });
+  const settings = await MonteOreSettings.findOne({ where: { academicYear }, transaction });
   return {
-    minHours: settings?.minRequiredHours ?? DEFAULT_MIN_HOURS,
+    mode,
+    minHours:
+      user.contractType === 'tempo_definito'
+        ? 162
+        : user.contractType === 'titolare'
+          ? 324
+          : (settings?.minRequiredHours ?? DEFAULT_MIN_HOURS),
     bypassDayConstraint,
     contractType: user.contractType || null,
     contractTypeLabel: contractTypeRow?.label || null,

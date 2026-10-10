@@ -653,7 +653,23 @@ async function seed() {
   const institutes = await Institute.findAll({ attributes: ['id'], order: [['id', 'ASC']] });
   const CONTRACT_TYPE_SEED = [
     {
+      code: 'tempo_definito',
+      label: 'Tempo definito',
+      defaultHours: 162,
+      hoursMode: 'maximum',
+      sortOrder: 2,
+    },
+    {
+      code: 'collaborazione',
+      label: 'Collaborazione',
+      defaultHours: null,
+      hoursMode: 'exact',
+      requiresIndividualHours: true,
+      sortOrder: 3,
+    },
+    {
       code: 'titolare',
+      hoursMode: 'exact',
       label: 'Titolare di cattedra',
       defaultHours: 324,
       bypassDayConstraintDefault: false,
@@ -684,11 +700,17 @@ async function seed() {
   let contractTypesAdded = 0;
   for (const inst of institutes) {
     for (const row of CONTRACT_TYPE_SEED) {
-      const [, created] = await ContractType.findOrCreate({
+      const [type, created] = await ContractType.findOrCreate({
         where: { instituteId: inst.id, code: row.code },
         defaults: { ...row, instituteId: inst.id, isSystem: true, isActive: true },
       });
       if (created) contractTypesAdded += 1;
+      else if (['titolare', 'tempo_definito', 'collaborazione'].includes(row.code))
+        await type.update({
+          hoursMode: row.hoursMode,
+          requiresIndividualHours: row.requiresIndividualHours || false,
+          defaultHours: row.defaultHours,
+        });
     }
   }
   if (contractTypesAdded > 0) {

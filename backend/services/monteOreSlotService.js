@@ -3,14 +3,8 @@
 /**
  * Monte Ore — espansione pattern (Sezione A) → slot griglia (Sezione B).
  *
- * Quando il docente conferma il pattern settimanale (giorni + fasce orarie),
- * il sistema genera UN MonteOreSlot per ogni occorrenza valida nel calendario
- * didattico al netto delle sospensioni. Ogni slot nasce con `isActive=true`:
- * il docente poi può deselezionare singole celle dalla griglia.
- *
- * Idempotenza: la regen cancella TUTTI gli slot della proposta e li ricrea.
- * Per questo si chiama solo quando il pattern viene modificato. Le toggle
- * delle singole celle invece non passano per la regen.
+ * La rigenerazione conserva gli ID e le selezioni delle occorrenze ancora valide.
+ * Le nuove date sono inattive; la rimozione di date attive richiede conferma.
  */
 
 const dayjs = require('dayjs');
@@ -50,7 +44,10 @@ async function getSuspensions(academicYear, instituteId = null) {
  *
  * Ritorna { created, locked, total }.
  */
-async function regenerateSlotsFromPattern(proposalId, { transaction = null } = {}) {
+async function regenerateSlotsFromPattern(
+  proposalId,
+  { transaction = null, confirmRemoval = false } = {},
+) {
   const tx = transaction ? { transaction } : {};
   const proposal = await MonteOreProposal.findByPk(proposalId, {
     include: [{ model: MonteOreSchedule, as: 'schedules' }],
@@ -64,43 +61,57 @@ async function regenerateSlotsFromPattern(proposalId, { transaction = null } = {
   const suspensions = await getSuspensions(proposal.academicYear, settings.instituteId);
   const weeks = computeWeeks(settings, suspensions);
 
-  // Cancella slot precedenti (in tx)
-  await MonteOreSlot.destroy({ where: { proposalId }, ...tx });
-
-  // Costruisci payload in memoria, poi UN solo bulkCreate (era N+1 prima).
-  // Su 4 schedules × 50 settimane = 200 slot questo passa da 200 INSERT
-  // sequenziali a 1 batch INSERT — riduce drasticamente il rischio di pool
-  // exhaustion e velocizza ~10×.
-  const payloads = [];
+  const previous = await MonteOreSlot.findAll({ where: { proposalId }, ...tx });
+  const existing = new Map(previous.map((s) => [`${s.scheduleId}:${s.date}`, s]));
+  const desired = new Set();
   let locked = 0;
   let created = 0;
+  const payloads = [];
   for (const sched of proposal.schedules) {
     for (const week of weeks) {
       const day = week.days.find((d) => d.dayOfWeek === sched.dayOfWeek);
-      if (!day) continue;
-      const isLocked = day.isLocked;
-      payloads.push({
+      if (!day || day.date < proposal.validFrom || day.date > proposal.validTo) continue;
+      const key = `${sched.id}:${day.date}`;
+      desired.add(key);
+      const old = existing.get(key);
+      const values = {
         proposalId,
         scheduleId: sched.id,
         date: day.date,
         dayOfWeek: day.dayOfWeek,
         startTime: sched.startTime,
         endTime: sched.endTime,
-        // Logica "additiva": tutti nascono INATTIVI. Il docente seleziona
-        // cliccando le celle. originalActive parte false; verrà
-        // snapshottato dall'approve admin.
-        isActive: false,
-        isLocked,
+        isLocked: day.isLocked,
         lockReason: day.lockReason,
-        originalActive: false,
-      });
-      if (isLocked) locked++;
+        isActive: day.isLocked ? false : old?.isActive || false,
+        originalActive: old?.originalActive || false,
+      };
+      payloads.push({ old, values });
+      if (day.isLocked) locked++;
       else created++;
     }
   }
-  if (payloads.length > 0) {
-    await MonteOreSlot.bulkCreate(payloads, { transaction });
+  const removed = previous.filter((s) => !desired.has(`${s.scheduleId}:${s.date}`));
+  const lost = removed.filter((s) => s.isActive);
+  if (lost.length && !confirmRemoval) {
+    return {
+      created: 0,
+      locked: 0,
+      total: previous.length,
+      requiresConfirmation: true,
+      removedActive: lost.map((s) => ({
+        date: s.date,
+        startTime: s.startTime,
+        endTime: s.endTime,
+      })),
+    };
   }
+  for (const { old, values } of payloads) {
+    if (old) await old.update(values, tx);
+    else await MonteOreSlot.create(values, tx);
+  }
+  if (removed.length)
+    await MonteOreSlot.destroy({ where: { id: removed.map((s) => s.id) }, ...tx });
 
   // Aggiorna conteggi sulla proposta (dentro la stessa tx)
   await recomputeTotals(proposalId, { transaction });
@@ -117,13 +128,14 @@ async function recomputeTotals(proposalId, { transaction = null } = {}) {
     where: { proposalId, isActive: true, isLocked: false },
     ...tx,
   });
-  const totalHours = slots.reduce((acc, s) => {
+  const totalMinutes = slots.reduce((acc, s) => {
     const [sh, sm] = s.startTime.split(':').map(Number);
     const [eh, em] = s.endTime.split(':').map(Number);
-    return acc + (eh + em / 60 - (sh + sm / 60));
+    return acc + (eh * 60 + em - sh * 60 - sm);
   }, 0);
+  const totalHours = totalMinutes / 60;
   await MonteOreProposal.update(
-    { totalHoursPlanned: Math.round(totalHours * 10) / 10 },
+    { totalHoursPlanned: totalHours },
     { where: { id: proposalId }, ...tx },
   );
   return totalHours;
@@ -314,30 +326,10 @@ async function snapshotOriginalActive(proposalId, { transaction = null } = {}) {
 }
 
 /**
- * Auto-approve se la modifica resta dentro il pattern settimanale già
- * approvato (stesso dayOfWeek+orario, scheduleId valorizzato), o se è una
- * deselezione (libero ore = sempre lecito). Tutto il resto richiede il
- * coordinatore.
- *
- * - toggle_off: sempre auto (libera ore)
- * - toggle_on: auto se slot dentro pattern, pending altrimenti
- * - change_time: auto se slot.originalActive (era in piano), pending altrimenti
- * - change_room: sempre pending (l'aula è risorsa condivisa)
- * - move_to: auto se sia source sia target sono in pattern; pending altrimenti.
- *   Il target è passato come secondo argomento opzionale dal route handler.
- * - add_new_day: sempre pending
+ * Ogni nuova variazione richiede una decisione del revisore.
+ * Le decisioni auto_approved rimangono leggibili soltanto nello storico.
  */
-function classifyAmendment(slot, kind, opts = {}) {
-  if (kind === 'toggle_off') return 'auto_approved';
-  if (kind === 'toggle_on') {
-    return slot.scheduleId ? 'auto_approved' : 'pending';
-  }
-  if (kind === 'change_time' && slot.originalActive) return 'auto_approved';
-  if (kind === 'change_room') return 'pending';
-  if (kind === 'move_to') {
-    const target = opts.targetSlot;
-    return slot.scheduleId && target && target.scheduleId ? 'auto_approved' : 'pending';
-  }
+function classifyAmendment() {
   return 'pending';
 }
 

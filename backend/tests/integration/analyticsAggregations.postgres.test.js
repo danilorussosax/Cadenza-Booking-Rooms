@@ -21,6 +21,9 @@
  */
 
 const request = require('supertest');
+const dayjs = require('dayjs');
+dayjs.extend(require('dayjs/plugin/utc'));
+dayjs.extend(require('dayjs/plugin/timezone'));
 const { buildApp } = require('../../app');
 const { sequelize } = require('../../models');
 const { createAdmin, createBooking, createRoom } = require('../factories');
@@ -41,11 +44,13 @@ const isPostgres = sequelize.getDialect() === 'postgres';
   // `EXTRACT(DOW)` Postgres = 0 (domenica) ... 6 (sabato), il route
   // converte a 0=lunedi ... 6=domenica.
   function mondayAt(hour) {
-    const d = new Date();
-    const day = d.getDay() || 7; // 1..7 con lunedi=1
-    d.setDate(d.getDate() - (day - 1)); // sposta a lunedi
-    d.setHours(hour, 0, 0, 0);
-    return d;
+    const today = dayjs().tz('Europe/Rome');
+    const day = today.day() || 7;
+    return today
+      .subtract(day - 1, 'day')
+      .startOf('day')
+      .hour(hour)
+      .toDate();
   }
 
   describe('GET /api/admin/analytics', () => {
@@ -73,7 +78,13 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       const room = await createRoom({ name: 'Aula Test' });
       const start = mondayAt(10);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2h
-      await createBooking({ user: admin, room, startTime: start, endTime: end });
+      await createBooking({
+        type: 'studio_individuale',
+        user: admin,
+        room,
+        startTime: start,
+        endTime: end,
+      });
 
       const res = await request(app).get('/api/admin/analytics').set('Authorization', authHeader);
       expect(res.status).toBe(200);
@@ -105,10 +116,17 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       const end = new Date(start.getTime() + 60 * 60 * 1000);
 
       // 1 booking confermata + 1 auto-cancellata (ghost)
-      await createBooking({ user: admin, room, startTime: start, endTime: end });
+      await createBooking({
+        type: 'studio_individuale',
+        user: admin,
+        room,
+        startTime: start,
+        endTime: end,
+      });
       const start2 = mondayAt(12);
       const end2 = new Date(start2.getTime() + 60 * 60 * 1000);
       await createBooking({
+        type: 'studio_individuale',
         user: admin,
         room,
         startTime: start2,
@@ -133,6 +151,7 @@ const isPostgres = sequelize.getDialect() === 'postgres';
 
       // R1: 1 ora; R2: 3 ore
       await createBooking({
+        type: 'studio_individuale',
         user: admin,
         room: r1,
         startTime: mondayAt(9),
@@ -140,6 +159,7 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       });
       const start2 = mondayAt(14);
       await createBooking({
+        type: 'studio_individuale',
         user: admin,
         room: r2,
         startTime: start2,
@@ -159,6 +179,7 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       const today = new Date();
       const oldStart = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000); // 60gg fa
       await createBooking({
+        type: 'studio_individuale',
         user: admin,
         room,
         startTime: oldStart,
@@ -201,6 +222,7 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       const room = await createRoom();
       const start = mondayAt(10);
       await createBooking({
+        type: 'studio_individuale',
         user: admin,
         room,
         startTime: start,

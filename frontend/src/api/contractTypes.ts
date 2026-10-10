@@ -13,6 +13,8 @@ export interface ContractTypeUpsertPayload {
   label?: string;
   code?: string; // solo in CREATE; ignorato in UPDATE
   defaultHours?: number | null;
+  hoursMode?: 'minimum' | 'exact' | 'maximum';
+  requiresIndividualHours?: boolean;
   bypassDayConstraintDefault?: boolean;
   sortOrder?: number;
   isActive?: boolean;

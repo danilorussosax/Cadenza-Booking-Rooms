@@ -26,6 +26,7 @@ const AUDITED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // Ogni voce: { regex, targetType, skipBody?: bool }
 const AUDIT_PATTERNS = [
   // Admin
+  { regex: /^\/api\/admin\/monte-ore(?:\/(\d+))?/, targetType: 'monte_ore' },
   { regex: /^\/api\/admin\/quotas(?:\/(\d+))?/, targetType: 'quota' },
   { regex: /^\/api\/admin\/mail-templates\/?([^?]+)?/, targetType: 'mail_template' },
   { regex: /^\/api\/admin\/mail-settings/, targetType: 'mail_settings' },

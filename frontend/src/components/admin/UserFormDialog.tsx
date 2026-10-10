@@ -170,35 +170,28 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
         courseId: values.courseId ? Number(values.courseId) : null,
         isActive: values.isActive,
       };
+      const contract =
+        values.role === 'docente'
+          ? {
+              contractType:
+                !values.contractType || values.contractType === '__none__'
+                  ? null
+                  : values.contractType,
+              monteOreAnnualHoursOverride:
+                values.monteOreUseHoursOverride || values.contractType === 'collaborazione'
+                  ? Number(values.monteOreAnnualHoursOverride ?? 0)
+                  : null,
+              monteOreBypassDayConstraint: !!values.monteOreBypassDayConstraint,
+              monteOreOverrideReason: values.monteOreOverrideReason?.trim() ?? null,
+            }
+          : {};
       const result = isEdit
         ? await usersApi.update(user.id, {
             ...payload,
+            ...contract,
             newPassword: values.password?.trim() ?? undefined,
           })
-        : await usersApi.create({
-            ...payload,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            password: values.password!,
-          });
-
-      // Salva la deroga Monte Ore in una chiamata separata. Si applica solo a
-      // docenti (sia in update che dopo create), e solo se almeno un campo
-      // della sezione differisce dallo stato corrente del DB (best-effort).
-      if (result.user.role === 'docente') {
-        const ct =
-          !values.contractType || values.contractType === '__none__' ? null : values.contractType;
-        const hours = values.monteOreUseHoursOverride
-          ? Number(values.monteOreAnnualHoursOverride ?? 0)
-          : null;
-        const bypass = !!values.monteOreBypassDayConstraint;
-        const reason = values.monteOreOverrideReason?.trim() ?? null;
-        await usersApi.setMonteOreOverride(result.user.id, {
-          contractType: ct,
-          monteOreAnnualHoursOverride: hours,
-          monteOreBypassDayConstraint: bypass,
-          monteOreOverrideReason: reason,
-        });
-      }
+        : await usersApi.create({ ...payload, ...contract, password: values.password ?? '' });
       return result;
     },
     onSuccess: () => {
@@ -432,11 +425,9 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
                 </p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Il <strong>tipo contratto</strong> determina la soglia annua di default. L'
-                <strong>override individuale</strong> consente di assegnare ore specifiche a questo
-                docente — funziona per <em>qualsiasi</em> tipo contratto, anche per i titolari (es.
-                coordinatore di dipartimento con +36h aggiuntive), e ha priorità sul default del
-                tipo.
+                Cattedra intera: 324 ore esatte. Tempo definito: massimo 162 ore. Collaborazione:
+                inserisci le ore individuali concordate. Il cambio di contratto richiede la
+                rivalidazione dei piani operativi.
               </p>
 
               <div className="space-y-2">
@@ -445,6 +436,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
                   value={contractType ?? '__none__'}
                   onValueChange={(v) => {
                     setValue('contractType', v);
+                    if (v === 'collaborazione') setValue('monteOreUseHoursOverride', true);
                   }}
                   disabled={contractTypesQuery.isLoading}
                 >
@@ -474,8 +466,13 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
                     if (ct?.defaultHours == null) return null;
                     return (
                       <p className="text-xs text-muted-foreground">
-                        Soglia di default per "{ct.label}": <strong>{ct.defaultHours}h/anno</strong>
-                        . Sovrascrivibile con l'override individuale qui sotto.
+                        Ore annuali per "{ct.label}": <strong>{ct.defaultHours}h/anno</strong>
+                        {ct.hoursMode === 'maximum'
+                          ? ' (massimo)'
+                          : ct.hoursMode === 'exact'
+                            ? ' (obiettivo)'
+                            : ' (minimo)'}
+                        .
                       </p>
                     );
                   })()}

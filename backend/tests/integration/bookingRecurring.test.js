@@ -187,8 +187,8 @@ describe('POST /bookings/recurring', () => {
   it('crea serie weekly OK → 201 + N booking con stesso recurrenceId', async () => {
     const room = await setupRoom();
     const { authHeader } = await createTeacher();
-    const start = dayjs().add(1, 'day').startOf('day').hour(10).toISOString();
-    const end = dayjs().add(1, 'day').startOf('day').hour(11).toISOString();
+    const start = dayjs().tz('Europe/Rome').add(1, 'day').startOf('day').hour(10).toISOString();
+    const end = dayjs().tz('Europe/Rome').add(1, 'day').startOf('day').hour(11).toISOString();
 
     const res = await request(app)
       .post('/api/bookings/recurring')
@@ -215,10 +215,10 @@ describe('POST /bookings/recurring', () => {
       where: { recurrenceId: res.body.recurrenceId },
     });
     expect(bookings.length).toBe(res.body.createdCount);
-    // Tutti gli orari sono 10:00-11:00 (estratti dal template)
+    // Gli orari italiani restano 10–11 anche attraverso il cambio DST e con server UTC.
     for (const b of bookings) {
-      expect(dayjs(b.startTime).hour()).toBe(10);
-      expect(dayjs(b.endTime).hour()).toBe(11);
+      expect(dayjs(b.startTime).tz('Europe/Rome').hour()).toBe(10);
+      expect(dayjs(b.endTime).tz('Europe/Rome').hour()).toBe(11);
     }
   });
 

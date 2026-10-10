@@ -356,7 +356,7 @@ describe('routes/contractTypes', () => {
 
     it('IMPACT_CONFIRM_REQUIRED quando defaultHours cambia con docenti senza override', async () => {
       const inst = await createInstitute();
-      const ct = await createCT(inst.id, { code: 'titolare', defaultHours: 324 });
+      const ct = await createCT(inst.id, { code: 'custom_324', defaultHours: 324 });
       await User.create({
         firstName: 'D',
         lastName: 'X',
@@ -365,7 +365,7 @@ describe('routes/contractTypes', () => {
         role: 'docente',
         status: 'approved',
         isActive: true,
-        contractType: 'titolare',
+        contractType: 'custom_324',
       });
       const { authHeader } = await createAdmin();
 
@@ -380,7 +380,7 @@ describe('routes/contractTypes', () => {
 
     it('confirmedImpact: passa il guard e aggiorna defaultHours', async () => {
       const inst = await createInstitute();
-      const ct = await createCT(inst.id, { code: 'titolare', defaultHours: 324 });
+      const ct = await createCT(inst.id, { code: 'custom_324', defaultHours: 324 });
       await User.create({
         firstName: 'D',
         lastName: 'X',
@@ -389,7 +389,7 @@ describe('routes/contractTypes', () => {
         role: 'docente',
         status: 'approved',
         isActive: true,
-        contractType: 'titolare',
+        contractType: 'custom_324',
       });
       const { authHeader } = await createAdmin();
 

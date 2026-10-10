@@ -62,6 +62,13 @@ module.exports = (sequelize) => {
         ),
         allowNull: false,
       },
+      beforeSnapshot: { type: DataTypes.JSON, allowNull: true },
+      afterSnapshot: { type: DataTypes.JSON, allowNull: true },
+      operations: { type: DataTypes.JSON, allowNull: true },
+      finalOperations: { type: DataTypes.JSON, allowNull: true },
+      baseRevision: { type: DataTypes.INTEGER, allowNull: true },
+      decisionNotes: { type: DataTypes.TEXT, allowNull: true },
+      idempotencyKey: { type: DataTypes.STRING(100), allowNull: true, unique: true },
       payload: {
         // Dettagli della modifica. Schema dipende da `kind`.
         type: DataTypes.JSON,

@@ -27,6 +27,13 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
   beforeAll(async () => {
     app = await buildApp({ serveFrontend: false });
   });
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2025-11-01T12:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   beforeEach(async () => {
     await globalThis.resetDatabase();
   });
@@ -208,9 +215,9 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     expect(r2.body.code).toBe('HOURS_BELOW_THRESHOLD');
   });
 
-  it('amendments: toggle_off su slot originalActive=true → auto_approved', async () => {
+  it('amendments: toggle_off su slot originalActive=true → pending', async () => {
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 4 });
+    await setupSettings({ minRequiredHours: 2 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
     const { authHeader: adminHeader } = await createAdmin();
@@ -258,7 +265,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Snapshot: solo gli slot attivati hanno originalActive=true
     const slotsAfterApprove = await MonteOreSlot.findAll({ where: { proposalId: id } });
@@ -271,11 +278,11 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', docHeader)
       .send({});
     expect(tog.status).toBe(201);
-    expect(tog.body.amendment.status).toBe('auto_approved');
-    expect(tog.body.slot.isActive).toBe(false);
+    expect(tog.body.amendment.status).toBe('pending');
+    expect((await MonteOreSlot.findByPk(activatedId)).isActive).toBe(true);
   });
 
-  it('amendments: toggle_on su slot del pattern settimanale (originalActive=false) → auto_approved', async () => {
+  it('amendments: toggle_on su slot del pattern settimanale (originalActive=false) → pending', async () => {
     // Nuova logica: il docente può sostituire un giorno deselezionato con un
     // altro giorno dello STESSO pattern settimanale (stesso dayOfWeek + stesso
     // slot orario, varia solo la data) senza coinvolgere il coordinatore.
@@ -330,7 +337,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     const target = await MonteOreSlot.findByPk(targetId);
     expect(target.originalActive).toBe(false);
@@ -342,8 +349,8 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', docHeader)
       .send({});
     expect(tog.status).toBe(201);
-    expect(tog.body.amendment.status).toBe('auto_approved');
-    expect(tog.body.slot.isActive).toBe(true);
+    expect(tog.body.amendment.status).toBe('pending');
+    expect((await MonteOreSlot.findByPk(targetId)).isActive).toBe(false);
   });
 
   it('add_new_day: docente richiede giorno fuori pattern → pending; admin approva → slot creato', async () => {
@@ -394,7 +401,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Richiesta add_new_day: venerdì 09-11, fuori dal pattern (lun + mer)
     const req1 = await request(app)
@@ -434,12 +441,12 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     expect(newSlots[0].roomId).toBe(room.id);
   });
 
-  it('amendmentCount: deselezioni non consumano budget; aggiunte sì (sostituzione = 1)', async () => {
+  it('amendmentCount: ogni invio consuma budget, piano invariato durante attesa', async () => {
     // La sostituzione "deseleziono A + seleziono B" deve contare come UNA
     // sola modifica, non due. Le deselezioni liberano ore e non spendono
     // il budget annuale.
     await createBookingRule({ role: 'docente' });
-    await setupSettings({ minRequiredHours: 4 });
+    await setupSettings({ minRequiredHours: 2, maxAmendmentsPerYear: 4 });
     const room = await createRoom();
     const { authHeader: docHeader } = await createAuthedUser({ role: 'docente' });
     const { authHeader: adminHeader } = await createAdmin();
@@ -484,7 +491,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Sostituzione: deseleziono draftSlots[0] (toggle_off) + seleziono
     // draftSlots[2] (toggle_on, stesso pattern). Conta come 1 modifica.
@@ -499,7 +506,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .send({})
       .expect(201);
     let p = await MonteOreProposal.findByPk(id);
-    expect(p.amendmentCount).toBe(1);
+    expect(p.requestCount).toBe(2);
 
     // Una seconda sostituzione → 2
     await request(app)
@@ -513,7 +520,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .send({})
       .expect(201);
     p = await MonteOreProposal.findByPk(id);
-    expect(p.amendmentCount).toBe(2);
+    expect(p.requestCount).toBe(4);
   });
 
   it('amendmentCount: rifiuta toggle_on quando si supera maxAmendmentsPerYear (atomic UPDATE)', async () => {
@@ -563,7 +570,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // 1ª aggiunta: passa
     await request(app)
@@ -580,7 +587,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     expect(r2.body.code).toBe('AMENDMENT_LIMIT_REACHED');
     // Counter resta a 1 (atomic update non ha incrementato sulla 2ª)
     const p = await MonteOreProposal.findByPk(id);
-    expect(p.amendmentCount).toBe(1);
+    expect(p.requestCount).toBe(1);
   });
 
   it('add_new_day: rifiuta payload incompleto', async () => {
@@ -630,7 +637,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Mancante data
     await request(app)
@@ -756,7 +763,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Richiesta SENZA roomId
     const r1 = await request(app)
@@ -773,7 +780,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', adminHeader)
       .send({});
     expect(noRoom.status).toBe(400);
-    expect(noRoom.body.code).toBe('ROOM_REQUIRED');
+    expect(noRoom.body.code).toBe('MONTE_ORE_MISSING_ROOM');
 
     // Approve con roomId nel body → ok
     const ok = await request(app)
@@ -782,7 +789,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .send({ roomId: room2.id });
     expect(ok.status).toBe(200);
     expect(ok.body.amendment.status).toBe('approved');
-    expect(ok.body.amendment.payload.roomId).toBe(room2.id);
+    expect(ok.body.amendment.finalOperations[0].payload.roomId).toBe(room2.id);
 
     // Slot creato con l'aula assegnata dall'admin
     const newSlots = await MonteOreSlot.findAll({
@@ -839,7 +846,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Docente propone roomDoc; admin sovrascrive con roomAdmin
     const r1 = await request(app)
@@ -858,8 +865,8 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .set('Authorization', adminHeader)
       .send({ roomId: roomAdmin.id });
     expect(ok.status).toBe(200);
-    expect(ok.body.amendment.payload.roomId).toBe(roomAdmin.id);
-    expect(ok.body.amendment.payload.roomIdAssignedBy).toBe('admin');
+    expect(ok.body.amendment.finalOperations[0].payload.roomId).toBe(roomAdmin.id);
+    expect(ok.body.amendment.decisionNotes).toBeTruthy();
 
     const newSlot = await MonteOreSlot.findOne({
       where: { proposalId: id, scheduleId: null },
@@ -915,7 +922,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
       .post(`/api/admin/monte-ore/${id}/approve`)
       .set('Authorization', adminHeader)
       .send({})
-      .expect(200);
+      .expect((r) => expect(r.status, JSON.stringify(r.body)).toBe(200));
 
     // Richiesta add_new_day (sempre pending → testiamo il reject)
     const req1 = await request(app)

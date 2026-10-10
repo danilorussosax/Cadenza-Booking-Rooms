@@ -2176,5 +2176,46 @@
       "compare_recovered_one": "Usuario reincorporado ({{count}})",
       "compare_recovered_other": "Usuarios reincorporados ({{count}})"
     }
+  },
+  "monteWorkflow": {
+    "change": "Cambio",
+    "occurrence": "Clase a modificar",
+    "choose": "Selecciona",
+    "date": "Fecha",
+    "start": "Inicio",
+    "end": "Fin",
+    "room": "Aula",
+    "destination": "Destino",
+    "remove": "Eliminar",
+    "addChange": "Añadir cambio",
+    "request": "Solicitar variación",
+    "requestHelp": "Una solicitud puede incluir varios cambios y cuenta una vez. El plan sigue vigente hasta la decisión del revisor.",
+    "reason": "Motivo",
+    "send": "Enviar solicitud",
+    "sent": "Solicitud enviada al revisor",
+    "review": "Revisar variación",
+    "reviewHelp": "Revisa la solicitud y define el plan final.",
+    "original": "Solicitud original",
+    "modifyApprove": "Modificar y aprobar",
+    "approve": "Aprobar variación",
+    "decided": "Variación aprobada; correo en cola",
+    "budget": "Solicitudes enviadas: {{used}}/{{max}} · Disponibles: {{remaining}}",
+    "budgetHelp": "También cuentan las solicitudes rechazadas, desde la activación del nuevo flujo.",
+    "selectPeriod": "Seleccionar período",
+    "activate": "Seleccionar fechas",
+    "deactivate": "Deseleccionar fechas",
+    "allDays": "Todos los días",
+    "preview": "Verificar plan y aulas",
+    "approvePlan": "Aprobar y crear reservas",
+    "noConflicts": "Sin conflictos: listo para aprobación",
+    "kinds": {
+      "toggle_off": "Cancelar clase",
+      "toggle_on": "Añadir clase programada",
+      "change_time": "Cambiar horario",
+      "change_room": "Cambiar aula",
+      "move_to": "Mover clase",
+      "add_new_day": "Nueva fecha"
+    },
+    "projectedHours": "Horas anuales resultantes (vista previa): {{hours}} h"
   }
 }

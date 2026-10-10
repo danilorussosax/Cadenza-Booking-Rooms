@@ -2270,5 +2270,46 @@
       "compare_recovered_one": "Recovered user ({{count}})",
       "compare_recovered_other": "Recovered users ({{count}})"
     }
+  },
+  "monteWorkflow": {
+    "change": "Change",
+    "occurrence": "Lesson to change",
+    "choose": "Choose",
+    "date": "Date",
+    "start": "Start",
+    "end": "End",
+    "room": "Room",
+    "destination": "Destination",
+    "remove": "Remove",
+    "addChange": "Add change",
+    "request": "Request amendment",
+    "requestHelp": "A request may contain multiple changes and counts once. The current plan remains valid until the reviewer decides.",
+    "reason": "Reason",
+    "send": "Send request",
+    "sent": "Request sent to reviewer",
+    "review": "Review amendment",
+    "reviewHelp": "Check the request and define the final plan.",
+    "original": "Original request",
+    "modifyApprove": "Modify and approve",
+    "approve": "Approve amendment",
+    "decided": "Amendment approved; email queued",
+    "budget": "Requests sent: {{used}}/{{max}} · Remaining: {{remaining}}",
+    "budgetHelp": "Rejected requests also count, starting from activation of the new workflow.",
+    "selectPeriod": "Select period",
+    "activate": "Select dates",
+    "deactivate": "Deselect dates",
+    "allDays": "All days",
+    "preview": "Check plan and rooms",
+    "approvePlan": "Approve and create bookings",
+    "noConflicts": "No conflicts: ready for approval",
+    "kinds": {
+      "toggle_off": "Cancel lesson",
+      "toggle_on": "Add scheduled lesson",
+      "change_time": "Change time",
+      "change_room": "Change room",
+      "move_to": "Move lesson",
+      "add_new_day": "New date"
+    },
+    "projectedHours": "Resulting annual hours (preview): {{hours}} h"
   }
 }

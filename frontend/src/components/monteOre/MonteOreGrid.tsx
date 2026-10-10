@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { AmendmentEditor } from './AmendmentEditor';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -56,6 +58,8 @@ function hoursOf(s: MonteOreSlot): number {
 }
 
 interface Props {
+  requestCount?: number;
+  proposalId?: number;
   proposalStatus: 'draft' | 'submitted' | 'approved' | 'rejected' | 'generated';
   isPatternEmpty: boolean;
   /**
@@ -64,6 +68,7 @@ interface Props {
    * con override individuale (contratto orario, supplenti, part-time).
    * Quando null/undefined si ricade sulla soglia istituzionale.
    */
+  hoursMode?: 'minimum' | 'exact' | 'maximum';
   minHoursOverride?: number | null;
   /** True se la soglia mostrata viene da override individuale: cambia la label. */
   isOverriddenThreshold?: boolean;
@@ -83,6 +88,8 @@ interface Props {
  * un click attiva/disattiva quella occorrenza.
  */
 export default function MonteOreGrid({
+  hoursMode = 'minimum',
+  requestCount = 0,
   proposalStatus,
   isPatternEmpty,
   minHoursOverride,
@@ -90,6 +97,11 @@ export default function MonteOreGrid({
   academicYear,
 }: Props) {
   const qc = useQueryClient();
+  const { t } = useTranslation();
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+  const [periodDay, setPeriodDay] = useState('');
   const [newDayOpen, setNewDayOpen] = useState(false);
   // Slot selezionato per uno spostamento (change_time / change_room / move_to).
   const [movingSlot, setMovingSlot] = useState<MonteOreSlot | null>(null);
@@ -116,8 +128,18 @@ export default function MonteOreGrid({
   });
 
   const regenerateMutation = useMutation({
-    mutationFn: () => monteOreApi.regenerateSlots(),
+    mutationFn: (confirmRemoval: boolean) =>
+      monteOreApi.regenerateSlots(academicYear, confirmRemoval),
     onSuccess: (data) => {
+      if (data.result.requiresConfirmation) {
+        if (
+          window.confirm(
+            `La modifica rimuove ${data.result.removedActive?.length ?? 0} date selezionate. Confermi?`,
+          )
+        )
+          regenerateMutation.mutate(true);
+        return;
+      }
       toast.success(`Griglia rigenerata: ${data.result.created} celle`);
       // Regenerate riscrive tutti gli slot della proposta + aggiorna i
       // contatori sulla proposal. Niente impact su threshold/amendments.
@@ -147,22 +169,40 @@ export default function MonteOreGrid({
       // richieste API quando il docente clicca rapidamente molte celle.
       if (data.slot) {
         const updatedSlot = data.slot;
-        qc.setQueryData<{ slots: MonteOreSlot[] }>(['monte-ore', 'me', 'slots'], (old) =>
-          old
-            ? {
-                ...old,
-                slots: old.slots.map((s) => (s.id === updatedSlot.id ? updatedSlot : s)),
-              }
-            : old,
+        qc.setQueryData<{ slots: MonteOreSlot[] }>(
+          ['monte-ore', 'me', 'slots', academicYear],
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  slots: old.slots.map((s) => (s.id === updatedSlot.id ? updatedSlot : s)),
+                }
+              : old,
         );
       } else {
         // Fallback: amendment senza slot aggiornato → invalida lo slots query
         void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
       }
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', academicYear] });
       // Se è stato creato un amendment, refresha la lista (light)
       if (data.amendment) {
         void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
       }
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
+  const selectMutation = useMutation({
+    mutationFn: (isActive: boolean) =>
+      monteOreApi.selectSlots({
+        academicYear,
+        dateFrom: periodFrom,
+        dateTo: periodTo,
+        dayOfWeek: periodDay ? Number(periodDay) : undefined,
+        isActive,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -192,9 +232,13 @@ export default function MonteOreGrid({
   const editable = ['draft', 'rejected', 'approved', 'generated'].includes(proposalStatus);
   const handleToggle = useCallback(
     (slotId: number) => {
+      if (['approved', 'generated'].includes(proposalStatus)) {
+        setRequestOpen(true);
+        return;
+      }
       if (editable) toggleMutation.mutate(slotId);
     },
-    [editable, toggleMutation],
+    [editable, toggleMutation, proposalStatus],
   );
   const handleRequestMove = useCallback((s: MonteOreSlot) => {
     setMovingSlot(s);
@@ -268,7 +312,7 @@ export default function MonteOreGrid({
             </div>
             <div className="h-1.5 w-40 overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-full ${totals.active >= minRequired ? 'bg-emerald-500' : 'bg-primary'}`}
+                className={`h-full ${(hoursMode === 'maximum' ? totals.active > 0 && totals.active <= minRequired : hoursMode === 'exact' ? Math.round(totals.active * 60) === Math.round(minRequired * 60) : totals.active >= minRequired) ? 'bg-emerald-500' : 'bg-primary'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -282,7 +326,7 @@ export default function MonteOreGrid({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => regenerateMutation.mutate()}
+              onClick={() => regenerateMutation.mutate(false)}
               disabled={regenerateMutation.isPending}
             >
               <RefreshCcw className="h-4 w-4" />
@@ -290,7 +334,7 @@ export default function MonteOreGrid({
             </Button>
           )}
           {['approved', 'generated'].includes(proposalStatus) && (
-            <Button size="sm" variant="outline" onClick={() => setNewDayOpen(true)}>
+            <Button size="sm" variant="outline" onClick={() => setRequestOpen(true)}>
               <CalendarPlus className="h-4 w-4" />
               Richiedi nuovo giorno
             </Button>
@@ -298,6 +342,82 @@ export default function MonteOreGrid({
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0 sm:pt-0">
+        {allowMove && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="text-sm font-medium">
+              {t('monteWorkflow.budget', {
+                used: requestCount,
+                max: settings.maxAmendmentsPerYear,
+                remaining: Math.max(0, settings.maxAmendmentsPerYear - requestCount),
+              })}
+            </p>
+            <p className="text-xs text-muted-foreground">{t('monteWorkflow.budgetHelp')}</p>
+            <Button
+              onClick={() => setRequestOpen(true)}
+              disabled={requestCount >= settings.maxAmendmentsPerYear}
+            >
+              {t('monteWorkflow.request')}
+            </Button>
+          </div>
+        )}
+        {['draft', 'rejected'].includes(proposalStatus) && (
+          <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
+            <label className="text-sm">
+              {t('monteWorkflow.start')}
+              <input
+                aria-label={t('monteWorkflow.start')}
+                type="date"
+                className="block rounded border bg-background p-2"
+                value={periodFrom}
+                onChange={(e) => setPeriodFrom(e.target.value)}
+              />
+            </label>
+            <label className="text-sm">
+              {t('monteWorkflow.end')}
+              <input
+                aria-label={t('monteWorkflow.end')}
+                type="date"
+                className="block rounded border bg-background p-2"
+                value={periodTo}
+                onChange={(e) => setPeriodTo(e.target.value)}
+              />
+            </label>
+            <select
+              aria-label={t('monteWorkflow.selectPeriod')}
+              className="rounded border bg-background p-2"
+              value={periodDay}
+              onChange={(e) => setPeriodDay(e.target.value)}
+            >
+              <option value="">{t('monteWorkflow.allDays')}</option>
+              {[1, 2, 3, 4, 5, 6].map((d) => (
+                <option key={d} value={d}>
+                  {['', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'][d]}
+                </option>
+              ))}
+            </select>
+            <Button
+              disabled={!periodFrom || !periodTo || selectMutation.isPending}
+              onClick={() => selectMutation.mutate(true)}
+            >
+              {t('monteWorkflow.activate')}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!periodFrom || !periodTo || selectMutation.isPending}
+              onClick={() => selectMutation.mutate(false)}
+            >
+              {t('monteWorkflow.deactivate')}
+            </Button>
+          </div>
+        )}
+        {requestOpen && (
+          <AmendmentEditor
+            academicYear={academicYear}
+            slots={slots}
+            onClose={() => setRequestOpen(false)}
+          />
+        )}
+
         {hasPendingPattern && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -322,11 +442,10 @@ export default function MonteOreGrid({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2">
             <p className="text-xs text-muted-foreground">
               Per <strong>sostituire</strong> un giorno con un altro dello stesso pattern
-              settimanale, deseleziona la cella e seleziona la nuova: l'approvazione è automatica.
-              Per giorni o orari <strong>fuori pattern</strong>, invia una richiesta al
-              coordinatore.
+              settimanale, inserisci cancellazione e recupero nella stessa richiesta. Per giorni o
+              orari <strong>fuori pattern</strong>, invia una richiesta al coordinatore.
             </p>
-            <Button size="sm" variant="default" onClick={() => setNewDayOpen(true)}>
+            <Button size="sm" variant="default" onClick={() => setRequestOpen(true)}>
               <CalendarPlus className="h-4 w-4" />
               Richiedi nuovo giorno
             </Button>
@@ -550,7 +669,18 @@ function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
                 {a.kind === 'change_room' && 'Cambio aula'}
                 {a.kind === 'move_to' && 'Spostamento'}
                 {' — '}
-                {amendmentSummary(a)}
+                {a.operations?.length
+                  ? a.operations
+                      .map((op) =>
+                        amendmentSummary({
+                          ...a,
+                          kind: op.kind,
+                          slotId: op.slotId ?? null,
+                          payload: op.payload,
+                        }),
+                      )
+                      .join('; ')
+                  : amendmentSummary(a)}
               </span>
               <Badge
                 variant={
@@ -565,6 +695,25 @@ function AmendmentList({ amendments }: { amendments: MonteOreAmendment[] }) {
                 {a.status === 'auto_approved' && 'Auto-approvata'}
                 {a.status === 'approved' && 'Approvata'}
                 {a.status === 'rejected' && 'Rifiutata'}
+                {a.afterSnapshot?.map((slot) => (
+                  <span key={slot.id} className="block text-xs text-muted-foreground">
+                    {slot.date} {slot.startTime}–{slot.endTime} · Aula #{slot.roomId}
+                    {!slot.isActive ? ' · cancellata' : ''}
+                  </span>
+                ))}
+                {a.decisionNotes && (
+                  <span className="block text-xs text-muted-foreground">{a.decisionNotes}</span>
+                )}
+                {a.emailStatus && (
+                  <span className="block text-xs text-muted-foreground">
+                    Email:{' '}
+                    {a.emailStatus === 'sent'
+                      ? 'inviata al server SMTP'
+                      : a.emailStatus === 'dead'
+                        ? 'invio fallito'
+                        : 'accodata'}
+                  </span>
+                )}
               </Badge>
             </li>
           ))}
@@ -799,8 +948,7 @@ function SlotMoveDialog({
   const refresh = () => {
     // Amendment su slot (change_time/change_room/move_to) → cambia lo slot
     // e crea un amendment. Non tocca proposal, threshold o calendar.
-    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
-    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
+    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
   };
 
   const changeTime = useMutation({
@@ -902,8 +1050,8 @@ function SlotMoveDialog({
         {tab === 'time' && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Modifica l'orario di questa singola occorrenza. Approvazione automatica se la cella
-              era nel piano originale.
+              Modifica l'orario di questa singola occorrenza: il revisore deve approvare la
+              richiesta.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -955,7 +1103,7 @@ function SlotMoveDialog({
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
               Sposta la lezione su una cella attualmente disattiva. Conta come una sola variazione.
-              Approvazione automatica se la cella destinazione è già nel pattern.
+              Il revisore deve approvare la richiesta.
             </p>
             <div className="space-y-2">
               <Label>Cella destinazione</Label>

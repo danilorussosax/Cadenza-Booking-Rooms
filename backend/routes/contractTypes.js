@@ -42,6 +42,9 @@ async function getDefaultInstituteId() {
 
 function pickFields(body) {
   const out = {};
+  if ('hoursMode' in body) out.hoursMode = body.hoursMode;
+  if ('requiresIndividualHours' in body)
+    out.requiresIndividualHours = !!body.requiresIndividualHours;
   if ('label' in body) out.label = String(body.label).trim().slice(0, 80);
   if ('defaultHours' in body)
     out.defaultHours =
@@ -191,6 +194,8 @@ router.post('/', authenticate, requireRole('admin'), async (req, res, next) => {
     const created = await ContractType.create({
       instituteId,
       code,
+      hoursMode: fields.hoursMode || 'minimum',
+      requiresIndividualHours: fields.requiresIndividualHours ?? false,
       label: fields.label || labelRaw,
       defaultHours: fields.defaultHours ?? null,
       bypassDayConstraintDefault: fields.bypassDayConstraintDefault ?? false,
@@ -222,6 +227,12 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     if (!ct) return res.status(404).json({ error: 'Tipologia non trovata', code: 'NOT_FOUND' });
 
     const fields = pickFields(req.body);
+    const fixedRules = {
+      titolare: { hoursMode: 'exact', defaultHours: 324, requiresIndividualHours: false },
+      tempo_definito: { hoursMode: 'maximum', defaultHours: 162, requiresIndividualHours: false },
+      collaborazione: { hoursMode: 'exact', defaultHours: null, requiresIndividualHours: true },
+    };
+    if (fixedRules[ct.code]) Object.assign(fields, fixedRules[ct.code]);
 
     // Se l'admin sta passando un `code`, lo ignoriamo silenziosamente —
     // policy: code immutabile.

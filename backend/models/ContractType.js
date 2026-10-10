@@ -44,6 +44,13 @@ module.exports = (sequelize) => {
       },
       // Soglia di default in ore (es. 324 per titolare, 162 per part-time
       // 50%). Se NULL il tipo eredita MonteOreSettings.minRequiredHours.
+      hoursMode: {
+        type: DataTypes.STRING(12),
+        allowNull: false,
+        defaultValue: 'minimum',
+        validate: { isIn: [['minimum', 'exact', 'maximum']] },
+      },
+      requiresIndividualHours: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
       defaultHours: {
         type: DataTypes.FLOAT,
         allowNull: true,

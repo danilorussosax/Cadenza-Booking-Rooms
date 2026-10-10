@@ -2176,5 +2176,46 @@
       "compare_recovered_one": "Utilisateur revenu ({{count}})",
       "compare_recovered_other": "Utilisateurs revenus ({{count}})"
     }
+  },
+  "monteWorkflow": {
+    "change": "Modification",
+    "occurrence": "Cours à modifier",
+    "choose": "Sélectionner",
+    "date": "Date",
+    "start": "Début",
+    "end": "Fin",
+    "room": "Salle",
+    "destination": "Destination",
+    "remove": "Supprimer",
+    "addChange": "Ajouter une modification",
+    "request": "Demander une modification",
+    "requestHelp": "Une demande peut inclure plusieurs modifications et compte une fois. Le plan reste valide jusqu’à la décision.",
+    "reason": "Motif",
+    "send": "Envoyer la demande",
+    "sent": "Demande envoyée",
+    "review": "Examiner la modification",
+    "reviewHelp": "Vérifiez la demande et définissez le plan final.",
+    "original": "Demande originale",
+    "modifyApprove": "Modifier et approuver",
+    "approve": "Approuver la modification",
+    "decided": "Modification approuvée ; courriel en attente",
+    "budget": "Demandes envoyées : {{used}}/{{max}} · Disponibles : {{remaining}}",
+    "budgetHelp": "Les demandes refusées comptent aussi, à partir de l’activation du nouveau processus.",
+    "selectPeriod": "Sélectionner une période",
+    "activate": "Sélectionner les dates",
+    "deactivate": "Désélectionner les dates",
+    "allDays": "Tous les jours",
+    "preview": "Vérifier le plan et les salles",
+    "approvePlan": "Approuver et créer les réservations",
+    "noConflicts": "Aucun conflit : prêt à approuver",
+    "kinds": {
+      "toggle_off": "Annuler le cours",
+      "toggle_on": "Ajouter un cours prévu",
+      "change_time": "Changer l’horaire",
+      "change_room": "Changer la salle",
+      "move_to": "Déplacer le cours",
+      "add_new_day": "Nouvelle date"
+    },
+    "projectedHours": "Heures annuelles résultantes (aperçu) : {{hours}} h"
   }
 }

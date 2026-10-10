@@ -129,7 +129,7 @@ jobs:
         run: npm ci
 
       - name: Run Postgres-only tests
-        run: npx vitest run "tests/**/*.postgres.test.js" tests/integration/excludeConstraint.test.js
+        run: npx vitest run postgres.test.js tests/integration/excludeConstraint.test.js tests/integration/monteOreWorkflow.test.js
 
   frontend:
     name: Frontend · typecheck + test + build
@@ -225,6 +225,12 @@ jobs:
       - name: Run E2E tests
         working-directory: e2e
         run: npm test
+        env:
+          CI: "true"
+
+      - name: Run Monte Ore workflow E2E
+        working-directory: frontend
+        run: npm run e2e -- monte-ore.spec.ts
         env:
           CI: "true"
 

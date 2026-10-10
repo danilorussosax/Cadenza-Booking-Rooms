@@ -107,7 +107,10 @@ export default function MonteOre() {
   });
 
   const proposal = proposalQuery.data?.proposal;
-  const threshold = thresholdQuery.data;
+  const threshold =
+    proposal?.contractSnapshot && !['draft', 'rejected'].includes(proposal.status)
+      ? proposal.contractSnapshot
+      : thresholdQuery.data;
   const hasIndividualOverride =
     threshold?.source === 'user_override' || threshold?.bypassDayConstraint === true;
   const isLocked = proposal && !['draft', 'rejected'].includes(proposal.status);
@@ -128,11 +131,18 @@ export default function MonteOre() {
         out.push(`Devi coprire tra 2 e 4 giorni della settimana (attualmente: ${distinctDays}).`);
       }
     }
-    if (threshold && proposal.totalHoursRequested < threshold.minHours) {
-      const missing = (threshold.minHours - proposal.totalHoursRequested).toFixed(1);
-      out.push(
-        `Ti mancano ${missing} h per raggiungere la soglia di ${threshold.minHours} h/anno.`,
-      );
+    if (threshold) {
+      const planned = Math.round(proposal.totalHoursPlanned * 60);
+      const required = Math.round(threshold.minHours * 60);
+      if (threshold.mode === 'maximum' && planned > required)
+        out.push(`Superi il massimo di ${threshold.minHours} h/anno.`);
+      else if (threshold.mode === 'exact' && planned !== required)
+        out.push(
+          `Pianifica esattamente ${threshold.minHours} h/anno (attuali: ${proposal.totalHoursPlanned.toFixed(2)}).`,
+        );
+      else if (threshold.mode !== 'maximum' && planned < required)
+        out.push(`Mancano ${((required - planned) / 60).toFixed(2)} h.`);
+      if (!planned) out.push('Seleziona le date nel calendario didattico.');
     }
     // Z2/Z3 — vincoli giornalieri (Regolamento Art. 2). Se l'admin non li
     // ha configurati (tutti null), il validator ritorna ok=true senza warning.
@@ -152,7 +162,7 @@ export default function MonteOre() {
       totalHoursRequested?: number;
       validFrom?: string;
       validTo?: string;
-    }) => monteOreApi.updateMine(payload),
+    }) => monteOreApi.updateMine({ ...payload, academicYear: targetYear }),
     onSuccess: () => {
       // Aggiorno solo la proposal (campi notes/hours/range); threshold e
       // slots non sono toccati da questa mutation.
@@ -162,7 +172,7 @@ export default function MonteOre() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: number) => monteOreApi.removeMySchedule(id),
+    mutationFn: (id: number) => monteOreApi.removeMySchedule(id, targetYear),
     onSuccess: () => {
       toast.success('Riga eliminata');
       // La rimozione di una schedule cambia proposal.schedules e rende stantii
@@ -229,7 +239,13 @@ export default function MonteOre() {
           {proposal.status === 'draft' && proposal.schedules.length > 0 && (
             <Button
               onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending || !canSubmit}
+              disabled={
+                submitMutation.isPending ||
+                updateMutation.isPending ||
+                removeMutation.isPending ||
+                thresholdQuery.isPending ||
+                !canSubmit
+              }
               title={canSubmit ? undefined : submitBlockers[0]}
             >
               <Send className="h-4 w-4" />
@@ -239,7 +255,13 @@ export default function MonteOre() {
           {proposal.status === 'rejected' && proposal.schedules.length > 0 && (
             <Button
               onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending || !canSubmit}
+              disabled={
+                submitMutation.isPending ||
+                updateMutation.isPending ||
+                removeMutation.isPending ||
+                thresholdQuery.isPending ||
+                !canSubmit
+              }
               title={canSubmit ? undefined : submitBlockers[0]}
             >
               <Send className="h-4 w-4" />
@@ -372,25 +394,41 @@ export default function MonteOre() {
                 <p className="font-display text-2xl font-medium tabular-nums leading-tight">
                   <span
                     className={
-                      proposal.totalHoursRequested >= threshold.minHours
+                      (
+                        threshold.mode === 'maximum'
+                          ? proposal.totalHoursPlanned > 0 &&
+                            proposal.totalHoursPlanned <= threshold.minHours
+                          : threshold.mode === 'exact'
+                            ? Math.round(proposal.totalHoursPlanned * 60) ===
+                              Math.round(threshold.minHours * 60)
+                            : proposal.totalHoursPlanned >= threshold.minHours
+                      )
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }
                   >
-                    {proposal.totalHoursRequested.toFixed(1)}
+                    {proposal.totalHoursPlanned.toFixed(1)}
                   </span>
                   <span className="text-muted-foreground"> / {threshold.minHours} h</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {proposal.totalHoursRequested >= threshold.minHours
-                    ? '✓ Soglia raggiunta'
-                    : `Mancano ${(threshold.minHours - proposal.totalHoursRequested).toFixed(1)} h`}
+                  {(
+                    threshold.mode === 'maximum'
+                      ? proposal.totalHoursPlanned > 0 &&
+                        proposal.totalHoursPlanned <= threshold.minHours
+                      : threshold.mode === 'exact'
+                        ? Math.round(proposal.totalHoursPlanned * 60) ===
+                          Math.round(threshold.minHours * 60)
+                        : proposal.totalHoursPlanned >= threshold.minHours
+                  )
+                    ? '✓ Piano conforme al contratto'
+                    : `Obiettivo${threshold.mode === 'maximum' ? ' massimo' : ''}: ${threshold.minHours} h`}
                   {threshold.source === 'user_override' && ' · soglia personalizzata'}
                 </p>
               </div>
             ) : (
               <p className="font-display text-2xl font-medium tabular-nums">
-                {proposal.totalHoursRequested.toFixed(1)} h
+                {proposal.totalHoursPlanned.toFixed(1)} h
               </p>
             )}
           </div>
@@ -536,7 +574,10 @@ export default function MonteOre() {
       <MonteOreGrid
         proposalStatus={proposal.status}
         isPatternEmpty={proposal.schedules.length === 0}
-        minHoursOverride={threshold?.source === 'user_override' ? threshold.minHours : null}
+        hoursMode={threshold?.mode}
+        requestCount={proposal.requestCount}
+        proposalId={proposal.id}
+        minHoursOverride={threshold?.minHours ?? null}
         isOverriddenThreshold={threshold?.source === 'user_override'}
         academicYear={targetYear}
       />
@@ -608,7 +649,9 @@ function ScheduleDialog({
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      isEdit ? monteOreApi.updateMySchedule(existing.id, form) : monteOreApi.addMySchedule(form),
+      isEdit
+        ? monteOreApi.updateMySchedule(existing.id, form, targetYear)
+        : monteOreApi.addMySchedule(form, targetYear),
     onSuccess: () => {
       toast.success(isEdit ? 'Fascia aggiornata' : 'Fascia aggiunta');
       // Add/update di una schedule cambia proposal.schedules; gli slot

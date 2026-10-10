@@ -971,13 +971,45 @@ La slide concerto (in rotazione sul Display kiosk dopo le griglie aule) mostra:
 
 ---
 
-## 8. ⭐ Gestione Monte Ore
+## 8. Monte Ore — workflow dalla versione 1.17
 
-URL: `/admin/monte-ore`
+### 8.0.1 Contratti e calendario
 
-> **Cos'è**: il "Monte Ore" è il **piano annuale di insegnamento** del docente del Conservatorio italiano. Contrattualmente il docente di ruolo deve garantire **almeno 324 ore annue** di didattica, distribuite in non meno di 2 e non più di 4 giorni a settimana, in una finestra di insegnamento definita (di solito ottobre→giugno). I docenti **a contratto orario** (precari, supplenti, part-time, collaboratori) hanno invece soglie individuali (tipicamente 30-200h) — vedi §8.10. Cadenza è **il primo software italiano** che digitalizza completamente questo flusso contrattuale.
+Alla creazione dell'utenza docente assegna il contratto: cattedra intera richiede 324 ore esatte, tempo definito ammette fino a 162 ore positive, collaborazione richiede un numero individuale positivo. Utenza e ore vengono salvate insieme. Le tipologie precedenti/custom restano disponibili e non vengono convertite automaticamente.
 
-![Pagina Gestione Monte Ore — vista lista proposte](screenshots/monteore-overview.png)
+Scegli l'anno accademico nel pannello Monte Ore. Configura calendario didattico, finestra di inserimento, vacanze/blocchi e **massimo richieste annuali**. Il massimo può essere zero; conta tutti gli invii successivi all'attivazione del nuovo workflow, compresi quelli rifiutati. Una richiesta con più operazioni consuma una sola unità.
+
+Una modifica al calendario che coinvolge date selezionate presenta l'elenco dell'impatto e richiede conferma. Alla conferma le lezioni future interessate vengono sospese, le prenotazioni cancellate e i piani marcati da rivalidare; parte un'email al docente. Date già svolte richiedono una gestione separata e non vengono riscritte.
+
+### 8.0.2 Revisione e approvazione iniziale
+
+Apri la proposta e scegli **Verifica aule e approva**. Assegna l'aula definitiva a tutte le date oppure singolarmente. **Verifica piano e aule** mostra ore, date e conflitti. Quando la verifica è positiva puoi scegliere **Approva e crea prenotazioni**.
+
+La conferma ricontrolla contratto, calendario e disponibilità. Un conflitto annulla l'intera operazione; non vengono create prenotazioni parziali. Per chiedere correzioni preliminari riporta la proposta in bozza con motivazione. Le correzioni precedenti all'approvazione non consumano richieste annuali.
+
+### 8.0.3 Decisione sulle variazioni
+
+Apri **Richieste variazioni**. **Rivedi / modifica** mostra la richiesta originale e permette di modificare le operazioni prima di approvarle. Puoi cambiare orario, aula, destinazione, cancellazioni/recuperi e aggiunte. La soluzione finale deve mantenere il totale contrattuale e rispettare calendario e conflitti.
+
+- **Approva** applica la richiesta.
+- **Modifica e approva** richiede una motivazione e conserva originale e soluzione finale.
+- **Rifiuta** richiede una motivazione e lascia il piano invariato.
+
+Decisione, date, prenotazioni e accodamento dell'email vengono salvati insieme. Un errore lascia la richiesta pendente. Una richiesta basata su una versione superata non può essere approvata: rifiutala motivando e chiedi al docente una nuova proposta di variazione.
+
+### 8.0.4 Rivalidazione e storico
+
+Per un piano operativo da rivalidare usa **Rivalida piano**, inserendo modifiche e motivazione. La rettifica amministrativa non consuma richieste del docente. Cambiare contratto/ore dall'utenza marca i piani operativi per una rivalidazione esplicita.
+
+I piani precedenti mantengono lo snapshot della soglia storica fino alla rivalidazione; prenotazioni e decisioni non vengono cancellate. `approved` senza prenotazioni resta leggibile come stato precedente: usa la verifica/approvazione per renderlo operativo. Le nuove approvazioni completate hanno prenotazioni definitive e stato operativo.
+
+Le email passano dalla coda esistente con retry. In **Mail outbox** controlla messaggi accodati, inviati al server SMTP o falliti e usa il reinvio amministrativo quando necessario.
+
+### 8.0.5 Controllo prima della migrazione
+
+Dalla radice del progetto: `node backend/scripts/monte-ore-inventory.js`. Il rapporto contiene ID e conteggi, senza nomi o email: contratti mancanti, collaborazioni senza ore, stati delle proposte e delle variazioni. La migrazione al boot è additiva e ripetibile; non usare `DB_SYNC_MODE=force` in produzione.
+
+---
 
 ### 8.1 Layout della pagina
 
@@ -990,50 +1022,6 @@ Pagina con **3 macro-tab card**:
 ![Tab Tipologie docenti — anagrafica contratti (titolare, supplente, contratto orario…) con soglia ore di default](screenshots/admin-monteore-contract-types.png)
 
 In header c'è il pulsante **"Calendario didattico"** che porta alla pagina di configurazione (vedi §8.3).
-
-### 8.2 Cosa contiene il Monte Ore
-
-Per ogni docente Cadenza memorizza:
-
-- **Settings istituzionali**: anno accademico, finestra lezioni (es. 1 ott – 30 giu), finestra inserimento proposte (es. 15 set – 15 ott), soglia ore (default 324), max e min giorni a settimana.
-- **Proposta annuale del docente**: aule scelte, schedule (giorni × orari), totale ore stimato. Stati: `bozza → in attesa → approvata/rifiutata → generata`.
-- **Schedule**: le righe della proposta (es. "Lun 14:00–17:00 in Aula 101").
-- **Slot**: le occorrenze concrete materializzate (es. lunedì 5/10/2026 14:00–17:00). Diventano prenotazioni vere e proprie quando approvi.
-- **Sospensioni didattiche**: festività, ferie, esami → escludono date dalla generazione degli slot.
-- **Variazioni** (amendments): cambiamenti su una proposta già approvata.
-
-### 8.2bis Il flusso completo del Monte Ore (vista d'insieme)
-
-Il Monte Ore copre un intero anno accademico e attraversa **5 fasi**. Sapere in che fase sei in un dato momento ti dice cosa fare e cosa aspettarti dai docenti.
-
-```
-  Fase 1               Fase 2                   Fase 3              Fase 4                    Fase 5
-  ──────────           ──────────────           ─────────────       ───────────────────       ──────────────────
-  Settings             Inserimento              Approvazione        Generazione                Variazioni
-  (admin)              (docente)                (admin)             (admin)                    (docente → admin)
-  ──────────           ──────────────           ─────────────       ───────────────────       ──────────────────
-  set/ott              metà set – metà ott      ott (rolling)       metà ott                   tutto l'anno
-  ↓                    ↓                        ↓                   ↓                          ↓
-  • anno accad.        • compila griglia        • esamina lista     • crea le prenotazioni    • il docente chiede
-  • finestra           • aule + giorni          • approva o         • slot Monte Ore →          una modifica
-    lezioni              + orari                  rifiuta             Booking nel calendario   • admin accetta
-  • finestra           • totale h vs soglia     • controlla         • email broadcast            o rifiuta
-    inserimento        • submit                   contratto                                    • amendment
-  • soglia 324h                                                                                  contatore (tetto
-  • sospensioni                                                                                  annuo)
-```
-
-**Stati del flusso di una proposta**:
-
-| Stato       | Chi può cambiarlo | Cosa succede                                                                           |
-| ----------- | ----------------- | -------------------------------------------------------------------------------------- |
-| `bozza`     | Docente           | Sta compilando, può salvare e tornare. Nessuno la vede.                                |
-| `in attesa` | Docente → Admin   | Il docente ha cliccato "Invia". Compare nella tab Proposte dell'admin.                 |
-| `approvata` | Admin             | Tutto ok dal punto di vista contrattuale. Le aule sono assegnate. Manca solo generare. |
-| `rifiutata` | Admin             | Il docente riceve email con motivo. La proposta torna a "bozza" se vuole rilavorarla.  |
-| `generata`  | Admin             | Le prenotazioni sono nel calendario aule. Il docente le vede in `/my-bookings`.        |
-
-> **Differenza tra "approvata" e "generata"**: il primo è la **firma contrattuale** ("ok, il piano è valido"), il secondo è la **materializzazione operativa** ("ho creato 800 prenotazioni nel calendario"). Le tieni separate per poter approvare in batch e poi generare quando il calendario è davvero pronto.
 
 ### 8.2ter ⭐ Gestione anno accademico (AA)
 
@@ -1208,77 +1196,6 @@ Sono utili per:
 
 CRUD via endpoint dedicati `GET/POST/PATCH/DELETE /api/admin/monte-ore/exam-sessions`.
 
-### 8.5 Tab "Proposte" (vista admin)
-
-![Tab Proposte — filtri per stato e azione approva/rifiuta/genera](screenshots/monteore-proposte.png)
-
-Lista di tutte le proposte annuali. **Filtri per stato** in alto:
-
-`Tutte` · `In attesa` · `Approvata` · `Generata` · `Rifiutata` · `Bozza`
-
-Counter "{N} proposte" a destra. Ogni proposta è una **card cliccabile** che mostra: nome del docente, badge tipologia contratto, AA, numero di fasce, totale ore proposte vs soglia, data invio. Click su `Apri` → dialog con la tabella completa fasce orarie (giorno · orario · aula · tipo · etichetta).
-
-Bottoni nel dialog di dettaglio:
-
-| Stato       | Bottoni                                                                              |
-| ----------- | ------------------------------------------------------------------------------------ |
-| `In attesa` | **Approva** (verde) · **Rifiuta** (apre textarea motivo)                             |
-| `Approvata` | **Crea prenotazioni dal monte ore** (genera gli slot e li trasforma in prenotazioni) |
-| `Generata`  | **Annulla generazione** (riapre la proposta — utile se ti accorgi di un errore)      |
-| Sempre      | Tabella fasce con ✎ Modifica / 🗑 Elimina · `+ Aggiungi fascia` · `Chiudi`           |
-
-#### Tasso di approvazione consigliato
-
-In media, approva direttamente le proposte dei docenti senior; usa "approva con modifiche" per spostare i nuovi docenti su aule meno richieste. Il rifiuto puro va riservato alle proposte fuori vincolo (≥4 giorni/sett, <324h/anno, fuori finestra).
-
-### 8.5bis Casi guidati durante la revisione delle proposte
-
-Mentre esamini le proposte, ti capiteranno di sicuro questi 5 casi. Ecco cosa fare in ciascuno.
-
-#### Caso A — Docente entro la soglia, aule libere
-
-Il caso ideale. Apri la proposta, vedi il totale ore = 324 (o sopra), nessun warning sulle aule. Click **Approva** → si arricchisce di un timestamp e passa a "Approvata". Quando hai approvato tutti i docenti del corso/sezione, torna in lista e usa **Crea prenotazioni** per generare in batch (vedi §8.7).
-
-#### Caso B — Docente sotto soglia (es. 312 h vs 324)
-
-In dialog vedi una banda gialla "**totale 312 h vs 324 richieste**". Possibili cause:
-
-- Sospensioni dell'anno (Natale, Pasqua) sottratte automaticamente → totale "lordo" 324 ma "netto" 312.
-- Il docente ha lasciato fuori una fascia perché in dubbio sull'aula.
-
-Cosa fare:
-
-1. **Chiedi al docente** via mail o di persona: "ti mancano 12 ore — vuoi aggiungere un'altra fascia?"
-2. Se sì, **rifiuta** con motivo "Manca un giorno di lezione, riapri la proposta in bozza e aggiungi una fascia di 4h × 3 settimane".
-3. Se no (es. lui ha L. 104 al 50%), considera la **deroga individuale** (§8.10): porta la sua soglia a 162 h e riapprova.
-
-#### Caso C — Aula non assegnata su una fascia (warning icon)
-
-Una fascia mostra ⚠ "aula da assegnare". Significa che il docente ha indicato giorno + orario ma non ha potuto scegliere un'aula (era già occupata da altri docenti o non aveva permessi). Cosa fare:
-
-1. Apri la fascia (✎ Modifica) → seleziona un'aula compatibile.
-2. Salva. Cadenza ricontrolla la disponibilità. Se OK la fascia diventa verde.
-3. Se nessuna aula libera, prova a **spostare la fascia** ad un altro slot orario (es. martedì 14-17 → giovedì 15-18) e riassegnare.
-
-#### Caso D — Conflitto al momento della generazione
-
-Hai cliccato **Crea prenotazioni** ma 3 slot non sono passati per overlap (un'altra prenotazione "manuale" si era infilata in quell'orario). La proposta torna in stato **"Approvata"** con un report che dice quali slot mancano.
-
-Workflow:
-
-1. Apri la proposta → vedi "3 slot non generati" + dettaglio (data + ora + aula).
-2. Vai in `/admin/activity-log` → cerca la prenotazione conflittuale → cancella o sposta.
-3. Torna sulla proposta → click **Crea prenotazioni** di nuovo. Stavolta passa.
-
-> **Trick**: prima di generare in massa fai un giro dell'/admin/activity-log filtrando per range di date della finestra lezioni. Se vedi prenotazioni "ad hoc" (es. studenti che si sono prenotati la prima settimana di ottobre) cancella o spostale prima.
-
-#### Caso E — Docente fuori vincolo (5 giorni/settimana)
-
-Il vincolo CCNL è 2-4 giorni/sett. Se il docente fa 5 giorni, in dialog vedi un alert rosso. Non puoi approvare. Cosa fare:
-
-1. **Rifiuta** con motivo "vincolo CCNL: max 4 giorni/sett, ridistribuisci le ore in 4 giorni".
-2. Se è un docente con **bypass del vincolo** (es. supplente part-time concordato per fare 5 giorni × 1h), imposta la deroga individuale (§8.10) → spunta "Esente dal vincolo 2-4 gg/sett" → approva.
-
 ### 8.5ter ⭐ "Richiedi modifica" — riapertura controllata della proposta (v1.6)
 
 > Novità di maggio 2026. Risponde al caso "la proposta è quasi corretta ma manca un dettaglio": non vuoi rifiutarla (il docente dovrebbe rifare tutto da capo) né approvarla (ci sono ancora problemi).
@@ -1379,119 +1296,6 @@ Nel pannello le proposte importate hanno:
 
 > **Workflow consigliato**: import → apri la proposta in tab Proposte → assegna le aule mancanti (le fasce hanno `roomId = null`) → Approva → Crea prenotazioni. Stesso ciclo delle proposte inviate direttamente dai docenti.
 
-### 8.6 Tab "Richieste variazioni"
-
-![Tab Richieste variazioni — coda amendment con badge pending](screenshots/monteore-amendments.png)
-
-Una volta che la proposta è approvata, il docente può chiedere di **modificare** singole occorrenze:
-
-- "La lezione di lunedì 12 ottobre la sposto a martedì 13"
-- "Rimuovo la lezione del 5 dicembre per malattia, recupero il 7"
-- "Cambio l'aula da 101 a 102 per i prossimi 3 mesi"
-
-La tabella mostra: docente · AA, tipo (Disattivazione · Riattivazione · Cambio orario · Nuovo giorno · **Cambio aula** · **Spostamento**), riepilogo dello slot toccato, note del docente, stato (In attesa · Auto-approvata · Approvata · Rifiutata) e i bottoni di azione.
-
-#### I 6 tipi di amendment in dettaglio
-
-| Tipo               | Cosa chiede il docente                                                         | Decisione                                                              | Effetto sul calendario quando approvi                                                        |
-| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **Disattivazione** | "Cancella la lezione del 12 ottobre"                                           | **Auto** sempre (libera ore, non costa budget)                         | Lo slot diventa `inattivo`; la prenotazione corrispondente viene annullata                   |
-| **Riattivazione**  | "Rimetti la lezione del 12 ottobre che avevo cancellato"                       | **Auto** se è una cella del pattern, altrimenti pending                | Lo slot torna `attivo` e Cadenza ricrea la prenotazione (se l'aula è libera)                 |
-| **Cambio orario**  | "Quella del lunedì 14:00 spostala alle 16:00"                                  | **Auto** se la cella era nel piano originale, altrimenti pending       | Lo slot mantiene la stessa data ma con i nuovi orari; il Booking viene aggiornato            |
-| **Nuovo giorno**   | "Aggiungo una lezione il giovedì 13 ottobre, sono in ritardo con il programma" | **Pending sempre**                                                     | All'approvazione assegni l'aula → crea il nuovo slot e la prenotazione                       |
-| **Cambio aula** ⭐ | "L'aula 12 il 22 ottobre non va, spostala in aula 5"                           | **Pending sempre** (l'aula è risorsa condivisa, va verificata)         | Override puntuale su quella singola occorrenza; pattern e altre settimane restano invariate  |
-| **Spostamento** ⭐ | "Sposta la lezione del 12 ottobre al 19 ottobre"                               | **Auto** se sia source sia target sono nel pattern, altrimenti pending | Toggle off del source + on del target in atomico; conta come **1 sola** variazione di budget |
-
-Per ognuno il docente scrive una **nota** facoltativa che tu vedi in chiaro al momento di approvare. Es. "spostamento per visita medica" o "recupero della classe X".
-
-> **"Auto-approvata" vs "In attesa"**: le variazioni "auto" vengono applicate dal sistema senza il tuo intervento (e segnalate nello storico). Restano comunque tracciate nel registro attività con nome del docente, slot toccato, decisione del sistema e motivazione. Le "In attesa" richiedono che tu clicchi Approva/Rifiuta nella tab. Vedi §8.6bis per la logica completa.
-
-#### Tetto annuale di amendments
-
-Per evitare che la proposta venga riscritta di settimana in settimana, in _Settings → Monte Ore_ puoi impostare un **massimo di amendments per proposta per anno** (default: 3). Quando un docente raggiunge il tetto, vedrà un alert e non potrà più richiedere variazioni. In casi eccezionali tu admin puoi sempre **applicare modifiche manualmente** (modifica diretta della proposta) senza intaccare il contatore.
-
-> **Cosa consuma il budget**:
->
-> - **Sì**: riattivazione, cambio orario, nuovo giorno, cambio aula, spostamento (1 sola unità per spostamento, anche se è off+on di due celle)
-> - **No**: disattivazione (libera ore, sempre lecita)
-
-### 8.6bis ⭐ Spostamenti del docente — come funzionano (v1.6)
-
-> Da maggio 2026 il docente ha tre nuovi modi per "spostare" una lezione, oltre alla disattivazione/riattivazione di una cella. Sapere come funzionano ti aiuta a interpretare le richieste nella tab Variazioni.
-
-Sulla griglia annuale del docente, **ogni cella attiva** ha un piccolo bottone `⋮` in alto a destra. Click sul puntino apre il dialog **"Spostamento lezione"** con tre tab:
-
-```
-  Cambia orario          Cambia aula           Sposta a…
-  ─────────────          ───────────           ──────────
-  Stessa data,           Stessa data e         Toggle off
-  cambia start/end       orario, cambia aula   + toggle on
-                                               atomico
-  ─────────────          ───────────           ──────────
-  AUTO se la cella       PENDING sempre        AUTO se sia
-  era nel piano          (aula = risorsa       source che
-  originale, altrimenti  condivisa)            target sono
-  PENDING                                      nel pattern;
-                                               PENDING altrim.
-```
-
-#### Tre scenari di spostamento — esempio guidato
-
-> Il prof. Rossi ha una proposta approvata con pattern "Lun 14-17 in Aula 12, Mer 14-17 in Aula 12". Vediamo cosa fa il sistema quando il prof. usa ciascuna delle tre azioni.
-
-**Scenario 1 — Cambia orario di una singola occorrenza**
-
-Lunedì 6 novembre Rossi ha una visita medica alle 14: vorrebbe iniziare alle 16 invece che alle 14. Click `⋮` sulla cella del 6 novembre → tab **Cambia orario** → 16:00–19:00 → Salva.
-
-- Source: stesso giorno, era nel piano (`originalActive=true`) → **decisione auto-approvata**.
-- Effetto: lo slot del 6 novembre passa a 16:00–19:00. Tutti gli altri lunedì restano alle 14:00. La prenotazione corrispondente nel calendario aule viene aggiornata.
-- Budget: 1 variazione consumata.
-
-**Scenario 2 — Cambia aula per una sola settimana**
-
-Mercoledì 8 novembre l'Aula 12 è prenotata per un concerto: Rossi sposta solo quel mercoledì in Aula 5. Click `⋮` → tab **Cambia aula** → seleziona "Aula 5 · Sede Storica" → Salva.
-
-- **Decisione pending sempre**: l'aula è risorsa condivisa, l'admin deve confermare che Aula 5 è davvero libera nel suo ruolo.
-- Tu admin la vedi nella tab Variazioni. Apri il dialog di approvazione, controlli, **Approva**.
-- Effetto: lo slot del 8 novembre prende `roomId = Aula 5` come override. Il pattern e tutte le altre settimane di Aula 12 restano. Il Booking corrispondente passa ad Aula 5.
-- Budget: 1 variazione consumata all'approvazione.
-
-**Scenario 3 — Sposta una lezione ad un altro giorno**
-
-Rossi vuole spostare la lezione di lunedì 13 novembre a giovedì 16 novembre. Click `⋮` sulla cella del 13/11 → tab **Sposta a…** → seleziona "16/11 14:00–17:00" → Sposta.
-
-- Caso A: il giovedì 14:00 è una cella **inattiva del pattern** (es. il pattern aveva giovedì come opzione ma il prof. non l'aveva usato) → **auto-approvata**.
-- Caso B: la destinazione è una cella fuori pattern → **pending**.
-- Effetto: in atomico, lo slot del 13/11 va `inattivo` (e il Booking si cancella) + lo slot del 16/11 va `attivo` (e il Booking si crea).
-- Budget: **1 sola variazione** consumata (non 2): è il vantaggio del "sposta a…" rispetto a fare disattivazione + riattivazione manualmente.
-
-#### Cosa vedi tu admin
-
-Nella tab Variazioni le tipologie nuove sono etichettate:
-
-- **Cambio aula** — sempre `In attesa`, attendono tua approvazione. Il payload include il `roomId` richiesto.
-- **Spostamento** — può essere `Auto-approvata` (registrata e applicata) oppure `In attesa` se la destinazione è fuori pattern.
-
-In entrambi i casi vedi la cella sorgente e la destinazione/aula nella colonna "Cella", così puoi decidere a colpo d'occhio.
-
-#### Come reagire alle richieste di cambio aula
-
-1. Apri la richiesta → vedi quale aula chiede il docente e per quale data/orario.
-2. **Controllo rapido**: nel calendario aule cerca quel slot. Se l'aula è libera, click **Approva**. Se occupata da un'altra prenotazione (es. un altro docente che ha appena prenotato), suggerisci una terza aula via "Richiedi modifica" sul singolo amendment (tab Variazioni → ✗ Rifiuta con motivazione).
-3. **Cosa NON fare**: non spostare manualmente l'aula sullo `schedule` originale dal dettaglio proposta. Quello cambierebbe l'aula per **tutto l'anno**, non solo per un giorno. La richiesta di cambio aula del docente è già la modalità "puntuale" corretta.
-
-### 8.7 Generazione slot e materializzazione prenotazioni
-
-Quando approvi una proposta, Cadenza:
-
-1. Calcola tutte le **occorrenze** dello schedule per ogni giorno della settimana × tutti i giorni della finestra lezioni che non sono in sospensione.
-2. Verifica che nessun'altra prenotazione collida nell'aula.
-3. Se ci sono conflitti, la proposta torna a "In attesa" con un report leggibile per la riassegnazione manuale.
-4. Crea gli slot interni e le prenotazioni corrispondenti, visibili nel calendario aule generale.
-5. Aggiorna lo status della proposta a `Generata`.
-
-> **Tempistica**: per un docente con 6h × 4 giorni × 36 settimane (~864 occorrenze) la generazione richiede 1–3 secondi. È un'operazione tutto-o-niente: o tutto va a buon fine, o nulla viene scritto.
-
 ### 8.8 Calendario didattico (vista pubblica)
 
 Nella pagina docente `/monte-ore` c'è un bottone **"Calendario didattico"** che esporta in PDF/iCal:
@@ -1500,70 +1304,6 @@ Nella pagina docente `/monte-ore` c'è un bottone **"Calendario didattico"** che
 - per la Direzione (link admin): vista aggregata di tutto il monte ore del Conservatorio (incrocio aule × docenti)
 
 Utile da inviare al sindacato o alla segreteria per i registri di insegnamento.
-
-### 8.9 Casi limite
-
-| Caso                                         | Comportamento                                                                                                                 |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Docente a contratto orario (30-200h)         | Imposta deroga individuale dalla pagina Utenti → vedi §8.10                                                                   |
-| Coordinatore di sezione                      | Nella tab Approvazioni può approvare proposte solo del proprio corso/sezione                                                  |
-| Sostituto temporaneo                         | Crea una proposta a nome del titolare originale + amendment di "subentro" per il periodo                                      |
-| Sospensione tardiva (post-approvazione)      | Inserisci la sospensione con flag "applica"; Cadenza marca gli slot come sospesi e notifica i docenti                         |
-| Errore sistemico (es. festività dimenticata) | Inserisci la sospensione retroattiva: le prenotazioni passate restano (storico immutabile), le future vengono marcate sospese |
-
-### 8.10 ⭐ Deroga per docenti a contratto orario
-
-> Implementata da v1.1 (aprile 2026). Risponde alla casistica del 20-40% del corpo docente di un Conservatorio medio: contrattisti, supplenti, collaboratori, accompagnatori al pianoforte, docenti di laboratorio.
-
-#### Perché serve
-
-Il modello standard di Cadenza assume **324h/anno per tutti i docenti** dell'istituto. Per i docenti a contratto orario questa soglia è errata (hanno spesso 30-200h concordate individualmente) e bloccherebbe il submit della proposta. La deroga sposta la soglia da "globale per istituto" a **"per-utente"**: ogni docente ha la sua soglia individuale + l'eventuale esenzione dal vincolo 2-4 giorni/settimana.
-
-#### Come configurare la deroga
-
-1. Vai su `/admin/users` e clicca su **Modifica** del docente target.
-2. In coda al form compare la sezione **"Monte Ore — Tipo contratto"** (visibile solo per `role=docente`).
-3. Compila:
-   - **Tipo contratto**: la categoria informativa
-   - **Soglia ore personalizzata**: attiva il toggle e inserisci le ore concordate (es. 60)
-   - **Esente dal vincolo 2-4 gg/sett**: attiva se il docente concentra tutto in 1-2 giorni
-   - **Motivazione**: obbligatoria, da intendere come riferimento contrattuale (es. "Contratto orario 60h - prot. 2026/123 del 15/09/2026")
-4. Salva. Da quel momento il submit Monte Ore di quel docente userà la soglia personalizzata.
-
-![Form override Monte Ore — sezione condizionale al ruolo docente](screenshots/users-form-monteore-override.png)
-
-#### Come lo vede il docente
-
-Il docente con una deroga vede sulla sua pagina `/monte-ore` un banner azzurro:
-
-```
-ⓘ  Soglia Monte Ore personalizzata: 60 ore/anno
-   Tipo contratto: contratto orario · Vincolo 2-4 giorni/settimana: NON applicato
-   Per modifiche contattare la Direzione.
-```
-
-![Vista docente con banner deroga personalizzata](screenshots/monteore-docente-banner.png)
-
-#### Snapshot della soglia (immutabile per proposte già inviate)
-
-Quando il docente fa submit, Cadenza memorizza il valore della soglia **in quel momento** dentro la proposta. Se domani rimuovi o modifichi la deroga, la proposta già inviata/approvata/generata resta valida con la soglia originale. È la "fotografia contrattuale" del momento del submit, e non si modifica retroattivamente.
-
-#### Esempi tipici
-
-| Categoria                     | Tipo contratto   | Soglia    | Bypass | Note                                            |
-| ----------------------------- | ---------------- | --------- | ------ | ----------------------------------------------- |
-| Titolare CCNL                 | titolare         | — (vuoto) | No     | Default 324h dal MonteOreSettings istituzionale |
-| Titolare ridotto L.104/92     | titolare         | 270       | No     | Riduzione per assistenza familiare              |
-| Supplente annuale 50%         | supplente        | 162       | No     | Mezzo monte ore titolare                        |
-| Co.Co.Co. 60h annue           | contratto_orario | 60        | Sì     | Tipico per coadiutori al pianoforte             |
-| Lab. di musica d'insieme 120h | altro            | 120       | No     | Da regolamento didattico                        |
-| Accompagnatore concertistico  | contratto_orario | 30        | Sì     | Concerti pubblici, monoday possibile            |
-
-#### Conformità
-
-Ogni modifica della deroga viene tracciata automaticamente nel **registro attività** con: chi l'ha autorizzata, quando, valore precedente vs nuovo, motivazione. La motivazione è considerata "documento contrattuale" ai sensi della L.241/1990 §3 sulla motivazione dell'atto amministrativo. Conserva il registro per **almeno 10 anni** dalla cessazione del rapporto di lavoro (art. 2220 c.c.).
-
-> Per il dettaglio progettuale completo della deroga vedi `docs/MONTE_ORE_DEROGA_CONTRATTO_ORARIO.md`.
 
 ### 8.10bis ⭐ Deroga finestra di inserimento per il singolo docente (v1.6)
 
@@ -1594,23 +1334,6 @@ Se entrambe le risposte sono "no", la submit viene bloccata con messaggio chiaro
 - Se la deroga serve per più di 2-3 docenti, valuta se la finestra istituzionale è dimensionata bene.
 
 Tutte le deroghe sono nel registro attività con utente, valore, motivazione testuale.
-
-### 8.11 ⭐ Banner "Proposta da rivalidare" (v1.6)
-
-Quando l'admin modifica il **tipo contratto**, le **ore override** o l'esenzione **bypass giorni** di un docente che ha **già** una proposta in stato `In attesa`, `Approvata` o `Generata`, il sistema marca automaticamente la proposta come "da rivalidare" e mostra al docente, sulla sua pagina `/monte-ore`, un banner rosso:
-
-```
-⚠  Proposta da rivalidare
-   Variazione contratto (admin) in corso d'anno: rivedi e re-invia la proposta.
-```
-
-Il banner non blocca nulla: la proposta resta operativa fino a quando il docente la rivede. Serve come **promemoria visibile** che i presupposti della proposta sono cambiati e va data una scorsa.
-
-**Come si svuota il flag**: alla prossima submit del docente, il banner scompare. In alternativa, se la modifica era cosmetica e non c'è bisogno di rivalidare, puoi usare "Richiedi modifica" (§8.5ter) per riportare in bozza e farsi inviare la versione aggiornata.
-
-> Tecnicamente il flag è una colonna `requiresRevalidation` sulla proposta, scritta dal hook nell'endpoint `PUT /api/users/:id/monte-ore-override`. Vedi `docs/AUDIT_QUALITA_PRODUZIONE.md` per il dettaglio implementativo.
-
----
 
 ## 9. Inventario strumenti
 

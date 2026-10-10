@@ -14,7 +14,7 @@ export interface UsersListParams {
   status?: UserStatus;
 }
 
-export interface UpsertUserPayload {
+export interface UpsertUserPayload extends MonteOreOverridePayload {
   firstName: string;
   lastName: string;
   email: string;

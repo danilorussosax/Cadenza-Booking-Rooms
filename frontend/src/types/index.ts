@@ -66,6 +66,8 @@ export type ContractType = SystemContractType | (string & {});
 
 /** Record runtime di una tipologia contrattuale (anagrafica admin). */
 export interface ContractTypeRow {
+  hoursMode: 'minimum' | 'exact' | 'maximum';
+  requiresIndividualHours: boolean;
   id: number;
   instituteId: number;
   code: string;

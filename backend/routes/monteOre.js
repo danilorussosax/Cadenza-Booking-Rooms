@@ -24,7 +24,7 @@
 const express = require('express');
 const dayjs = require('dayjs');
 const multer = require('multer');
-const { Op, Transaction } = require('sequelize');
+const { Op } = require('sequelize');
 const {
   sequelize,
   MonteOreProposal,
@@ -41,6 +41,9 @@ const {
 } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
 const monteOreService = require('../services/monteOreService');
+const workflow = require('../services/monteOreWorkflowService');
+const { updateCalendar } = require('../services/monteOreCalendarUpdateService');
+const { randomUUID } = require('crypto');
 const slotService = require('../services/monteOreSlotService');
 const calendarService = require('../services/monteOreCalendarService');
 const { resolveAnnualThreshold } = require('../services/monteOreThresholdService');
@@ -100,6 +103,19 @@ function sanitizeSchedule(body) {
   return out;
 }
 
+async function serializeAmendments(items) {
+  const { MailOutbox } = require('../models');
+  const rows = await MailOutbox.findAll({
+    where: { idempotencyKey: items.map((a) => `monte-ore:${a.id}:decision`) },
+    attributes: ['idempotencyKey', 'status'],
+  });
+  const mail = new Map(rows.map((r) => [r.idempotencyKey, r.status]));
+  return items.map((a) => ({
+    ...a.toJSON(),
+    emailStatus: mail.get(`monte-ore:${a.id}:decision`) || null,
+  }));
+}
+
 function serializeProposal(p) {
   return {
     ...p.toJSON(),
@@ -137,7 +153,7 @@ router.get('/me/threshold', authenticate, requireApproved, async (req, res, next
       },
     });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -145,24 +161,36 @@ router.get('/me/threshold', authenticate, requireApproved, async (req, res, next
 router.get('/me', authenticate, requireApproved, async (req, res, next) => {
   try {
     const year = req.query.year || currentAcademicYearLabel();
-    const range = defaultRangeForYear(year);
-    const [proposal] = await MonteOreProposal.findOrCreate({
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+    const range = settings
+      ? { validFrom: settings.lessonsStartDate, validTo: settings.lessonsEndDate }
+      : defaultRangeForYear(year);
+    const existing = await MonteOreProposal.findOne({
       where: { userId: req.user.id, academicYear: year },
-      defaults: {
-        userId: req.user.id,
-        academicYear: year,
-        validFrom: range.validFrom,
-        validTo: range.validTo,
-        status: 'draft',
-      },
-      include: [
-        {
-          model: MonteOreSchedule,
-          as: 'schedules',
-          include: [{ model: Room, as: 'room', include: [{ model: Building, as: 'building' }] }],
-        },
-      ],
     });
+    const proposal =
+      existing ||
+      (
+        await MonteOreProposal.findCreateFind({
+          where: { userId: req.user.id, academicYear: year },
+          defaults: {
+            userId: req.user.id,
+            academicYear: year,
+            validFrom: range.validFrom,
+            validTo: range.validTo,
+            status: 'draft',
+          },
+          include: [
+            {
+              model: MonteOreSchedule,
+              as: 'schedules',
+              include: [
+                { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+              ],
+            },
+          ],
+        })
+      )[0];
     // Se la findOrCreate ha trovato senza include (caso "find existing"),
     // ricarichiamo per avere le schedules popolate
     const full = await MonteOreProposal.findByPk(proposal.id, {
@@ -186,44 +214,45 @@ router.get('/me', authenticate, requireApproved, async (req, res, next) => {
 
 router.put('/me', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const year = req.body.academicYear || currentAcademicYearLabel();
-    const proposal = await MonteOreProposal.findOne({
-      where: { userId: req.user.id, academicYear: year },
+    const proposal = await workflow.transact(async (transaction) => {
+      const proposal = await findOwnProposalEditable(
+        req.user.id,
+        req.body.academicYear || currentAcademicYearLabel(),
+        transaction,
+      );
+      const updates = {};
+      if (req.body.notes !== undefined) updates.notes = req.body.notes;
+      if (req.body.validFrom) updates.validFrom = req.body.validFrom;
+      if (req.body.validTo) updates.validTo = req.body.validTo;
+      const from = updates.validFrom || proposal.validFrom;
+      const to = updates.validTo || proposal.validTo;
+      if (from > to || !dayjs(from).isValid() || !dayjs(to).isValid())
+        workflow.fail('Periodo non valido');
+      if (proposal.status === 'rejected')
+        Object.assign(updates, { status: 'draft', rejectedAt: null, rejectionReason: null });
+      await proposal.update(updates, { transaction });
+      return proposal;
     });
-    if (!proposal)
-      return res.status(404).json({ error: 'Proposta non trovata', code: 'NOT_FOUND' });
-    if (!['draft', 'rejected'].includes(proposal.status)) {
-      return res
-        .status(400)
-        .json({ error: 'Proposta non modificabile in questo stato', code: 'INVALID_STATE' });
-    }
-    const updates = {};
-    if (req.body.notes !== undefined) updates.notes = req.body.notes;
-    if (req.body.totalHoursRequested !== undefined)
-      updates.totalHoursRequested = Number(req.body.totalHoursRequested) || 0;
-    if (req.body.validFrom) updates.validFrom = req.body.validFrom;
-    if (req.body.validTo) updates.validTo = req.body.validTo;
-    // Se stava in 'rejected' e l'utente sta editando, riportiamo a 'draft'
-    if (proposal.status === 'rejected') {
-      updates.status = 'draft';
-      updates.rejectedAt = null;
-      updates.rejectionReason = null;
-    }
-    await proposal.update(updates);
     res.json({ proposal: proposal.toJSON() });
   } catch (err) {
     next(err);
   }
 });
 
-async function findOwnProposalEditable(userId) {
-  const year = currentAcademicYearLabel();
+async function findOwnProposalEditable(
+  userId,
+  year = currentAcademicYearLabel(),
+  transaction = null,
+) {
   const proposal = await MonteOreProposal.findOne({
     where: { userId, academicYear: year },
+    transaction,
+    ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
   });
   if (!proposal) {
     const e = new Error("Nessuna proposta per l'anno corrente");
     e.status = 404;
+    e.code = 'NOT_FOUND';
     throw e;
   }
   if (!['draft', 'rejected'].includes(proposal.status)) {
@@ -237,54 +266,82 @@ async function findOwnProposalEditable(userId) {
 
 router.post('/me/schedules', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const proposal = await findOwnProposalEditable(req.user.id);
-    const data = sanitizeSchedule(req.body);
-    // Defaults sensati
-    if (!data.bookingType) data.bookingType = 'lezione';
-    if (data.dayOfWeek === undefined || !data.startTime || !data.endTime) {
-      return res.status(400).json({
-        error: 'dayOfWeek, startTime, endTime sono obbligatori',
-        code: 'VALIDATION_FAILED',
-      });
-    }
-    const sched = await MonteOreSchedule.create({ proposalId: proposal.id, ...data });
-    // Riporta a draft se stava in rejected
-    if (proposal.status === 'rejected') {
-      await proposal.update({ status: 'draft', rejectedAt: null, rejectionReason: null });
-    }
-    res.status(201).json({ schedule: sched.toJSON() });
+    const schedule = await workflow.transact(async (transaction) => {
+      const proposal = await findOwnProposalEditable(
+        req.user.id,
+        req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+        transaction,
+      );
+      const data = sanitizeSchedule(req.body);
+      if (!data.bookingType) data.bookingType = 'lezione';
+      if (data.dayOfWeek === undefined || !data.startTime || !data.endTime)
+        workflow.fail('dayOfWeek, startTime, endTime sono obbligatori');
+      const schedule = await MonteOreSchedule.create(
+        { proposalId: proposal.id, ...data },
+        { transaction },
+      );
+      if (proposal.status === 'rejected')
+        await proposal.update(
+          { status: 'draft', rejectedAt: null, rejectionReason: null },
+          { transaction },
+        );
+      return schedule;
+    });
+    res.status(201).json({ schedule: schedule.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
 
 router.patch('/me/schedules/:id', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const proposal = await findOwnProposalEditable(req.user.id);
-    const sched = await MonteOreSchedule.findOne({
-      where: { id: req.params.id, proposalId: proposal.id },
+    const schedule = await workflow.transact(async (transaction) => {
+      const proposal = await findOwnProposalEditable(
+        req.user.id,
+        req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+        transaction,
+      );
+      const schedule = await MonteOreSchedule.findOne({
+        where: { id: req.params.id, proposalId: proposal.id },
+        transaction,
+      });
+      if (!schedule) workflow.fail('Riga non trovata', 'NOT_FOUND', 404);
+      await schedule.update(sanitizeSchedule(req.body), { transaction });
+      return schedule;
     });
-    if (!sched) return res.status(404).json({ error: 'Riga non trovata', code: 'NOT_FOUND' });
-    await sched.update(sanitizeSchedule(req.body));
-    res.json({ schedule: sched.toJSON() });
+    res.json({ schedule: schedule.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
 
 router.delete('/me/schedules/:id', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const proposal = await findOwnProposalEditable(req.user.id);
-    const sched = await MonteOreSchedule.findOne({
-      where: { id: req.params.id, proposalId: proposal.id },
+    await workflow.transact(async (transaction) => {
+      const proposal = await findOwnProposalEditable(
+        req.user.id,
+        req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+        transaction,
+      );
+      const schedule = await MonteOreSchedule.findOne({
+        where: { id: req.params.id, proposalId: proposal.id },
+        transaction,
+      });
+      if (!schedule) workflow.fail('Riga non trovata', 'NOT_FOUND', 404);
+      const active = await MonteOreSlot.count({
+        where: { scheduleId: schedule.id, isActive: true },
+        transaction,
+      });
+      if (active && !req.body.confirmRemoval)
+        workflow.fail(
+          `La fascia contiene ${active} date selezionate. Deselezionale prima di eliminare la fascia.`,
+          'ACTIVE_SCHEDULE',
+        );
+      await schedule.destroy({ transaction });
+      await slotService.recomputeTotals(proposal.id, { transaction });
     });
-    if (!sched) return res.status(404).json({ error: 'Riga non trovata', code: 'NOT_FOUND' });
-    await sched.destroy();
     res.json({ message: 'Riga eliminata' });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -292,106 +349,71 @@ router.delete('/me/schedules/:id', authenticate, requireApproved, async (req, re
 router.post('/me/submit', authenticate, requireApproved, async (req, res, next) => {
   try {
     const year = req.body.academicYear || currentAcademicYearLabel();
-    // Validazione finestra di inserimento (configurabile da admin) +
-    // deroga individuale (User.monteOreSubmissionAllowedUntil) per docenti
-    // subentrati in corso d'anno o casi autorizzati dalla Direzione.
-    if (!(await isWithinSubmissionWindow(year, req.user))) {
-      return res.status(400).json({
-        error: 'Sei fuori dalla finestra di inserimento del monte ore',
-        code: 'OUTSIDE_SUBMISSION_WINDOW',
-      });
-    }
-    const proposal = await MonteOreProposal.findOne({
-      where: { userId: req.user.id, academicYear: year },
-      include: [
-        { model: MonteOreSchedule, as: 'schedules' },
-        { model: MonteOreSlot, as: 'slots' },
-      ],
+    if (!(await isWithinSubmissionWindow(year, req.user)))
+      workflow.fail(
+        'Sei fuori dalla finestra di inserimento del monte ore',
+        'OUTSIDE_SUBMISSION_WINDOW',
+      );
+    const proposal = await workflow.transact(async (transaction) => {
+      const proposal = await findOwnProposalEditable(req.user.id, year, transaction);
+      const plan = await workflow.loadPlan(proposal.id, transaction);
+      if (!plan.schedules.length)
+        workflow.fail('Imposta il pattern settimanale prima di inviare', 'EMPTY_PATTERN');
+      const distinctDays = new Set(plan.schedules.map((s) => s.dayOfWeek));
+      let validated;
+      if (plan.settings) {
+        const daily = validateDailyConstraints(plan.schedules, plan.settings);
+        if (!daily.ok) {
+          const error = new Error(
+            formatDailyViolationMessage(daily.violations[0], daily.violations.length),
+          );
+          error.status = 400;
+          error.code = daily.violations[0].code;
+          error.violations = daily.violations;
+          throw error;
+        }
+        // Detect pattern edits not yet propagated to the grid.
+        for (const slot of plan.slots.filter((s) => s.isActive)) {
+          const schedule = plan.schedules.find((s) => s.id === slot.scheduleId);
+          if (
+            !schedule ||
+            schedule.dayOfWeek !== slot.dayOfWeek ||
+            schedule.startTime !== slot.startTime ||
+            schedule.endTime !== slot.endTime
+          )
+            workflow.fail('Rigenera la griglia dopo aver modificato il pattern', 'STALE_GRID');
+        }
+        validated = await workflow.validatePlan(plan, workflow.expandRooms(plan, plan.slots), {
+          transaction,
+          snapshot: false,
+        });
+      }
+      await proposal.update(
+        {
+          status: 'submitted',
+          submittedAt: new Date(),
+          ...(validated
+            ? {
+                workingDaysCount: validated.rule.bypassDayConstraint ? null : distinctDays.size,
+                totalHoursRequested: validated.totalMinutes / 60,
+                totalHoursPlanned: validated.totalMinutes / 60,
+                minRequiredHoursSnapshot: validated.rule.minHours,
+                contractSnapshot: validated.rule,
+                requiresRevalidation: false,
+                revalidationReason: null,
+              }
+            : {}),
+        },
+        { transaction },
+      );
+      return proposal;
     });
-    if (!proposal)
-      return res.status(404).json({ error: 'Proposta non trovata', code: 'NOT_FOUND' });
-    if (!['draft', 'rejected'].includes(proposal.status)) {
-      return res.status(400).json({
-        error: 'Solo proposte in draft/rejected possono essere inviate',
-        code: 'INVALID_STATE',
-      });
-    }
-    if (!proposal.schedules || proposal.schedules.length === 0) {
-      return res
-        .status(400)
-        .json({ error: 'Imposta il pattern settimanale prima di inviare', code: 'EMPTY_PATTERN' });
-    }
-    const distinctDays = new Set(proposal.schedules.map((s) => s.dayOfWeek));
-    // Le validazioni "nuova spec" (2-4 giorni + 324h) si applicano solo
-    // quando l'admin ha configurato MonteOreSettings per l'AA. In assenza
-    // di settings il sistema opera in modalità legacy (pattern-only).
-    const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
-    let totalHours = 0;
-    let minRequired = null;
-    let bypassDayConstraint = false;
-    let thresholdSource = 'default';
-    if (settings) {
-      // Risoluzione soglia per-docente: se l'admin ha impostato un override
-      // individuale (es. contratto orario 60h), quello vince sulla soglia
-      // istituzionale. Stessa logica per il bypass del vincolo 2-4 giorni.
-      const resolved = await resolveAnnualThreshold(req.user.id, year);
-      minRequired = resolved.minHours;
-      bypassDayConstraint = resolved.bypassDayConstraint;
-      thresholdSource = resolved.source;
-
-      if (!bypassDayConstraint && (distinctDays.size < 2 || distinctDays.size > 4)) {
-        return res.status(400).json({
-          error:
-            `Il monte ore richiede da 2 a 4 giorni lavorativi a settimana ` +
-            `(impostati: ${distinctDays.size}). ` +
-            `Per docenti a contratto orario richiedi all'admin la deroga.`,
-          code: 'WORKING_DAYS_OUT_OF_RANGE',
-        });
-      }
-      totalHours = await slotService.recomputeTotals(proposal.id);
-      if (totalHours < minRequired) {
-        const sourceMsg =
-          thresholdSource === 'user_override'
-            ? 'Soglia personalizzata per il tuo contratto.'
-            : 'Soglia istituzionale.';
-        return res.status(400).json({
-          error:
-            `Il monte ore deve essere almeno di ${minRequired} ore ` +
-            `(attuali: ${totalHours.toFixed(1)} h). ${sourceMsg}`,
-          code: 'HOURS_BELOW_THRESHOLD',
-        });
-      }
-
-      // Z2/Z3 — vincoli giornalieri configurabili (Regolamento Art. 2).
-      // Skip se le soglie nelle settings sono NULL (vincolo disabilitato).
-      const dailyResult = validateDailyConstraints(proposal.schedules, settings);
-      if (!dailyResult.ok) {
-        const first = dailyResult.violations[0];
-        const msg = formatDailyViolationMessage(first, dailyResult.violations.length);
-        return res.status(400).json({
-          error: msg,
-          code: first.code,
-          violations: dailyResult.violations,
-        });
-      }
-    }
-    const updates = {
-      status: 'submitted',
-      submittedAt: new Date(),
-    };
-    if (settings) {
-      // workingDaysCount: in modalità bypass (contratto orario monoday) può
-      // essere 1, fuori dal validator min:2 max:5 del model → lasciamo null.
-      updates.workingDaysCount = bypassDayConstraint ? null : distinctDays.size;
-      updates.totalHoursRequested = totalHours;
-      // Snapshot del valore RISOLTO (override o istituzionale): se domani
-      // l'admin rimuove l'override, la proposta già submitted resta valida
-      // con la soglia originale.
-      updates.minRequiredHoursSnapshot = minRequired;
-    }
-    await proposal.update(updates);
     res.json({ proposal: proposal.toJSON() });
   } catch (err) {
+    if (err.violations)
+      return res
+        .status(err.status)
+        .json({ error: err.message, code: err.code, violations: err.violations });
     next(err);
   }
 });
@@ -435,12 +457,19 @@ router.get('/me/calendar', authenticate, requireApproved, async (req, res, next)
  */
 router.post('/me/regenerate-slots', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const proposal = await findOwnProposalEditable(req.user.id);
+    const proposal = await findOwnProposalEditable(
+      req.user.id,
+      req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+    );
     // Atomico: destroy + bulkCreate + recomputeTotals in una sola transazione.
     // Senza tx un crash a metà lasciava la proposta con metà degli slot persi.
-    const result = await sequelize.transaction(async (t) =>
-      slotService.regenerateSlotsFromPattern(proposal.id, { transaction: t }),
-    );
+    const result = await workflow.transact(async (transaction) => {
+      await findOwnProposalEditable(req.user.id, proposal.academicYear, transaction);
+      return slotService.regenerateSlotsFromPattern(proposal.id, {
+        transaction,
+        confirmRemoval: req.body.confirmRemoval === true,
+      });
+    });
     res.json({ result });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
@@ -492,92 +521,22 @@ router.post('/me/slots/:id/toggle', authenticate, requireApproved, async (req, r
     }
     // Stati editabili direttamente
     if (['draft', 'rejected'].includes(proposal.status)) {
-      const updated = await slotService.toggleSlot(slot.id);
+      const updated = await workflow.transact(async (transaction) => {
+        await findOwnProposalEditable(req.user.id, proposal.academicYear, transaction);
+        return slotService.toggleSlot(slot.id, { transaction });
+      });
       return res.json({ slot: updated.toJSON() });
     }
     // Stati che richiedono amendment workflow
     if (['approved', 'generated'].includes(proposal.status)) {
-      // Tutto in transazione (SERIALIZABLE su Postgres per evitare race su
-      // amendmentCount; default su SQLite/MySQL che non lo supportano nativamente).
-      // withSerializableRetry gestisce il 40001 (serialization_failure) di Postgres
-      // con backoff esponenziale.
-      const txOpts =
-        sequelize.getDialect() === 'postgres'
-          ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
-          : {};
-      const { withSerializableRetry } = require('../lib/serializableTx');
-      const result = await withSerializableRetry(sequelize, txOpts, async (t) => {
-        const p = await MonteOreProposal.findByPk(slot.proposalId, { transaction: t });
-        const s = await MonteOreSlot.findByPk(slot.id, { transaction: t });
-        const kind = s.isActive ? 'toggle_off' : 'toggle_on';
-        // Le deselezioni (toggle_off) liberano ore e non consumano il budget
-        // annuale di variazioni: il counter sale solo sulle aggiunte.
-        const consumesBudget = kind !== 'toggle_off';
-        let maxAmend = 3;
-        if (consumesBudget) {
-          const settings = await MonteOreSettings.findOne({
-            where: { academicYear: p.academicYear },
-            transaction: t,
-          });
-          maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-        }
-        const decided = slotService.classifyAmendment(s, kind);
-        const amendment = await MonteOreAmendment.create(
-          {
-            proposalId: p.id,
-            requesterId: req.user.id,
-            slotId: s.id,
-            kind,
-            payload: { from: s.isActive, to: !s.isActive },
-            status: decided,
-            requestNotes: req.body.notes ?? null,
-            decidedAt: decided === 'auto_approved' ? new Date() : null,
-          },
-          { transaction: t },
-        );
-        if (decided === 'auto_approved') {
-          if (consumesBudget) {
-            // Atomic conditional increment: cross-dialect race-safe (no
-            // dipendenza da SERIALIZABLE). Se affected=0 il limite è già
-            // stato raggiunto (concorrentemente o prima).
-            const qcol =
-              sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
-            const [affected] = await MonteOreProposal.update(
-              { amendmentCount: sequelize.literal(`${qcol} + 1`) },
-              {
-                where: {
-                  id: p.id,
-                  amendmentCount: { [Op.lt]: maxAmend },
-                },
-                transaction: t,
-              },
-            );
-            if (affected === 0) {
-              const e = new Error(
-                `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
-              );
-              e.status = 400;
-              e.code = 'AMENDMENT_LIMIT_REACHED';
-              throw e;
-            }
-          }
-          await slotService.toggleSlot(s.id, { force: true, transaction: t });
-          // Sync booking↔slot solo se la proposta è 'generated' (i booking
-          // sono già stati materializzati). In 'approved' lo slot toggle
-          // basta — il generator userà il nuovo isActive al prossimo run.
-          if (p.status === 'generated') {
-            await slotService.syncBookingForSlot(s.id, {
-              actorUser: { id: req.user.id, role: 'admin' },
-              transaction: t,
-            });
-          }
-        }
-        await s.reload({ transaction: t });
-        return { amendment, slot: s };
+      const amendment = await workflow.requestAmendment(proposal.id, req.user.id, {
+        operations: [
+          { kind: slot.isActive ? 'toggle_off' : 'toggle_on', slotId: slot.id, payload: {} },
+        ],
+        notes: req.body.notes,
+        requestKey: req.body.requestKey || randomUUID(),
       });
-      return res
-        .status(201)
-        .json({ amendment: result.amendment.toJSON(), slot: result.slot.toJSON() });
+      return res.status(201).json({ amendment: amendment.toJSON() });
     }
     return res.status(400).json({ error: 'Stato non gestito' });
   } catch (err) {
@@ -629,33 +588,22 @@ router.post('/me/amendments/add-new-day', authenticate, requireApproved, async (
     const roomIdNum =
       roomId !== undefined && roomId !== null && roomId !== '' ? Number(roomId) : null;
 
-    // Verifica limite annuale prima di creare l'amendment
-    const settings = await MonteOreSettings.findOne({
-      where: { academicYear: proposal.academicYear },
-    });
-    const maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-    if ((proposal.amendmentCount || 0) >= maxAmend) {
-      return res.status(400).json({
-        error: `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
-        code: 'AMENDMENT_LIMIT_REACHED',
-      });
-    }
-
-    const amendment = await MonteOreAmendment.create({
-      proposalId: proposal.id,
-      requesterId: req.user.id,
-      slotId: null,
-      kind: 'add_new_day',
-      payload: {
-        date: isoDate,
-        startTime: sT,
-        endTime: eT,
-        roomId: roomIdNum, // null se non specificata: la assegnerà l'admin
-        bookingType: bookingType ? String(bookingType).slice(0, 40) : 'lezione',
-        purpose: purpose ? String(purpose).slice(0, 255) : null,
-      },
-      status: 'pending',
-      requestNotes: notes ? String(notes).slice(0, 2000) : null,
+    const amendment = await workflow.requestAmendment(proposal.id, req.user.id, {
+      requestKey: req.body.requestKey || randomUUID(),
+      notes,
+      operations: [
+        {
+          kind: 'add_new_day',
+          payload: {
+            date: isoDate,
+            startTime: sT,
+            endTime: eT,
+            roomId: roomIdNum,
+            bookingType: bookingType || 'lezione',
+            purpose: purpose || null,
+          },
+        },
+      ],
     });
 
     res.status(201).json({ amendment: amendment.toJSON() });
@@ -703,69 +651,13 @@ async function loadOwnApprovedSlot(slotId, userId) {
 
 /**
  * Helper: crea un amendment con increment atomico cross-dialect del budget
- * annuale, applica subito la modifica se decisione=auto_approved.
- * Le mutazioni concrete (update slot, sync booking, …) sono lasciate al
- * callback `applyFn`. Tutto in transazione.
+ * annuale e lascia la richiesta pendente. Nessuna mutazione del piano operativo.
  */
-async function createAndApplyAmendment({
-  req,
-  proposal,
-  slot,
-  kind,
-  payload,
-  decision,
-  consumesBudget,
-  applyFn,
-}) {
-  const txOpts =
-    sequelize.getDialect() === 'postgres'
-      ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
-      : {};
-  const { withSerializableRetry } = require('../lib/serializableTx');
-  return withSerializableRetry(sequelize, txOpts, async (t) => {
-    let maxAmend = 3;
-    if (consumesBudget) {
-      const settings = await MonteOreSettings.findOne({
-        where: { academicYear: proposal.academicYear },
-        transaction: t,
-      });
-      maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-    }
-    const amendment = await MonteOreAmendment.create(
-      {
-        proposalId: proposal.id,
-        requesterId: req.user.id,
-        slotId: slot.id,
-        kind,
-        payload,
-        status: decision,
-        requestNotes: req.body?.notes ? String(req.body.notes).slice(0, 2000) : null,
-        decidedAt: decision === 'auto_approved' ? new Date() : null,
-      },
-      { transaction: t },
-    );
-    if (decision === 'auto_approved' && consumesBudget) {
-      const qcol = sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
-      const [affected] = await MonteOreProposal.update(
-        { amendmentCount: sequelize.literal(`${qcol} + 1`) },
-        {
-          where: { id: proposal.id, amendmentCount: { [Op.lt]: maxAmend } },
-          transaction: t,
-        },
-      );
-      if (affected === 0) {
-        const e = new Error(
-          `Hai raggiunto il limite di ${maxAmend} richieste di variazione per l'anno`,
-        );
-        e.status = 400;
-        e.code = 'AMENDMENT_LIMIT_REACHED';
-        throw e;
-      }
-    }
-    if (decision === 'auto_approved') {
-      await applyFn(t);
-    }
-    return amendment;
+async function createAndApplyAmendment({ req, proposal, slot, kind, payload }) {
+  return workflow.requestAmendment(proposal.id, req.user.id, {
+    operations: [{ kind, slotId: slot.id, payload }],
+    notes: req.body.notes,
+    requestKey: req.body.requestKey || randomUUID(),
   });
 }
 
@@ -773,8 +665,7 @@ async function createAndApplyAmendment({
  * POST /api/monte-ore/me/slots/:id/change-time
  * Cambia l'orario di UN'occorrenza ricorrente (lascia il pattern intatto).
  * Body: { startTime?: "HH:MM", endTime?: "HH:MM", notes?: string }
- * Auto-approve se lo slot era originalmente attivo (originalActive=true);
- * altrimenti pending al coordinatore.
+ * Ogni richiesta rimane pendente fino alla decisione del revisore.
  */
 router.post('/me/slots/:id/change-time', authenticate, requireApproved, async (req, res, next) => {
   try {
@@ -792,24 +683,12 @@ router.post('/me/slots/:id/change-time', authenticate, requireApproved, async (r
     if (finalStart >= finalEnd) {
       return res.status(400).json({ error: 'startTime deve essere prima di endTime' });
     }
-    const decision = slotService.classifyAmendment(slot, 'change_time');
     const amendment = await createAndApplyAmendment({
       req,
       proposal,
       slot,
       kind: 'change_time',
       payload: { startTime: finalStart, endTime: finalEnd },
-      decision,
-      consumesBudget: true,
-      applyFn: async (t) => {
-        await slot.update({ startTime: finalStart, endTime: finalEnd }, { transaction: t });
-        if (proposal.status === 'generated') {
-          await slotService.syncBookingForSlot(slot.id, {
-            actorUser: { id: req.user.id, role: 'admin' },
-            transaction: t,
-          });
-        }
-      },
     });
     res.status(201).json({ amendment: amendment.toJSON() });
   } catch (err) {
@@ -842,9 +721,6 @@ router.post('/me/slots/:id/change-room', authenticate, requireApproved, async (r
       slot,
       kind: 'change_room',
       payload: { roomId: newRoomId },
-      decision: 'pending',
-      consumesBudget: false, // budget verrà incrementato all'approve
-      applyFn: async () => {}, // pending: nessuna applicazione immediata
     });
     res.status(201).json({ amendment: amendment.toJSON() });
   } catch (err) {
@@ -859,8 +735,7 @@ router.post('/me/slots/:id/change-room', authenticate, requireApproved, async (r
  * Conta come 1 sola variazione di budget.
  * Body: { targetSlotId: number, notes?: string }
  *
- * Auto-approve se sia source sia target sono in pattern (scheduleId valorizzati);
- * pending altrimenti (es. target è uno slot fuori pattern di add_new_day).
+ * Ogni spostamento richiede la decisione del revisore.
  */
 router.post('/me/slots/:id/move-to', authenticate, requireApproved, async (req, res, next) => {
   try {
@@ -891,32 +766,12 @@ router.post('/me/slots/:id/move-to', authenticate, requireApproved, async (req, 
         .status(400)
         .json({ error: 'Cella target già attiva', code: 'TARGET_ALREADY_ACTIVE' });
     }
-    const decision = slotService.classifyAmendment(source, 'move_to', { targetSlot: target });
     const amendment = await createAndApplyAmendment({
       req,
       proposal,
       slot: source,
       kind: 'move_to',
       payload: { targetSlotId: target.id, sourceDate: source.date, targetDate: target.date },
-      decision,
-      consumesBudget: true,
-      applyFn: async (t) => {
-        await source.update({ isActive: false }, { transaction: t });
-        await target.update({ isActive: true }, { transaction: t });
-        await slotService.recomputeTotals(proposal.id, { transaction: t });
-        if (proposal.status === 'generated') {
-          // Source: lo slot ora isActive=false → syncBookingForSlot cancella il booking.
-          await slotService.syncBookingForSlot(source.id, {
-            actorUser: { id: req.user.id, role: 'admin' },
-            transaction: t,
-          });
-          // Target: lo slot ora isActive=true → syncBookingForSlot crea il booking.
-          await slotService.syncBookingForSlot(target.id, {
-            actorUser: { id: req.user.id, role: 'admin' },
-            transaction: t,
-          });
-        }
-      },
     });
     res.status(201).json({ amendment: amendment.toJSON() });
   } catch (err) {
@@ -928,6 +783,57 @@ router.post('/me/slots/:id/move-to', authenticate, requireApproved, async (req, 
 /**
  * Elenco amendments della propria proposta (per visibilità docente).
  */
+router.post('/me/amendments', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const proposal = await MonteOreProposal.findOne({
+      where: {
+        userId: req.user.id,
+        academicYear: req.body.academicYear || currentAcademicYearLabel(),
+      },
+    });
+    if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
+    const amendment = await workflow.requestAmendment(proposal.id, req.user.id, req.body);
+    res.status(201).json({ amendment });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/me/slots/select', authenticate, requireApproved, async (req, res, next) => {
+  try {
+    const proposal = await findOwnProposalEditable(
+      req.user.id,
+      req.body.academicYear || currentAcademicYearLabel(),
+    );
+    const { dateFrom, dateTo, dayOfWeek, isActive } = req.body;
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '') ||
+      dateFrom > dateTo ||
+      typeof isActive !== 'boolean'
+    )
+      return res.status(400).json({ error: 'Periodo o selezione non validi' });
+    await workflow.transact(async (transaction) => {
+      await findOwnProposalEditable(req.user.id, proposal.academicYear, transaction);
+      const where = {
+        proposalId: proposal.id,
+        isLocked: false,
+        date: { [Op.between]: [dateFrom, dateTo] },
+      };
+      if (dayOfWeek !== undefined && dayOfWeek !== null) {
+        if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 6)
+          workflow.fail('Giorno non valido');
+        where.dayOfWeek = dayOfWeek;
+      }
+      await MonteOreSlot.update({ isActive }, { where, transaction, validate: false });
+      await slotService.recomputeTotals(proposal.id, { transaction });
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/me/amendments', authenticate, requireApproved, async (req, res, next) => {
   try {
     const year = req.query.year || currentAcademicYearLabel();
@@ -939,7 +845,16 @@ router.get('/me/amendments', authenticate, requireApproved, async (req, res, nex
       where: { proposalId: proposal.id },
       order: [['createdAt', 'DESC']],
     });
-    res.json({ amendments: amendments.map((a) => a.toJSON()) });
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+    const maximum = settings?.maxAmendmentsPerYear ?? 3;
+    res.json({
+      amendments: await serializeAmendments(amendments),
+      budget: {
+        used: proposal.requestCount,
+        maximum,
+        remaining: Math.max(0, maximum - proposal.requestCount),
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -1187,15 +1102,22 @@ adminRouter.post('/academic-years', authenticate, requireRole('admin'), async (r
       });
     }
     const { bootstrapAcademicYear } = require('../services/academicYearBootstrap');
-    const result = await bootstrapAcademicYear({
+    const result = await updateCalendar(
       academicYear,
-      mode: mode === 'from_previous' ? 'from_previous' : 'default',
-      previousYear: previousYear || null,
-      overwrite: !!overwrite,
-    });
+      req.user,
+      req.body.confirmImpact === true,
+      (transaction) =>
+        bootstrapAcademicYear({
+          academicYear,
+          mode: mode === 'from_previous' ? 'from_previous' : 'default',
+          previousYear: previousYear || null,
+          overwrite: !!overwrite,
+          transaction,
+        }),
+    );
     res.status(201).json(result);
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -1294,19 +1216,28 @@ adminRouter.post('/exam-sessions', authenticate, requireRole('admin'), async (re
       });
     }
 
-    const susp = await MonteOreSuspension.create({
-      instituteId,
-      academicYear: year,
-      name: data.name,
-      dateFrom: data.dateFrom,
-      dateTo: data.dateTo,
-      kind: 'partial',
-      category: 'exam_session',
-      notes: data.notes || null,
-    });
+    const susp = await updateCalendar(
+      year,
+      req.user,
+      req.body.confirmImpact === true,
+      (transaction) =>
+        MonteOreSuspension.create(
+          {
+            instituteId,
+            academicYear: year,
+            name: data.name,
+            dateFrom: data.dateFrom,
+            dateTo: data.dateTo,
+            kind: 'partial',
+            category: 'exam_session',
+            notes: data.notes || null,
+          },
+          { transaction },
+        ),
+    );
     res.status(201).json({ examSession: susp.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -1327,7 +1258,12 @@ adminRouter.patch(
       if (data.dateFrom !== undefined) patch.dateFrom = data.dateFrom;
       if (data.dateTo !== undefined) patch.dateTo = data.dateTo;
       if (data.notes !== undefined) patch.notes = data.notes;
-      await susp.update(patch);
+      await updateCalendar(
+        susp.academicYear,
+        req.user,
+        req.body.confirmImpact === true,
+        (transaction) => susp.update(patch, { transaction }),
+      );
       res.json({ examSession: susp.toJSON() });
     } catch (err) {
       next(err);
@@ -1539,6 +1475,11 @@ adminRouter.post(
           }
           // Se la proposta esisteva in stato diverso da draft/submitted/rejected,
           // richiediamo `force=true` per non sovrascrivere lavoro già approvato.
+          if (proposal.status === 'generated')
+            workflow.fail(
+              'Annulla la generazione prima di sostituire il piano via import',
+              'INVALID_STATE',
+            );
           if (!['draft', 'submitted', 'rejected'].includes(proposal.status) && !force) {
             const err = new Error(
               `Proposta in stato '${proposal.status}': passa force=true per sovrascrivere`,
@@ -1588,6 +1529,33 @@ adminRouter.post(
             validate: true,
           });
         }
+
+        await slotService.regenerateSlotsFromPattern(proposal.id, {
+          transaction: t,
+          confirmRemoval: true,
+        });
+        await MonteOreSlot.update(
+          { isActive: true },
+          { where: { proposalId: proposal.id, isLocked: false }, transaction: t, validate: false },
+        );
+        await slotService.recomputeTotals(proposal.id, { transaction: t });
+        const plan = await workflow.loadPlan(proposal.id, t);
+        const rule = await resolveAnnualThreshold(teacher.id, academicYear, { transaction: t });
+        if (rule.mode === 'exact' || rule.mode === 'maximum') {
+          await workflow.validatePlan(plan, workflow.expandRooms(plan, plan.slots), {
+            transaction: t,
+            snapshot: false,
+          });
+        }
+        await proposal.reload({ transaction: t });
+        await proposal.update(
+          {
+            contractSnapshot: rule,
+            minRequiredHoursSnapshot: rule.minHours,
+            totalHoursRequested: proposal.totalHoursPlanned,
+          },
+          { transaction: t },
+        );
 
         // Reload con schedules per ritornare il dato fresco.
         const fresh = await MonteOreProposal.findByPk(proposal.id, {
@@ -1648,7 +1616,7 @@ adminRouter.get('/settings', authenticate, requireRole('admin'), async (req, res
     }
     res.json({ settings: settings.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -1668,10 +1636,12 @@ adminRouter.put('/settings', authenticate, requireRole('admin'), async (req, res
         maxAmendmentsPerYear: 3,
       });
     }
-    await settings.update(sanitizeSettings(req.body));
+    await updateCalendar(year, req.user, req.body.confirmImpact === true, (transaction) =>
+      settings.update(sanitizeSettings(req.body), { transaction }),
+    );
     res.json({ settings: settings.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     // Errore di validazione model (es. range fuori scope o coerenza
     // dailyBreakAfterHours/dailyBreakMinutes) → 400 con messaggio leggibile
     // invece di 500 generico.
@@ -1730,31 +1700,36 @@ adminRouter.post('/suspensions', authenticate, requireRole('admin'), async (req,
 
     // Atomico: o entrambi (exception + suspension) sono creati, o nessuno —
     // così non restano BookingRuleException orfane se la suspension fallisce.
-    const susp = await sequelize.transaction(async (t) => {
-      let bookingRuleExceptionId = null;
-      if (req.body.applyToAllBookings === true) {
-        const ex = await BookingRuleException.create(
-          {
-            role: 'all',
-            name: data.name,
-            kind: 'block',
-            dateFrom: data.dateFrom,
-            dateTo: data.dateTo,
-            isActive: true,
-            notes: `Generata automaticamente dalla sospensione monte ore (${year})`,
-          },
+    const susp = await updateCalendar(
+      year,
+      req.user,
+      req.body.confirmImpact === true,
+      async (t) => {
+        let bookingRuleExceptionId = null;
+        if (req.body.applyToAllBookings === true) {
+          const ex = await BookingRuleException.create(
+            {
+              role: 'all',
+              name: data.name,
+              kind: 'block',
+              dateFrom: data.dateFrom,
+              dateTo: data.dateTo,
+              isActive: true,
+              notes: `Generata automaticamente dalla sospensione monte ore (${year})`,
+            },
+            { transaction: t },
+          );
+          bookingRuleExceptionId = ex.id;
+        }
+        return MonteOreSuspension.create(
+          { instituteId, academicYear: year, bookingRuleExceptionId, ...data },
           { transaction: t },
         );
-        bookingRuleExceptionId = ex.id;
-      }
-      return MonteOreSuspension.create(
-        { instituteId, academicYear: year, bookingRuleExceptionId, ...data },
-        { transaction: t },
-      );
-    });
+      },
+    );
     res.status(201).json({ suspension: susp.toJSON() });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -1767,7 +1742,12 @@ adminRouter.patch(
     try {
       const susp = await MonteOreSuspension.findByPk(req.params.id);
       if (!susp) return res.status(404).json({ error: 'Sospensione non trovata' });
-      await susp.update(sanitizeSuspension(req.body));
+      await updateCalendar(
+        susp.academicYear,
+        req.user,
+        req.body.confirmImpact === true,
+        (transaction) => susp.update(sanitizeSuspension(req.body), { transaction }),
+      );
       res.json({ suspension: susp.toJSON() });
     } catch (err) {
       next(err);
@@ -1814,7 +1794,7 @@ adminRouter.get('/amendments', authenticate, requireRole('admin'), async (req, r
       ],
       order: [['createdAt', 'DESC']],
     });
-    res.json({ amendments: items.map((a) => a.toJSON()) });
+    res.json({ amendments: await serializeAmendments(items) });
   } catch (err) {
     next(err);
   }
@@ -1919,6 +1899,7 @@ adminRouter.get('/:id', authenticate, requireRole('admin'), async (req, res, nex
           as: 'schedules',
           include: [{ model: Room, as: 'room', include: [{ model: Building, as: 'building' }] }],
         },
+        { model: MonteOreSlot, as: 'slots' },
         { model: User, as: 'approver', attributes: ['id', 'firstName', 'lastName'] },
       ],
       order: [
@@ -1934,74 +1915,86 @@ adminRouter.get('/:id', authenticate, requireRole('admin'), async (req, res, nex
   }
 });
 
-// L'admin può modificare le righe schedule sia in submitted che in approved
-// (NON in generated: per modificare deve prima fare unlock).
+// Keep administrative pattern changes and the selected grid in the same transaction.
+async function editAdminSchedule(req, action) {
+  return workflow.transact(async (transaction) => {
+    const plan = await workflow.loadPlan(Number(req.params.id), transaction, true);
+    if (plan.proposal.status === 'generated')
+      workflow.fail(
+        'Esegui prima "Annulla generazione" oppure usa la rivalidazione',
+        'INVALID_STATE',
+      );
+    let schedule;
+    if (action === 'create') {
+      const data = sanitizeSchedule(req.body);
+      if (!data.bookingType) data.bookingType = 'lezione';
+      if (data.dayOfWeek === undefined || !data.startTime || !data.endTime)
+        workflow.fail('dayOfWeek, startTime, endTime sono obbligatori');
+      schedule = await MonteOreSchedule.create(
+        { proposalId: plan.proposal.id, ...data },
+        { transaction },
+      );
+    } else {
+      schedule = plan.schedules.find((s) => s.id === Number(req.params.sid));
+      if (!schedule) workflow.fail('Riga non trovata', 'NOT_FOUND', 404);
+      if (action === 'delete') {
+        if (
+          plan.slots.some((s) => s.scheduleId === schedule.id && s.isActive) &&
+          req.body.confirmRemoval !== true
+        )
+          workflow.fail(
+            'La fascia contiene date selezionate. Riporta il piano in bozza e deselezionale prima di eliminarla.',
+            'ACTIVE_SCHEDULE',
+            409,
+          );
+        await schedule.destroy({ transaction });
+      } else await schedule.update(sanitizeSchedule(req.body), { transaction });
+    }
+    if (plan.settings) {
+      const result = await slotService.regenerateSlotsFromPattern(plan.proposal.id, {
+        transaction,
+        confirmRemoval: req.body.confirmRemoval === true,
+      });
+      if (result.requiresConfirmation)
+        workflow.fail(
+          `La modifica rimuoverebbe ${result.removedActive.length} date selezionate. Riporta il piano in bozza per rivedere la selezione.`,
+          'ACTIVE_SCHEDULE',
+          409,
+        );
+    }
+    await plan.proposal.update({ revision: plan.proposal.revision + 1 }, { transaction });
+    return schedule;
+  });
+}
+
 adminRouter.patch(
   '/:id/schedules/:sid',
   authenticate,
   requireRole('admin'),
   async (req, res, next) => {
     try {
-      const proposal = await MonteOreProposal.findByPk(req.params.id);
-      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-      if (proposal.status === 'generated') {
-        return res.status(400).json({
-          error: 'Esegui prima "Annulla generazione" per modificare le righe',
-          code: 'INVALID_STATE',
-        });
-      }
-      const sched = await MonteOreSchedule.findOne({
-        where: { id: req.params.sid, proposalId: proposal.id },
-      });
-      if (!sched) return res.status(404).json({ error: 'Riga non trovata' });
-      await sched.update(sanitizeSchedule(req.body));
-      res.json({ schedule: sched.toJSON() });
+      const schedule = await editAdminSchedule(req, 'update');
+      res.json({ schedule: schedule.toJSON() });
     } catch (err) {
       next(err);
     }
   },
 );
-
-// L'admin può anche creare/eliminare righe (utile per consolidare la proposta)
 adminRouter.post('/:id/schedules', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const proposal = await MonteOreProposal.findByPk(req.params.id);
-    if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-    if (proposal.status === 'generated') {
-      return res
-        .status(400)
-        .json({ error: 'Esegui prima "Annulla generazione"', code: 'INVALID_STATE' });
-    }
-    const data = sanitizeSchedule(req.body);
-    if (!data.bookingType) data.bookingType = 'lezione';
-    if (data.dayOfWeek === undefined || !data.startTime || !data.endTime) {
-      return res.status(400).json({ error: 'dayOfWeek, startTime, endTime sono obbligatori' });
-    }
-    const sched = await MonteOreSchedule.create({ proposalId: proposal.id, ...data });
-    res.status(201).json({ schedule: sched.toJSON() });
+    const schedule = await editAdminSchedule(req, 'create');
+    res.status(201).json({ schedule: schedule.toJSON() });
   } catch (err) {
     next(err);
   }
 });
-
 adminRouter.delete(
   '/:id/schedules/:sid',
   authenticate,
   requireRole('admin'),
   async (req, res, next) => {
     try {
-      const proposal = await MonteOreProposal.findByPk(req.params.id);
-      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-      if (proposal.status === 'generated') {
-        return res
-          .status(400)
-          .json({ error: 'Esegui prima "Annulla generazione"', code: 'INVALID_STATE' });
-      }
-      const sched = await MonteOreSchedule.findOne({
-        where: { id: req.params.sid, proposalId: proposal.id },
-      });
-      if (!sched) return res.status(404).json({ error: 'Riga non trovata' });
-      await sched.destroy();
+      await editAdminSchedule(req, 'delete');
       res.json({ message: 'Riga eliminata' });
     } catch (err) {
       next(err);
@@ -2009,43 +2002,31 @@ adminRouter.delete(
   },
 );
 
+adminRouter.get('/:id/preview', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    res.json(await workflow.preview(Number(req.params.id)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/:id/preview', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    res.json(await workflow.preview(Number(req.params.id), req.body.assignments || []));
+  } catch (err) {
+    next(err);
+  }
+});
+
 adminRouter.post('/:id/approve', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    // Atomico: status approved + snapshotOriginalActive in una sola
-    // transazione. Se crash a metà, niente è scritto → l'admin riprova.
-    const proposal = await sequelize.transaction(async (t) => {
-      const p = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
-      if (!p) {
-        const e = new Error('Proposta non trovata');
-        e.status = 404;
-        throw e;
-      }
-      if (!['submitted', 'rejected'].includes(p.status)) {
-        const e = new Error('Solo submitted/rejected possono essere approvate');
-        e.status = 400;
-        e.code = 'INVALID_STATE';
-        throw e;
-      }
-      await p.update(
-        {
-          status: 'approved',
-          approvedAt: new Date(),
-          approverId: req.user.id,
-          rejectedAt: null,
-          rejectionReason: null,
-          coordinatorNotes: req.body.notes ?? p.coordinatorNotes,
-        },
-        { transaction: t },
-      );
-      // Congela isActive → originalActive: serve a classifyAmendment per
-      // distinguere modifiche su giorni "già nel piano" (auto-approve) da
-      // riattivazione/aggiunta di giorni nuovi (pending).
-      await slotService.snapshotOriginalActive(p.id, { transaction: t });
-      return p;
-    });
-    res.json({ proposal: proposal.toJSON() });
+    const proposal = await workflow.approvePlan(
+      Number(req.params.id),
+      req.user,
+      req.body.assignments || [],
+    );
+    res.json({ proposal });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -2078,10 +2059,18 @@ adminRouter.post('/:id/generate', authenticate, requireRole('admin'), async (req
     // le occorrenze già trascorse — usato per AA arretrati o ricostruzione
     // storico contabile. Default false: si genera solo dal momento in poi.
     const includePast = req.body?.includePast === true;
-    const result = await monteOreService.generateBookingsForProposal(Number(req.params.id), {
-      actorUser: req.user,
-      includePast,
-    });
+    const existing = await MonteOreProposal.findByPk(req.params.id);
+    const settings =
+      existing &&
+      (await MonteOreSettings.findOne({ where: { academicYear: existing.academicYear } }));
+    const result = settings
+      ? await workflow
+          .approvePlan(Number(req.params.id), req.user)
+          .then((p) => ({ created: p.generationSummary.created, skipped: [], errors: [] }))
+      : await monteOreService.generateBookingsForProposal(Number(req.params.id), {
+          actorUser: req.user,
+          includePast,
+        });
     // Reload proposta aggiornata per la risposta
     const fresh = await MonteOreProposal.findByPk(req.params.id);
     res.status(201).json({ result, proposal: fresh.toJSON() });
@@ -2189,7 +2178,20 @@ adminRouter.get('/:id/amendments', authenticate, requireRole('admin'), async (re
       ],
       order: [['createdAt', 'DESC']],
     });
-    res.json({ amendments: items.map((a) => a.toJSON()) });
+    res.json({ amendments: await serializeAmendments(items) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/:id/revalidate', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const amendment = await workflow.decideAmendment(Number(req.params.id), null, req.user, {
+      administrative: true,
+      operations: req.body.operations,
+      reason: req.body.reason,
+    });
+    res.json({ amendment });
   } catch (err) {
     next(err);
   }
@@ -2201,193 +2203,27 @@ adminRouter.post(
   requireRole('admin'),
   async (req, res, next) => {
     try {
-      // Atomico in transazione: lookup + update slot + update amendment +
-      // increment amendmentCount + recompute totali. Senza transazione,
-      // un crash tra slot.update e amendment.update lasciava lo slot
-      // modificato ma l'amendment ancora 'pending'.
-      const amendment = await sequelize.transaction(async (t) => {
-        const proposal = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
-        if (!proposal) {
-          const e = new Error('Proposta non trovata');
-          e.status = 404;
-          throw e;
-        }
+      let operations = req.body.operations;
+      if (!operations && req.body.roomId) {
         const a = await MonteOreAmendment.findOne({
-          where: { id: req.params.aid, proposalId: proposal.id },
-          transaction: t,
+          where: { id: req.params.aid, proposalId: req.params.id },
         });
-        if (!a) {
-          const e = new Error('Variazione non trovata');
-          e.status = 404;
-          throw e;
-        }
-        if (a.status !== 'pending') {
-          const e = new Error('Variazione già decisa');
-          e.status = 400;
-          e.code = 'INVALID_STATE';
-          throw e;
-        }
-        // Le deselezioni non consumano il budget annuale; il limite si
-        // applica solo alle aggiunte (toggle_on, add_new_day, change_time).
-        const consumesBudget = a.kind !== 'toggle_off';
-        let maxAmend = 3;
-        if (consumesBudget) {
-          const settings = await MonteOreSettings.findOne({
-            where: { academicYear: proposal.academicYear },
-            transaction: t,
-          });
-          maxAmend = settings?.maxAmendmentsPerYear ?? 3;
-          // Check rapido fail-fast: il check atomico finale è nell'UPDATE qui sotto.
-          if ((proposal.amendmentCount || 0) >= maxAmend) {
-            const e = new Error(
-              `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
-            );
-            e.status = 400;
-            e.code = 'AMENDMENT_LIMIT_REACHED';
-            throw e;
-          }
-        }
-        // Applica la modifica allo slot bersaglio
-        if (a.slotId) {
-          const slot = await MonteOreSlot.findByPk(a.slotId, { transaction: t });
-          if (slot) {
-            if (a.kind === 'toggle_off' || a.kind === 'toggle_on') {
-              await slot.update({ isActive: a.kind === 'toggle_on' }, { transaction: t });
-            } else if (a.kind === 'change_time' && a.payload) {
-              const upd = {};
-              if (a.payload.startTime) upd.startTime = String(a.payload.startTime).slice(0, 5);
-              if (a.payload.endTime) upd.endTime = String(a.payload.endTime).slice(0, 5);
-              await slot.update(upd, { transaction: t });
-            } else if (a.kind === 'change_room' && a.payload?.roomId) {
-              // Override aula sul singolo slot: pattern e altre settimane
-              // restano invariate (lo slot ha priorità su schedule.roomId).
-              await slot.update({ roomId: Number(a.payload.roomId) }, { transaction: t });
-            } else if (a.kind === 'move_to' && a.payload?.targetSlotId) {
-              const target = await MonteOreSlot.findByPk(Number(a.payload.targetSlotId), {
-                transaction: t,
-              });
-              if (!target || target.proposalId !== proposal.id) {
-                const e = new Error('Slot target non valido');
-                e.status = 400;
-                e.code = 'TARGET_NOT_FOUND';
-                throw e;
-              }
-              if (target.isLocked || target.isActive) {
-                const e = new Error('Slot target non disponibile');
-                e.status = 400;
-                e.code = 'TARGET_NOT_AVAILABLE';
-                throw e;
-              }
-              await slot.update({ isActive: false }, { transaction: t });
-              await target.update({ isActive: true }, { transaction: t });
-              if (proposal.status === 'generated') {
-                await slotService.syncBookingForSlot(target.id, {
-                  actorUser: { id: req.user.id, role: 'admin' },
-                  transaction: t,
-                });
-              }
-            }
-            // Sync booking↔slot in stato 'generated': cancella o ricrea il
-            // Booking corrispondente in coerenza con la decisione admin.
-            if (proposal.status === 'generated') {
-              await slotService.syncBookingForSlot(a.slotId, {
-                actorUser: { id: req.user.id, role: 'admin' },
-                transaction: t,
-              });
-            }
-          }
-        } else if (a.kind === 'add_new_day' && a.payload) {
-          // Variazione "add_new_day": crea lo slot fuori-pattern (scheduleId
-          // NULL) e, se la proposta è già generated, materializza il booking
-          // via syncBookingForSlot (che legge le info dai campi sullo slot).
-          //
-          // L'admin può fornire/sovrascrivere il roomId in fase di approvazione
-          // (req.body.roomId): è obbligatorio se il docente non l'aveva
-          // indicato; opzionalmente sovrascrive la preferenza del docente.
-          const p = a.payload;
-          if (!p.date || !p.startTime || !p.endTime) {
-            const e = new Error('Payload add_new_day incompleto');
-            e.status = 400;
-            throw e;
-          }
-          const overrideRoomId =
-            req.body &&
-            req.body.roomId !== undefined &&
-            req.body.roomId !== null &&
-            req.body.roomId !== ''
-              ? Number(req.body.roomId)
-              : null;
-          const finalRoomId = overrideRoomId ?? (p.roomId ? Number(p.roomId) : null);
-          if (!finalRoomId) {
-            const e = new Error(
-              'Aula obbligatoria per approvare: il docente non ne ha indicata una',
-            );
-            e.status = 400;
-            e.code = 'ROOM_REQUIRED';
-            throw e;
-          }
-          const dow = dayjs(p.date).day();
-          const newSlot = await MonteOreSlot.create(
-            {
-              proposalId: proposal.id,
-              scheduleId: null,
-              date: String(p.date).slice(0, 10),
-              dayOfWeek: dow,
-              startTime: String(p.startTime).slice(0, 5),
-              endTime: String(p.endTime).slice(0, 5),
-              isActive: true,
-              isLocked: false,
-              originalActive: false,
-              roomId: finalRoomId,
-              bookingType: p.bookingType || 'lezione',
-              purpose: p.purpose || null,
-            },
-            { transaction: t },
-          );
-          // Linka l'amendment allo slot creato; se l'admin ha sovrascritto
-          // l'aula, salviamo il valore finale anche nel payload per traccia.
-          const updatedPayload = overrideRoomId
-            ? { ...p, roomId: finalRoomId, roomIdAssignedBy: 'admin' }
-            : p;
-          await a.update({ slotId: newSlot.id, payload: updatedPayload }, { transaction: t });
-          if (proposal.status === 'generated') {
-            await slotService.syncBookingForSlot(newSlot.id, {
-              actorUser: { id: req.user.id, role: 'admin' },
-              transaction: t,
-            });
-          }
-        }
-        await a.update(
-          { status: 'approved', decidedAt: new Date(), decidedBy: req.user.id },
-          { transaction: t },
-        );
-        await slotService.recomputeTotals(proposal.id, { transaction: t });
-        // Increment atomico CON check del limite nello stesso UPDATE: se due
-        // approvazioni concorrenti tentano di superare maxAmend, solo una
-        // affected=1; l'altra ottiene affected=0 e fallisce qui sotto.
-        if (consumesBudget) {
-          const qcol = sequelize.getDialect() === 'mysql' ? '`amendmentCount`' : '"amendmentCount"';
-          const [affected] = await MonteOreProposal.update(
-            { amendmentCount: sequelize.literal(`${qcol} + 1`) },
-            {
-              where: { id: proposal.id, amendmentCount: { [Op.lt]: maxAmend } },
-              transaction: t,
-            },
-          );
-          if (affected === 0) {
-            const e = new Error(
-              `Limite di ${maxAmend} variazioni per AA raggiunto: rifiuta o sblocca le pending`,
-            );
-            e.status = 400;
-            e.code = 'AMENDMENT_LIMIT_REACHED';
-            throw e;
-          }
-        }
-        return a;
-      });
-      res.json({ amendment: amendment.toJSON() });
+        if (a)
+          operations = (
+            a.operations || [{ kind: a.kind, slotId: a.slotId, payload: a.payload }]
+          ).map((op) => ({ ...op, payload: { ...op.payload, roomId: Number(req.body.roomId) } }));
+      }
+      const amendment = await workflow.decideAmendment(
+        Number(req.params.id),
+        Number(req.params.aid),
+        req.user,
+        {
+          operations,
+          reason: req.body.reason || (req.body.roomId ? 'Aula assegnata dal revisore' : undefined),
+        },
+      );
+      res.json({ amendment });
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
       next(err);
     }
   },
@@ -2399,23 +2235,13 @@ adminRouter.post(
   requireRole('admin'),
   async (req, res, next) => {
     try {
-      const proposal = await MonteOreProposal.findByPk(req.params.id);
-      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-      const amendment = await MonteOreAmendment.findOne({
-        where: { id: req.params.aid, proposalId: proposal.id },
-      });
-      if (!amendment) return res.status(404).json({ error: 'Variazione non trovata' });
-      if (amendment.status !== 'pending') {
-        return res.status(400).json({ error: 'Variazione già decisa', code: 'INVALID_STATE' });
-      }
-      const reason = req.body.reason ? String(req.body.reason).slice(0, 1024) : null;
-      await amendment.update({
-        status: 'rejected',
-        rejectionReason: reason,
-        decidedAt: new Date(),
-        decidedBy: req.user.id,
-      });
-      res.json({ amendment: amendment.toJSON() });
+      const amendment = await workflow.decideAmendment(
+        Number(req.params.id),
+        Number(req.params.aid),
+        req.user,
+        { reject: true, reason: req.body.reason },
+      );
+      res.json({ amendment });
     } catch (err) {
       next(err);
     }

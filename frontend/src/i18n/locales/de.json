@@ -2176,5 +2176,46 @@
       "compare_recovered_one": "Zurückgekehrter Nutzer ({{count}})",
       "compare_recovered_other": "Zurückgekehrte Nutzer ({{count}})"
     }
+  },
+  "monteWorkflow": {
+    "change": "Änderung",
+    "occurrence": "Zu ändernder Unterricht",
+    "choose": "Auswählen",
+    "date": "Datum",
+    "start": "Beginn",
+    "end": "Ende",
+    "room": "Raum",
+    "destination": "Ziel",
+    "remove": "Entfernen",
+    "addChange": "Änderung hinzufügen",
+    "request": "Änderung beantragen",
+    "requestHelp": "Ein Antrag kann mehrere Änderungen enthalten und zählt einmal. Der aktuelle Plan gilt bis zur Entscheidung.",
+    "reason": "Begründung",
+    "send": "Antrag senden",
+    "sent": "Antrag gesendet",
+    "review": "Änderung prüfen",
+    "reviewHelp": "Antrag prüfen und endgültigen Plan festlegen.",
+    "original": "Ursprünglicher Antrag",
+    "modifyApprove": "Ändern und genehmigen",
+    "approve": "Änderung genehmigen",
+    "decided": "Änderung genehmigt; E-Mail eingereiht",
+    "budget": "Anträge: {{used}}/{{max}} · Verfügbar: {{remaining}}",
+    "budgetHelp": "Abgelehnte Anträge zählen ebenfalls, ab Aktivierung des neuen Ablaufs.",
+    "selectPeriod": "Zeitraum auswählen",
+    "activate": "Termine auswählen",
+    "deactivate": "Termine abwählen",
+    "allDays": "Alle Tage",
+    "preview": "Plan und Räume prüfen",
+    "approvePlan": "Genehmigen und Buchungen erstellen",
+    "noConflicts": "Keine Konflikte: bereit zur Genehmigung",
+    "kinds": {
+      "toggle_off": "Unterricht absagen",
+      "toggle_on": "Unterricht hinzufügen",
+      "change_time": "Zeit ändern",
+      "change_room": "Raum ändern",
+      "move_to": "Unterricht verschieben",
+      "add_new_day": "Neuer Termin"
+    },
+    "projectedHours": "Resultierende Jahresstunden (Vorschau): {{hours}} h"
   }
 }

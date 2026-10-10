@@ -5,7 +5,7 @@ const multer = require('multer');
 const { Op } = require('sequelize');
 const { stringify: csvStringify } = require('csv-stringify/sync');
 const { sequelize, User, Course, Booking, MonteOreProposal, ContractType } = require('../models');
-const { currentAcademicYear } = require('../services/monteOreCalendarService');
+const { contractFields, flagChangedPlans } = require('../services/teacherContractService');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
@@ -172,46 +172,58 @@ router.post(
 );
 
 // Crea utente manualmente (admin) — sempre creato come 'approved'.
-router.post('/', authenticate, requireRole('admin'), async (req, res) => {
-  const { firstName, lastName, email, password, role, matricola, courseId, isActive } = req.body;
+router.post('/', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { firstName, lastName, email, password, role, matricola, courseId, isActive } = req.body;
 
-  if (!firstName?.trim() || !lastName?.trim() || !email?.trim()) {
-    return res
-      .status(400)
-      .json({ error: 'Nome, cognome ed email sono obbligatori', code: 'VALIDATION_FAILED' });
-  }
-  if (!password || !PASSWORD_REGEX.test(password)) {
-    return res.status(400).json({ error: PASSWORD_POLICY_MSG, code: 'PASSWORD_POLICY' });
-  }
+    if (!firstName?.trim() || !lastName?.trim() || !email?.trim()) {
+      return res
+        .status(400)
+        .json({ error: 'Nome, cognome ed email sono obbligatori', code: 'VALIDATION_FAILED' });
+    }
+    if (!password || !PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({ error: PASSWORD_POLICY_MSG, code: 'PASSWORD_POLICY' });
+    }
 
-  const existing = await User.findOne({ where: { email: email.toLowerCase().trim() } });
-  if (existing)
-    return res
-      .status(409)
-      .json({ error: 'Esiste già un account con questa email', code: 'EMAIL_ALREADY_REGISTERED' });
-
-  if (matricola?.trim()) {
-    const existingMatricola = await User.findOne({ where: { matricola: matricola.trim() } });
-    if (existingMatricola)
+    const existing = await User.findOne({ where: { email: email.toLowerCase().trim() } });
+    if (existing)
       return res.status(409).json({
-        error: 'Matricola già assegnata a un altro utente',
-        code: 'MATRICOLA_ALREADY_USED',
+        error: 'Esiste già un account con questa email',
+        code: 'EMAIL_ALREADY_REGISTERED',
       });
+
+    if (matricola?.trim()) {
+      const existingMatricola = await User.findOne({ where: { matricola: matricola.trim() } });
+      if (existingMatricola)
+        return res.status(409).json({
+          error: 'Matricola già assegnata a un altro utente',
+          code: 'MATRICOLA_ALREADY_USED',
+        });
+    }
+
+    const user = await sequelize.transaction(async (transaction) => {
+      const contract = role === 'docente' ? await contractFields(req.body, null, transaction) : {};
+      return User.create(
+        {
+          ...contract,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.toLowerCase().trim(),
+          passwordHash: password,
+          role: role || 'studente',
+          matricola: matricola?.trim() || null,
+          courseId: parseInt(courseId, 10) || null,
+          isActive: isActive !== false,
+          status: 'approved',
+        },
+        { transaction },
+      );
+    });
+
+    res.status(201).json({ user: user.toSafeJSON() });
+  } catch (err) {
+    next(err);
   }
-
-  const user = await User.create({
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    email: email.toLowerCase().trim(),
-    passwordHash: password,
-    role: role || 'studente',
-    matricola: matricola?.trim() || null,
-    courseId: parseInt(courseId, 10) || null,
-    isActive: isActive !== false,
-    status: 'approved',
-  });
-
-  res.status(201).json({ user: user.toSafeJSON() });
 });
 
 // Lista utenti (admin) — paginated.
@@ -404,13 +416,6 @@ router.put(
         }
       }
 
-      // Snapshot pre-update per rilevare cambiamenti rilevanti (6.3).
-      const before = {
-        contractType: user.contractType,
-        hours: user.monteOreAnnualHoursOverride,
-        bypass: user.monteOreBypassDayConstraint,
-      };
-
       const updates = {
         contractType: contractType || null,
         monteOreAnnualHoursOverride: hoursOverride,
@@ -423,36 +428,19 @@ router.put(
       if (submissionAllowedUntil !== undefined) {
         updates.monteOreSubmissionAllowedUntil = submissionAllowedUntil;
       }
-      await user.update(updates);
-
-      // Fase 6.3 — se il contratto / ore / bypass sono cambiati e il docente
-      // ha una proposta dell'AA corrente in stato submitted/approved/generated,
-      // la marchiamo come da rivalidare: il banner UI inviterà il docente a
-      // rivedere e ri-inviare. Non blocchiamo la richiesta se questa update
-      // fallisce: è un'ottimizzazione UX, non un invariant.
-      const contractChanged = before.contractType !== (contractType || null);
-      const hoursChanged = before.hours !== hoursOverride;
-      const bypassChanged = before.bypass !== bypass;
-      if (contractChanged || hoursChanged || bypassChanged) {
-        try {
-          const year = currentAcademicYear();
-          const note = `Variazione ${contractChanged ? 'contratto' : hoursChanged ? 'ore' : 'vincolo giorni'} (admin) in corso d'anno: rivedi e re-invia la proposta.`;
-          await MonteOreProposal.update(
-            { requiresRevalidation: true, revalidationReason: note },
-            {
-              where: {
-                userId: user.id,
-                academicYear: year,
-                status: ['submitted', 'approved', 'generated'],
-              },
-            },
-          );
-        } catch (e) {
-          // Log ma non blocca: la modifica utente è andata a buon fine.
-
-          console.warn('[monte-ore] flag requiresRevalidation fallita:', e?.message);
-        }
-      }
+      await sequelize.transaction(async (transaction) => {
+        await contractFields(
+          {
+            ...req.body,
+            contractType: updates.contractType,
+            monteOreAnnualHoursOverride: updates.monteOreAnnualHoursOverride,
+          },
+          user,
+          transaction,
+        );
+        await flagChangedPlans(user, updates, transaction);
+        await user.update(updates, { transaction });
+      });
 
       res.json({ user: user.toSafeJSON() });
     } catch (err) {
@@ -529,7 +517,14 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
       });
     }
 
-    await user.update(updates);
+    await sequelize.transaction(async (transaction) => {
+      if ((updates.role || user.role) === 'docente') {
+        const fields = await contractFields(req.body, user, transaction);
+        await flagChangedPlans(user, fields, transaction);
+        Object.assign(updates, fields);
+      }
+      await user.update(updates, { transaction });
+    });
     res.json({ user: user.toSafeJSON() });
   } catch (err) {
     if (err instanceof ValidationError) {
