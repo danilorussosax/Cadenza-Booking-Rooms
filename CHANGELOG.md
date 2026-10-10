@@ -10,6 +10,15 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.17.1] — 10 ottobre 2026
+
+Ripristinata la gestione dei QR-code per aula.
+
+- Corretto l’ordine delle rotte: l’elenco QR non viene più interpretato come ID aula, evitando l’errore 500 su PostgreSQL.
+- Anteprima e download PNG usano richieste autenticate e URL blob locali; il token di sessione non compare nella URL.
+- Errori visibili con possibilità di riprovare, rilascio delle risorse delle anteprime e risposta PNG senza cache dopo la rigenerazione.
+- Test di regressione per elenco e permessi, PNG, sessione scaduta e download; percorso completo verificato in Playwright e aggiunto alla CI.
+
 ## [1.17.0] — 10 ottobre 2026
 
 Gestione Monte Ore con revisione obbligatoria del piano e delle variazioni.

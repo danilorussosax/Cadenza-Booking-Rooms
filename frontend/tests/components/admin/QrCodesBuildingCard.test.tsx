@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders, screen, waitFor, fireEvent } from '../../test-utils';
 
 vi.mock('sonner', () => ({
@@ -7,13 +7,14 @@ vi.mock('sonner', () => ({
 }));
 
 const overviewMock = vi.fn();
+const imageMock = vi.fn();
 const listBuildingCheckInMock = vi.fn();
 const setBuildingCheckInMock = vi.fn();
 
 vi.mock('@/api/qrcodes', () => ({
   qrcodesApi: {
     overview: () => overviewMock(),
-    imageUrl: (id: number) => `/api/structure/rooms/${id}/qr`,
+    image: (id: number, version: string | null) => imageMock(id, version),
     regenerate: vi.fn(),
     bulkRegenerate: vi.fn(),
     getCheckInSettings: () =>
@@ -93,6 +94,15 @@ const sampleRooms = [
 
 describe('<AdminQrCodes /> — BuildingCheckInCard', () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = vi.fn(() => 'blob:qr-test');
+        static revokeObjectURL = vi.fn();
+      },
+    );
+    imageMock.mockReset();
+    imageMock.mockResolvedValue(new Blob(['png'], { type: 'image/png' }));
     listBuildingCheckInMock.mockReset();
     setBuildingCheckInMock.mockReset();
     overviewMock.mockReset();
@@ -110,6 +120,41 @@ describe('<AdminQrCodes /> — BuildingCheckInCard', () => {
         },
       }),
     );
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('carica il PNG autenticato, scarica il blob e rilascia le risorse', async () => {
+    const { unmount } = renderWithProviders(<AdminQrCodes />);
+    const image = await screen.findByAltText('QR Aula Verdi');
+    expect(image).toHaveAttribute('src', 'blob:qr-test');
+    expect(imageMock).toHaveBeenCalledWith(10, sampleRooms[0]!.qrTokenUpdatedAt);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      expect(this.href).toBe('blob:qr-test');
+      expect(this.download).toBe('qr-V1.png');
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Scarica' })[0]!);
+    expect(click).toHaveBeenCalledOnce();
+    click.mockRestore();
+    unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:qr-test');
+  });
+
+  it('mostra gli errori di elenco invece di indicare che non ci sono aule', async () => {
+    overviewMock.mockRejectedValue(new Error('Elenco non disponibile'));
+    renderWithProviders(<AdminQrCodes />);
+    expect(await screen.findByText('Elenco non disponibile')).toBeInTheDocument();
+    expect(screen.queryByText('Nessuna aula configurata.')).not.toBeInTheDocument();
+  });
+
+  it('permette di riprovare dopo un errore PNG senza scaricare la risposta JSON', async () => {
+    imageMock.mockRejectedValue(new Error('PNG non disponibile'));
+    renderWithProviders(<AdminQrCodes />);
+    const retry = await screen.findAllByRole('button', { name: 'Riprova' });
+    expect(screen.getAllByRole('button', { name: 'Scarica' })[0]).toBeDisabled();
+    imageMock.mockResolvedValue(new Blob(['png'], { type: 'image/png' }));
+    fireEvent.click(retry[0]!);
+    expect(await screen.findByAltText('QR Aula Verdi')).toHaveAttribute('src', 'blob:qr-test');
   });
 
   it('renderizza la tabella edifici con conta aule e override', async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { api, HttpError, httpErrorMessage, tokenStore, userCache } from '@/lib/api';
+import { api, apiBlob, HttpError, httpErrorMessage, tokenStore, userCache } from '@/lib/api';
 // Side-effect import: inizializza i18n minimale per i test (httpErrorMessage
 // usa `i18n.t(...)`. Senza init il fallback è undefined).
 import '../test-utils';
@@ -225,5 +225,47 @@ describe('lib/api · httpErrorMessage', () => {
   it('input non-Error: ricorre al fallback i18n', () => {
     expect(httpErrorMessage('plain string')).toBeTypeOf('string');
     expect(httpErrorMessage(null)).toBeTypeOf('string');
+  });
+});
+
+describe('lib/api · apiBlob()', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('scarica il PNG inviando il JWT senza esporlo nella URL', async () => {
+    tokenStore.set('qr-session');
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(bytes, { headers: { 'Content-Type': 'image/png' } }));
+    const png = await apiBlob('/api/structure/rooms/1/qr', { query: { v: 'updated' } });
+    expect(png.type).toBe('image/png');
+    expect(new Uint8Array(await png.arrayBuffer())).toEqual(bytes);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('/api/structure/rooms/1/qr?v=updated');
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer qr-session');
+  });
+
+  it('401 invalida la sessione anziché scaricare un JSON come immagine', async () => {
+    tokenStore.set('expired');
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Sessione scaduta', code: 'TOKEN_REVOKED' }), {
+        status: 401,
+      }),
+    );
+    const expired = vi.fn();
+    window.addEventListener('auth:expired', expired);
+    try {
+      await expect(apiBlob('/api/structure/rooms/1/qr')).rejects.toMatchObject({
+        status: 401,
+        payload: { code: 'TOKEN_REVOKED' },
+      });
+      expect(tokenStore.get()).toBeNull();
+      expect(expired).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener('auth:expired', expired);
+    }
   });
 });

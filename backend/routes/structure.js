@@ -1122,6 +1122,42 @@ router.get('/rooms/search', authenticate, async (req, res, next) => {
   }
 });
 
+// Lista aule con metadati QR per il pannello admin (no PNG, solo JSON).
+// Espone anche lo stato effettivo del check-in risolto dalla cascata
+// Room.requireCheckIn → Building.checkInDefault (vedi lib/checkInPolicy.js).
+router.get('/rooms/qr-overview', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const rooms = await Room.findAll({
+      attributes: ['id', 'name', 'code', 'requireCheckIn', 'qrToken', 'updatedAt'],
+      include: [
+        {
+          association: 'building',
+          attributes: ['id', 'name', 'checkInDefault'],
+        },
+      ],
+      order: [
+        [{ model: require('../models').Building, as: 'building' }, 'name', 'ASC'],
+        ['name', 'ASC'],
+      ],
+    });
+    res.json({
+      rooms: rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        building: r.building ? { id: r.building.id, name: r.building.name } : null,
+        requireCheckIn: r.requireCheckIn,
+        effectiveCheckIn: isCheckInRequired(r),
+        inheritedFromBuilding: r.requireCheckIn === null || r.requireCheckIn === undefined,
+        hasQrToken: !!r.qrToken,
+        qrTokenUpdatedAt: r.qrToken ? r.updatedAt : null,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/rooms/:id', authenticate, async (req, res) => {
   const room = await Room.findByPk(req.params.id, {
     include: [
@@ -1214,52 +1250,18 @@ router.get('/rooms/:id/qr', authenticate, requireRole('admin'), async (req, res,
     await ensureRoomQrToken(room);
     const url = buildQrUrl(req, room);
 
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `inline; filename="qr-room-${room.id}.png"`);
-    // Stream PNG direttamente sulla response
-    await QRCode.toFileStream(res, url, {
+    // Genera prima di inviare: gli errori restano gestibili dal middleware.
+    const png = await QRCode.toBuffer(url, {
       type: 'png',
       width: 600,
       margin: 2,
       errorCorrectionLevel: 'M',
       color: { dark: '#000000', light: '#FFFFFF' },
     });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Lista aule con metadati QR per il pannello admin (no PNG, solo JSON).
-// Espone anche lo stato effettivo del check-in risolto dalla cascata
-// Room.requireCheckIn → Building.checkInDefault (vedi lib/checkInPolicy.js).
-router.get('/rooms/qr-overview', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const rooms = await Room.findAll({
-      attributes: ['id', 'name', 'code', 'requireCheckIn', 'qrToken', 'updatedAt'],
-      include: [
-        {
-          association: 'building',
-          attributes: ['id', 'name', 'checkInDefault'],
-        },
-      ],
-      order: [
-        [{ model: require('../models').Building, as: 'building' }, 'name', 'ASC'],
-        ['name', 'ASC'],
-      ],
-    });
-    res.json({
-      rooms: rooms.map((r) => ({
-        id: r.id,
-        name: r.name,
-        code: r.code,
-        building: r.building ? { id: r.building.id, name: r.building.name } : null,
-        requireCheckIn: r.requireCheckIn,
-        effectiveCheckIn: isCheckInRequired(r),
-        inheritedFromBuilding: r.requireCheckIn === null || r.requireCheckIn === undefined,
-        hasQrToken: !!r.qrToken,
-        qrTokenUpdatedAt: r.qrToken ? r.updatedAt : null,
-      })),
-    });
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `inline; filename="qr-room-${room.id}.png"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(png);
   } catch (err) {
     next(err);
   }

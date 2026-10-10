@@ -812,19 +812,63 @@ describe('routes/structure — Rooms', () => {
         .buffer(true);
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/png/);
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.body.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      expect(res.body.readUInt32BE(16)).toBe(600);
+      await r.reload();
+      expect(r.qrToken).toMatch(/^[a-f0-9]{32}$/);
+      const token = r.qrToken;
+      const second = await request(app)
+        .get(`/api/structure/rooms/${r.id}/qr`)
+        .set('Authorization', authHeader);
+      expect(second.status).toBe(200);
+      await r.reload();
+      expect(r.qrToken).toBe(token);
     });
   });
 
   describe('GET /api/structure/rooms/qr-overview', () => {
-    // Nota: la rotta è registrata DOPO /rooms/:id quindi Express matcha
-    // /:id con id="qr-overview" → 404 (Aula non trovata). Documentato come
-    // route-order bug ma non blocking per la copertura.
-    it('404 (route-order: matchata da /:id)', async () => {
+    it('200 lista le aule senza interpretare qr-overview come ID', async () => {
       const { authHeader } = await createAdmin();
+      const inst = await createInstitute();
+      const b = await createBuilding(inst.id, { checkInDefault: true });
+      const inherited = await createRoom(b.id, { requireCheckIn: null });
+      const override = await createRoom(b.id, {
+        name: 'Override',
+        requireCheckIn: false,
+        qrToken: 'a'.repeat(32),
+      });
       const res = await request(app)
         .get('/api/structure/rooms/qr-overview')
         .set('Authorization', authHeader);
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      expect(res.body.rooms).toHaveLength(2);
+      expect(res.body.rooms).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: inherited.id,
+            effectiveCheckIn: true,
+            inheritedFromBuilding: true,
+            hasQrToken: false,
+          }),
+          expect.objectContaining({
+            id: override.id,
+            effectiveCheckIn: false,
+            inheritedFromBuilding: false,
+            hasQrToken: true,
+          }),
+        ]),
+      );
+      expect(res.body.rooms.every((r) => !Object.hasOwn(r, 'qrToken'))).toBe(true);
+    });
+
+    it('401 senza sessione e 403 per utenti non admin', async () => {
+      expect((await request(app).get('/api/structure/rooms/qr-overview')).status).toBe(401);
+      const { authHeader } = await createAuthedUser();
+      const res = await request(app)
+        .get('/api/structure/rooms/qr-overview')
+        .set('Authorization', authHeader);
+      expect(res.status).toBe(403);
     });
   });
 });

@@ -289,15 +289,16 @@ describe('structure rooms QR endpoints', () => {
     const res = await request(app)
       .post(`/api/structure/rooms/${room.id}/qr/regenerate`)
       .set('Authorization', authHeader);
-    expect([200, 400, 404]).toContain(res.status);
+    expect(res.status).toBe(200);
   });
 
-  it('GET /api/structure/rooms/:id/qr/png (auth)', async () => {
+  it('GET /api/structure/rooms/:id/qr (auth)', async () => {
     const room = await createRoom();
     const { authHeader } = await createAdmin();
     const res = await request(app)
-      .get(`/api/structure/rooms/${room.id}/qr/png`)
+      .get(`/api/structure/rooms/${room.id}/qr`)
       .set('Authorization', authHeader);
-    expect([200, 404]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
   });
 });

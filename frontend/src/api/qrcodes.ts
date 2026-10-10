@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 
 export interface QrRoomEntry {
   id: number;
@@ -41,11 +41,11 @@ export interface CheckInSettingsUpdate {
 export const qrcodesApi = {
   overview: () => api<{ rooms: QrRoomEntry[] }>('/api/structure/rooms/qr-overview'),
 
-  /** PNG URL ready to use in <img src=...>. Includes auth via cookies/JWT. */
-  imageUrl: (roomId: number, cacheBuster?: string | null) => {
-    const v = cacheBuster ? `?v=${encodeURIComponent(cacheBuster)}` : '';
-    return `/api/structure/rooms/${roomId}/qr${v}`;
-  },
+  /** Il PNG richiede Authorization: img e link diretti non inviano il JWT. */
+  image: (roomId: number, cacheBuster?: string | null) =>
+    apiBlob(`/api/structure/rooms/${roomId}/qr`, {
+      query: { v: cacheBuster },
+    }),
 
   regenerate: (roomId: number) =>
     api<{ ok: boolean; roomId: number; qrTokenUpdatedAt: string; url: string }>(

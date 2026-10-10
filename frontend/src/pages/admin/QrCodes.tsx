@@ -481,20 +481,21 @@ function RoomsQrTable() {
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
-  const downloadQr = (room: QrRoomEntry) => {
-    const url = qrcodesApi.imageUrl(room.id, versions[room.id] ?? room.qrTokenUpdatedAt);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `qr-${room.code ?? room.id}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
   const rooms = useMemo(() => overviewQuery.data?.rooms ?? [], [overviewQuery.data]);
 
   if (overviewQuery.isLoading) {
     return <Skeleton className="h-96 w-full" />;
+  }
+
+  if (overviewQuery.isError) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{httpErrorMessage(overviewQuery.error)}</AlertDescription>
+        <Button variant="outline" onClick={() => void overviewQuery.refetch()}>
+          Riprova
+        </Button>
+      </Alert>
+    );
   }
 
   return (
@@ -551,9 +552,6 @@ function RoomsQrTable() {
                     regenerateMutation.mutate(room.id);
                   }
                 }}
-                onDownload={() => {
-                  downloadQr(room);
-                }}
               />
             ))}
           </div>
@@ -568,23 +566,56 @@ function RoomQrRow({
   version,
   isPending,
   onRegenerate,
-  onDownload,
 }: {
   room: QrRoomEntry;
   version: string | null;
   isPending: boolean;
   onRegenerate: () => void;
-  onDownload: () => void;
 }) {
+  const imageQuery = useQuery({
+    queryKey: ['admin', 'room-qr', room.id, version],
+    queryFn: () => qrcodesApi.image(room.id, version),
+    staleTime: Infinity,
+  });
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imageQuery.data) {
+      setImageUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageQuery.data);
+    setImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageQuery.data]);
+
+  const downloadQr = () => {
+    if (!imageUrl) return;
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `qr-${room.code ?? room.id}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-center">
       <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white p-1">
-        <img
-          src={qrcodesApi.imageUrl(room.id, version)}
-          alt={`QR ${room.name}`}
-          className="h-full w-full object-contain"
-          loading="lazy"
-        />
+        {imageQuery.isPending ? (
+          <LoaderCircle className="h-4 w-4 animate-spin" aria-label="Caricamento QR" />
+        ) : imageQuery.isError ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            title={httpErrorMessage(imageQuery.error)}
+            onClick={() => void imageQuery.refetch()}
+          >
+            Riprova
+          </Button>
+        ) : imageUrl ? (
+          <img src={imageUrl} alt={`QR ${room.name}`} className="h-full w-full object-contain" />
+        ) : null}
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">
@@ -598,7 +629,9 @@ function RoomQrRow({
             explicit={room.requireCheckIn}
             effective={room.effectiveCheckIn}
           />
-          {!room.hasQrToken && <Badge variant="secondary">Token mai generato</Badge>}
+          {!room.hasQrToken && !imageQuery.data && (
+            <Badge variant="secondary">Token mai generato</Badge>
+          )}
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {room.building && (
@@ -610,12 +643,19 @@ function RoomQrRow({
           )}
           {room.qrTokenUpdatedAt
             ? `Ultima rigenerazione ${dayjs(room.qrTokenUpdatedAt).format('D MMM YYYY HH:mm')}`
-            : 'Mai rigenerato — sarà generato al primo download'}
+            : 'Generato automaticamente al caricamento'}
         </p>
       </div>
 
       <div className="flex shrink-0 gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onDownload} title="Scarica PNG">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={downloadQr}
+          disabled={!imageUrl || imageQuery.isPending || imageQuery.isError || isPending}
+          title="Scarica PNG"
+        >
           <Download className="h-4 w-4" />
           Scarica
         </Button>

@@ -62,7 +62,7 @@ function buildUrl(path: string, query?: RequestOptions['query']) {
   return url.pathname + (url.search ? url.search : '');
 }
 
-export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
+async function request(path: string, opts: RequestOptions): Promise<Response> {
   const { body, query, auth = true, headers, ...rest } = opts;
   const finalHeaders = new Headers(headers);
 
@@ -80,10 +80,9 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
     body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
   });
 
-  const text = await res.text();
-  const data = text ? safeJson(text) : null;
-
   if (!res.ok) {
+    const text = await res.text();
+    const data = text ? safeJson(text) : null;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const payload: ApiError = (data as ApiError) ?? { error: `Errore HTTP ${res.status}` };
     if (res.status === 401 && auth) {
@@ -97,7 +96,19 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
     }
     throw new HttpError(res.status, payload);
   }
-  return data as T;
+  return res;
+}
+
+export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await request(path, opts);
+  const text = await res.text();
+  return (text ? safeJson(text) : null) as T;
+}
+
+/** Risorse binarie con la stessa autenticazione e gestione errori delle API JSON. */
+export async function apiBlob(path: string, opts: RequestOptions = {}): Promise<Blob> {
+  const res = await request(path, opts);
+  return res.blob();
 }
 
 function safeJson(text: string): unknown {

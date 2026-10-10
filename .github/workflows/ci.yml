@@ -228,9 +228,9 @@ jobs:
         env:
           CI: "true"
 
-      - name: Run Monte Ore workflow E2E
+      - name: Run Monte Ore and QR workflow E2E
         working-directory: frontend
-        run: npm run e2e -- monte-ore.spec.ts
+        run: npm run e2e -- monte-ore.spec.ts qr-codes.spec.ts
         env:
           CI: "true"
 
