@@ -53,6 +53,7 @@ const NAV: NavItem[] = [
   { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { to: '/booking', labelKey: 'nav.booking', icon: CalendarPlus },
   { to: '/my-bookings', labelKey: 'nav.my_bookings', icon: ClipboardList },
+  { to: '/announcements', labelKey: 'announcements.page_title', icon: Megaphone },
   // Monte Ore — proposta annuale del docente. La voce è riservata a docente +
   // admin: gli studenti non hanno monte ore proprio (la pagina mostrerebbe
   // un placeholder "non applicabile"). Il filtro è applicato in `visibleNav`

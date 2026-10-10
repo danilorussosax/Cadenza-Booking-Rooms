@@ -60,38 +60,7 @@ const router = express.Router();
  * Notifica gli admin attivi di una richiesta in attesa di approvazione.
  * Fire-and-forget: errori SMTP non bloccano la creazione della booking.
  */
-async function notifyAdminsOfPendingBooking(booking) {
-  const admins = await User.findAll({
-    where: { role: 'admin', isActive: true },
-    attributes: [
-      'id',
-      'firstName',
-      'lastName',
-      'email',
-      'emailNotifications',
-      'notifyOnConfirmation',
-    ],
-  });
-  await Promise.all(
-    admins
-      .filter((a) => a.email && a.emailNotifications !== false)
-      .map((admin) =>
-        sendBookingEmail({
-          user: admin,
-          booking,
-          kind: 'booking_pending_admin',
-          // requester info embedded nel context: il template legge user.* in
-          // intestazione, quindi sostituiamo lo "user" con il richiedente
-          // mantenendo l'email di destinazione = admin.email.
-          extra: {
-            requesterName:
-              `${booking.user?.firstName ?? ''} ${booking.user?.lastName ?? ''}`.trim(),
-            requesterEmail: booking.user?.email ?? '',
-          },
-        }).catch(() => {}),
-      ),
-  );
-}
+const { bookingStatus, notifyAdminsOfPendingBooking } = require('../services/bookingPolicy');
 
 // =====================================================
 // GET /api/bookings/ical?token=<icalToken>
@@ -404,7 +373,7 @@ router.post(
       // prenotano per conto di un altro utente.
       const room = await Room.findByPk(roomId);
       const needsApproval = room && room.requiresApproval === true && req.user.role !== 'admin';
-      const initialStatus = needsApproval ? 'pending_approval' : 'confirmed';
+      const initialStatus = bookingStatus(room, req.user);
 
       const booking = await withSerializableRetry(
         sequelize,
@@ -603,7 +572,7 @@ router.post('/bulk-cancel', authenticate, requireRole('admin'), async (req, res,
     const now = new Date();
     await Booking.update(
       { status: 'cancelled', cancelledAt: now, cancelReason: reason },
-      { where: { id: { [Op.in]: targetIds } } },
+      { where: { id: { [Op.in]: targetIds }, status: 'confirmed' }, individualHooks: true },
     );
 
     // Email fire-and-forget a ogni utente coinvolto
@@ -861,111 +830,129 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res, 
 // =====================================================
 // PUT /api/bookings/:id  - Modifica prenotazione
 // =====================================================
-router.put('/:id', authenticate, async (req, res, next) => {
-  try {
-    const updated = await withSerializableRetry(
-      sequelize,
-      { isolationLevel: WRITE_ISOLATION },
-      async (t) => {
-        const booking = await Booking.findByPk(req.params.id, { transaction: t });
-        if (!booking) {
-          const e = new Error('Prenotazione non trovata');
-          e.status = 404;
-          throw e;
-        }
-        const isAdmin = req.user.role === 'admin';
-        if (booking.userId !== req.user.id && !isAdmin) {
-          const e = new Error('Non autorizzato');
-          e.status = 403;
-          throw e;
-        }
-        if (booking.status !== 'confirmed') {
-          const e = new Error('Prenotazione non modificabile (già cancellata o conclusa)');
-          e.status = 400;
-          throw e;
-        }
-
-        const newStart = req.body.startTime || booking.startTime;
-        const newEnd = req.body.endTime || booking.endTime;
-        const newRoomId = req.body.roomId || booking.roomId;
-
-        // Riassegnazione owner: solo admin può cambiare `userId`. Se omesso o
-        // uguale, owner resta l'attuale. Validazione usa l'owner risultante per
-        // verificare permessi sull'aula (allowedRoles, allowedCourseIds).
-        let newOwner = await User.findByPk(booking.userId, { transaction: t });
-        const targetUserId = req.body.userId !== undefined ? Number(req.body.userId) : null;
-        const isReassign =
-          isAdmin && Number.isInteger(targetUserId) && targetUserId !== booking.userId;
-        if (isReassign) {
-          const candidate = await User.findByPk(targetUserId, { transaction: t });
-          if (!candidate) {
-            const e = new Error('Utente target non trovato');
-            e.status = 400;
-            e.code = 'USER_NOT_FOUND';
+router.put(
+  '/:id',
+  authenticate,
+  requireApproved,
+  requireCompleteProfile,
+  async (req, res, next) => {
+    try {
+      const updated = await withSerializableRetry(
+        sequelize,
+        { isolationLevel: WRITE_ISOLATION },
+        async (t) => {
+          const booking = await Booking.findByPk(req.params.id, { transaction: t });
+          if (!booking) {
+            const e = new Error('Prenotazione non trovata');
+            e.status = 404;
             throw e;
           }
-          if (candidate.status !== 'approved' || candidate.isActive === false) {
-            const e = new Error('Utente target non approvato o non attivo');
-            e.status = 400;
-            e.code = 'USER_NOT_AVAILABLE';
+          const isAdmin = req.user.role === 'admin';
+          if (booking.userId !== req.user.id && !isAdmin) {
+            const e = new Error('Non autorizzato');
+            e.status = 403;
             throw e;
           }
-          newOwner = candidate;
-        }
-        // Admin che agisce su prenotazione altrui (modifica o riassegnazione):
-        // bypassa le quote del proprietario per permettere correzioni manuali.
-        const adminActingOnOther = isAdmin && newOwner.id !== req.user.id;
+          if (booking.status !== 'confirmed') {
+            const e = new Error('Prenotazione non modificabile (già cancellata o conclusa)');
+            e.status = 400;
+            throw e;
+          }
 
-        const validation = await validateBooking({
-          user: newOwner,
-          roomId: newRoomId,
-          startTime: newStart,
-          endTime: newEnd,
-          type: req.body.type ?? booking.type,
-          ignoreBookingId: booking.id,
-          bypassQuotas: adminActingOnOther,
-          transaction: t,
-        });
-        if (!validation.valid) {
-          const e = new Error(validation.errors[0] || 'Modifica non valida');
-          e.status = 400;
-          e.issues = validation.errors;
-          e.code = validation.codes?.find((c) => !!c) || 'BOOKING_INVALID';
-          throw e;
-        }
+          const newStart = req.body.startTime || booking.startTime;
+          const newEnd = req.body.endTime || booking.endTime;
+          const newRoomId = req.body.roomId || booking.roomId;
 
-        await booking.update(
-          {
+          // Riassegnazione owner: solo admin può cambiare `userId`. Se omesso o
+          // uguale, owner resta l'attuale. Validazione usa l'owner risultante per
+          // verificare permessi sull'aula (allowedRoles, allowedCourseIds).
+          let newOwner = await User.findByPk(booking.userId, { transaction: t });
+          const targetUserId = req.body.userId !== undefined ? Number(req.body.userId) : null;
+          const isReassign =
+            isAdmin && Number.isInteger(targetUserId) && targetUserId !== booking.userId;
+          if (isReassign) {
+            const candidate = await User.findByPk(targetUserId, { transaction: t });
+            if (!candidate) {
+              const e = new Error('Utente target non trovato');
+              e.status = 400;
+              e.code = 'USER_NOT_FOUND';
+              throw e;
+            }
+            if (candidate.status !== 'approved' || candidate.isActive === false) {
+              const e = new Error('Utente target non approvato o non attivo');
+              e.status = 400;
+              e.code = 'USER_NOT_AVAILABLE';
+              throw e;
+            }
+            newOwner = candidate;
+          }
+          // Admin che agisce su prenotazione altrui (modifica o riassegnazione):
+          // bypassa le quote del proprietario per permettere correzioni manuali.
+          const adminActingOnOther = isAdmin && newOwner.id !== req.user.id;
+
+          const validation = await validateBooking({
+            user: newOwner,
+            roomId: newRoomId,
             startTime: newStart,
             endTime: newEnd,
-            roomId: newRoomId,
-            userId: isReassign ? newOwner.id : booking.userId,
-            purpose: req.body.purpose ?? booking.purpose,
             type: req.body.type ?? booking.type,
-            notes: req.body.notes ?? booking.notes,
-          },
-          { transaction: t },
-        );
+            ignoreBookingId: booking.id,
+            bypassQuotas: adminActingOnOther,
+            transaction: t,
+          });
+          if (!validation.valid) {
+            const e = new Error(validation.errors[0] || 'Modifica non valida');
+            e.status = 400;
+            e.issues = validation.errors;
+            e.code = validation.codes?.find((c) => !!c) || 'BOOKING_INVALID';
+            throw e;
+          }
 
-        return booking;
-      },
-    );
+          const destination = await Room.findByPk(newRoomId, { transaction: t });
+          const status = bookingStatus(destination, req.user);
+          await booking.update(
+            {
+              status,
+              startTime: newStart,
+              endTime: newEnd,
+              roomId: newRoomId,
+              userId: isReassign ? newOwner.id : booking.userId,
+              purpose: req.body.purpose ?? booking.purpose,
+              type: req.body.type ?? booking.type,
+              notes: req.body.notes ?? booking.notes,
+            },
+            { transaction: t },
+          );
 
-    res.json({ booking: updated });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({
-        error: err.message,
-        ...(err.code && { code: err.code }),
-        ...(err.issues && { issues: err.issues }),
-      });
+          return booking;
+        },
+      );
+
+      if (updated.status === 'pending_approval') {
+        const full = await Booking.findByPk(updated.id, {
+          include: [
+            { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+            { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+          ],
+        });
+        notifyAdminsOfPendingBooking(full).catch(() => {});
+      }
+      res.json({ booking: updated });
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          error: err.message,
+          ...(err.code && { code: err.code }),
+          ...(err.issues && { issues: err.issues }),
+        });
+      }
+      if (err.name === 'SequelizeUniqueConstraintError') {
+        return res.status(409).json({ error: 'Conflitto: prenotazione già esistente' });
+      }
+      next(err);
     }
-    if (err.name === 'SequelizeUniqueConstraintError') {
-      return res.status(409).json({ error: 'Conflitto: prenotazione già esistente' });
-    }
-    next(err);
-  }
-});
+  },
+);
 
 // =====================================================
 // DELETE /api/bookings/:id  - Cancella prenotazione
@@ -1890,8 +1877,7 @@ router.post(
 
       const room = await Room.findByPk(roomId);
       if (!room) return res.status(400).json({ error: 'Aula non trovata', code: 'ROOM_NOT_FOUND' });
-      const needsApproval = room.requiresApproval === true && req.user.role !== 'admin';
-      const initialStatus = needsApproval ? 'pending_approval' : 'confirmed';
+      const initialStatus = bookingStatus(room, req.user);
 
       // Pre-validazione: lanciamo validateBooking per OGNI occorrenza FUORI
       // dalla transazione (read-only check). Se troviamo conflitti e

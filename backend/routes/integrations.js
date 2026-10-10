@@ -10,7 +10,7 @@ const { Op, Transaction } = require('sequelize');
 
 const { sequelize, User, Course, IntegrationConfig, IntegrationSyncRun } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { logger } = require('../lib/logger');
+const logger = require('../lib/logger');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
 const {
   buildHeaderMap,

@@ -83,11 +83,22 @@ export default function Login() {
   const ssoMode = new URLSearchParams(location.search).get('sso') === 'm365';
   const ssoFired = useRef(false);
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.has('error'))
+      setServerError(params.get('message') ?? t('auth.oauth_callback.error_title'));
+  }, [location.search, t]);
+  useEffect(() => {
     if (ssoMode && !ssoFired.current) {
       ssoFired.current = true;
       window.location.href = '/api/auth/microsoft';
     }
   }, [ssoMode]);
+
+  const rememberOAuthReturn = () => {
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    if (from && /^\/(?![/\\])/.test(from)) sessionStorage.setItem('oauthReturnTo', from);
+    else sessionStorage.removeItem('oauthReturnTo');
+  };
 
   const proceedAfterLogin = (user: User) => {
     const rawRedirect =
@@ -212,10 +223,16 @@ export default function Login() {
         </div>
       </div>
 
+      {mode === 'choices' && serverError && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          {serverError}
+        </p>
+      )}
       <AnimatePresence mode="wait" initial={false}>
         {mode === 'choices' && (
           <ChoicesView
             key="choices"
+            rememberOAuthReturn={rememberOAuthReturn}
             onUseEmail={() => {
               setMode('email');
               setServerError(null);
@@ -283,7 +300,13 @@ export default function Login() {
 //   sottotitolo muted, niente "shield hero" (il pannello di sx
 //   già fornisce l'identità visiva del Conservatorio).
 // ============================================================
-function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
+function ChoicesView({
+  onUseEmail,
+  rememberOAuthReturn,
+}: {
+  onUseEmail: () => void;
+  rememberOAuthReturn: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <motion.div
@@ -303,13 +326,13 @@ function ChoicesView({ onUseEmail }: { onUseEmail: () => void }) {
       {/* OAuth buttons */}
       <div className="space-y-2">
         <Button asChild variant="outline" className="h-11 w-full justify-center">
-          <a href="/api/auth/google">
+          <a href="/api/auth/google" onClick={rememberOAuthReturn}>
             <GoogleIcon />
             <span>{t('auth.login.continue_google')}</span>
           </a>
         </Button>
         <Button asChild variant="outline" className="h-11 w-full justify-center">
-          <a href="/api/auth/microsoft">
+          <a href="/api/auth/microsoft" onClick={rememberOAuthReturn}>
             <MicrosoftIcon />
             <span>{t('auth.login.continue_microsoft')}</span>
           </a>

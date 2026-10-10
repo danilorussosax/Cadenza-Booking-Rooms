@@ -134,8 +134,10 @@ function maskEmail(email) {
 }
 
 /** JWT temporaneo "pre2fa" (TTL 5min, claim `tfa: 'pre'`). */
-function signPre2faToken(userId) {
-  return jwt.sign({ id: userId, tfa: 'pre' }, getJwtSecret(), { expiresIn: PRE2FA_TTL });
+function signPre2faToken(userId, tokenVersion = 0) {
+  return jwt.sign({ id: userId, tokenVersion, tfa: 'pre' }, getJwtSecret(), {
+    expiresIn: PRE2FA_TTL,
+  });
 }
 
 function verifyPre2faToken(token) {

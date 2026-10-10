@@ -11,9 +11,7 @@ export default defineConfig({
     // tra file, ma all'interno dello stesso file restano sequenziali.
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    maxWorkers: 1,
     testTimeout: 15000,
     hookTimeout: 15000,
     reporters: ['default'],

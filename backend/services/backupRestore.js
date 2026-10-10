@@ -1,19 +1,6 @@
 'use strict';
 
-/**
- * Restore programmatico dei backup creati da scripts/backup.js.
- * Estrae l'archivio tar.gz, legge il manifest, sostituisce DB e uploads
- * con safety-net (`.pre-restore-<ts>` per la versione precedente).
- *
- * NB: il restore di un database mentre il backend è in esecuzione è
- * INTRINSECAMENTE rischioso. Pattern raccomandato:
- *   1. Eseguire il restore via questo modulo (lascia il pool sequelize
- *      aperto: per SQLite scrive sul file, Postgres usa psql diretto).
- *   2. Dopo il return, il caller (routes/backups.js) chiama
- *      `process.exit(0)` con piccolo delay → systemd/pm2 riavvia.
- *
- * Lock: `restoreInProgress` impedisce restore concorrenti.
- */
+// Ripristino esclusivamente offline. La CLI coordina snapshot e lock manutenzione.
 
 const fs = require('fs');
 const os = require('os');
@@ -100,6 +87,7 @@ async function validateTarball(archivePath) {
   const verboseLines = verbose.split('\n').filter((l) => l.trim().length > 0);
   for (const line of verboseLines) {
     const type = line.charAt(0);
+    if (!['-', 'd', 'l', 'h'].includes(type)) throw new Error('Tipo di file tar non supportato');
     if (type === 'l') {
       throw Object.assign(new Error('Tarball contiene symlink: rifiutato per sicurezza'), {
         code: 'BACKUP_UNSAFE_SYMLINK',
@@ -172,7 +160,7 @@ function verifyTreeNoSymlinks(root) {
  * @param {boolean} [opts.dryRun]    Solo lettura del manifest (no scritture)
  * @returns {Promise<{ok, manifest, restored: {db, uploads, savedDbBackup, savedUploadsBackup}}>}
  */
-async function performRestore({ archivePath, dryRun = false }) {
+async function performRestore({ archivePath, dryRun = false, offline = false }) {
   if (restoreInProgress) {
     const err = new Error('Restore già in corso');
     err.code = 'RESTORE_IN_PROGRESS';
@@ -227,7 +215,16 @@ async function performRestore({ archivePath, dryRun = false }) {
       return { ok: true, manifest, restored: null, dryRun: true };
     }
 
-    const stamp = ts();
+    if (!offline) {
+      throw Object.assign(new Error('Ripristino consentito solo offline'), {
+        code: 'RESTORE_OFFLINE_REQUIRED',
+      });
+    }
+    if ((manifest.dialect || 'sqlite') !== (process.env.DB_DIALECT || 'sqlite')) {
+      throw new Error('Il database configurato non corrisponde al dialect del backup');
+    }
+    verifyTreeNoSymlinks(stagingDir);
+    const stamp = `${ts()}-${process.pid}`;
     let restoredDb = false;
     let restoredUploads = false;
 
@@ -243,17 +240,42 @@ async function performRestore({ archivePath, dryRun = false }) {
       if (fs.lstatSync(src).isSymbolicLink()) {
         throw new Error('conservatory.sqlite è un symlink: rifiutato');
       }
-      const target = path.join(BACKEND_ROOT, 'data', 'conservatory.sqlite');
+      const sqlite3 = require('sqlite3');
+      await new Promise((resolve, reject) => {
+        const db = new sqlite3.Database(src, sqlite3.OPEN_READONLY, (err) => {
+          if (err) return reject(err);
+          db.get('PRAGMA integrity_check', (error, row) => {
+            db.close();
+            if (error) reject(error);
+            else if (row?.integrity_check !== 'ok') reject(new Error('Backup SQLite corrotto'));
+            else resolve();
+          });
+        });
+      });
+      const storage =
+        process.env.DB_STORAGE || path.join(BACKEND_ROOT, 'data', 'conservatory.sqlite');
+      if (storage === ':memory:') throw new Error('Restore su database in-memory non consentito');
+      const target = path.resolve(storage);
       if (fs.existsSync(target)) {
         // P2-6: snapshot raccolto in data/snapshots/db-<ts>.sqlite invece di
         // restare accanto al DB live nella stessa dir.
-        fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
-        const bak = path.join(SNAPSHOTS_DIR, `db-${stamp}.sqlite`);
+        const snapshotDir = path.join(path.dirname(target), 'snapshots');
+        fs.mkdirSync(snapshotDir, { recursive: true });
+        const bak = path.join(snapshotDir, `db-${stamp}.sqlite`);
         fs.renameSync(target, bak);
         savedDbBackup = path.relative(BACKEND_ROOT, bak);
         logger.info({ bak }, '[restore] DB attuale spostato in snapshots/');
       } else {
         fs.mkdirSync(path.dirname(target), { recursive: true });
+      }
+      // Conserva anche WAL/SHM: non devono essere riapplicati al nuovo database.
+      for (const suffix of ['-wal', '-shm']) {
+        if (fs.existsSync(target + suffix)) {
+          const saved = savedDbBackup
+            ? path.resolve(BACKEND_ROOT, savedDbBackup) + suffix
+            : `${target + suffix}.pre-restore-${stamp}`;
+          fs.renameSync(target + suffix, saved);
+        }
       }
       fs.copyFileSync(src, target);
       restoredDb = true;
@@ -290,6 +312,7 @@ async function performRestore({ archivePath, dryRun = false }) {
             database,
             '-v',
             'ON_ERROR_STOP=1',
+            '--single-transaction',
             '-q',
             '-f',
             sqlPath,

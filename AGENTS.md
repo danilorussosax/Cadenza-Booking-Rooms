@@ -27,7 +27,8 @@ npm run test              # vitest backend → vitest frontend (sequential)
 npm --prefix backend test                 # backend only
 npm --prefix backend test -- tests/integration/auth.test.js   # single file
 npm --prefix frontend test                # frontend only
-npm run e2e               # Playwright (runs from frontend/)
+npm run e2e               # Playwright frontend workflows
+npm --prefix e2e test     # Separate business E2E suite
 npm run lint              # eslint backend → eslint frontend
 npm run format            # prettier over entire monorepo
 npm run format:check      # prettier --check (CI gate)
@@ -70,13 +71,13 @@ The pre-commit hook runs `lint-staged` (prettier + eslint fix on staged) and `gi
 ### Database
 
 - **Production**: PostgreSQL 16 with `EXCLUDE` constraint (`bookings_no_overlap`) as anti-overlap safety net at DB level
-- **Development default**: SQLite (zero-config, file `data/database.sqlite`)
+- **Development default**: SQLite (zero-config, file `backend/data/conservatory.sqlite`)
 - Sequelize `paranoid: true` (soft-delete) on 10 models: do `findAll({ paranoid: false })` to include deleted rows
 - **PgBouncer** is required in PM2 cluster mode (3 instances × Sequelize pool = 60 connections, Postgres max_connections = 50). `ecosystem.config.js` forces `DB_PORT=6432` and `DB_PGBOUNCER=true` via PM2 env
 
 ### Test quirks
 
-- Backend tests use **SQLite in-memory** by default (no Postgres needed). File parallelism is **disabled** (`fileParallelism: false`, `singleFork: true`) because integration tests share the DB.
+- Backend tests use **SQLite in-memory** by default (no Postgres needed). File parallelism is **disabled** (`fileParallelism: false`, `maxWorkers: 1`) because integration tests share the DB.
 - The EXCLUDE constraint test (`tests/integration/excludeConstraint.test.js`) requires a dedicated Postgres database. Set `DB_DIALECT=postgres DB_NAME=cadenza_test` to run it.
 - Analytics tests are Postgres-only (SQL queries use `EXTRACT`/`date_trunc`). Covered by the CI "Backend · Postgres-only tests" job.
 - Global test helpers from `tests/setup.js`: `resetDatabase()` is available in test scope.
@@ -121,12 +122,13 @@ Frontend component coverage scope excludes page-level components and admin dialo
 
 ## CI (GitHub Actions)
 
-4 parallel jobs in `.github/workflows/ci.yml`:
+5 jobs (the first four run in parallel) in `.github/workflows/ci.yml`:
 
 1. **gitleaks** — full history secrets scan
 2. **Backend · lint + test + coverage** — matrix: TZ=Europe/Rome and TZ=UTC (timezone-sensitive tests)
 3. **Backend · Postgres-only tests** — EXCLUDE constraint + analytics queries
 4. **Frontend · lint + test + coverage + typecheck + build** — also runs `format:check`
+5. **E2E · Playwright** — after backend/frontend; push or PR with `e2e` label
 
 CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels redundant runs.
 
@@ -136,7 +138,7 @@ CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels re
 
 - Deploys from `git archive HEAD` (snapshot of committed code), **never** from the working tree
 - Supports `--ref=<commit>` to deploy a specific commit
-- `--no-build` skips frontend build but refuses if source files are newer than dist
+- `--no-build` skips frontend build only when dist source fingerprint matches the archived ref
 - `--update-deps` runs `npm outdated` per workspace and asks to `npm update` before deploy
 - Compares lockfile versions with the server — **aborts if the server has newer modules** (prevents regression)
 - Healthchecks `/api/ready` (5 retries × 3s) after PM2 restart, verifying DB connectivity
@@ -148,7 +150,7 @@ CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels re
 
 ## Key gotchas
 
-- **Node.js version**: root requires ≥20, backend requires ≥18. Use Node 20 LTS for development.
+- **Node.js version**: all packages require `^20.19.0 || ^22.13.0 || >=24.0.0`. Match this range in development and CI.
 - **`process.cwd()`**: backend dotenv uses `__dirname`, not cwd — safe to invoke `node backend/server.js` from any directory.
 - **React + react-router chunking**: if you change the manual chunk strategy in `vite.config.ts`, keep react+react-dom+react-router in the same chunk (rule 1 in the config comments).
 - **Analytics routes Postgres-only**: `backend/routes/analytics.js` is excluded from coverage because it uses Postgres-specific SQL. Covered by the separate CI job.

@@ -91,6 +91,16 @@ test.describe('Waitlist: conflict → claim', () => {
     });
     expect(cancel.status()).toBeLessThan(400);
 
+    await expect
+      .poll(async () => {
+        const response = await ctx.get('/api/bookings/waitlist/me', { headers: studHeaders });
+        const body = await response.json();
+        return body.entries.find(
+          (entry: { id: number; notifiedAt: string | null }) => entry.id === entryId,
+        )?.notifiedAt;
+      })
+      .toBeTruthy();
+
     // Lo studente riscatta la entry: il backend la marca come claimed
     // e crea la booking
     const claim = await ctx.post(`/api/bookings/waitlist/${entryId}/claim`, {

@@ -464,7 +464,7 @@ describe('routes/bookings — PUT/DELETE /:id', () => {
   });
 
   it('PUT /:id 404 su id inesistente', async () => {
-    const { authHeader } = await createAuthedUser();
+    const { authHeader } = await createAdmin();
     const res = await request(app)
       .put('/api/bookings/999999')
       .set('Authorization', authHeader)

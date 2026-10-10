@@ -355,6 +355,13 @@ async function pruneMailOutbox() {
 
 async function tick() {
   try {
+    const { sequelize } = require('../models');
+    await sequelize.models.RateLimitBucket.destroy({ where: { resetAt: { [Op.lt]: new Date() } } });
+    await require('./profilePhotoCleanup').pruneDeletedUserPhotos();
+  } catch (err) {
+    logger.error({ err }, 'retention auxiliary cleanup failed');
+  }
+  try {
     await pruneAuditLog();
     await prunePreRestoreSnapshots();
     await pruneMailOutbox();

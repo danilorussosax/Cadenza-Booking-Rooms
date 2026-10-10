@@ -7,7 +7,6 @@ const os = require('os');
 const multer = require('multer');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { performBackup, listBackups, deleteBackup, BACKUP_DIR } = require('../scripts/backup');
-const { performRestore, isRestoreInProgress } = require('../services/backupRestore');
 const backupScheduler = require('../services/backupScheduler');
 const logger = require('../lib/logger').child({ scope: 'backups.route' });
 
@@ -225,17 +224,7 @@ router.delete('/:filename', authenticate, requireRole('admin'), async (req, res)
 // =====================================================
 // RESTORE
 //
-// Workflow di sicurezza:
-//   1. Eseguiamo un backup PRE-restore (snapshot dello stato corrente)
-//      così in caso di rollback l'admin ha il "punto di partenza" salvato.
-//   2. Eseguiamo il restore vero (sostituisce DB + uploads).
-//   3. Risposta 200 senza aspettare il restart: il client mostra messaggio
-//      e l'admin può cliccare "Riavvia ora" (endpoint /restart) se è
-//      configurato un process manager esterno (systemd / pm2).
-//
-// Conferma: il client deve mandare body.confirm === 'RESTORE' altrimenti 400.
-// =====================================================
-
+// Il ripristino live non è sicuro con pool aperti o più worker. Usare la CLI offline.
 router.post('/:filename/restore', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const filename = req.params.filename;
@@ -248,42 +237,15 @@ router.post('/:filename/restore', authenticate, requireRole('admin'), async (req
         code: 'CONFIRMATION_REQUIRED',
       });
     }
-    if (isRestoreInProgress()) {
-      return res.status(409).json({
-        error: 'Restore già in corso',
-        code: 'RESTORE_IN_PROGRESS',
-      });
-    }
     const archivePath = path.join(BACKUP_DIR, filename);
     if (!fs.existsSync(archivePath)) {
       return res.status(404).json({ error: 'Backup non trovato' });
     }
 
-    // STEP 1 — snapshot pre-restore (errore qui blocca il restore).
-    let preRestoreSnapshot = null;
-    try {
-      const snap = await performBackup();
-      preRestoreSnapshot = snap.file;
-      logger.info(`[restore] snapshot pre-restore: ${snap.file}`);
-    } catch (err) {
-      return res.status(500).json({
-        error: `Snapshot pre-restore fallito: ${err.message}. Restore annullato per sicurezza.`,
-        code: 'PRE_BACKUP_FAILED',
-      });
-    }
-
-    // STEP 2 — restore vero
-    const result = await performRestore({ archivePath });
-
-    res.json({
-      ok: true,
-      restoredFile: filename,
-      preRestoreSnapshot,
-      manifest: result.manifest,
-      restored: result.restored,
-      durationMs: result.durationMs,
-      message:
-        'Ripristino completato. Riavvia il backend (POST /api/admin/backups/restart) per ricaricare il pool DB e applicare lo schema.',
+    return res.status(409).json({
+      code: 'RESTORE_OFFLINE_REQUIRED',
+      error:
+        'Il ripristino richiede manutenzione: arrestare tutte le istanze e usare backend/scripts/restore.js con --offline.',
     });
   } catch (err) {
     logger.error({ err }, '[restore endpoint] errore');

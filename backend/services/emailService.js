@@ -26,8 +26,20 @@ let cache = null; // { transporter, from, replyTo, expiresAt }
 const CACHE_TTL_MS = 60_000;
 let warned = false;
 
+let loadingConfig = null;
 async function loadConfig() {
+  if (loadingConfig) return loadingConfig;
+  loadingConfig = readConfig();
+  try {
+    return await loadingConfig;
+  } finally {
+    loadingConfig = null;
+  }
+}
+
+async function readConfig() {
   if (cache && cache.expiresAt > Date.now()) return cache;
+  invalidateCache();
 
   const { MailSettings } = require('../models');
   const row = await MailSettings.findByPk(1).catch(() => null);
@@ -81,6 +93,9 @@ async function loadConfig() {
     pool: true,
     maxConnections: 3,
     maxMessages: 100,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   });
 
   cache = {

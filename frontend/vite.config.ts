@@ -105,10 +105,11 @@ export default defineConfig({
           // Foto utente / aula servite da /storage/* — cache lunga (immagini
           // sono già hashate dal backend con timestamp nel filename).
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/storage/'),
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/storage/') && !url.pathname.startsWith('/storage/user-'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'storage-v1',
+              cacheName: 'storage-public-v2',
               expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 7 * 24 * 60 * 60, // 7gg
@@ -158,6 +159,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/storage': { target: 'http://localhost:3000', changeOrigin: true },
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

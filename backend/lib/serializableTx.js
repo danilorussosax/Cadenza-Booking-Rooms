@@ -36,7 +36,24 @@ function isRetryableError(err) {
   return code === SQLSTATE_SERIALIZATION || code === SQLSTATE_DEADLOCK;
 }
 
+const sqliteQueues = new WeakMap();
+
 async function withSerializableRetry(sequelize, options, work, opts = {}) {
+  // SQLite in-memory has one connection. Queue managed transactions before BEGIN.
+  if (sequelize.getDialect?.() === 'sqlite') {
+    const previous = sqliteQueues.get(sequelize) || Promise.resolve();
+    const result = previous.then(() => runTransaction(sequelize, options, work, opts));
+    const settled = result.catch(() => {});
+    sqliteQueues.set(sequelize, settled);
+    void settled.then(() => {
+      if (sqliteQueues.get(sequelize) === settled) sqliteQueues.delete(sequelize);
+    });
+    return result;
+  }
+  return runTransaction(sequelize, options, work, opts);
+}
+
+async function runTransaction(sequelize, options, work, opts = {}) {
   // Tarato per spike di booking concorrenti: 10 retry con backoff
   // esponenziale cappato a 250ms = ~2 s di attesa totale worst-case.
   const { maxRetries = 10, baseDelayMs = 5, maxDelayMs = 250 } = opts;

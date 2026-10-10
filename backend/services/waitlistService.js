@@ -14,8 +14,9 @@
  */
 
 const dayjs = require('dayjs');
-const { Op } = require('sequelize');
-const { BookingWaitlist, Booking, Room, Building, User } = require('../models');
+const { Op, Transaction } = require('sequelize');
+const { withSerializableRetry } = require('../lib/serializableTx');
+const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { sendBookingEmail, emailEnabled } = require('./emailService');
 const logger = require('../lib/logger');
 
@@ -48,44 +49,68 @@ async function notifyNextOnSlot({ roomId, startTime, endTime }) {
   const start = startTime instanceof Date ? startTime : new Date(startTime);
   const end = endTime instanceof Date ? endTime : new Date(endTime);
 
-  // 1) c'è ancora "spazio" libero in quello slot? (potrebbe essere stato già
-  //    riprenotato da qualcun altro nel frattempo)
-  const stillBooked = await Booking.findOne({
-    where: {
-      roomId,
-      status: 'confirmed',
-      startTime: { [Op.lt]: end },
-      endTime: { [Op.gt]: start },
+  const next = await withSerializableRetry(
+    sequelize,
+    {
+      isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
     },
-    attributes: ['id'],
-  });
-  if (stillBooked) return null;
-
-  // 2) trova il primo in coda matching
-  const next = await BookingWaitlist.findOne({
-    where: {
-      roomId,
-      notifiedAt: null,
-      claimedAt: null,
-      cancelledAt: null,
-      startTime: { [Op.lt]: end },
-      endTime: { [Op.gt]: start },
+    async (transaction) => {
+      await Room.findByPk(roomId, { transaction, lock: transaction.LOCK.UPDATE });
+      const candidates = await BookingWaitlist.findAll({
+        where: {
+          roomId,
+          notifiedAt: null,
+          claimedAt: null,
+          cancelledAt: null,
+          startTime: { [Op.lt]: end, [Op.gt]: new Date() },
+          endTime: { [Op.gt]: start },
+        },
+        include: [
+          { model: User, as: 'user' },
+          { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+        ],
+        order: [
+          ['position', 'ASC'],
+          ['createdAt', 'ASC'],
+        ],
+        transaction,
+      });
+      for (const candidate of candidates) {
+        if (!candidate.user?.isActive) continue;
+        const overlap = {
+          roomId,
+          startTime: { [Op.lt]: candidate.endTime },
+          endTime: { [Op.gt]: candidate.startTime },
+        };
+        if (await Booking.findOne({ where: { ...overlap, status: 'confirmed' }, transaction }))
+          continue;
+        if (
+          await BookingWaitlist.findOne({
+            where: {
+              ...overlap,
+              notifiedAt: { [Op.ne]: null },
+              claimedAt: null,
+              cancelledAt: null,
+              expiresAt: { [Op.gt]: new Date() },
+            },
+            transaction,
+          })
+        )
+          continue;
+        await candidate.update(
+          {
+            notifiedAt: new Date(),
+            expiresAt: dayjs().add(CLAIM_WINDOW_MINUTES, 'minute').toDate(),
+          },
+          { transaction },
+        );
+        return candidate;
+      }
+      return null;
     },
-    include: [
-      { model: User, as: 'user' },
-      { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-    ],
-    order: [
-      ['position', 'ASC'],
-      ['createdAt', 'ASC'],
-    ],
-  });
+  );
   if (!next) return null;
-
-  // 3) marca notificato + scadenza
-  const now = new Date();
-  const expires = dayjs(now).add(CLAIM_WINDOW_MINUTES, 'minute').toDate();
-  await next.update({ notifiedAt: now, expiresAt: expires });
+  const expires = next.expiresAt;
 
   // 4) email (fire-and-forget)
   if (await emailEnabled()) {
@@ -133,38 +158,52 @@ async function cleanupExpired() {
 
   if (expired.length === 0) return 0;
 
+  let count = 0;
   for (const entry of expired) {
-    await entry.update({
-      cancelledAt: now,
-      cancelReason: 'auto: claim window expired',
-    });
-    // Promuove il successivo (può essere null se nessun altro)
-    await notifyNextOnSlot({
-      roomId: entry.roomId,
-      startTime: entry.startTime,
-      endTime: entry.endTime,
-    });
-    // Decrementa la posizione di chi sta dopo nella stessa room
-    await BookingWaitlist.decrement('position', {
-      by: 1,
-      where: {
-        roomId: entry.roomId,
-        position: { [Op.gt]: entry.position },
-        cancelledAt: null,
-        claimedAt: null,
-      },
-    });
+    if (await closeEntry(entry.id, 'auto: claim window expired', true)) count++;
   }
 
   logger.info(
     { count: expired.length, scope: 'waitlist.cleanup' },
     'waitlist expired entries processed',
   );
-  return expired.length;
+  return count;
+}
+
+async function closeEntry(id, reason, expiredOnly = false) {
+  const entry = await withSerializableRetry(
+    sequelize,
+    {
+      isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+    },
+    async (transaction) => {
+      const current = await BookingWaitlist.findByPk(id, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!current || current.cancelledAt || current.claimedAt) return null;
+      if (expiredOnly && (!current.expiresAt || current.expiresAt >= new Date())) return null;
+      await current.update({ cancelledAt: new Date(), cancelReason: reason }, { transaction });
+      await BookingWaitlist.decrement('position', {
+        by: 1,
+        where: {
+          roomId: current.roomId,
+          position: { [Op.gt]: current.position },
+          cancelledAt: null,
+          claimedAt: null,
+        },
+        transaction,
+      });
+      return current;
+    },
+  );
+  if (entry) await notifyNextOnSlot(entry);
+  return entry;
 }
 
 module.exports = {
   notifyNextOnSlot,
+  closeEntry,
   cleanupExpired,
   CLAIM_WINDOW_MINUTES,
 };

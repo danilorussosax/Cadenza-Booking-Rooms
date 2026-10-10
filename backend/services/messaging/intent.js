@@ -37,8 +37,10 @@ dayjs.extend(customParseFormat);
 dayjs.extend(isoWeek);
 dayjs.locale('it');
 
-const { Op } = require('sequelize');
-const { Booking, Room, Building, BookingTypeCatalog } = require('../../models');
+const { Op, Transaction } = require('sequelize');
+const { withSerializableRetry } = require('../../lib/serializableTx');
+const { bookingStatus, notifyAdminsOfPendingBooking } = require('../bookingPolicy');
+const { sequelize, Booking, Room, Building, BookingTypeCatalog } = require('../../models');
 const { validateBooking } = require('../bookingValidator');
 
 const HELP_TEXT = `🤖 *Cadenza — Bot*
@@ -737,58 +739,61 @@ async function finalizeBook({ slots, session }) {
   if (!user) {
     return { reply: '❌ Utente non trovato.', session: { state: null, slots: null } };
   }
-  // Riusa il validator senza bypass: rispetta rules, quotas, requiresApproval.
+  let booking;
   try {
-    const result = await validateBooking({
-      user,
-      roomId: slots.roomId,
-      startTime: new Date(slots.startTime),
-      endTime: new Date(slots.endTime),
-    });
-    if (!result?.valid) {
-      const errMsg = mdSafe((result?.errors || []).join('; ') || 'regola violata');
-      return {
-        reply: `❌ Prenotazione non valida: ${errMsg}.`,
-        session: { state: null, slots: null },
-      };
-    }
+    booking = await withSerializableRetry(
+      sequelize,
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        const fresh = await User.findByPk(user.id, { transaction });
+        if (!fresh?.isActive || (fresh.role !== 'admin' && fresh.status !== 'approved'))
+          throw new Error('Account non disponibile');
+        const room = await Room.findByPk(slots.roomId, {
+          include: [{ model: Building, as: 'building' }],
+          transaction,
+        });
+        if (!room?.isBookable || !room.building) throw new Error('Aula non disponibile');
+        const result = await validateBooking({
+          user: fresh,
+          roomId: slots.roomId,
+          startTime: new Date(slots.startTime),
+          endTime: new Date(slots.endTime),
+          type: slots.type || 'studio_individuale',
+          transaction,
+        });
+        if (!result.valid) throw new Error(result.errors.join('; '));
+        return Booking.create(
+          {
+            userId: fresh.id,
+            roomId: room.id,
+            startTime: new Date(slots.startTime),
+            endTime: new Date(slots.endTime),
+            type: slots.type || 'studio_individuale',
+            status: bookingStatus(room, fresh),
+            purpose: 'Prenotazione via bot',
+          },
+          { transaction },
+        );
+      },
+    );
   } catch (err) {
     return {
-      reply: `❌ Errore validazione: ${mdSafe(err.message || 'errore generico')}.`,
+      reply: `❌ Prenotazione non valida: ${mdSafe(err.message)}.`,
       session: { state: null, slots: null },
     };
   }
-  // Crea la booking. Se l'aula richiede approvazione e l'utente non è admin,
-  // verrà creata in pending (lo stesso percorso di routes/bookings.js).
-  // Re-check isBookable + building non-cestinato: il wizard può aver
-  // selezionato l'aula molti minuti fa (TTL sessione 15min) e nel frattempo
-  // l'admin può averla disattivata o averne cestinato la sede. Senza questo
-  // re-check creeremmo silenziosamente una booking su risorsa non più valida.
-  const room = await Room.findByPk(slots.roomId, {
-    include: [{ model: Building, as: 'building' }],
-  });
-  if (!room || !room.isBookable) {
-    return {
-      reply: '❌ L’aula selezionata non è più prenotabile. Riprova con `/book`.',
-      session: { state: null, slots: null },
-    };
+  const status = booking.status;
+  if (status === 'pending_approval') {
+    const full = await Booking.findByPk(booking.id, {
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
+      ],
+    });
+    notifyAdminsOfPendingBooking(full).catch(() => {});
   }
-  if (!room.building || room.building.deletedAt) {
-    return {
-      reply: '❌ La sede dell’aula selezionata non è più attiva. Riprova con `/book`.',
-      session: { state: null, slots: null },
-    };
-  }
-  const status = room?.requiresApproval && user.role !== 'admin' ? 'pending_approval' : 'confirmed';
-  const booking = await Booking.create({
-    userId: session.userId,
-    roomId: slots.roomId,
-    startTime: new Date(slots.startTime),
-    endTime: new Date(slots.endTime),
-    type: slots.type || 'studio_individuale',
-    status,
-    purpose: 'Prenotazione via bot',
-  });
   const start = dayjs(slots.startTime);
   const end = dayjs(slots.endTime);
   const summary =

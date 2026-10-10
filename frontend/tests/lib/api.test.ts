@@ -82,6 +82,49 @@ describe('lib/api · api()', () => {
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(payload), { status }));
   }
 
+  it('scarta anche risposte riuscite appartenenti a una sessione precedente', async () => {
+    tokenStore.set('old');
+    let complete!: (response: Response) => void;
+    fetchSpy.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const pending = api('/api/private');
+    const assertion = expect(pending).rejects.toMatchObject({
+      payload: { code: 'SESSION_CHANGED' },
+    });
+    tokenStore.set('new');
+    complete(new Response(JSON.stringify({ privateData: 'old account' }), { status: 200 }));
+    await assertion;
+  });
+
+  it('un 401 tardivo non cancella la nuova sessione', async () => {
+    tokenStore.set('old');
+    let complete!: (response: Response) => void;
+    fetchSpy.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const pending = api('/api/private');
+    const assertion = expect(pending).rejects.toBeInstanceOf(HttpError);
+    tokenStore.set('new');
+    complete(new Response(JSON.stringify({ code: 'TOKEN_REVOKED' }), { status: 401 }));
+    await assertion;
+    expect(tokenStore.get()).toBe('new');
+  });
+
+  it.each(['WRONG_PASSWORD', 'TWO_FA_INVALID_CODE'])(
+    'un errore %s non termina la sessione',
+    async (code) => {
+      tokenStore.set('current');
+      mockErr({ code }, 401);
+      await expect(api('/api/auth/change-password')).rejects.toBeInstanceOf(HttpError);
+      expect(tokenStore.get()).toBe('current');
+    },
+  );
+
   it('GET semplice ritorna il JSON parsato', async () => {
     mockOk({ ok: true, items: [1, 2] });
     const out = await api<{ ok: boolean; items: number[] }>('/api/x', { auth: false });

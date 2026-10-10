@@ -16,16 +16,23 @@ async function updateCalendar(year, actor, confirmed, mutate) {
     const impacted = [];
     for (const proposal of proposals) {
       const plan = await workflow.loadPlan(proposal.id, transaction);
-      const affected = plan.slots.filter(
-        (slot) =>
-          slot.isActive &&
-          (slot.date < proposal.validFrom ||
-            slot.date > proposal.validTo ||
-            (plan.settings &&
-              (slot.date < plan.settings.lessonsStartDate ||
-                slot.date > plan.settings.lessonsEndDate)) ||
-            plan.suspensions.some((s) => slot.date >= s.dateFrom && slot.date <= s.dateTo)),
-      );
+      const isBlocked = (slot) =>
+        slot.date < proposal.validFrom ||
+        slot.date > proposal.validTo ||
+        (plan.settings &&
+          (slot.date < plan.settings.lessonsStartDate ||
+            slot.date > plan.settings.lessonsEndDate)) ||
+        plan.suspensions.some((s) => slot.date >= s.dateFrom && slot.date <= s.dateTo);
+      const affected = plan.slots.filter((slot) => slot.isActive && isBlocked(slot));
+      // Reopening dates only unlocks them; cancelled lessons stay inactive.
+      for (const slot of plan.slots.filter((s) => !s.isActive)) {
+        const locked = Boolean(isBlocked(slot));
+        if (locked !== slot.isLocked)
+          await slot.update(
+            { isLocked: locked, lockReason: locked ? 'Calendario aggiornato dal revisore' : null },
+            { transaction },
+          );
+      }
       if (affected.length) impacted.push({ proposal, affected });
     }
     if (impacted.length && !confirmed) {

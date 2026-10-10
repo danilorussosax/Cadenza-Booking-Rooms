@@ -150,7 +150,9 @@
       "forgot_password": "Forgot password?",
       "back_to_options": "Back to options",
       "continue_google": "Continue with Google",
-      "continue_microsoft": "Continue with Microsoft"
+      "continue_microsoft": "Continue with Microsoft",
+      "resend_setup_link": "Resend welcome link",
+      "setup_link_resent": "If the email is registered, we have sent a new first access link. Check your inbox."
     },
     "forgot": {
       "title": "Reset your password",
@@ -926,8 +928,12 @@
           "reject_title": "Reject the selected users?",
           "delete_title": "Delete {{count}} users?",
           "approve_reject_description": "{{count}} pending users will be updated. {{skipped}} users already approved or rejected will be skipped.",
-          "delete_description": "You are about to delete {{count}} users and all their bookings. This cannot be undone."
-        }
+          "delete_description": "You are about to delete {{count}} users and all their bookings. This cannot be undone.",
+          "setup_link_title": "Send the first access link?",
+          "setup_link_description": "A password setup link will be sent to the {{count}} selected users. Users who already have a password will be skipped automatically."
+        },
+        "setup_link": "Send first access link",
+        "setup_links_sent_toast": "{{sent}} links sent ({{skipped}} skipped)"
       },
       "form": {
         "title_new": "New user",
@@ -1836,7 +1842,9 @@
     "offer_dialog_title": "Room already booked",
     "offer_dialog_description": "The chosen slot is already taken. Do you want to join the waiting list? You'll get an email if the existing booking is cancelled.",
     "offer_dialog_decline": "No, I'll pick another time",
-    "offer_dialog_confirm": "Yes, add me to the queue"
+    "offer_dialog_confirm": "Yes, add me to the queue",
+    "link_unavailable": "Waitlist entry unavailable.",
+    "claim_pending": "Request submitted: awaiting approval."
   },
   "check_in": {
     "title": "Presence check-in",
@@ -2220,7 +2228,8 @@
       "history_empty": "No runs recorded yet.",
       "run_summary": "Read {{fetched}} · Created {{created}} · Updated {{updated}} · Deactivated {{orphaned}} · Errors {{errors}}",
       "toast": {
-        "applied": "Sync complete: {{created}} created, {{updated}} updated, {{orphaned}} deactivated."
+        "applied": "Sync complete: {{created}} created, {{updated}} updated, {{orphaned}} deactivated.",
+        "setup_links_sent": "{{sent}} first access links sent. {{skipped}} skipped."
       },
       "mapping_upload_hint": "Header mapping (auto-detection) is computed after the first upload. You'll be able to review and tweak it in the preview screen.",
       "mapping_title": "Field mapping",
@@ -2268,7 +2277,26 @@
       "compare_repeat_updates_other": "Repeat updates ({{count}})",
       "compare_repeat_updates_hint": "Users updated in the previous run too: could be typos in the source file — investigate.",
       "compare_recovered_one": "Recovered user ({{count}})",
-      "compare_recovered_other": "Recovered users ({{count}})"
+      "compare_recovered_other": "Recovered users ({{count}})",
+      "setup_banner": {
+        "title": "{{count}} users created without a password",
+        "subtitle": "You can email them a link to set their password for first access.",
+        "cta": "Send first access links ({{count}})"
+      },
+      "setup_dialog": {
+        "title": "Confirm sending first access links",
+        "description": "You are about to send {{count}} users a welcome email with a link to set their password.",
+        "bullet_skip_existing": "Users who already have a password are skipped automatically",
+        "bullet_invalidate_previous": "Previous links are invalidated for each recipient",
+        "bullet_one_link": "Only one link per user will be valid at a time",
+        "confirm": "Send {{count}} emails"
+      }
+    },
+    "esse3": {
+      "title": "Import records from ESSE3 (CINECA)",
+      "subtitle": "Upload the standard ESSE3 export (CSV or XLSX). The system automatically recognizes typical AFAM Student Suite headers.",
+      "dropzone_label": "Drop the ESSE3 XLSX file here, or click to choose",
+      "history_title": "Recent ESSE3 runs"
     }
   },
   "monteWorkflow": {
@@ -2311,5 +2339,13 @@
       "add_new_day": "New date"
     },
     "projectedHours": "Resulting annual hours (preview): {{hours}} h"
+  },
+  "announcements": {
+    "page_title": "Announcements",
+    "page_subtitle": "News and updates for you.",
+    "empty_title": "No announcements",
+    "empty_subtitle": "There are no announcements to display.",
+    "pinned": "Pinned",
+    "expires": "Expires"
   }
 }

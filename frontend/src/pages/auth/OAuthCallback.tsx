@@ -40,7 +40,9 @@ export default function OAuthCallback() {
           user.role === 'admin' ||
           (Boolean(user.courseId) && (user.role !== 'studente' || Boolean(user.matricola)));
         const approved = user.role === 'admin' || user.status === 'approved';
-        let dest = '/dashboard';
+        const returnTo = sessionStorage.getItem('oauthReturnTo');
+        sessionStorage.removeItem('oauthReturnTo');
+        let dest = returnTo && /^\/(?![/\\])/.test(returnTo) ? returnTo : '/dashboard';
         if (needsProfile || !profileComplete) dest = '/complete-profile';
         else if (!approved) dest = '/pending-approval';
         void navigate(dest, { replace: true });

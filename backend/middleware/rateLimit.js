@@ -19,6 +19,10 @@
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../lib/logger');
+const PgRateLimitStore = require('../lib/pgRateLimitStore');
+function sharedStore(prefix) {
+  return process.env.DB_DIALECT === 'postgres' ? { store: new PgRateLimitStore(prefix) } : {};
+}
 
 function buildHandler({ logHint }) {
   return (req, res, _next, options) => {
@@ -58,6 +62,7 @@ function wrap(limiter) {
 
 const loginLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('loginLimiter'),
   windowMs: 15 * 60 * 1000,
   limit: 5,
   handler: buildHandler({ logHint: 'auth_login' }),
@@ -65,6 +70,7 @@ const loginLimiter = rateLimit({
 
 const registerLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('registerLimiter'),
   windowMs: 30 * 60 * 1000,
   limit: 3,
   handler: buildHandler({ logHint: 'auth_register' }),
@@ -78,6 +84,7 @@ const registerLimiter = rateLimit({
 // hanno limiter dedicati molto più stringenti.
 const apiDefaultLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('apiDefaultLimiter'),
   windowMs: 60 * 1000,
   limit: Number(process.env.RATE_LIMIT_API_PER_MIN) || 300,
   handler: buildHandler({ logHint: 'api_default' }),
@@ -90,9 +97,10 @@ const apiDefaultLimiter = rateLimit({
 // ERR_ERL_KEY_GEN_IPV6 di express-rate-limit v8).
 const gdprLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('gdprLimiter'),
   windowMs: 24 * 60 * 60 * 1000,
   limit: 3,
-  keyGenerator: (req, res) => (req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req, res)),
+  keyGenerator: (req) => (req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req.ip)),
   handler: buildHandler({ logHint: 'gdpr' }),
 });
 
@@ -101,7 +109,7 @@ const gdprLimiter = rateLimit({
 // Chiave: prova prima ad estrarre `userId` dal pre2faToken (verifica firma
 // JWT, leggera) — un attaccante che ruota IP non aggira un limit per-utente.
 // Fallback su IP se il token manca/è invalido (es. richieste preliminari).
-function tfaKey(req, res) {
+function tfaKey(req) {
   const t = req.body?.tempToken;
   if (typeof t === 'string' && t.length > 0) {
     try {
@@ -112,11 +120,12 @@ function tfaKey(req, res) {
       /* token invalido / scaduto → fallback su IP */
     }
   }
-  return ipKeyGenerator(req, res);
+  return ipKeyGenerator(req.ip);
 }
 
 const tfaVerifyLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('tfaVerifyLimiter'),
   windowMs: 15 * 60 * 1000,
   limit: 10,
   keyGenerator: tfaKey,
@@ -125,6 +134,7 @@ const tfaVerifyLimiter = rateLimit({
 
 const tfaResendLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('tfaResendLimiter'),
   windowMs: 15 * 60 * 1000,
   limit: 5,
   keyGenerator: tfaKey,
@@ -136,6 +146,7 @@ const tfaResendLimiter = rateLimit({
 // largo per un client calendar tipico (refresh ogni 1-6 ore).
 const icalLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('icalLimiter'),
   windowMs: 60 * 60 * 1000,
   limit: 30,
   handler: buildHandler({ logHint: 'ical' }),
@@ -148,9 +159,10 @@ const icalLimiter = rateLimit({
 // ricorrenti distinte all'ora — più che sufficiente per uso umano.
 const recurringBookingLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('recurringBookingLimiter'),
   windowMs: 60 * 60 * 1000,
   limit: 5,
-  keyGenerator: (req, res) => (req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req, res)),
+  keyGenerator: (req) => (req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req.ip)),
   handler: buildHandler({ logHint: 'recurring_booking' }),
 });
 
@@ -161,6 +173,7 @@ const recurringBookingLimiter = rateLimit({
 // nel handler della route (max 3 token attivi per utente / ora).
 const passwordResetRequestLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('passwordResetRequestLimiter'),
   windowMs: 30 * 60 * 1000,
   limit: 3,
   handler: buildHandler({ logHint: 'auth_password_reset_request' }),
@@ -171,6 +184,7 @@ const passwordResetRequestLimiter = rateLimit({
 // validato server-side, quindi non c'è rischio brute-force significativo.
 const passwordResetConfirmLimiter = rateLimit({
   ...baseOptions,
+  ...sharedStore('passwordResetConfirmLimiter'),
   windowMs: 15 * 60 * 1000,
   limit: 10,
   handler: buildHandler({ logHint: 'auth_password_reset_confirm' }),

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { LoaderCircle } from 'lucide-react';
 import { ProtectedRoute, PublicOnlyRoute, RequireAdmin } from '@/components/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 // code-split — incluse le pagine di auth (Login/Register/...) che non
 // servono al first paint dell'utente già loggato.
 import Dashboard from '@/pages/Dashboard';
+import { WaitlistDashboardCard } from '@/components/bookings/WaitlistDashboardCard';
 import NotFound from '@/pages/NotFound';
 
 const Login = lazy(() => import('@/pages/auth/Login'));
@@ -18,6 +19,7 @@ const OAuthCallback = lazy(() => import('@/pages/auth/OAuthCallback'));
 const OAuthUnavailable = lazy(() => import('@/pages/auth/OAuthUnavailable'));
 const CompleteProfile = lazy(() => import('@/pages/auth/CompleteProfile'));
 const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
+const Announcements = lazy(() => import('@/pages/Announcements'));
 const Rooms = lazy(() => import('@/pages/Rooms'));
 const BookingPage = lazy(() => import('@/pages/Booking'));
 const MyBookings = lazy(() => import('@/pages/MyBookings'));
@@ -50,6 +52,11 @@ const CheckInRoom = lazy(() => import('@/pages/CheckInRoom'));
 const Help = lazy(() => import('@/pages/Help'));
 const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'));
 const Terms = lazy(() => import('@/pages/legal/Terms'));
+
+function WaitlistClaimPage() {
+  const { id } = useParams();
+  return <WaitlistDashboardCard entryId={Number(id)} />;
+}
 
 function PageFallback() {
   return (
@@ -108,6 +115,8 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/booking" element={<BookingPage />} />
             <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/announcements" element={<Announcements />} />
+            <Route path="/waitlist/claim/:id" element={<WaitlistClaimPage />} />
             <Route path="/rooms" element={<Rooms />} />
             <Route path="/instruments" element={<Instruments />} />
             <Route path="/my-loans" element={<MyLoans />} />

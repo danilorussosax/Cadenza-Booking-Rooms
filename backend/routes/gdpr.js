@@ -132,8 +132,8 @@ router.get('/export', authenticate, requireApproved, gdprLimiter, async (req, re
       })),
       instrumentLoans: loans.map((l) => ({
         id: l.id,
-        startDate: l.startDate,
-        endDate: l.endDate,
+        startDate: l.fromDate,
+        endDate: l.toDate,
         status: l.status,
         instrument: l.instrument
           ? {
@@ -199,6 +199,7 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       });
     }
 
+    const photoUrl = req.user.profilePhotoUrl;
     const result = await sequelize.transaction(async (t) => {
       const user = await User.findByPk(userId, { transaction: t });
       if (!user) {
@@ -243,8 +244,9 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
           where: {
             userId,
             startTime: { [require('sequelize').Op.gt]: now },
-            status: ['confirmed', 'pending'],
+            status: ['confirmed', 'pending_approval'],
           },
+          individualHooks: true,
           transaction: t,
         },
       );
@@ -266,6 +268,8 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
         removedMonteOreProposals,
       };
     });
+
+    await require('../services/profilePhotoCleanup').removeProfilePhoto(photoUrl);
 
     await writeGdprAudit({
       req,

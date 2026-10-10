@@ -120,36 +120,18 @@ describe('Backup endpoints', () => {
     expect(r2.status).toBe(400);
   });
 
-  it.skipIf(!TAR_AVAILABLE)('POST /:filename/restore esegue restore + pre-snapshot', async () => {
+  it.skipIf(!TAR_AVAILABLE)('POST restore impedisce modifiche al database live', async () => {
     const { authHeader } = await createAdmin();
     const create = await request(app)
       .post('/api/admin/backups/now')
       .set('Authorization', authHeader);
-    const file = create.body.file;
-
-    // Lascia passare 1 minuto fittizio per generare un pre-snapshot
-    // con timestamp diverso (altrimenti collide). Workaround: aspetta 60s
-    // sarebbe lungo: facciamo un piccolo delay e accettiamo che il pre-snap
-    // possa avere lo stesso filename → il test verifica solo che la
-    // pipeline ritorni ok.
-    await new Promise((r) => setTimeout(r, 1100));
-
+    expect(create.status).toBe(201);
     const res = await request(app)
-      .post(`/api/admin/backups/${file}/restore`)
+      .post(`/api/admin/backups/${create.body.file}/restore`)
       .set('Authorization', authHeader)
       .send({ confirm: 'RESTORE' });
-
-    // SQLite in-memory + restore: il restore copia file su data/conservatory.sqlite
-    // ma in test usiamo :memory:. La pipeline copia comunque il file sqlite del
-    // backup nella destinazione data/, poi lo legge — non interferisce con
-    // l'in-memory già aperto dal test runner.
-    expect([200, 500]).toContain(res.status);
-    if (res.status === 200) {
-      expect(res.body.ok).toBe(true);
-      expect(res.body.restoredFile).toBe(file);
-      expect(res.body.preRestoreSnapshot).toMatch(/^backup-/);
-      expect(res.body.manifest).toBeDefined();
-    }
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('RESTORE_OFFLINE_REQUIRED');
   });
 
   it.skipIf(!TAR_AVAILABLE)('POST /:filename/restore 404 se file inesistente', async () => {

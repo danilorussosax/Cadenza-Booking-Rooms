@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Bell, Hourglass, ListChecks, X } from 'lucide-react';
@@ -20,7 +20,7 @@ import type { BookingWaitlistEntry } from '@/types';
  * Aggiorna se stessa ogni 30s (per il countdown delle notificate) e
  * invalida le booking-related queries quando un claim succede.
  */
-export function WaitlistDashboardCard() {
+export function WaitlistDashboardCard({ entryId }: { entryId?: number }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
 
@@ -46,8 +46,14 @@ export function WaitlistDashboardCard() {
 
   const claimMutation = useMutation({
     mutationFn: (id: number) => waitlistApi.claim(id),
-    onSuccess: () => {
-      toast.success(t('waitlist.claim_success'));
+    onSuccess: ({ booking }) => {
+      toast.success(
+        t(
+          booking.status === 'pending_approval'
+            ? 'waitlist.claim_pending'
+            : 'waitlist.claim_success',
+        ),
+      );
       void qc.invalidateQueries({ queryKey: ['waitlist', 'me'] });
       void qc.invalidateQueries({ queryKey: ['bookings'] });
     },
@@ -63,9 +69,10 @@ export function WaitlistDashboardCard() {
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const entries = query.data?.entries ?? [];
-  const { notified, queued } = useMemo(() => {
+  const entries = (query.data?.entries ?? []).filter(
+    (entry) => entryId === undefined || entry.id === entryId,
+  );
+  const { notified, queued } = (() => {
     const n: BookingWaitlistEntry[] = [];
     const q: BookingWaitlistEntry[] = [];
     for (const e of entries) {
@@ -73,9 +80,13 @@ export function WaitlistDashboardCard() {
       else if (!e.notifiedAt) q.push(e);
     }
     return { notified: n, queued: q };
-  }, [entries]);
+  })();
 
-  if (entries.length === 0) return null;
+  if (entryId !== undefined && query.isPending) return <p>{t('common.loading')}</p>;
+  if (entryId !== undefined && query.isError)
+    return <p role="alert">{httpErrorMessage(query.error)}</p>;
+  if (entries.length === 0 || (entryId !== undefined && !notified.length && !queued.length))
+    return entryId === undefined ? null : <p role="status">{t('waitlist.link_unavailable')}</p>;
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

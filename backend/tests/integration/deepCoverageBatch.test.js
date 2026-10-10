@@ -376,25 +376,25 @@ describe('routes/gdpr — deep coverage', () => {
     const res = await request(app)
       .get('/api/users/me/gdpr/export')
       .set('Authorization', authHeader);
-    expect([200, 400, 429]).toContain(res.status);
+    expect(res.status).toBe(200);
   });
 
-  it('POST /delete-request 200/4xx con motivazione', async () => {
-    const { authHeader } = await createAdmin();
+  it('POST /delete-request 200 per utente non-admin', async () => {
+    const { authHeader } = await createAuthedUser();
     const res = await request(app)
       .post('/api/users/me/gdpr/delete-request')
       .set('Authorization', authHeader)
       .send({ reason: 'non utilizzo più il servizio' });
-    expect([200, 201, 400, 403, 422, 429]).toContain(res.status);
+    expect(res.status).toBe(200);
   });
 
-  it('POST /delete-request 400 con admin (deve essere bloccato)', async () => {
+  it('POST /delete-request 403 con admin (deve essere bloccato)', async () => {
     const { authHeader } = await createAdmin();
     const res = await request(app)
       .post('/api/users/me/gdpr/delete-request')
       .set('Authorization', authHeader)
       .send({ reason: 'test' });
-    expect([400, 403, 422, 429]).toContain(res.status);
+    expect(res.status).toBe(403);
   });
 });
 

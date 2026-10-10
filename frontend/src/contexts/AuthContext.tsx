@@ -5,8 +5,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/api/auth';
 import { tokenStore, userCache } from '@/lib/api';
 import type { Role, User } from '@/types';
@@ -66,8 +68,18 @@ function isUserApproved(user: User | null) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const generation = useRef(0);
+  const resetSessionCache = useCallback(() => {
+    generation.current++;
+    queryClient.clear();
+    if ('caches' in window)
+      void caches.delete('storage-v1').catch(() => {
+        /* Browser storage can be unavailable. */
+      });
+  }, [queryClient]);
   const [state, setState] = useState<AuthState>(() => ({
-    user: userCache.get<User>(),
+    user: tokenStore.get() ? userCache.get<User>() : null,
     loading: Boolean(tokenStore.get()),
   }));
 
@@ -76,25 +88,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ user: null, loading: false });
       return null;
     }
+    const version = tokenStore.version();
+    const token = tokenStore.get();
     try {
       const { user } = await authApi.me();
+      if (version !== tokenStore.version() || token !== tokenStore.get()) return null;
       userCache.set(user);
       setState({ user, loading: false });
       return user;
     } catch {
-      tokenStore.clear();
+      if (version !== tokenStore.version() || token !== tokenStore.get()) return null;
+      // Keep credentials for retry after a transient outage; do not trust cached identity.
+      userCache.clear();
       setState({ user: null, loading: false });
       return null;
     }
   }, []);
 
   useEffect(() => {
+    if ('caches' in window)
+      void caches.delete('storage-v1').catch(() => {
+        /* Browser storage can be unavailable. */
+      });
     void refreshUser();
   }, [refreshUser]);
 
   const loginWithCredentials = useCallback<AuthContextValue['loginWithCredentials']>(
     async (email, password) => {
+      const attempt = ++generation.current;
       const res = await authApi.login(email, password);
+      if (attempt !== generation.current) throw new Error('Sessione cambiata');
       // Backend ritorna { needsTwoFa, tempToken } se l'utente ha il 2FA
       // attivo: NON popoliamo lo stato finché non completiamo lo step 2.
       if ('needsTwoFa' in res) {
@@ -105,41 +128,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           expiresInMinutes: res.expiresInMinutes,
         };
       }
+      resetSessionCache();
       tokenStore.set(res.token);
       userCache.set(res.user);
       setState({ user: res.user, loading: false });
       return { kind: 'ok', user: res.user };
     },
-    [],
+    [resetSessionCache],
   );
 
   const completeTwoFaLogin = useCallback<AuthContextValue['completeTwoFaLogin']>(
     async (tempToken, payload) => {
+      const attempt = ++generation.current;
       const { token, user } = await authApi.twoFaLoginVerify(tempToken, payload);
+      if (attempt !== generation.current) throw new Error('Sessione cambiata');
+      resetSessionCache();
       tokenStore.set(token);
       userCache.set(user);
       setState({ user, loading: false });
       return user;
     },
-    [],
+    [resetSessionCache],
   );
 
-  const registerAccount = useCallback<AuthContextValue['registerAccount']>(async (payload) => {
-    const { token, user } = await authApi.register(payload);
-    tokenStore.set(token);
-    userCache.set(user);
-    setState({ user, loading: false });
-    return user;
-  }, []);
+  const registerAccount = useCallback<AuthContextValue['registerAccount']>(
+    async (payload) => {
+      const attempt = ++generation.current;
+      const { token, user } = await authApi.register(payload);
+      if (attempt !== generation.current) throw new Error('Sessione cambiata');
+      resetSessionCache();
+      tokenStore.set(token);
+      userCache.set(user);
+      setState({ user, loading: false });
+      return user;
+    },
+    [resetSessionCache],
+  );
 
-  const setSessionToken = useCallback(async (token: string) => {
-    tokenStore.set(token);
-    setState((s) => ({ ...s, loading: true }));
-    const { user } = await authApi.me();
-    userCache.set(user);
-    setState({ user, loading: false });
-    return user;
-  }, []);
+  const setSessionToken = useCallback(
+    async (token: string) => {
+      resetSessionCache();
+      tokenStore.set(token);
+      userCache.clear();
+      const version = tokenStore.version();
+      setState({ user: null, loading: true });
+      try {
+        const { user } = await authApi.me();
+        if (version !== tokenStore.version() || token !== tokenStore.get())
+          throw new Error('Sessione cambiata');
+        userCache.set(user);
+        setState({ user, loading: false });
+        return user;
+      } catch (error) {
+        if (version === tokenStore.version()) setState({ user: null, loading: false });
+        throw error;
+      }
+    },
+    [resetSessionCache],
+  );
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setState((s) => {
@@ -158,9 +204,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authApi.logout().catch(() => {
       /* ignora — pulizia locale comunque */
     });
+    resetSessionCache();
     tokenStore.clear();
     setState({ user: null, loading: false });
-  }, []);
+  }, [resetSessionCache]);
 
   // Listener globale per eventi 'auth:expired' emessi da lib/api.ts su 401:
   // forza il logout locale (no API call: il token è già invalido lato server)
@@ -168,14 +215,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // un'interazione esplicita con il bottone "Esci".
   useEffect(() => {
     const handler = () => {
+      resetSessionCache();
       tokenStore.clear();
       setState({ user: null, loading: false });
     };
+    const storageHandler = (event: StorageEvent) => {
+      if (event.key !== 'conservatory_token' && event.key !== null) return;
+      tokenStore.invalidateRequests();
+      resetSessionCache();
+      setState({ user: null, loading: Boolean(tokenStore.get()) });
+      void refreshUser();
+    };
+    window.addEventListener('storage', storageHandler);
     window.addEventListener('auth:expired', handler);
     return () => {
       window.removeEventListener('auth:expired', handler);
+      window.removeEventListener('storage', storageHandler);
     };
-  }, []);
+  }, [resetSessionCache, refreshUser]);
 
   // Sincronizza Sentry user scope quando cambia l'utente loggato. L'id reale
   // viene anonimizzato via SHA-256 dentro setSentryUser. No-op senza DSN.

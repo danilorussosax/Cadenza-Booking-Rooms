@@ -170,24 +170,19 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
 else
   yellow "[1/9] Build frontend SALTATA (--no-build) — dist del working tree copiata nello snapshot"
   [[ -d frontend/dist ]] || { red "[ERR] frontend/dist non esiste, non posso saltare la build"; exit 1; }
-  # Stale-check: se almeno un sorgente in frontend/src e' piu' recente del
-  # bundle in dist, --no-build pubblicherebbe codice obsoleto. Tailwind in
-  # particolare purga al build le classi non viste nel sorgente — un dist
-  # vecchio significa CSS senza le classi nuove. (Maggio 2026: bug zebra
-  # striping del WeeklyRoomTimetable invisibile in prod proprio per questo.)
-  newest_src=$(find frontend/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' -o -name '*.json' \) -print0 2>/dev/null | xargs -0 stat -f '%m' 2>/dev/null | sort -rn | head -1)
-  newest_dist=$(find frontend/dist -type f \( -name '*.js' -o -name '*.css' -o -name 'index.html' \) -print0 2>/dev/null | xargs -0 stat -f '%m' 2>/dev/null | sort -rn | head -1)
-  if [[ -n "$newest_src" && -n "$newest_dist" && "$newest_src" -gt "$newest_dist" ]]; then
-    red "[ERR] --no-build rifiutato: frontend/src ha file modificati DOPO l'ultima build."
-    red "      Il dist pubblicato sarebbe obsoleto (es. classi Tailwind purgate fuori)."
-    yellow "      Lancia ./deploy.sh senza --no-build, oppure 'npm --prefix frontend run build' a mano."
+  # La build deve provenire dagli stessi sorgenti del ref archiviato.
+  [[ -f "$DEPLOY_SRC/frontend/scripts/build-fingerprint.mjs" && -f "$LOCAL_ROOT/frontend/dist/.source-sha256" ]] || {
+    red "[ERR] --no-build richiede una build con impronta dei sorgenti. Eseguire senza --no-build."
+    exit 1
+  }
+  expected_source_hash=$(node "$DEPLOY_SRC/frontend/scripts/build-fingerprint.mjs")
+  actual_source_hash=$(cat "$LOCAL_ROOT/frontend/dist/.source-sha256")
+  if [[ "$actual_source_hash" != "$expected_source_hash" ]]; then
+    red "[ERR] --no-build rifiutato: dist non corrisponde al ref selezionato."
     exit 1
   fi
-  # Copia la dist già costruita nello snapshot (lo snapshot da git non la
-  # contiene: dist/ è gitignored). Nota: con --no-build la dist può derivare
-  # da sorgenti del working tree non committati — è il trade-off di --no-build.
   cp -R "$LOCAL_ROOT/frontend/dist" "$DEPLOY_SRC/frontend/dist"
-  green "    ✓ dist attuale (build presunta valida — niente file src piu' recenti)"
+  green "    ✓ dist verificata rispetto ai sorgenti del ref"
 fi
 
 # ------------------------------------------------------------
@@ -523,7 +518,7 @@ for attempt in 1 2 3 4 5; do
   # curl esce 7 (connection refused) e con `set -e` la command-substitution
   # abortirebbe l'intero script (falso fallimento, exit 7) vanificando i retry.
   # Con `|| true` HEALTH_RESP resta "000" e il loop riprova come previsto.
-  HEALTH_RESP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl -s -o /tmp/cadenza-health.json -w '%{http_code}' http://127.0.0.1:3000/api/ready && cat /tmp/cadenza-health.json && rm -f /tmp/cadenza-health.json") || true
+  HEALTH_RESP=$(ssh ${SSH_OPTS} "$SSH_TARGET" "curl --connect-timeout 3 --max-time 8 -s -o /tmp/cadenza-health.json -w '%{http_code}' http://127.0.0.1:3000/api/ready && cat /tmp/cadenza-health.json && rm -f /tmp/cadenza-health.json") || true
   # La prima riga è il codice HTTP (3 cifre), il resto è il body JSON.
   HEALTH_HTTP="${HEALTH_RESP:0:3}"
   HEALTH_BODY="${HEALTH_RESP:3}"

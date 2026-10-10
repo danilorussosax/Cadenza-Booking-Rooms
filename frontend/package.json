@@ -2,13 +2,13 @@
   "name": "cadenza-frontend",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.18.0",
+  "version": "1.20.0",
   "description": "Cadenza — frontend React/TypeScript/Vite. Proprietary software, see LICENSE.",
   "author": "Danilo Russo <danilorussosax@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/build-fingerprint.mjs --write",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint src --max-warnings 9999",
@@ -95,5 +95,8 @@
     "commander": "^4.1.1",
     "https-proxy-agent": "^7.0.6",
     "rollup": "^4.60.2"
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
   }
 }

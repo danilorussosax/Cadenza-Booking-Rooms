@@ -129,7 +129,7 @@ jobs:
         run: npm ci
 
       - name: Run Postgres-only tests
-        run: npx vitest run postgres.test.js tests/integration/excludeConstraint.test.js tests/integration/monteOreWorkflow.test.js
+        run: npx vitest run postgres.test.js tests/integration/excludeConstraint.test.js tests/integration/monteOreWorkflow.test.js tests/integration/release120.test.js
 
   frontend:
     name: Frontend · typecheck + test + build
@@ -148,6 +148,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install shared formatting tools
+        working-directory: .
+        run: npm ci
+
+      - name: Formatting
+        working-directory: .
+        run: npm run format:check
 
       - name: Typecheck
         run: npm run typecheck

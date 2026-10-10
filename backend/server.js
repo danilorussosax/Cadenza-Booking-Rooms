@@ -8,6 +8,9 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 // exit(1) con messaggio chiaro se una è invalida. Sostituisce il pattern
 // "Number(process.env.X) || default" sparso in 30+ file.
 require('./lib/config').validateConfig();
+if (require('fs').existsSync(require('path').join(__dirname, 'data', 'restore-maintenance.lock'))) {
+  throw new Error('Manutenzione restore in corso o fallita: verificare prima di riavviare.');
+}
 // Fail-fast in produzione se JWT_SECRET non è impostato o è il default
 // insicuro: meglio non partire che firmare token con un secret pubblico.
 require('./lib/secrets').assertProductionSecrets();

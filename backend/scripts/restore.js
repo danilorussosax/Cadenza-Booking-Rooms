@@ -1,155 +1,73 @@
 'use strict';
 
-/**
- * Cadenza — restore script.
- *
- * Ripristina un archivio backup-YYYY-MM-DD-HHmm.tar.gz creato da backup.js.
- * Usage:
- *   node backend/scripts/restore.js backups/backup-2026-04-25-1900.tar.gz
- *   npm run restore -- backups/backup-2026-04-25-1900.tar.gz
- *
- * IMPORTANTE: ferma il backend prima di eseguire il restore. Il file DB
- * corrente verrà rinominato con suffisso .pre-restore-<timestamp> per
- * sicurezza, e SOLO POI sovrascritto.
- *
- * Conferma esplicita richiesta: passare anche il flag --yes per saltarla.
- */
-
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const readline = require('readline');
-const { spawn } = require('child_process');
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-// Timestamp filename pre-restore in Europe/Rome (allineato all'orario
-// locale dell'admin che esegue il restore).
-const TS_TZ = 'Europe/Rome';
-
-const BACKEND_ROOT = path.resolve(__dirname, '..');
-const UPLOADS_DIR = path.join(BACKEND_ROOT, 'uploads');
-
-function spawnPromise(cmd, args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: 'inherit', ...opts });
-    p.on('error', reject);
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
-  });
-}
-
-function ts() {
-  return dayjs().tz(TS_TZ).format('YYYYMMDD-HHmmss');
-}
-
-async function confirm(msg) {
-  if (process.argv.includes('--yes') || process.argv.includes('-y')) return true;
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(`${msg} (digita "RESTORE" per confermare): `, (a) => {
-      rl.close();
-      resolve(a.trim() === 'RESTORE');
-    });
-  });
-}
+const os = require('os');
+const { performRestore } = require('../services/backupRestore');
+const { performBackup } = require('./backup');
+const lockPath = path.join(__dirname, '..', 'data', 'restore-maintenance.lock');
 
 async function main() {
-  const archive = process.argv.find((a) => a.endsWith('.tar.gz'));
-  if (!archive) {
-    console.error('Usage: node restore.js <path/to/backup.tar.gz> [--yes]');
-    process.exit(1);
-  }
-  const archivePath = path.resolve(archive);
-  if (!fs.existsSync(archivePath)) {
-    console.error(`Archivio non trovato: ${archivePath}`);
-    process.exit(1);
-  }
-
-  console.log(`[restore] archivio: ${archivePath}`);
-  console.log('[restore] estrazione in cartella temporanea…');
-  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-rst-'));
-  await spawnPromise('tar', ['-xzf', archivePath, '-C', stagingDir]);
-
-  // Lettura manifest
-  let manifest = { dialect: 'sqlite' };
-  const manifestPath = path.join(stagingDir, 'manifest.json');
-  if (fs.existsSync(manifestPath)) {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  }
-  console.log(`[restore] manifest dialect=${manifest.dialect} createdAt=${manifest.createdAt}`);
-
-  const ok = await confirm(
-    'ATTENZIONE: il database e la cartella uploads attuali verranno sostituiti. Procedere?',
-  );
-  if (!ok) {
-    console.log('[restore] annullato');
-    fs.rmSync(stagingDir, { recursive: true, force: true });
-    return;
-  }
-
-  const stamp = ts();
-
-  // ── Restore DB ──────────────────────────────────────────────
-  if (manifest.dialect === 'sqlite' || !manifest.dialect) {
-    const src = path.join(stagingDir, 'conservatory.sqlite');
-    if (!fs.existsSync(src)) throw new Error('Archivio non contiene conservatory.sqlite');
-    const target = path.join(BACKEND_ROOT, 'data', 'conservatory.sqlite');
-    if (fs.existsSync(target)) {
-      const bak = `${target}.pre-restore-${stamp}`;
-      fs.renameSync(target, bak);
-      console.log(`[restore] DB attuale salvato come ${path.basename(bak)}`);
-    } else {
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-    }
-    fs.copyFileSync(src, target);
-    console.log(`[restore] ✓ DB SQLite ripristinato: ${target}`);
-  } else if (manifest.dialect === 'postgres') {
-    const sqlPath = path.join(stagingDir, 'database.sql');
-    if (!fs.existsSync(sqlPath)) throw new Error('Archivio non contiene database.sql');
-    const host = process.env.DB_HOST || 'localhost';
-    const port = process.env.DB_PORT || '5432';
-    const user = process.env.DB_USER;
-    const database = process.env.DB_NAME;
-    const password = process.env.DB_PASSWORD;
-    if (!user || !database) throw new Error('DB_USER e DB_NAME richiesti per restore Postgres');
-    console.log(`[restore] ripristino Postgres su ${host}:${port}/${database}…`);
-    await spawnPromise(
-      'psql',
-      ['-h', host, '-p', String(port), '-U', user, '-d', database, '-f', sqlPath],
-      {
-        env: { ...process.env, PGPASSWORD: password || '' },
-      },
+  const archive = process.argv.slice(2).find((arg) => arg.endsWith('.tar.gz'));
+  if (!archive || !process.argv.includes('--offline')) {
+    throw new Error(
+      'Arrestare TUTTE le istanze, poi: node backend/scripts/restore.js <backup.tar.gz> --offline. Il flag conferma che tutti i processi sono arrestati.',
     );
-    console.log('[restore] ✓ DB Postgres ripristinato');
-  } else {
-    throw new Error(`Dialect non supportato: ${manifest.dialect}`);
   }
-
-  // ── Restore uploads ─────────────────────────────────────────
-  const srcUploads = path.join(stagingDir, 'uploads');
-  if (fs.existsSync(srcUploads)) {
-    if (fs.existsSync(UPLOADS_DIR)) {
-      const bak = `${UPLOADS_DIR}.pre-restore-${stamp}`;
-      fs.renameSync(UPLOADS_DIR, bak);
-      console.log(`[restore] uploads attuali salvati come ${path.basename(bak)}`);
-    }
-    fs.cpSync(srcUploads, UPLOADS_DIR, { recursive: true });
-    console.log(`[restore] ✓ uploads ripristinati: ${UPLOADS_DIR}`);
-  } else {
-    console.log("[restore] (nessuna cartella uploads nell'archivio)");
+  // Copia privata: lo snapshot corrente potrebbe avere lo stesso nome del backup scelto.
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-offline-'));
+  const archivePath = path.join(temp, 'restore.tar.gz');
+  let locked = false;
+  let completed = false;
+  try {
+    fs.copyFileSync(path.resolve(archive), archivePath);
+    await performRestore({ archivePath, dryRun: true });
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    const fd = fs.openSync(lockPath, 'wx', 0o600);
+    locked = true;
+    fs.writeFileSync(
+      fd,
+      JSON.stringify({
+        pid: process.pid,
+        archive: path.resolve(archive),
+        startedAt: new Date().toISOString(),
+      }),
+    );
+    fs.closeSync(fd);
+    const snapshotPath = path.join(
+      __dirname,
+      '..',
+      'data',
+      'snapshots',
+      `pre-restore-${Date.now()}.tar.gz`,
+    );
+    const snapshot = await performBackup({ outputPath: snapshotPath, skipRotation: true });
+    console.log(`Snapshot precedente: ${snapshot.path}`);
+    await require('../models').sequelize.close();
+    await performRestore({ archivePath, offline: true });
+    completed = true;
+    console.log('Ripristino completato. È possibile riavviare tutte le istanze.');
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+    if (locked && completed) fs.unlinkSync(lockPath);
+    if (locked && !completed)
+      console.error(
+        `Ripristino fallito: mantenere il servizio fermo. Verificare snapshot e dati prima di rimuovere ${lockPath}`,
+      );
   }
-
-  fs.rmSync(stagingDir, { recursive: true, force: true });
-  console.log('[restore] ✓ completato. Riavvia il backend.');
 }
 
-main().catch((err) => {
-  console.error('[restore] ✗ errore:', err.message);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    // Chiude anche il pool aperto da un backup fallito.
+    try {
+      await require('../models').sequelize.close();
+    } catch {
+      /* già chiuso */
+    }
+  });

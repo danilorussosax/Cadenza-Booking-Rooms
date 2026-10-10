@@ -10,6 +10,23 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.20.0] — 10 ottobre 2026
+
+Correzioni del piano di debug e riattivazione della bacheca personale.
+
+- Sessioni isolate tra account e schede; risposte tardive scartate e gestione degli errori temporanei di rete.
+- Approvazioni coerenti per modifica prenotazioni, lista d’attesa e bot; quote prestiti e operazioni monouso protette dalla concorrenza.
+- Lista d’attesa: pagina del link email, promozione dopo rinuncia/cancellazioni massive e controllo completo della disponibilità.
+- Monte Ore: sospensioni sincronizzate con le regole ordinarie; sblocco delle date riaperte senza riattivare automaticamente lezioni cancellate.
+- Export dati con date dei prestiti corrette; cancellazione delle prenotazioni in approvazione e delle foto personali.
+- Ripristino backup consentito solo in manutenzione da CLI: l’API restituisce `RESTORE_OFFLINE_REQUIRED`. Snapshot preventivo, rispetto di `DB_STORAGE` e WAL/SHM, transazione PostgreSQL e blocco del riavvio in caso di errore.
+- Limiti HTTP condivisi fra worker PostgreSQL, timeout readiness/SMTP e chiusura dei pool mail scaduti.
+- Bacheca avvisi nella navigazione; traduzioni completate, proxy immagini in sviluppo e correzioni OAuth.
+- Node supportato: `^20.19.0 || ^22.13.0 || >=24.0.0`. Nuova tabella `rate_limit_buckets`; gate formattazione CI e verifica dei sorgenti per deploy `--no-build`.
+- Decisioni: login provider sufficiente per OAuth, una sola istituzione per installazione, quota contemporanea su tutte le richieste prestito aperte.
+
+Dettagli, prove e procedura operativa: [esito del debug 1.20](docs/ESITO_DEBUG_RELEASE_1.20.md).
+
 ## [1.18.0] — 10 ottobre 2026
 
 Cartelli QR per aula pronti per la stampa.

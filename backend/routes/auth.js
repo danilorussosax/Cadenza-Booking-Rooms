@@ -20,6 +20,7 @@ const {
   passwordResetConfirmLimiter,
 } = require('../middleware/rateLimit');
 const twoFa = require('../services/twoFa');
+const authSecurity = require('../services/authSecurity');
 const emailService = require('../services/emailService');
 const { sendSecurityEmail } = emailService;
 const { PasswordResetToken, Institute } = require('../models');
@@ -197,8 +198,15 @@ router.post(
 async function issueAndSendTwoFaCode(user, purpose) {
   const issuer = process.env.TWO_FA_ISSUER || 'Cadenza';
   const { code, record } = await twoFa.createChallenge(purpose);
-  user.twoFaChallenge = record;
-  await user.save();
+  const saved = await authSecurity.mutateUser(
+    user.id,
+    user.tokenVersion,
+    async (fresh, transaction) => {
+      await fresh.update({ twoFaChallenge: record }, { transaction });
+      return { status: 200 };
+    },
+  );
+  if (saved.status !== 200) return { ok: false, error: saved.body.error };
   const subject = `${issuer} · Codice di accesso`;
   const expires = twoFa.TWO_FA_TTL_MIN;
   const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif;background:#f7f9fc;margin:0;padding:24px;">
@@ -332,7 +340,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
             sentTo: twoFa.maskEmail(user.email),
           });
         }
-        const tempToken = twoFa.signPre2faToken(user.id);
+        const tempToken = twoFa.signPre2faToken(user.id, user.tokenVersion);
         return res.json({
           needsTwoFa: true,
           tempToken,
@@ -553,24 +561,23 @@ router.post(
 
     const { currentPassword, newPassword } = req.body;
 
-    if (req.user.passwordHash) {
-      const ok = await req.user.verifyPassword(currentPassword || '');
-      if (!ok)
-        return res.status(401).json({ error: 'Password attuale errata', code: 'WRONG_PASSWORD' });
-    }
-
-    req.user.passwordHash = newPassword;
-    // Bump della tokenVersion: il client che ha appena cambiato password
-    // dovrà rifare login. È la prassi: una password compromessa è ancora
-    // sfruttabile finché restano JWT validi firmati con la vecchia.
-    req.user.tokenVersion = (req.user.tokenVersion ?? 0) + 1;
-    await req.user.save();
-
-    // Riemettiamo subito un nuovo token al client che ha appena fatto il
-    // cambio: il vecchio è stato invalidato dal bump → senza questo, il
-    // client riceverebbe 401 alla prossima richiesta. UX più pulita.
-    const token = signToken(req.user);
-    res.json({ message: 'Password aggiornata', token });
+    const result = await authSecurity.mutateUser(
+      req.user.id,
+      req.user.tokenVersion,
+      async (user, transaction) => {
+        if (user.passwordHash && !(await user.verifyPassword(currentPassword || '')))
+          return {
+            status: 401,
+            body: { error: 'Password attuale errata', code: 'WRONG_PASSWORD' },
+          };
+        await user.update(
+          { passwordHash: newPassword, tokenVersion: user.tokenVersion + 1, twoFaChallenge: null },
+          { transaction },
+        );
+        return { status: 200, body: { message: 'Password aggiornata', token: signToken(user) } };
+      },
+    );
+    res.status(result.status).json(result.body);
   },
 );
 
@@ -586,9 +593,18 @@ router.post(
 // Idempotente: chiamare logout senza essere loggati ritorna 401 (richiediamo
 // authenticate); il client gestisce la pulizia comunque tramite l'interceptor.
 router.post('/logout', authenticate, async (req, res) => {
-  req.user.tokenVersion = (req.user.tokenVersion ?? 0) + 1;
-  await req.user.save();
-  res.json({ message: 'Logout effettuato' });
+  const result = await authSecurity.mutateUser(
+    req.user.id,
+    req.user.tokenVersion,
+    async (user, transaction) => {
+      await user.update(
+        { tokenVersion: user.tokenVersion + 1, twoFaChallenge: null },
+        { transaction },
+      );
+      return { status: 200, body: { message: 'Logout effettuato' } };
+    },
+  );
+  res.status(result.status).json(result.body);
 });
 
 // =====================================================
@@ -655,7 +671,12 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
           .json({ error: 'Token temporaneo non valido o scaduto', code: 'TWO_FA_BAD_TEMP_TOKEN' });
       }
       user = await User.findByPk(payload.id);
-      if (!user || !user.twoFaEnabled) {
+      if (
+        !user ||
+        !user.isActive ||
+        user.tokenVersion !== payload.tokenVersion ||
+        !user.twoFaEnabled
+      ) {
         return res
           .status(400)
           .json({ error: 'Stato 2FA inconsistente', code: 'TWO_FA_INVALID_STATE' });
@@ -664,10 +685,16 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
     } else {
       // Fallback: resend in enrollment richiede Bearer.
       return authenticate(req, res, async () => {
-        const send = await issueAndSendTwoFaCode(req.user, 'enroll');
-        if (!send.ok)
-          return res.status(503).json({ error: 'Invio email fallito', code: 'TWO_FA_SEND_FAILED' });
-        res.json({ sentTo: send.sentTo, expiresInMinutes: send.expiresInMinutes });
+        try {
+          const send = await issueAndSendTwoFaCode(req.user, 'enroll');
+          if (!send.ok)
+            return res
+              .status(503)
+              .json({ error: 'Invio email fallito', code: 'TWO_FA_SEND_FAILED' });
+          res.json({ sentTo: send.sentTo, expiresInMinutes: send.expiresInMinutes });
+        } catch (err) {
+          next(err);
+        }
       });
     }
     const send = await issueAndSendTwoFaCode(user, purpose);
@@ -684,100 +711,22 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
 //   - Bearer + body.code                       → enrollment confirm
 router.post('/2fa/verify', tfaVerifyLimiter, async (req, res, next) => {
   try {
-    const { code, recoveryCode, tempToken } = req.body ?? {};
-
-    // Caso 1: tempToken → completamento login.
-    if (tempToken) {
+    if (req.body?.tempToken) {
       let payload;
       try {
-        payload = twoFa.verifyPre2faToken(tempToken);
+        payload = twoFa.verifyPre2faToken(req.body.tempToken);
       } catch {
         return res
           .status(401)
           .json({ error: 'Token temporaneo non valido o scaduto', code: 'TWO_FA_BAD_TEMP_TOKEN' });
       }
-      const user = await User.findByPk(payload.id);
-      if (!user || !user.twoFaEnabled) {
-        return res
-          .status(400)
-          .json({ error: 'Stato 2FA inconsistente', code: 'TWO_FA_INVALID_STATE' });
-      }
-
-      let ok = false;
-      let consumedRecoveryIdx = -1;
-      if (code) {
-        const result = await twoFa.consumeChallenge(user.twoFaChallenge, code);
-        ok = result.ok;
-        if (!ok) {
-          // Aggiorniamo attempts/scarto challenge in DB anche se il codice è errato.
-          user.twoFaChallenge = result.updated;
-          await user.save();
-          if (result.reason === 'EXPIRED')
-            return res
-              .status(401)
-              .json({ error: 'Codice scaduto. Richiedi un nuovo invio.', code: 'TWO_FA_EXPIRED' });
-          if (result.reason === 'TOO_MANY_ATTEMPTS')
-            return res.status(429).json({
-              error: 'Troppi tentativi. Richiedi un nuovo codice.',
-              code: 'TWO_FA_TOO_MANY_ATTEMPTS',
-            });
-        } else {
-          // Successo: cancella challenge.
-          user.twoFaChallenge = null;
-        }
-      }
-      if (!ok && recoveryCode && Array.isArray(user.twoFaRecoveryCodes)) {
-        consumedRecoveryIdx = await twoFa.findRecoveryMatch(recoveryCode, user.twoFaRecoveryCodes);
-        ok = consumedRecoveryIdx >= 0;
-      }
-      if (!ok) {
-        return res.status(401).json({ error: 'Codice non valido', code: 'TWO_FA_INVALID_CODE' });
-      }
-      if (consumedRecoveryIdx >= 0) {
-        const next = user.twoFaRecoveryCodes.slice();
-        next.splice(consumedRecoveryIdx, 1);
-        user.twoFaRecoveryCodes = next;
-      }
-      user.lastLogin = new Date();
-      await user.save();
-      const token = signToken(user);
-      return res.json({ token, user: user.toSafeJSON() });
+      const result = await authSecurity.verifyLogin(payload, req.body);
+      return res.status(result.status).json(result.body);
     }
-
-    // Caso 2: enrollment confirm (Bearer richiesto).
     return authenticate(req, res, async () => {
       try {
-        if (!req.user.twoFaChallenge) {
-          return res.status(400).json({
-            error: 'Nessun codice in attesa: richiedi un nuovo invio.',
-            code: 'TWO_FA_NOT_SETUP',
-          });
-        }
-        const result = await twoFa.consumeChallenge(req.user.twoFaChallenge, code);
-        if (!result.ok) {
-          req.user.twoFaChallenge = result.updated;
-          await req.user.save();
-          if (result.reason === 'EXPIRED')
-            return res.status(401).json({ error: 'Codice scaduto', code: 'TWO_FA_EXPIRED' });
-          if (result.reason === 'TOO_MANY_ATTEMPTS')
-            return res
-              .status(429)
-              .json({ error: 'Troppi tentativi', code: 'TWO_FA_TOO_MANY_ATTEMPTS' });
-          return res.status(401).json({ error: 'Codice non valido', code: 'TWO_FA_INVALID_CODE' });
-        }
-        // Successo: attiva 2FA e genera recovery codes (UNICA occasione).
-        const codes = twoFa.generateRecoveryCodes();
-        const hashed = await twoFa.hashRecoveryCodes(codes);
-        req.user.twoFaEnabled = true;
-        req.user.twoFaChallenge = null;
-        req.user.twoFaRecoveryCodes = hashed;
-        if (!req.user.twoFaActivatedAt) req.user.twoFaActivatedAt = new Date();
-        await req.user.save();
-        return res.json({
-          enabled: true,
-          recoveryCodes: codes,
-          message: '2FA attivato. Salva i recovery codes in un posto sicuro.',
-        });
+        const result = await authSecurity.manageFactor(req.user, 'enroll', req.body || {});
+        res.status(result.status).json(result.body);
       } catch (err) {
         next(err);
       }
@@ -787,70 +736,16 @@ router.post('/2fa/verify', tfaVerifyLimiter, async (req, res, next) => {
   }
 });
 
-// POST /api/auth/2fa/recovery — rigenera 10 nuovi recovery codes (vecchi
-// invalidati). Richiede un codice email VALIDO (manda nuova challenge prima
-// se la richiesta arriva senza challenge attiva).
-router.post('/2fa/recovery', authenticate, async (req, res, next) => {
-  try {
-    if (!req.user.twoFaEnabled) {
-      return res.status(400).json({ error: '2FA non attivo', code: 'TWO_FA_NOT_ENABLED' });
+for (const action of ['recovery', 'disable']) {
+  router.post(`/2fa/${action}`, authenticate, tfaVerifyLimiter, async (req, res, next) => {
+    try {
+      const result = await authSecurity.manageFactor(req.user, action, req.body || {});
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      next(err);
     }
-    const result = await twoFa.consumeChallenge(req.user.twoFaChallenge, req.body?.code);
-    if (!result.ok) {
-      req.user.twoFaChallenge = result.updated;
-      await req.user.save();
-      return res.status(401).json({
-        error: result.reason === 'EXPIRED' ? 'Codice scaduto' : 'Codice non valido',
-        code: result.reason === 'EXPIRED' ? 'TWO_FA_EXPIRED' : 'TWO_FA_INVALID_CODE',
-      });
-    }
-    const codes = twoFa.generateRecoveryCodes();
-    req.user.twoFaChallenge = null;
-    req.user.twoFaRecoveryCodes = await twoFa.hashRecoveryCodes(codes);
-    await req.user.save();
-    res.json({ recoveryCodes: codes });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/auth/2fa/disable — disattiva 2FA. Richiede codice email valido
-// (challenge attiva) o un recovery code.
-router.post('/2fa/disable', authenticate, async (req, res, next) => {
-  try {
-    if (!req.user.twoFaEnabled) {
-      return res.status(400).json({ error: '2FA non attivo', code: 'TWO_FA_NOT_ENABLED' });
-    }
-    const { code, recoveryCode } = req.body ?? {};
-    let ok = false;
-    if (code) {
-      const result = await twoFa.consumeChallenge(req.user.twoFaChallenge, code);
-      ok = result.ok;
-      if (!ok) {
-        req.user.twoFaChallenge = result.updated;
-        await req.user.save();
-      } else {
-        req.user.twoFaChallenge = null;
-      }
-    }
-    if (!ok && recoveryCode && Array.isArray(req.user.twoFaRecoveryCodes)) {
-      const idx = await twoFa.findRecoveryMatch(recoveryCode, req.user.twoFaRecoveryCodes);
-      ok = idx >= 0;
-    }
-    if (!ok) {
-      return res.status(401).json({ error: 'Codice non valido', code: 'TWO_FA_INVALID_CODE' });
-    }
-    req.user.twoFaEnabled = false;
-    req.user.twoFaChallenge = null;
-    req.user.twoFaRecoveryCodes = null;
-    // Manteniamo `twoFaActivatedAt` per il middleware admin grace-period
-    // (l'admin che riattiva 2FA non riparte da capo con i 7gg).
-    await req.user.save();
-    res.json({ enabled: false });
-  } catch (err) {
-    next(err);
-  }
-});
+  });
+}
 
 // GET /api/auth/2fa/status — stato corrente per la UI profilo.
 router.get('/2fa/status', authenticate, (req, res) => {
@@ -895,10 +790,10 @@ function oauthCallbackHandler(strategy) {
           error: 'oauth_domain_not_allowed',
           domain: err.domain || '',
         });
-        return res.redirect(`${FRONTEND_URL}/login.html?${params.toString()}`);
+        return res.redirect(`${FRONTEND_URL}/login?${params.toString()}`);
       }
       if (err || !user) {
-        return res.redirect(`${FRONTEND_URL}/login.html?error=oauth_failed`);
+        return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
       }
       req.user = user;
       next();
@@ -1129,32 +1024,8 @@ router.post(
     const { token: tokenPlain, newPassword } = req.body;
     const tokenHash = hashResetToken(tokenPlain);
 
-    const row = await PasswordResetToken.findOne({ where: { tokenHash } });
-    if (!row) return res.status(400).json({ error: 'Token non valido o scaduto' });
-    if (row.usedAt) return res.status(400).json({ error: 'Token già utilizzato' });
-    if (row.expiresAt < new Date()) {
-      return res.status(400).json({ error: 'Token scaduto, richiedi un nuovo link' });
-    }
-
-    const user = await User.findByPk(row.userId);
-    if (!user) return res.status(400).json({ error: 'Utente non trovato' });
-
-    // Cambia password (beforeUpdate hook ha-sha il valore) + invalida sessioni
-    // esistenti + sblocca lockout. Tutto in una save() per atomicità DB.
-    user.passwordHash = newPassword;
-    user.tokenVersion = (user.tokenVersion || 0) + 1;
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
-    await user.save();
-
-    row.usedAt = new Date();
-    await row.save();
-
-    logger.info(
-      { userId: user.id, scope: 'auth.password_reset' },
-      'password reimpostata via token email',
-    );
-    return res.json({ ok: true });
+    const result = await authSecurity.resetPassword(tokenHash, newPassword);
+    return res.status(result.status).json(result.body);
   },
 );
 

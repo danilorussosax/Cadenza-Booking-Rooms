@@ -41,6 +41,8 @@ const sequelize = require('../config/database');
   };
 })();
 
+require('./RateLimitBucket')(sequelize);
+
 // Caricamento modelli
 const User = require('./User')(sequelize);
 const Course = require('./Course')(sequelize);

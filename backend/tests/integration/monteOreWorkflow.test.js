@@ -332,6 +332,49 @@ describe('Monte Ore — revisione obbligatoria e contratto', () => {
     expect(await MailOutbox.count()).toBe(1);
   });
 
+  it('spostare e rimuovere sospensioni sincronizza eccezioni e sblocca senza riattivare', async () => {
+    const ctx = await setup();
+    await approve(ctx);
+    const create = await request(app)
+      .post('/api/admin/monte-ore/suspensions')
+      .set('Authorization', ctx.admin.authHeader)
+      .send({
+        academicYear: '2027/2028',
+        applyToAllBookings: true,
+        name: 'Chiusura',
+        dateFrom: '2027-11-01',
+        dateTo: '2027-11-01',
+        kind: 'full',
+        confirmImpact: true,
+      });
+    expect(create.status, JSON.stringify(create.body)).toBe(201);
+    const suspension = await MonteOreSuspension.findOne();
+    const changed = await request(app)
+      .patch(`/api/admin/monte-ore/suspensions/${suspension.id}`)
+      .set('Authorization', ctx.admin.authHeader)
+      .send({
+        name: 'Chiusura spostata',
+        dateFrom: '2027-11-08',
+        dateTo: '2027-11-08',
+        confirmImpact: true,
+      });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    const exception = await require('../../models').BookingRuleException.findByPk(
+      suspension.bookingRuleExceptionId,
+    );
+    expect(exception.dateFrom).toBe('2027-11-08');
+    expect((await ctx.slots[0].reload()).isLocked).toBe(false);
+    expect(ctx.slots[0].isActive).toBe(false);
+    expect((await ctx.slots[1].reload()).isLocked).toBe(true);
+    const deleted = await request(app)
+      .delete(`/api/admin/monte-ore/suspensions/${suspension.id}`)
+      .set('Authorization', ctx.admin.authHeader);
+    expect(deleted.status).toBe(200);
+    expect((await ctx.slots[1].reload()).isLocked).toBe(false);
+    expect(ctx.slots[1].isActive).toBe(false);
+    expect(await require('../../models').BookingRuleException.findByPk(exception.id)).toBeNull();
+  });
+
   it('scritture del prossimo anno non modificano il corrente', async () => {
     const ctx = await setup();
     await ctx.proposal.update({ status: 'draft' });

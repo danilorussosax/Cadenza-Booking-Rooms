@@ -64,6 +64,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 }
 
 export function PublicOnlyRoute() {
+  const location = useLocation();
   const { loading, isAuthenticated, isProfileComplete, isPendingApproval, isApproved, user } =
     useAuth();
   if (loading) {
@@ -74,7 +75,8 @@ export function PublicOnlyRoute() {
     );
   }
   if (isAuthenticated) {
-    let dest = '/dashboard';
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    let dest = from && /^\/(?![/\\])/.test(from) ? from : '/dashboard';
     if (!isProfileComplete) dest = '/complete-profile';
     else if (user?.role !== 'admin' && (isPendingApproval || !isApproved))
       dest = '/pending-approval';

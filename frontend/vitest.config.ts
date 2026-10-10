@@ -18,7 +18,7 @@ export default mergeConfig(
         // ../e2e/): split classico component-vs-integration. Anche i dialog
         // admin grandi (CRUD pesante con setup DB) sono integration-level:
         // i loro flussi sono coperti da E2E + test backend route.
-        include: ['src/components/**', 'src/lib/**'],
+        include: ['src/components/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
         exclude: [
           '**/*.d.ts',
           '**/_legacy/**',

@@ -3,19 +3,27 @@ import type { ApiError } from '@/types';
 
 const TOKEN_KEY = 'conservatory_token';
 const USER_KEY = 'conservatory_user';
+let sessionVersion = 0;
 
 export const tokenStore = {
   get: () => localStorage.getItem(TOKEN_KEY),
+  version: () => sessionVersion,
+  invalidateRequests: () => {
+    sessionVersion++;
+  },
   set: (token: string) => {
+    sessionVersion++;
     localStorage.setItem(TOKEN_KEY, token);
   },
   clear: () => {
+    sessionVersion++;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   },
 };
 
 export const userCache = {
+  clear: () => localStorage.removeItem(USER_KEY),
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   get: <T>() => {
     const raw = localStorage.getItem(USER_KEY);
@@ -65,13 +73,14 @@ function buildUrl(path: string, query?: RequestOptions['query']) {
 async function request(path: string, opts: RequestOptions): Promise<Response> {
   const { body, query, auth = true, headers, ...rest } = opts;
   const finalHeaders = new Headers(headers);
+  const requestToken = auth ? tokenStore.get() : null;
+  const requestVersion = tokenStore.version();
 
   if (body !== undefined && !(body instanceof FormData)) {
     finalHeaders.set('Content-Type', 'application/json');
   }
   if (auth) {
-    const token = tokenStore.get();
-    if (token) finalHeaders.set('Authorization', `Bearer ${token}`);
+    if (requestToken) finalHeaders.set('Authorization', `Bearer ${requestToken}`);
   }
 
   const res = await fetch(buildUrl(path, query), {
@@ -85,7 +94,15 @@ async function request(path: string, opts: RequestOptions): Promise<Response> {
     const data = text ? safeJson(text) : null;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const payload: ApiError = (data as ApiError) ?? { error: `Errore HTTP ${res.status}` };
-    if (res.status === 401 && auth) {
+    const credentialFailure =
+      payload.code === 'WRONG_PASSWORD' || payload.code?.startsWith('TWO_FA_');
+    if (
+      res.status === 401 &&
+      auth &&
+      !credentialFailure &&
+      requestToken === tokenStore.get() &&
+      requestVersion === tokenStore.version()
+    ) {
       // Token assente, scaduto o revocato server-side (TOKEN_REVOKED).
       // Pulisci lo stato locale e segnala via evento custom: AuthProvider
       // ascolta l'evento e si occupa di forzare l'unmount + redirect a /login.
@@ -95,6 +112,12 @@ async function request(path: string, opts: RequestOptions): Promise<Response> {
       window.dispatchEvent(new CustomEvent('auth:expired', { detail: { code: payload.code } }));
     }
     throw new HttpError(res.status, payload);
+  }
+  if (auth && (requestToken !== tokenStore.get() || requestVersion !== tokenStore.version())) {
+    throw new HttpError(409, {
+      code: 'SESSION_CHANGED',
+      error: 'Sessione cambiata: risposta ignorata',
+    });
   }
   return res;
 }

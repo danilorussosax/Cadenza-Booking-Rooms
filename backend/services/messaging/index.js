@@ -24,7 +24,7 @@
 // rules/quotas/approval workflow esistenti.
 // =============================================================================
 
-const { MessagingSettings, BotBinding, AuditLog, User } = require('../../models');
+const { sequelize, MessagingSettings, BotBinding, AuditLog, User } = require('../../models');
 const { decrypt } = require('../../lib/crypto');
 const adapters = require('./adapters');
 const intent = require('./intent');
@@ -155,9 +155,48 @@ function auditChatMessage({ direction, channel, userId, payload }) {
  *  stesso utente (es. due tap rapidi su pulsanti, o edit_message): senza
  *  questo, due webhook in parallelo possono corrompere ChatSession con
  *  scritture last-write-wins su state/slots. */
+// Reserve pool capacity for the queries executed while the advisory lock is held.
+let activePgChats = 0;
+const pgChatQueue = [];
+async function withPgChatCapacity(work) {
+  const capacity = Math.max(1, Math.floor((sequelize.options.pool.max - 1) / 2));
+  if (activePgChats >= capacity) await new Promise((resolve) => pgChatQueue.push(resolve));
+  else activePgChats++;
+  try {
+    return await work();
+  } finally {
+    const next = pgChatQueue.shift();
+    if (next) next();
+    else activePgChats--;
+  }
+}
+
 async function handleIncoming(incoming, config) {
   const { channel, externalId } = incoming;
-  return withChatLock(channel, externalId, () => handleIncomingInner(incoming, config));
+  return withChatLock(channel, externalId, async () => {
+    if (sequelize.getDialect() !== 'postgres') return handleIncomingInner(incoming, config);
+    if (sequelize.options.pool.max < 2)
+      throw new Error('Il bot PostgreSQL richiede DB_POOL_MAX >= 2');
+    return withPgChatCapacity(async () => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const result = await sequelize.transaction(async (transaction) => {
+          const [rows] = await sequelize.query(
+            'SELECT pg_try_advisory_xact_lock(hashtext(:key)) AS locked',
+            {
+              replacements: { key: `cadenza-chat:${channel}:${externalId}` },
+              transaction,
+            },
+          );
+          if (!rows[0].locked) return { busy: true };
+          return { busy: false, value: await handleIncomingInner(incoming, config) };
+        });
+        if (!result.busy) return result.value;
+        // Release the connection while another worker handles the same chat.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return { reply: 'Richiesta precedente ancora in corso. Riprova tra qualche istante.' };
+    });
+  });
 }
 
 async function handleIncomingInner(incoming, _config) {

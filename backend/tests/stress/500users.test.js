@@ -14,7 +14,7 @@
  *   - 0-1 POST /api/bookings (alcune collidono → BOOKING_CONFLICT atteso)
  *
  * Tutto eseguito tramite `Promise.all` su `supertest` (= chiama l'app
- * Express in-process). Risultato: latenza di rete = 0, quindi i numeri
+ * Express su un unico listener locale). I numeri
  * misurati sono "all-in" di middleware + ORM + SQLite. Per misurare la
  * latenza VPS reale c'è `loadtest/*.js` con k6, da lanciare quando il
  * deploy è up.
@@ -38,6 +38,18 @@ const {
 const { sequelize } = require('../../models');
 
 const app = buildApp({ serveFrontend: false });
+let server;
+beforeAll(async () => {
+  server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
+});
+afterAll(async () => {
+  if (server)
+    await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+});
 
 // Conteggi degli utenti per ruolo
 const N_ADMIN = 10;
@@ -205,7 +217,7 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
 
       // 1) Login (uno ogni utente)
       const loginRes = await timed('login', () =>
-        request(app)
+        request(server)
           .post('/api/auth/login')
           .send({ email: user.user.email, password: 'Pass1234!' }),
       );
@@ -219,18 +231,23 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
         await sleep(50 + Math.random() * 150);
         if (k === 0) {
           await timed('dashRead', () =>
-            request(app).get('/api/bookings').set('Authorization', auth),
+            request(server).get('/api/bookings').set('Authorization', auth),
           );
         } else if (k === 1) {
           await timed('myBookings', () =>
-            request(app).get('/api/bookings').query({ scope: 'mine' }).set('Authorization', auth),
+            request(server)
+              .get('/api/bookings')
+              .query({ scope: 'mine' })
+              .set('Authorization', auth),
           );
         } else if (k === 2) {
           await timed('roomsList', () =>
-            request(app).get('/api/structure/institutes').set('Authorization', auth),
+            request(server).get('/api/structure/institutes').set('Authorization', auth),
           );
         } else {
-          await timed('profile', () => request(app).get('/api/auth/me').set('Authorization', auth));
+          await timed('profile', () =>
+            request(server).get('/api/auth/me').set('Authorization', auth),
+          );
         }
       }
 
@@ -251,7 +268,7 @@ describe('STRESS · 500 utenti contemporanei (mix realistico)', () => {
         const startTime = base.toISOString();
         const endTime = new Date(base.getTime() + 60 * 60 * 1000).toISOString();
         await timed('bookingPost', () =>
-          request(app)
+          request(server)
             .post('/api/bookings')
             .set('Authorization', auth)
             .send({

@@ -134,7 +134,8 @@
     "monte_ore": "Stundenkontingent",
     "admin_monte_ore": "Stundenkontingent verwalten",
     "help": "Handbuch",
-    "help_admin": "Admin-Handbuch"
+    "help_admin": "Admin-Handbuch",
+    "admin_ops": "Systemstatus"
   },
   "auth": {
     "login": {
@@ -149,7 +150,9 @@
       "forgot_password": "Passwort vergessen?",
       "back_to_options": "Zurück zu den Optionen",
       "continue_google": "Mit Google fortfahren",
-      "continue_microsoft": "Mit Microsoft fortfahren"
+      "continue_microsoft": "Mit Microsoft fortfahren",
+      "resend_setup_link": "Willkommenslink erneut senden",
+      "setup_link_resent": "Wenn die E-Mail-Adresse registriert ist, haben wir einen neuen Link für den ersten Zugang gesendet. Prüfe dein Postfach."
     },
     "forgot": {
       "title": "Passwort zurücksetzen",
@@ -857,8 +860,12 @@
           "reject_title": "Ausgewählte Benutzer ablehnen?",
           "delete_title": "{{count}} Benutzer löschen?",
           "approve_reject_description": "Es werden {{count}} ausstehende Benutzer aktualisiert. {{skipped}} bereits genehmigte oder abgelehnte Benutzer werden übersprungen.",
-          "delete_description": "Sie sind dabei, {{count}} Benutzer und alle ihre Buchungen zu löschen. Der Vorgang ist unumkehrbar."
-        }
+          "delete_description": "Sie sind dabei, {{count}} Benutzer und alle ihre Buchungen zu löschen. Der Vorgang ist unumkehrbar.",
+          "setup_link_title": "Link für den ersten Zugang senden?",
+          "setup_link_description": "Ein Link zum Festlegen des Passworts wird an die {{count}} ausgewählten Benutzer gesendet. Benutzer mit vorhandenem Passwort werden automatisch übersprungen."
+        },
+        "setup_link": "Link für den ersten Zugang senden",
+        "setup_links_sent_toast": "{{sent}} Links gesendet ({{skipped}} übersprungen)"
       },
       "form": {
         "title_new": "Neuer Benutzer",
@@ -996,6 +1003,31 @@
           "step_setMyDescription": "Lange Beschreibung aktualisiert",
           "step_setMyShortDescription": "Kurze Beschreibung aktualisiert",
           "step_getWebhookInfo": "Endgültige Bestätigung: Webhook aktiv"
+        },
+        "token_invalid": "Ungültiges Tokenformat. Erwartet wird „<botId>:<Geheimnis>“ wie von @BotFather bereitgestellt.",
+        "autogen_present": "Konfiguriert",
+        "autogen_missing": "Noch zu erzeugen",
+        "gate_no_token": "Speichere zuerst einen gültigen botToken, um die automatische Konfiguration zu nutzen.",
+        "gate_dirty": "Du hast ungespeicherte Änderungen: Speichere vor der Konfiguration (sie verwendet das gespeicherte Token).",
+        "gate_invalid": "Korrigiere das Tokenformat vor dem Speichern oder Konfigurieren.",
+        "steps": {
+          "title": "Schritte zum Aktivieren des Bots:",
+          "token": "Bot-Token von @BotFather einfügen",
+          "save": "Einstellungen speichern",
+          "configure": "Automatisch konfigurieren (Webhook und Befehle registrieren)",
+          "enable": "Kanal aktiv"
+        },
+        "verify": {
+          "button": "Webhook prüfen",
+          "button_title": "Telegram abfragen (getWebhookInfo) und den tatsächlichen Status anzeigen",
+          "error": "Telegram-Fehler: {{error}}",
+          "active": "Webhook aktiv und korrekt zugeordnet",
+          "mismatch": "Webhook unter einer anderen URL als erwartet registriert",
+          "none": "Kein Webhook bei Telegram registriert",
+          "url": "Registrierte URL:",
+          "expected": "Erwartet:",
+          "pending": "{{count}} Aktualisierungen in der Warteschlange",
+          "last_error": "Letzter Fehler: {{error}}"
         }
       },
       "whatsapp": {
@@ -1722,6 +1754,74 @@
       "toast": {
         "cancelled": "{{count}} Buchungen storniert ({{skipped}} ignoriert)"
       }
+    },
+    "ops": {
+      "title": "Systemstatus",
+      "subtitle": "Diagnose von VPS, Datenbank, E-Mail-Warteschlange, Backups und internen Zeitplänen. Aktualisierung alle 10 Sekunden.",
+      "last_update": "Letzte Aktualisierung",
+      "refresh": "Aktualisieren",
+      "slow_queries": {
+        "title": "Langsame Abfragen",
+        "threshold": "Schwellenwert ≥ {{ms}}ms",
+        "buffer": "Puffer {{used}}/{{size}}",
+        "aggregate_by_route": "Nach Route zusammengefasst (letzte 24 Std.)",
+        "recent": "Zuletzt erfasst",
+        "empty": "Keine langsamen Abfragen erfasst. Ein gutes Zeichen.",
+        "col_route": "Route",
+        "col_count": "Anzahl"
+      },
+      "vps": {
+        "title": "VPS",
+        "cpu": "CPU (Last über 1 Min.)",
+        "memory": "RAM",
+        "disk": "Festplatte",
+        "uptime_system": "Systemlaufzeit",
+        "uptime_process": "Prozesslaufzeit",
+        "node_version": "Node-Version"
+      },
+      "postgres": {
+        "title": "Datenbank",
+        "unavailable": "Statistiken nicht verfügbar (Dialekt: {{dialect}}).",
+        "no_stats": "Verbindungsstatistiken nicht verfügbar.",
+        "connections": "Verbindungen insgesamt",
+        "active": "Aktiv",
+        "idle": "Inaktiv",
+        "idle_in_tx": "Inaktiv in Transaktion",
+        "warn_idle_in_tx": "Mögliche Sperre",
+        "db_size": "Datenbankgröße",
+        "top_tables": "Tabellen mit den meisten Zeilen"
+      },
+      "mailOutbox": {
+        "title": "E-Mail-Warteschlange",
+        "pending": "Ausstehend",
+        "dead": "Fehlgeschlagen",
+        "sent": "Gesendet (gesamt)",
+        "review_required": "Prüfung erforderlich"
+      },
+      "backup": {
+        "title": "Backups",
+        "last_backup": "Letztes Backup",
+        "size": "Größe",
+        "count": "Backups insgesamt",
+        "empty": "Keine Backups vorhanden. Prüfe den Zeitplan."
+      },
+      "scheduler": {
+        "title": "Interne Zeitpläne",
+        "ok": "OK",
+        "stale": "Verspätet",
+        "disabled": "Deaktiviert",
+        "error": "Fehler",
+        "last_error": "Letzter Fehler",
+        "last_tick": "Letzte Ausführung",
+        "never_ticked": "Noch nie ausgeführt",
+        "names": {
+          "reminder": "Erinnerungen für Buchungen und Ausleihen",
+          "retention": "DSGVO-Aufbewahrung (Audit-Protokoll, Snapshots)",
+          "mailOutbox": "E-Mail-Versand aus der Warteschlange",
+          "backup": "Automatisches Backup",
+          "excelExport": "Regelmäßiger Excel-Export"
+        }
+      }
     }
   },
   "waitlist": {
@@ -1742,7 +1842,9 @@
     "offer_dialog_title": "Raum bereits gebucht",
     "offer_dialog_description": "Der gewählte Slot ist bereits belegt. Möchten Sie auf die Warteliste? Sie erhalten eine E-Mail, wenn die bestehende Buchung storniert wird.",
     "offer_dialog_decline": "Nein, ich wähle eine andere Zeit",
-    "offer_dialog_confirm": "Ja, setzen Sie mich auf die Warteliste"
+    "offer_dialog_confirm": "Ja, setzen Sie mich auf die Warteliste",
+    "link_unavailable": "Wartelisteneintrag nicht verfügbar.",
+    "claim_pending": "Anfrage gesendet: Genehmigung ausstehend."
   },
   "check_in": {
     "title": "Anwesenheits-Check-in",
@@ -2126,7 +2228,8 @@
       "history_empty": "Keine Ausführung registriert.",
       "run_summary": "Gelesen {{fetched}} · Erstellt {{created}} · Aktualisiert {{updated}} · Deaktiviert {{orphaned}} · Fehler {{errors}}",
       "toast": {
-        "applied": "Sync abgeschlossen: {{created}} erstellt, {{updated}} aktualisiert, {{orphaned}} deaktiviert."
+        "applied": "Sync abgeschlossen: {{created}} erstellt, {{updated}} aktualisiert, {{orphaned}} deaktiviert.",
+        "setup_links_sent": "{{sent}} Links für den ersten Zugang gesendet. {{skipped}} übersprungen."
       },
       "mapping_upload_hint": "Das Header-Mapping (automatische Erkennung) wird nach dem ersten Upload berechnet. Sie können es im Vorschaufenster überprüfen und anpassen.",
       "mapping_title": "Feld-Mapping",
@@ -2174,7 +2277,26 @@
       "compare_repeat_updates_other": "Wiederholte Änderungen ({{count}})",
       "compare_repeat_updates_hint": "Auch im vorherigen Lauf aktualisierte Nutzer: könnten Tippfehler in der Quelldatei sein — bitte prüfen.",
       "compare_recovered_one": "Zurückgekehrter Nutzer ({{count}})",
-      "compare_recovered_other": "Zurückgekehrte Nutzer ({{count}})"
+      "compare_recovered_other": "Zurückgekehrte Nutzer ({{count}})",
+      "setup_banner": {
+        "title": "{{count}} Benutzer ohne Passwort angelegt",
+        "subtitle": "Du kannst ihnen per E-Mail einen Link zum Festlegen ihres Passworts für den ersten Zugang senden.",
+        "cta": "Links für den ersten Zugang senden ({{count}})"
+      },
+      "setup_dialog": {
+        "title": "Versand der Links für den ersten Zugang bestätigen",
+        "description": "Du sendest {{count}} Benutzern eine Willkommens-E-Mail mit einem Link zum Festlegen ihres Passworts.",
+        "bullet_skip_existing": "Benutzer mit vorhandenem Passwort werden automatisch übersprungen",
+        "bullet_invalidate_previous": "Vorherige Links werden für jeden Empfänger ungültig",
+        "bullet_one_link": "Pro Benutzer ist jeweils nur ein Link gültig",
+        "confirm": "{{count}} E-Mails senden"
+      }
+    },
+    "esse3": {
+      "title": "Stammdaten aus ESSE3 (CINECA) importieren",
+      "subtitle": "Lade den Standardexport aus ESSE3 (CSV oder XLSX) hoch. Das System erkennt automatisch die üblichen Spaltenüberschriften der Suite Studenti AFAM.",
+      "dropzone_label": "ESSE3-XLSX-Datei hier ablegen oder zum Auswählen klicken",
+      "history_title": "Letzte ESSE3-Ausführungen"
     }
   },
   "monteWorkflow": {
@@ -2217,5 +2339,13 @@
       "add_new_day": "Neuer Termin"
     },
     "projectedHours": "Resultierende Jahresstunden (Vorschau): {{hours}} h"
+  },
+  "announcements": {
+    "page_title": "Mitteilungen",
+    "page_subtitle": "Nachrichten und Neuigkeiten für dich.",
+    "empty_title": "Keine Mitteilungen",
+    "empty_subtitle": "Es gibt keine Mitteilungen anzuzeigen.",
+    "pinned": "Angeheftet",
+    "expires": "Gültig bis"
   }
 }

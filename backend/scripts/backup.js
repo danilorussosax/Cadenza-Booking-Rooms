@@ -213,7 +213,10 @@ async function performBackup(opts = {}) {
   const dialect = (process.env.DB_DIALECT || 'sqlite').toLowerCase();
   const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cadenza-bkp-'));
   const outputName = `backup-${timestamp()}.tar.gz`;
-  const outputPath = path.join(BACKUP_DIR, outputName);
+  const outputPath = opts.outputPath
+    ? path.resolve(opts.outputPath)
+    : path.join(BACKUP_DIR, outputName);
+  ensureDir(path.dirname(outputPath));
 
   try {
     // 1. dump del DB nello staging
@@ -251,11 +254,13 @@ async function performBackup(opts = {}) {
     await spawnPromise('tar', ['-czf', outputPath, '-C', stagingDir, '.']);
 
     // 5. rotazione (override runtime di keep* dalla UI quando passati)
-    const rot = rotate({
-      keepDaily: opts.keepDaily,
-      keepWeekly: opts.keepWeekly,
-      keepMonthly: opts.keepMonthly,
-    });
+    const rot = opts.skipRotation
+      ? { kept: [outputPath], deleted: [] }
+      : rotate({
+          keepDaily: opts.keepDaily,
+          keepWeekly: opts.keepWeekly,
+          keepMonthly: opts.keepMonthly,
+        });
 
     const stats = fs.statSync(outputPath);
     const result = {

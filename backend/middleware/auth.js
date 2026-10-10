@@ -60,7 +60,9 @@ async function authenticate(req, res, next) {
       }
     }
     next();
-  } catch (_err) {
+  } catch (err) {
+    if (!['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(err.name))
+      return next(err);
     return res.status(401).json({ error: 'Token non valido o scaduto' });
   }
 }

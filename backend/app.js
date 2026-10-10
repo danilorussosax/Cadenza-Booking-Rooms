@@ -266,7 +266,9 @@ function buildApp({ serveFrontend = true } = {}) {
       express.static(UPLOADS_DIR, {
         maxAge: '7d',
         etag: true,
-        setHeaders(res) {
+        setHeaders(res, filePath) {
+          if (path.basename(filePath).startsWith('user-'))
+            res.setHeader('Cache-Control', 'no-store');
           res.setHeader('Content-Disposition', 'attachment');
         },
       }),
@@ -392,7 +394,17 @@ function buildApp({ serveFrontend = true } = {}) {
         try {
           const transporter = await emailService._internal.getTransporter();
           if (transporter && typeof transporter.verify === 'function') {
-            await transporter.verify();
+            let timer;
+            try {
+              await Promise.race([
+                transporter.verify(),
+                new Promise((_, reject) => {
+                  timer = setTimeout(() => reject(new Error('SMTP readiness timeout')), 2000);
+                }),
+              ]);
+            } finally {
+              clearTimeout(timer);
+            }
             checks.smtp = { ok: true, latencyMs: Date.now() - smtpStart };
           } else {
             checks.smtp = { ok: true, note: 'transporter_no_verify' };

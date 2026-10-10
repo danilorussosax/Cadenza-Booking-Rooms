@@ -1281,7 +1281,9 @@ adminRouter.delete(
       if (!susp || susp.category !== 'exam_session') {
         return res.status(404).json({ error: 'Sessione esame non trovata' });
       }
-      await susp.destroy();
+      await updateCalendar(susp.academicYear, req.user, true, (transaction) =>
+        susp.destroy({ transaction }),
+      );
       res.json({ message: 'Sessione esame eliminata' });
     } catch (err) {
       next(err);
@@ -1746,7 +1748,19 @@ adminRouter.patch(
         susp.academicYear,
         req.user,
         req.body.confirmImpact === true,
-        (transaction) => susp.update(sanitizeSuspension(req.body), { transaction }),
+        async (transaction) => {
+          const patch = sanitizeSuspension(req.body);
+          if (susp.bookingRuleExceptionId) {
+            const linked = {};
+            for (const key of ['name', 'dateFrom', 'dateTo'])
+              if (patch[key] !== undefined) linked[key] = patch[key];
+            await BookingRuleException.update(linked, {
+              where: { id: susp.bookingRuleExceptionId },
+              transaction,
+            });
+          }
+          return susp.update(patch, { transaction });
+        },
       );
       res.json({ suspension: susp.toJSON() });
     } catch (err) {
@@ -1764,10 +1778,14 @@ adminRouter.delete(
       const susp = await MonteOreSuspension.findByPk(req.params.id);
       if (!susp) return res.status(404).json({ error: 'Sospensione non trovata' });
       // Cancella prima l'exception linkata (se presente), poi la suspension.
-      if (susp.bookingRuleExceptionId) {
-        await BookingRuleException.destroy({ where: { id: susp.bookingRuleExceptionId } });
-      }
-      await susp.destroy();
+      await updateCalendar(susp.academicYear, req.user, true, async (transaction) => {
+        if (susp.bookingRuleExceptionId)
+          await BookingRuleException.destroy({
+            where: { id: susp.bookingRuleExceptionId },
+            transaction,
+          });
+        return susp.destroy({ transaction });
+      });
       res.json({ message: 'Sospensione eliminata' });
     } catch (err) {
       next(err);

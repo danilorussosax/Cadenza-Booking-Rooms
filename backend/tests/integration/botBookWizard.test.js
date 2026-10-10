@@ -348,7 +348,13 @@ describe('Bot /aule e /agenda — vista d’insieme', () => {
       capacity: 4,
       building: sede1,
     });
-    await createRoom({ name: 'Aula 14', code: 'A14', type: 'aula', capacity: 8, building: sede1 });
+    await createRoom({
+      name: 'Aula 14',
+      code: 'A14',
+      type: 'studio',
+      capacity: 8,
+      building: sede1,
+    });
     await createRoom({
       name: 'Studio Yamaha',
       code: 'SY1',

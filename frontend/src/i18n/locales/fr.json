@@ -134,7 +134,8 @@
     "monte_ore": "Quota horaire",
     "admin_monte_ore": "Gestion quota horaire",
     "help": "Manuel",
-    "help_admin": "Manuel admin"
+    "help_admin": "Manuel admin",
+    "admin_ops": "État du système"
   },
   "auth": {
     "login": {
@@ -149,7 +150,9 @@
       "forgot_password": "Mot de passe oublié ?",
       "back_to_options": "Retour aux options",
       "continue_google": "Continuer avec Google",
-      "continue_microsoft": "Continuer avec Microsoft"
+      "continue_microsoft": "Continuer avec Microsoft",
+      "resend_setup_link": "Renvoyer le lien de bienvenue",
+      "setup_link_resent": "Si l’adresse e-mail est enregistrée, nous avons envoyé un nouveau lien de premier accès. Consultez votre boîte de réception."
     },
     "forgot": {
       "title": "Réinitialiser le mot de passe",
@@ -857,8 +860,12 @@
           "reject_title": "Refuser les utilisateurs sélectionnés ?",
           "delete_title": "Supprimer {{count}} utilisateurs ?",
           "approve_reject_description": "{{count}} utilisateurs en attente seront mis à jour. {{skipped}} utilisateurs déjà approuvés ou refusés seront ignorés.",
-          "delete_description": "Vous êtes sur le point de supprimer {{count}} utilisateurs et toutes leurs réservations. L'opération est irréversible."
-        }
+          "delete_description": "Vous êtes sur le point de supprimer {{count}} utilisateurs et toutes leurs réservations. L'opération est irréversible.",
+          "setup_link_title": "Envoyer le lien de premier accès ?",
+          "setup_link_description": "Un lien de création du mot de passe sera envoyé aux {{count}} utilisateurs sélectionnés. Les utilisateurs ayant déjà un mot de passe seront automatiquement ignorés."
+        },
+        "setup_link": "Envoyer le lien de premier accès",
+        "setup_links_sent_toast": "{{sent}} liens envoyés ({{skipped}} ignorés)"
       },
       "form": {
         "title_new": "Nouvel utilisateur",
@@ -996,6 +1003,31 @@
           "step_setMyDescription": "Description longue mise à jour",
           "step_setMyShortDescription": "Description courte mise à jour",
           "step_getWebhookInfo": "Confirmation finale : webhook actif"
+        },
+        "token_invalid": "Format du jeton non valide. Format attendu : « <botId>:<secret> », fourni par @BotFather.",
+        "autogen_present": "Configuré",
+        "autogen_missing": "À générer",
+        "gate_no_token": "Enregistrez d’abord un botToken valide pour utiliser la configuration automatique.",
+        "gate_dirty": "Des modifications ne sont pas enregistrées : enregistrez avant de configurer (la configuration utilise le jeton enregistré).",
+        "gate_invalid": "Corrigez le format du jeton avant d’enregistrer ou de configurer.",
+        "steps": {
+          "title": "Étapes pour activer le bot :",
+          "token": "Collez le jeton du bot fourni par @BotFather",
+          "save": "Enregistrez les paramètres",
+          "configure": "Configurez automatiquement (enregistrement du webhook et des commandes)",
+          "enable": "Canal actif"
+        },
+        "verify": {
+          "button": "Vérifier le webhook",
+          "button_title": "Interroge Telegram (getWebhookInfo) et affiche l’état réel",
+          "error": "Erreur Telegram : {{error}}",
+          "active": "Webhook actif et correctement configuré",
+          "mismatch": "Webhook enregistré sur une URL différente de celle attendue",
+          "none": "Aucun webhook enregistré sur Telegram",
+          "url": "URL enregistrée :",
+          "expected": "Attendue :",
+          "pending": "{{count}} mises à jour en attente",
+          "last_error": "dernière erreur : {{error}}"
         }
       },
       "whatsapp": {
@@ -1722,6 +1754,74 @@
       "toast": {
         "cancelled": "{{count}} réservations annulées ({{skipped}} ignorées)"
       }
+    },
+    "ops": {
+      "title": "État du système",
+      "subtitle": "Diagnostic du VPS, de la base de données, de la file d’e-mails, des sauvegardes et des tâches planifiées. Actualisation toutes les 10 secondes.",
+      "last_update": "Dernière actualisation",
+      "refresh": "Actualiser",
+      "slow_queries": {
+        "title": "Requêtes lentes",
+        "threshold": "seuil ≥ {{ms}}ms",
+        "buffer": "tampon {{used}}/{{size}}",
+        "aggregate_by_route": "Regroupées par route (dernières 24 h)",
+        "recent": "Dernières enregistrées",
+        "empty": "Aucune requête lente enregistrée. Bon signe.",
+        "col_route": "Route",
+        "col_count": "Nombre"
+      },
+      "vps": {
+        "title": "VPS",
+        "cpu": "CPU (charge sur 1 min)",
+        "memory": "RAM",
+        "disk": "Disque",
+        "uptime_system": "Durée de fonctionnement du système",
+        "uptime_process": "Durée de fonctionnement du processus",
+        "node_version": "Version de Node"
+      },
+      "postgres": {
+        "title": "Base de données",
+        "unavailable": "Statistiques indisponibles (dialecte : {{dialect}}).",
+        "no_stats": "Statistiques des connexions indisponibles.",
+        "connections": "Connexions totales",
+        "active": "Actives",
+        "idle": "Inactives",
+        "idle_in_tx": "Inactives dans une transaction",
+        "warn_idle_in_tx": "Verrouillage possible",
+        "db_size": "Taille de la base de données",
+        "top_tables": "Tables avec le plus de lignes"
+      },
+      "mailOutbox": {
+        "title": "File d’e-mails",
+        "pending": "En attente",
+        "dead": "En échec",
+        "sent": "Envoyés (total)",
+        "review_required": "À vérifier"
+      },
+      "backup": {
+        "title": "Sauvegardes",
+        "last_backup": "Dernière sauvegarde",
+        "size": "Taille",
+        "count": "Nombre total de sauvegardes",
+        "empty": "Aucune sauvegarde disponible. Vérifiez la tâche planifiée."
+      },
+      "scheduler": {
+        "title": "Tâches planifiées internes",
+        "ok": "OK",
+        "stale": "En retard",
+        "disabled": "Désactivée",
+        "error": "Erreur",
+        "last_error": "Dernière erreur",
+        "last_tick": "Dernière exécution",
+        "never_ticked": "Jamais exécutée",
+        "names": {
+          "reminder": "Rappels de réservations et de prêts",
+          "retention": "Conservation RGPD (journal d’audit, instantanés)",
+          "mailOutbox": "Traitement de la file d’envoi d’e-mails",
+          "backup": "Sauvegarde automatique",
+          "excelExport": "Export Excel périodique"
+        }
+      }
     }
   },
   "waitlist": {
@@ -1742,7 +1842,9 @@
     "offer_dialog_title": "Salle déjà réservée",
     "offer_dialog_description": "Le créneau choisi est déjà occupé. Voulez-vous vous mettre en liste d'attente ? Vous recevrez un e-mail si la réservation existante est annulée.",
     "offer_dialog_decline": "Non, je choisis un autre horaire",
-    "offer_dialog_confirm": "Oui, mettez-moi en file"
+    "offer_dialog_confirm": "Oui, mettez-moi en file",
+    "link_unavailable": "Entrée de la liste d’attente indisponible.",
+    "claim_pending": "Demande envoyée : en attente d’approbation."
   },
   "check_in": {
     "title": "Check-in présence",
@@ -2126,7 +2228,8 @@
       "history_empty": "Aucune exécution enregistrée.",
       "run_summary": "Lus {{fetched}} · Créés {{created}} · Mis à jour {{updated}} · Désactivés {{orphaned}} · Erreurs {{errors}}",
       "toast": {
-        "applied": "Sync terminée : {{created}} créés, {{updated}} mis à jour, {{orphaned}} désactivés."
+        "applied": "Sync terminée : {{created}} créés, {{updated}} mis à jour, {{orphaned}} désactivés.",
+        "setup_links_sent": "{{sent}} liens de premier accès envoyés. {{skipped}} ignorés."
       },
       "mapping_upload_hint": "Le mappage des en-têtes (auto-détection) est calculé après le premier upload. Vous pourrez le revoir et le modifier dans l'écran d'aperçu.",
       "mapping_title": "Mappage des champs",
@@ -2174,7 +2277,26 @@
       "compare_repeat_updates_other": "Changements répétés ({{count}})",
       "compare_repeat_updates_hint": "Utilisateurs mis à jour également lors de l'exécution précédente : pourrait s'agir d'erreurs de saisie dans le fichier source — à investiguer.",
       "compare_recovered_one": "Utilisateur revenu ({{count}})",
-      "compare_recovered_other": "Utilisateurs revenus ({{count}})"
+      "compare_recovered_other": "Utilisateurs revenus ({{count}})",
+      "setup_banner": {
+        "title": "{{count}} utilisateurs créés sans mot de passe",
+        "subtitle": "Vous pouvez leur envoyer un lien par e-mail pour définir leur mot de passe lors du premier accès.",
+        "cta": "Envoyer les liens de premier accès ({{count}})"
+      },
+      "setup_dialog": {
+        "title": "Confirmer l’envoi des liens de premier accès",
+        "description": "Vous allez envoyer à {{count}} utilisateurs un e-mail de bienvenue avec un lien pour définir leur mot de passe.",
+        "bullet_skip_existing": "Les utilisateurs ayant déjà un mot de passe sont automatiquement ignorés",
+        "bullet_invalidate_previous": "Les liens précédents sont invalidés pour chaque destinataire",
+        "bullet_one_link": "Un seul lien par utilisateur sera valide à la fois",
+        "confirm": "Envoyer {{count}} e-mails"
+      }
+    },
+    "esse3": {
+      "title": "Importer les données depuis ESSE3 (CINECA)",
+      "subtitle": "Chargez l’export standard ESSE3 (CSV ou XLSX). Le système reconnaît automatiquement les en-têtes habituels de la Suite Studenti AFAM.",
+      "dropzone_label": "Déposez ici le fichier XLSX ESSE3 ou cliquez pour le sélectionner",
+      "history_title": "Exécutions ESSE3 récentes"
     }
   },
   "monteWorkflow": {
@@ -2217,5 +2339,13 @@
       "add_new_day": "Nouvelle date"
     },
     "projectedHours": "Heures annuelles résultantes (aperçu) : {{hours}} h"
+  },
+  "announcements": {
+    "page_title": "Annonces",
+    "page_subtitle": "Communications et nouveautés pour vous.",
+    "empty_title": "Aucune annonce",
+    "empty_subtitle": "Aucune communication à afficher.",
+    "pinned": "À la une",
+    "expires": "Expire le"
   }
 }

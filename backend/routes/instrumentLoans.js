@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { withSerializableRetry } = require('../lib/serializableTx');
 const dayjs = require('dayjs');
 const { Op, Transaction } = require('sequelize');
 const { body, validationResult } = require('express-validator');
@@ -191,7 +192,7 @@ router.post(
         sequelize.getDialect() === 'postgres'
           ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
           : {};
-      const loan = await sequelize.transaction(txOpts, async (t) => {
+      const loan = await withSerializableRetry(sequelize, txOpts, async (t) => {
         const conflict = await InstrumentLoan.findOne({
           where: {
             instrumentId,
@@ -220,6 +221,7 @@ router.post(
             instrument,
             fromDate: start.format('YYYY-MM-DD'),
             toDate: end.format('YYYY-MM-DD'),
+            transaction: t,
           });
           if (quotaIssues.length > 0) {
             const first = quotaIssues[0];
@@ -355,7 +357,16 @@ router.delete('/:id', authenticate, async (req, res) => {
       code: 'LOAN_INVALID_STATE',
     });
   }
-  await loan.destroy();
+  const removed = await InstrumentLoan.destroy({
+    where: {
+      id: loan.id,
+      ...(req.user.role === 'admin' ? {} : { userId: req.user.id, status: 'requested' }),
+    },
+  });
+  if (!removed)
+    return res
+      .status(409)
+      .json({ error: 'Lo stato del prestito è cambiato', code: 'LOAN_INVALID_STATE' });
   res.json({ message: 'Prestito eliminato' });
 });
 

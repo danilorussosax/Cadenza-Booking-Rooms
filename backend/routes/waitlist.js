@@ -1,6 +1,8 @@
 'use strict';
 
 const express = require('express');
+const { withSerializableRetry } = require('../lib/serializableTx');
+const { bookingStatus, notifyAdminsOfPendingBooking } = require('../services/bookingPolicy');
 const { Op, Transaction } = require('sequelize');
 const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
@@ -151,9 +153,7 @@ router.post(
   requireCompleteProfile,
   async (req, res, next) => {
     try {
-      const entry = await BookingWaitlist.findByPk(req.params.id, {
-        include: [{ model: Room, as: 'room', include: [{ model: Building, as: 'building' }] }],
-      });
+      const entry = await BookingWaitlist.findByPk(req.params.id);
       if (!entry) return res.status(404).json({ error: 'Coda non trovata', code: 'NOT_FOUND' });
       if (entry.userId !== req.user.id) {
         return res
@@ -180,11 +180,25 @@ router.post(
       }
 
       // Crea la booking + chiude la entry in una transazione SERIALIZABLE
-      const result = await sequelize.transaction(
+      const result = await withSerializableRetry(
+        sequelize,
         {
           isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
         },
         async (t) => {
+          await entry.reload({ transaction: t, lock: t.LOCK.UPDATE });
+          if (
+            entry.claimedAt ||
+            entry.cancelledAt ||
+            !entry.notifiedAt ||
+            (entry.expiresAt && entry.expiresAt < new Date())
+          ) {
+            throw Object.assign(new Error('Coda non più riscattabile'), {
+              status: 409,
+              code: 'WAITLIST_INVALID_STATE',
+            });
+          }
+          const room = await Room.findByPk(entry.roomId, { transaction: t });
           const validation = await validateBooking({
             user: req.user,
             roomId: entry.roomId,
@@ -207,7 +221,7 @@ router.post(
               endTime: entry.endTime,
               type: entry.type || 'studio_individuale',
               purpose: entry.purpose,
-              status: 'confirmed',
+              status: bookingStatus(room, req.user),
             },
             { transaction: t },
           );
@@ -238,8 +252,10 @@ router.post(
           { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
         ],
       });
-      sendBookingEmail({ user: full.user, booking: full, kind: 'confirmation' }).catch(() => {});
-      res.status(201).json({ booking: full, message: 'Coda riscattata, prenotazione confermata' });
+      if (full.status === 'pending_approval') notifyAdminsOfPendingBooking(full).catch(() => {});
+      else
+        sendBookingEmail({ user: full.user, booking: full, kind: 'confirmation' }).catch(() => {});
+      res.status(201).json({ booking: full, message: 'Coda riscattata' });
     } catch (err) {
       if (err.status) {
         return res.status(err.status).json({ error: err.message, code: err.code });
@@ -261,25 +277,7 @@ router.delete('/:id', authenticate, async (req, res, next) => {
     if (entry.userId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
     }
-    await sequelize.transaction(async (t) => {
-      await entry.update(
-        {
-          cancelledAt: new Date(),
-          cancelReason: 'manual cancel',
-        },
-        { transaction: t },
-      );
-      await BookingWaitlist.decrement('position', {
-        by: 1,
-        where: {
-          roomId: entry.roomId,
-          position: { [Op.gt]: entry.position },
-          cancelledAt: null,
-          claimedAt: null,
-        },
-        transaction: t,
-      });
-    });
+    await require('../services/waitlistService').closeEntry(entry.id, 'manual cancel');
     res.json({ message: 'Iscrizione alla coda cancellata' });
   } catch (err) {
     next(err);

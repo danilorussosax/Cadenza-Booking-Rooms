@@ -133,12 +133,15 @@ async function checkLoanQuotas({
           ...baseWhere,
           status: { [Op.notIn]: ['rejected'] },
           // Considera prestiti il cui intervallo si interseca con l'ultimo anno.
-          fromDate: { [Op.gte]: yearAgo },
+          toDate: { [Op.gte]: yearAgo },
         },
         attributes: ['fromDate', 'toDate'],
         ...tx,
       });
-      const usedDays = recent.reduce((sum, r) => sum + daysBetween(r.fromDate, r.toDate), 0);
+      const usedDays = recent.reduce(
+        (sum, r) => sum + daysBetween(r.fromDate < yearAgo ? yearAgo : r.fromDate, r.toDate),
+        0,
+      );
       if (usedDays + requestedDays > quota.maxDaysPerYear) {
         const what = quotaScopeLabel(quota);
         issues.push({

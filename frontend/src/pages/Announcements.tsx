@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Megaphone, Pin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { announcementsApi } from '@/api/announcements';
+import { httpErrorMessage } from '@/lib/api';
 import { dayjs } from '@/lib/date';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +41,8 @@ export default function AnnouncementsPage() {
         </div>
       )}
 
-      {!query.isLoading && all.length === 0 && (
+      {query.isError && <p role="alert">{httpErrorMessage(query.error)}</p>}
+      {!query.isLoading && !query.isError && all.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <Megaphone className="h-10 w-10 text-muted-foreground" />
