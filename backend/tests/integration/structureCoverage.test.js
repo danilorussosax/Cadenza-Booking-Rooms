@@ -814,7 +814,8 @@ describe('routes/structure — Rooms', () => {
       expect(res.headers['content-type']).toMatch(/png/);
       expect(res.headers['cache-control']).toBe('no-store');
       expect(res.body.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-      expect(res.body.readUInt32BE(16)).toBe(600);
+      expect(res.body.readUInt32BE(16)).toBe(1400);
+      expect(res.body.readUInt32BE(20)).toBe(2000);
       await r.reload();
       expect(r.qrToken).toMatch(/^[a-f0-9]{32}$/);
       const token = r.qrToken;

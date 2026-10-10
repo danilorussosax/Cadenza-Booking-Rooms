@@ -1220,7 +1220,7 @@ router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res, ne
 // routes/bookings.js POST /:id/checkin) — rigenerare il token invalida tutti
 // i QR fisici stampati prima.
 // =========================================================
-const QRCode = require('qrcode');
+const { buildRoomQrCard } = require('../services/roomQrCard');
 const cryptoLib = require('crypto');
 
 function generateQrToken() {
@@ -1244,20 +1244,18 @@ function buildQrUrl(req, room) {
 
 router.get('/rooms/:id/qr', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const room = await Room.findByPk(req.params.id);
+    const room = await Room.findByPk(req.params.id, {
+      include: [
+        { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
+      ],
+    });
     if (!room) return res.status(404).json({ error: 'Aula non trovata', code: 'NOT_FOUND' });
 
     await ensureRoomQrToken(room);
     const url = buildQrUrl(req, room);
 
     // Genera prima di inviare: gli errori restano gestibili dal middleware.
-    const png = await QRCode.toBuffer(url, {
-      type: 'png',
-      width: 600,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: { dark: '#000000', light: '#FFFFFF' },
-    });
+    const png = await buildRoomQrCard({ url, room });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `inline; filename="qr-room-${room.id}.png"`);
     res.setHeader('Cache-Control', 'no-store');

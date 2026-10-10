@@ -32,7 +32,18 @@ test('QR aule: elenco, PNG autenticato, download e rigenerazione', async ({ page
   await expect(firstImage).toHaveAttribute('src', /^blob:/);
   await expect
     .poll(() => firstImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
-    .toBe(600);
+    .toBe(1400);
+  expect(await firstImage.evaluate((image) => (image as HTMLImageElement).naturalHeight)).toBe(
+    2000,
+  );
+  await page
+    .getByRole('button', { name: /^Ingrandisci cartello QR / })
+    .first()
+    .click();
+  const preview = page.getByRole('dialog', { name: /^Cartello QR/ });
+  await expect(preview.getByRole('img')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(preview).not.toBeVisible();
   const firstUrl = await firstImage.getAttribute('src');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Scarica', exact: true }).first().click();
@@ -42,6 +53,8 @@ test('QR aule: elenco, PNG autenticato, download e rigenerazione', async ({ page
   expect(file).not.toBeNull();
   const bytes = await readFile(file!);
   expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  expect(bytes.readUInt32BE(16)).toBe(1400);
+  expect(bytes.readUInt32BE(20)).toBe(2000);
 
   page.once('dialog', (dialog) => dialog.accept());
   const regenerated = page.waitForResponse((response) => response.url().endsWith('/qr/regenerate'));
@@ -50,5 +63,5 @@ test('QR aule: elenco, PNG autenticato, download e rigenerazione', async ({ page
   await expect(firstImage).not.toHaveAttribute('src', firstUrl!);
   await expect
     .poll(() => firstImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
-    .toBe(600);
+    .toBe(1400);
 });

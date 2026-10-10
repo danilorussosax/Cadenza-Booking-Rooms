@@ -10,6 +10,17 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.18.0] — 10 ottobre 2026
+
+Cartelli QR per aula pronti per la stampa.
+
+- PNG ad alta risoluzione (1400×2000 pixel, 300 dpi) con cornice rettangolare arrotondata, logo e denominazione del Conservatorio.
+- Sotto al QR: sede, nome o numero dell’aula e codice aula.
+- Avviso con triangolo: termine del check-in letto da `GHOST_GRACE_MINUTES`, lo stesso intervallo applicato dalla piattaforma.
+- Anteprima ingrandibile nel pannello e download del cartello completo. Le immagini vengono aggiornate anche se cambia il logo o la configurazione senza rigenerare il token.
+- Font Inter incluso con licenza SIL OFL, per una stampa coerente anche su server senza font di sistema; supporto ai loghi caricati e incorporati.
+- Test su formato, risoluzione, dati del cartello, loghi e nomi lunghi; confronto di ogni pixel del QR e verifica in Playwright di anteprima, download e rigenerazione.
+
 ## [1.17.1] — 10 ottobre 2026
 
 Ripristinata la gestione dei QR-code per aula.

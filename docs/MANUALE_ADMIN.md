@@ -410,7 +410,7 @@ Nome, Codice, Indirizzo, Piani (lista separata da virgole, es. `Piano Terra, 1º
 | Aula prenotabile       | Disattiva temporaneamente l'aula da tutto il sistema                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Richiedi check-in (QR) | Campo a **3 stati** (Select): **Eredita dall'edificio** (default), **Forza ON**, **Forza OFF**. La label ricorda il default dell'edificio fra parentesi. La cascata building → room è valutata centralmente (vedi §12.6 → "Check-in per edificio"). Quando il valore effettivo è OFF: niente auto-cancellazione dopo i 15 min di tolleranza, niente email "Prenotazione annullata: nessun check-in", niente badge "Senza check-in" su MyBookings, il bottone "Stampa QR aula" sparisce e la pagina `/check-in/room/:id` mostra il banner "Check-in non richiesto" |
 | Richiede approvazione  | Per le sale concerti / auditorium: ogni prenotazione passa per §7.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| QR check-in (PDF)      | Bottone per scaricare il foglio A4 da affiggere in aula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| QR check-in (PNG)      | Bottone per scaricare il cartello PNG da stampare e affiggere in aula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ### 5.5 Form Dotazione (Equipment)
 
@@ -1735,10 +1735,13 @@ La cascata è applicata in modo uniforme da tutto il backend:
 
 #### Card "QR-code per aula"
 
-Lista delle aule con anteprima del QR e i bottoni:
+Lista delle aule con anteprima del cartello e i bottoni:
 
-- 📥 **Scarica QR** — il PDF A4 da affiggere in aula
+- **Anteprima** — clicca sul cartello per ingrandirlo e controllare logo, sede, aula e codice.
+- 📥 **Scarica** — cartello PNG ad alta risoluzione (1400×2000 pixel, 300 dpi), pronto da stampare e affiggere in aula
 - 🔄 **Rigenera** — genera un nuovo QR (i fogli stampati vecchi diventano inutili)
+
+Il cartello include la cornice con angoli arrotondati, il logo caricato e la denominazione del Conservatorio. Sotto al QR compaiono sede, aula, codice e un avviso con triangolo: il check-in va effettuato entro l’intervallo configurato dalla piattaforma (`GHOST_GRACE_MINUTES`, attualmente 15 minuti di default) dall’inizio della prenotazione. Se si cambia questo intervallo, scarica e ristampa i cartelli per aggiornare l’avviso.
 
 In header: **Rigenera tutti** — operazione di emergenza (es. dopo un incidente di sicurezza).
 
