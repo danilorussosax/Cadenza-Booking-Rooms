@@ -18,20 +18,20 @@ const TIERS = {
   low: {
     label: 'low',
     public: { rate: 15, duration: '3m', preAllocatedVUs: 30, maxVUs: 60 },
-    auth:   { rate:  5, duration: '3m', preAllocatedVUs: 15, maxVUs: 40 },
-    write:  { rate:  1, duration: '3m', preAllocatedVUs:  5, maxVUs: 15 },
+    auth: { rate: 5, duration: '3m', preAllocatedVUs: 15, maxVUs: 40 },
+    write: { rate: 1, duration: '3m', preAllocatedVUs: 5, maxVUs: 15 },
   },
   medium: {
     label: 'medium',
     public: { rate: 50, duration: '5m', preAllocatedVUs: 100, maxVUs: 200 },
-    auth:   { rate: 25, duration: '5m', preAllocatedVUs:  60, maxVUs: 150 },
-    write:  { rate:  3, duration: '5m', preAllocatedVUs:  15, maxVUs:  40 },
+    auth: { rate: 25, duration: '5m', preAllocatedVUs: 60, maxVUs: 150 },
+    write: { rate: 3, duration: '5m', preAllocatedVUs: 15, maxVUs: 40 },
   },
   high: {
     label: 'high',
     public: { rate: 130, duration: '7m', preAllocatedVUs: 250, maxVUs: 500 },
-    auth:   { rate:  60, duration: '7m', preAllocatedVUs: 150, maxVUs: 350 },
-    write:  { rate:   8, duration: '7m', preAllocatedVUs:  40, maxVUs: 100 },
+    auth: { rate: 60, duration: '7m', preAllocatedVUs: 150, maxVUs: 350 },
+    write: { rate: 8, duration: '7m', preAllocatedVUs: 40, maxVUs: 100 },
   },
 };
 

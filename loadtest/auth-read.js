@@ -57,8 +57,8 @@ export function setup() {
 function pickEndpoint() {
   const r = Math.random();
   const today = new Date().toISOString().slice(0, 10);
-  if (r < 0.20) return { path: '/api/auth/me', label: 'auth_me' };
-  if (r < 0.70) return { path: `/api/bookings?from=${today}&to=${today}`, label: 'my_bookings' };
+  if (r < 0.2) return { path: '/api/auth/me', label: 'auth_me' };
+  if (r < 0.7) return { path: `/api/bookings?from=${today}&to=${today}`, label: 'my_bookings' };
   if (r < 0.95) return { path: `/api/public/agenda?date=${today}`, label: 'agenda' };
   return { path: '/api/bookings/usage/me', label: 'quota_usage' };
 }

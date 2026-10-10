@@ -61,7 +61,7 @@ export const options = {
       preAllocatedVUs: T.auth.preAllocatedVUs,
       maxVUs: T.auth.maxVUs,
       tags: { scenario: 'auth' },
-      startTime: '5s',  // staggering: kiosk parte per primo, auth dopo 5s
+      startTime: '5s', // staggering: kiosk parte per primo, auth dopo 5s
     },
     s_write: {
       executor: 'constant-arrival-rate',
@@ -95,9 +95,9 @@ export function setup() {
 function pickPublic() {
   const r = Math.random();
   const today = new Date().toISOString().slice(0, 10);
-  if (r < 0.50) return `/api/public/agenda?date=${today}`;
+  if (r < 0.5) return `/api/public/agenda?date=${today}`;
   if (r < 0.75) return '/api/public/stats';
-  if (r < 0.90) return '/api/public/announcements';
+  if (r < 0.9) return '/api/public/announcements';
   if (r < 0.97) return '/api/public/concerts';
   return '/api/public/display-config';
 }
@@ -112,8 +112,8 @@ export function doPublic() {
 function pickAuth() {
   const r = Math.random();
   const today = new Date().toISOString().slice(0, 10);
-  if (r < 0.20) return '/api/auth/me';
-  if (r < 0.70) return `/api/bookings?from=${today}&to=${today}`;
+  if (r < 0.2) return '/api/auth/me';
+  if (r < 0.7) return `/api/bookings?from=${today}&to=${today}`;
   if (r < 0.95) return `/api/public/agenda?date=${today}`;
   return '/api/bookings/usage/me';
 }
@@ -121,7 +121,8 @@ export function doAuth(data) {
   const headers = authHeaders(data.token);
   group('auth', () => {
     const res = http.get(`${BASE_URL}${pickAuth()}`, {
-      headers, tags: { expected: 'true' },
+      headers,
+      tags: { expected: 'true' },
     });
     check(res, { 'status 2xx': (r) => r.status >= 200 && r.status < 300 });
   });
@@ -138,7 +139,7 @@ function nextFreeSundayPlus(daysAhead) {
 }
 function slotFor(vuId, iter) {
   const week = Math.floor(iter / 32);
-  const minuteOffset = ((vuId * 17) % 32 + (iter % 32)) * 15;
+  const minuteOffset = (((vuId * 17) % 32) + (iter % 32)) * 15;
   const start = nextFreeSundayPlus(7 + week * 7);
   start.setUTCMinutes(start.getUTCMinutes() + minuteOffset);
   const end = new Date(start.getTime() + 15 * 60_000);
@@ -163,17 +164,24 @@ export function doWrite(data) {
     );
     const ok = check(create, {
       'create 200/201 o 400 atteso': (r) =>
-        r.status === 200 || r.status === 201 ||
+        r.status === 200 ||
+        r.status === 201 ||
         (r.status === 400 && /BOOKING_INVALID|QUOTA_EXCEEDED|ROOM_/.test(r.body || '')),
     });
     if (!ok) return;
-    if (create.status >= 400) { collisions.add(1); return; }
-    try { bookingId = create.json('booking.id') || create.json('id'); } catch (_) {}
+    if (create.status >= 400) {
+      collisions.add(1);
+      return;
+    }
+    try {
+      bookingId = create.json('booking.id') || create.json('id');
+    } catch (_) {}
   });
   if (bookingId) {
     group('write', () => {
       http.del(`${BASE_URL}/api/bookings/${bookingId}`, null, {
-        headers, tags: { name: 'booking_delete', expected: 'true' },
+        headers,
+        tags: { name: 'booking_delete', expected: 'true' },
       });
     });
   }

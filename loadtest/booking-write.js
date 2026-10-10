@@ -67,7 +67,7 @@ export const options = {
   },
   thresholds: {
     ...thresholdsFor(),
-    booking_collisions: ['count<50'],   // collisioni di slot tra VU concorrenti
+    booking_collisions: ['count<50'], // collisioni di slot tra VU concorrenti
   },
   tags: { tier: T.label, scenario: 'booking-write' },
 };
@@ -83,7 +83,7 @@ function nextFreeSundayPlus(daysAhead) {
   const dow = base.getUTCDay();
   const offset = (7 - dow) % 7 || 7;
   base.setUTCDate(base.getUTCDate() + offset);
-  base.setUTCHours(8, 0, 0, 0);  // domenica mattina, fascia di solito libera
+  base.setUTCHours(8, 0, 0, 0); // domenica mattina, fascia di solito libera
   return base;
 }
 
@@ -92,7 +92,7 @@ function nextFreeSundayPlus(daysAhead) {
 // scritture per VU prima di passare alla domenica successiva.
 function slotFor(vuId, iter) {
   const week = Math.floor(iter / 32);
-  const minuteOffset = ((vuId * 17) % 32 + (iter % 32)) * 15;  // *17 per spread non-correlato tra VU
+  const minuteOffset = (((vuId * 17) % 32) + (iter % 32)) * 15; // *17 per spread non-correlato tra VU
   const start = nextFreeSundayPlus(7 + week * 7);
   start.setUTCMinutes(start.getUTCMinutes() + minuteOffset);
   const end = new Date(start.getTime() + 15 * 60_000);
@@ -120,7 +120,8 @@ export default function (data) {
 
     const ok = check(create, {
       'create 200/201 OR 400 atteso': (r) =>
-        r.status === 200 || r.status === 201 ||
+        r.status === 200 ||
+        r.status === 201 ||
         (r.status === 400 && /BOOKING_INVALID|QUOTA_EXCEEDED|ROOM_/.test(r.body || '')),
     });
     if (!ok) {
@@ -133,7 +134,9 @@ export default function (data) {
     }
     try {
       bookingId = create.json('booking.id') || create.json('id');
-    } catch (_) { /* shape diverso o body vuoto */ }
+    } catch (_) {
+      /* shape diverso o body vuoto */
+    }
     created.add(1);
   });
 
@@ -142,11 +145,10 @@ export default function (data) {
   // saturare il DB e senza inquinare il calendario reale.
   if (bookingId) {
     group('write', () => {
-      const del = http.del(
-        `${BASE_URL}/api/bookings/${bookingId}`,
-        null,
-        { headers, tags: { name: 'booking_delete', expected: 'true' } },
-      );
+      const del = http.del(`${BASE_URL}/api/bookings/${bookingId}`, null, {
+        headers,
+        tags: { name: 'booking_delete', expected: 'true' },
+      });
       check(del, { 'delete 200/204': (r) => r.status === 200 || r.status === 204 });
       if (del.status === 200 || del.status === 204) deleted.add(1);
     });
@@ -156,5 +158,7 @@ export default function (data) {
 export function teardown(data) {
   // Best-effort: se per qualunque motivo restano residui, l'utente di
   // test li può ripulire manualmente filtrando su `purpose LIKE 'loadtest k6%'`.
-  console.log(`[teardown] Verifica residui: SELECT id FROM bookings WHERE purpose LIKE 'loadtest k6%' AND user_id=${data.userId};`);
+  console.log(
+    `[teardown] Verifica residui: SELECT id FROM bookings WHERE purpose LIKE 'loadtest k6%' AND user_id=${data.userId};`,
+  );
 }

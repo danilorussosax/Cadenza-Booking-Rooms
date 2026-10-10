@@ -25,7 +25,10 @@ test.describe('Studente: login → crea booking → cancella', () => {
 
     // Lucide icon SVG sporca l'accessible name (img senza alt) → getByRole
     // con name regex non aggancia. Cerchiamo il button via il text node.
-    const newBtn = page.locator('main button').filter({ hasText: /nuova prenotazione/i }).first();
+    const newBtn = page
+      .locator('main button')
+      .filter({ hasText: /nuova prenotazione/i })
+      .first();
     await expect(newBtn).toBeVisible({ timeout: 15000 });
     await newBtn.click();
 

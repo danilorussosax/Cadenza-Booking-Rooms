@@ -71,7 +71,9 @@ async function dismissModals(page) {
 
 async function logout(page) {
   await page.context().clearCookies();
-  await page.evaluate(() => { localStorage.clear(); });
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
 }
 
 function isoDate(daysFromToday: number): string {
@@ -87,11 +89,16 @@ test.describe('Prestito strumento: richiesta → approve → return', () => {
 
     await page.goto('/instruments');
     // Card del Violino E2E con bottone "Richiedi prestito"
-    const card = page.locator('text=Violino E2E').locator('xpath=ancestor::*[contains(@class,"overflow-hidden")][1]');
+    const card = page
+      .locator('text=Violino E2E')
+      .locator('xpath=ancestor::*[contains(@class,"overflow-hidden")][1]');
     await expect(card).toBeVisible();
 
     // Click sul bottone "Richiedi prestito" della card
-    await page.getByRole('button', { name: /richiedi prestito/i }).first().click();
+    await page
+      .getByRole('button', { name: /richiedi prestito/i })
+      .first()
+      .click();
 
     // Compila il dialog (date input native HTML5)
     await page.locator('#loan-from').fill(isoDate(1));
@@ -120,7 +127,10 @@ test.describe('Prestito strumento: richiesta → approve → return', () => {
 
     // Trova la riga del Violino E2E e clicca il bottone "Approva"
     // (icon-button con title="Approva")
-    const row = page.getByRole('row').filter({ hasText: /violino e2e/i }).first();
+    const row = page
+      .getByRole('row')
+      .filter({ hasText: /violino e2e/i })
+      .first();
     await expect(row).toBeVisible();
     await row.getByTitle(/approva/i).click();
 

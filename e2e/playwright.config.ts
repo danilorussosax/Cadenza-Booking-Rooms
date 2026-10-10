@@ -30,9 +30,7 @@ export default defineConfig({
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     // Avvia il backend in test mode con SQLite in-memory.
     // `seed-e2e.js` viene caricato da `tests/global-setup.ts` PRIMA che il

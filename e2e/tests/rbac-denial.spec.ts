@@ -47,7 +47,10 @@ test.describe('RBAC: studente non accede ad endpoint admin', () => {
 
     // Sanity: lo stesso studente PUÒ chiamare il suo /me.
     const me = await api.get('/api/auth/me', { headers: authHeaders });
-    expect(me.ok(), `/api/auth/me dovrebbe rispondere 200 per studente: ${me.status()}`).toBeTruthy();
+    expect(
+      me.ok(),
+      `/api/auth/me dovrebbe rispondere 200 per studente: ${me.status()}`,
+    ).toBeTruthy();
 
     await api.dispose();
   });

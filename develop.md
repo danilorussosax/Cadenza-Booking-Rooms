@@ -249,7 +249,7 @@ quando tutti questi check sono verdi**:
 - [ ] Zero hit sui path legacy `/api/bookings/:id/concert*` e `/api/public/concerts`
       per ≥ 30 giorni (verificato via access log / Sentry breadcrumb).
 - [ ] Frontend completamente migrato: `grep -r "concertInfo\|ConcertInfo"
-  frontend/src` ritorna 0 occorrenze (tranne `types/index.ts` se mantenuto
+frontend/src` ritorna 0 occorrenze (tranne `types/index.ts` se mantenuto
       come alias `@deprecated`).
 - [ ] Export Excel migrato a `Event.title` (rimosso include condizionale
       `excelExporter.js:422`).

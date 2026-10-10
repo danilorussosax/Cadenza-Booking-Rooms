@@ -187,7 +187,9 @@ function renderInline(text, sharedTokens) {
 
   // Link [text](url)
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
-    return pushTok(`\\href{${url.replace(/#/g, '\\#').replace(/%/g, '\\%')}}{${escapeLatex(label)}}`);
+    return pushTok(
+      `\\href{${url.replace(/#/g, '\\#').replace(/%/g, '\\%')}}{${escapeLatex(label)}}`,
+    );
   });
 
   // Bold **text**  e __text__
@@ -520,4 +522,6 @@ fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, preamble + out.join('\n') + postamble, 'utf8');
 const bytes = fs.statSync(outputPath).size;
 console.log(`✓ Scritto ${outputPath} (${(bytes / 1024).toFixed(1)} KB)`);
-console.log(`  Compila con: cd ${path.dirname(outputPath)} && xelatex ${path.basename(outputPath)}`);
+console.log(
+  `  Compila con: cd ${path.dirname(outputPath)} && xelatex ${path.basename(outputPath)}`,
+);

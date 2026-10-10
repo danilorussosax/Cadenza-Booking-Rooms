@@ -49,9 +49,9 @@ export const options = {
 // Si campiona un endpoint diverso ad ogni iterazione mantenendo il mix.
 function pickEndpoint() {
   const r = Math.random();
-  if (r < 0.50) return { path: '/api/public/agenda?date=' + isoDateOffset(0), label: 'agenda' };
+  if (r < 0.5) return { path: '/api/public/agenda?date=' + isoDateOffset(0), label: 'agenda' };
   if (r < 0.75) return { path: '/api/public/stats', label: 'stats' };
-  if (r < 0.90) return { path: '/api/public/announcements', label: 'announcements' };
+  if (r < 0.9) return { path: '/api/public/announcements', label: 'announcements' };
   if (r < 0.97) return { path: '/api/public/concerts', label: 'concerts' };
   return { path: '/api/public/display-config', label: 'display-config' };
 }
@@ -91,7 +91,10 @@ export function handleSummary(data) {
 }
 
 function parseDuration(s) {
-  const m = String(s).match(/(\d+)m/); const sec = String(s).match(/(\d+)s/);
+  const m = String(s).match(/(\d+)m/);
+  const sec = String(s).match(/(\d+)s/);
   return (m ? +m[1] * 60 : 0) + (sec ? +sec[1] : 0);
 }
-function msFmt(v) { return v == null ? '-' : `${v.toFixed(0)}ms`; }
+function msFmt(v) {
+  return v == null ? '-' : `${v.toFixed(0)}ms`;
+}

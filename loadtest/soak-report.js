@@ -34,7 +34,9 @@ for (const a of process.argv.slice(2)) {
 }
 
 if (!args.in) {
-  console.error('Uso: soak-report.js --in=<metrics.jsonl> [--out=<report.md>] [--width=60] [--json]');
+  console.error(
+    'Uso: soak-report.js --in=<metrics.jsonl> [--out=<report.md>] [--width=60] [--json]',
+  );
   process.exit(2);
 }
 const inFile = String(args.in);
@@ -73,7 +75,10 @@ function num(v) {
 }
 
 function stats(values) {
-  const xs = values.filter((v) => v !== null).slice().sort((a, b) => a - b);
+  const xs = values
+    .filter((v) => v !== null)
+    .slice()
+    .sort((a, b) => a - b);
   if (xs.length === 0) return null;
   const min = xs[0];
   const max = xs[xs.length - 1];
@@ -207,15 +212,26 @@ md.push(`fd count          min=${fmt(fdStats?.min)} max=${fmt(fdStats?.max)}`);
 md.push(sparkline(fdSeries, width));
 md.push('');
 md.push(`ready ms          min=${fmt(latStats?.min)} max=${fmt(latStats?.max)}`);
-md.push(sparkline(rows.map((r) => num(r.readyMs)), width));
+md.push(
+  sparkline(
+    rows.map((r) => num(r.readyMs)),
+    width,
+  ),
+);
 md.push('```');
 md.push('');
 md.push('## Come leggerlo');
 md.push('');
 md.push('- **Memoria stabile o oscillante attorno a una media**: OK, niente leak macroscopico.');
-md.push('- **Memoria che cresce monotona con Δ > 30%**: sospetto leak. Profila con `clinic.js doctor` puntato al PID.');
-md.push('- **FD count che cresce monotono**: leak di socket/file. Cerca `fs.createReadStream` senza `close`, o `net.Socket` non chiusi.');
-md.push('- **Latenza ready che degrada nel tempo**: event loop saturato (GC lunga, query DB lente, lock).');
+md.push(
+  '- **Memoria che cresce monotona con Δ > 30%**: sospetto leak. Profila con `clinic.js doctor` puntato al PID.',
+);
+md.push(
+  '- **FD count che cresce monotono**: leak di socket/file. Cerca `fs.createReadStream` senza `close`, o `net.Socket` non chiusi.',
+);
+md.push(
+  '- **Latenza ready che degrada nel tempo**: event loop saturato (GC lunga, query DB lente, lock).',
+);
 
 fs.writeFileSync(outFile, md.join('\n') + '\n');
 
@@ -233,14 +249,16 @@ const digestLines = [
 console.log(digestLines.join('\n'));
 
 if (emitJson) {
-  console.log(JSON.stringify({
-    durationMs: elapsedMs,
-    samples: rows.length,
-    memoryMb: memStats,
-    fdCount: fdStats,
-    cpuPct: cpuStats,
-    readyMs: latStats,
-    readyErrPct: errPct,
-    out: outFile,
-  }));
+  console.log(
+    JSON.stringify({
+      durationMs: elapsedMs,
+      samples: rows.length,
+      memoryMb: memStats,
+      fdCount: fdStats,
+      cpuPct: cpuStats,
+      readyMs: latStats,
+      readyErrPct: errPct,
+      out: outFile,
+    }),
+  );
 }
