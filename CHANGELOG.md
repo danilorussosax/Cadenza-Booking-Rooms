@@ -18,6 +18,7 @@ Ripristinata la gestione dei QR-code per aula.
 - Anteprima e download PNG usano richieste autenticate e URL blob locali; il token di sessione non compare nella URL.
 - Errori visibili con possibilità di riprovare, rilascio delle risorse delle anteprime e risposta PNG senza cache dopo la rigenerazione.
 - Test di regressione per elenco e permessi, PNG, sessione scaduta e download; percorso completo verificato in Playwright e aggiunto alla CI.
+- L’assegnazione delle aule al Monte Ore attende il caricamento delle lezioni, evitando selezioni perse su connessioni lente.
 
 ## [1.17.0] — 10 ottobre 2026
 

@@ -69,6 +69,7 @@ export default function PlanApproval({
           <select
             className="m-2 rounded border bg-background p-2"
             defaultValue=""
+            disabled={!preview.data || !rooms.data || check.isPending || approval.isPending}
             onChange={(e) => {
               const roomId = Number(e.target.value);
               if (roomId)

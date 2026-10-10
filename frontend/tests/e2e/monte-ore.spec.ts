@@ -88,9 +88,23 @@ test('monte ore: proposta → aula definitiva → variazione modificata → emai
   await admin.evaluate(() => localStorage.setItem('monteOre.admin.selectedYear', '2027/2028'));
   await admin.goto('/admin/monte-ore');
   await admin.getByText('Workflow Monte', { exact: false }).first().click();
+  // Le aule possono arrivare prima dell'anteprima: l'assegnazione deve attendere gli slot.
+  let releasePreview: () => void = () => undefined;
+  const previewGate = new Promise<void>((resolve) => {
+    releasePreview = resolve;
+  });
+  await admin.route('**/api/admin/monte-ore/*/preview', async (route) => {
+    if (route.request().method() === 'GET') await previewGate;
+    await route.continue();
+  });
   await admin.getByRole('button', { name: 'Verifica aule e approva' }).click();
   const approval = admin.getByRole('dialog', { name: 'Verifica piano e aule', exact: true });
   await expect(approval.getByRole('heading', { name: 'Verifica piano e aule' })).toBeVisible();
+  try {
+    await expect(approval.locator('select').first()).toBeDisabled();
+  } finally {
+    releasePreview();
+  }
   await approval.locator('select').first().selectOption({ label: 'Aula 101' });
   await approval.getByRole('button', { name: 'Verifica piano e aule', exact: true }).click();
   await expect(
