@@ -27,6 +27,7 @@ vi.mock('@/api/monteOre', async () => {
 const opt = (overrides: Partial<AcademicYearOption> = {}): AcademicYearOption => ({
   academicYear: '2025/2026',
   label: 'AA 2025/2026 (in corso)',
+  phase: 'current',
   isCurrent: true,
   isNext: false,
   submissionOpen: false,
@@ -42,6 +43,7 @@ const baseResponse = (): AcademicYearListResponse => ({
     opt({
       academicYear: '2026/2027',
       label: 'AA 2026/2027 (prossimo)',
+      phase: 'next',
       isCurrent: false,
       isNext: true,
       submissionOpen: true,
@@ -115,9 +117,8 @@ describe('<AdminAcademicYearSelector />', () => {
   it("renderizza i badge contestuali per l'AA selezionato (in corso)", async () => {
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
-    // Aspetta che il bottone "Mostra ai docenti" appaia (segnale che selected è risolto)
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /^Avvia$/ })).toBeInTheDocument(),
     );
     // Badge "in corso": testo deve essere uno span Badge (dom < 50 chars).
     // Usiamo getAllByText e verifichiamo almeno uno renderizzato come <span> (badge).
@@ -132,32 +133,37 @@ describe('<AdminAcademicYearSelector />', () => {
     expect(screen.getAllByText(/prossimo/i).length).toBeGreaterThan(0);
   });
 
-  it('mostra badge "attivato per docenti" + bottone "Disattiva" se adminActivated=true', async () => {
+  it('mostra bottone "Ripristina automatico" se adminActivated=true', async () => {
     listAcademicYearsMock.mockResolvedValue({
       items: [opt({ adminActivated: true })],
       default: '2025/2026',
     });
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
-    await waitFor(() => expect(screen.queryByText(/attivato per docenti/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Usa selezione automatica/i })).toBeInTheDocument();
-  });
-
-  it('mostra bottone "Mostra ai docenti" se adminActivated=false e hasSettings=true', async () => {
-    listAcademicYearsMock.mockResolvedValue(baseResponse());
-    renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: /Ripristina automatico/i })).toBeInTheDocument(),
     );
   });
 
-  it('click su "Mostra ai docenti" chiama activate API con (year, true)', async () => {
+  it('mostra bottone "Avvia" se adminActivated=false e hasSettings=true', async () => {
+    listAcademicYearsMock.mockResolvedValue(baseResponse());
+    renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /^Avvia$/ })).toBeInTheDocument(),
+    );
+  });
+
+  it('"Avvia" apre la conferma con anteprima fasce e poi chiama activate API (year, true)', async () => {
     activateMock.mockResolvedValue({ activated: null, deactivated: 0 });
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /^Avvia$/ })).toBeInTheDocument(),
     );
-    screen.getByRole('button', { name: /Mostra ai docenti/i }).click();
+    screen.getByRole('button', { name: /^Avvia$/ }).click();
+    await waitFor(() => expect(screen.getByText(/Avviare l'AA 2025\/2026\?/)).toBeInTheDocument());
+    expect(activateMock).not.toHaveBeenCalled();
+    const confirm = screen.getAllByRole('button', { name: /^Avvia$/ }).at(-1);
+    confirm?.click();
     await waitFor(() => expect(activateMock).toHaveBeenCalled());
     expect(activateMock).toHaveBeenCalledWith('2025/2026', true);
   });
@@ -168,6 +174,7 @@ describe('<AdminAcademicYearSelector />', () => {
         opt({
           academicYear: '2027/2028',
           label: 'AA 2027/2028',
+          phase: 'future',
           isCurrent: false,
           isNext: false,
           hasSettings: false,
@@ -179,7 +186,7 @@ describe('<AdminAcademicYearSelector />', () => {
     renderWithProviders(<AdminAcademicYearSelector value="2027/2028" onChange={vi.fn()} />);
     await waitFor(() => expect(screen.queryByText(/non ancora creato/i)).toBeInTheDocument());
     // E NON mostra bottone toggle (richiede hasSettings)
-    expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Avvia$/ })).not.toBeInTheDocument();
   });
 
   it('non crasha se localStorage non è disponibile (readStoredYear catch)', async () => {
