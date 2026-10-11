@@ -39,6 +39,37 @@ function writeStoredYear(y: string) {
   }
 }
 
+type YearPhase = 'past' | 'current' | 'next' | 'future';
+
+const PHASE_LABEL: Record<YearPhase, string> = {
+  past: 'Passato',
+  current: 'In corso',
+  next: 'Prossimo',
+  future: 'Futuro',
+};
+
+const PHASE_VARIANT: Record<YearPhase, 'muted' | 'success' | 'secondary' | 'outline'> = {
+  past: 'muted',
+  current: 'success',
+  next: 'secondary',
+  future: 'outline',
+};
+
+const startYear = (aa: string) => Number(aa.slice(0, 4));
+
+/**
+ * Fase relativa di un AA rispetto all'AA di riferimento ("in corso"):
+ * l'AA avviato dall'admin se presente, altrimenti quello del calendario.
+ */
+function phaseOf(academicYear: string, referenceYear: string | undefined): YearPhase {
+  if (!referenceYear) return 'future';
+  const diff = startYear(academicYear) - startYear(referenceYear);
+  if (diff < 0) return 'past';
+  if (diff === 0) return 'current';
+  if (diff === 1) return 'next';
+  return 'future';
+}
+
 interface Props {
   /** AA correntemente selezionato (`undefined` finché non risolto). */
   value: string | undefined;
@@ -69,6 +100,11 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
 
   const items = yearsQuery.data?.items ?? [];
   const defaultYear = yearsQuery.data?.default;
+  // AA di riferimento: quello avviato dall'admin, altrimenti quello in corso da calendario.
+  const referenceYear =
+    items.find((i) => i.adminActivated)?.academicYear ??
+    items.find((i) => i.isCurrent)?.academicYear ??
+    defaultYear;
 
   const activateMut = useMutation({
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
@@ -76,9 +112,9 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     onSuccess: (res, vars) => {
       void queryClient.invalidateQueries({ queryKey: ['monte-ore'] });
       if (vars.active) {
-        toast.success(`AA ${vars.year} attivato per i docenti`);
+        toast.success(`AA ${vars.year} avviato`);
       } else {
-        toast.success(`Override rimosso: ripristinata logica automatica`);
+        toast.success('Avvio rimosso: ripristinata logica automatica');
       }
     },
     onError: (err: Error) => toast.error(err.message),
@@ -143,7 +179,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
           <SelectGroup>
             {items.map((i) => (
               <SelectItem key={i.academicYear} value={i.academicYear}>
-                {i.label}
+                AA {i.academicYear} · {PHASE_LABEL[phaseOf(i.academicYear, referenceYear)]}
                 {i.canCreateNew && !i.hasSettings ? ' · non creato' : ''}
               </SelectItem>
             ))}
@@ -166,13 +202,9 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       {/* Badge contestuali per l'AA selezionato */}
       {selected && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {selected.adminActivated && (
-            <Badge variant="success" className="bg-emerald-600 hover:bg-emerald-600">
-              attivato per docenti
-            </Badge>
-          )}
-          {selected.isCurrent && <Badge variant="success">in corso</Badge>}
-          {selected.isNext && !selected.isCurrent && <Badge variant="secondary">prossimo</Badge>}
+          <Badge variant={PHASE_VARIANT[phaseOf(selected.academicYear, referenceYear)]}>
+            {PHASE_LABEL[phaseOf(selected.academicYear, referenceYear)]}
+          </Badge>
           <Badge variant="secondary">
             {selected.submissionOpen ? 'Invio aperto' : 'Invio chiuso'}
           </Badge>
@@ -204,19 +236,19 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
             className="gap-1.5"
             title={
               selected.adminActivated
-                ? 'Rimuovi override: torna alla logica automatica della finestra di submission'
-                : "Imposta questo AA come visibile ai docenti per l'inserimento"
+                ? "Rimuovi l'avvio: torna alla logica automatica del calendario"
+                : "Avvia questo AA: diventa 'In corso' e gli altri si riallineano (precedenti Passato, successivo Prossimo)"
             }
           >
             {selected.adminActivated ? (
               <>
                 <UserX className="h-3.5 w-3.5" />
-                Usa selezione automatica
+                Ripristina automatico
               </>
             ) : (
               <>
                 <UserCheck className="h-3.5 w-3.5" />
-                Mostra ai docenti
+                Avvia
               </>
             )}
           </Button>
@@ -243,8 +275,9 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       )}
       {selected?.hasSettings && (
         <p className="basis-full text-xs text-muted-foreground">
-          La visibilità sceglie l’anno mostrato. Le date nel calendario regolano l’apertura della
-          compilazione.
+          «Avvia» imposta l’anno «In corso»: i precedenti diventano «Passato», il successivo
+          «Prossimo» e i docenti vedono questo anno. Le date nel calendario regolano l’apertura
+          della compilazione.
         </p>
       )}
 
