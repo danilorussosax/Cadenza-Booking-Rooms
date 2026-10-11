@@ -1,20 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, ListChecks, LoaderCircle } from 'lucide-react';
+import { Bookmark, LoaderCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { bookingsApi } from '@/api/bookings';
-import { bookingTemplatesApi } from '@/api/bookingTemplates';
-import { roomsApi } from '@/api/rooms';
-import { usersApi } from '@/api/users';
-import { waitlistApi } from '@/api/waitlist';
-import { useAuth } from '@/contexts/AuthContext';
-import { httpErrorMessage, HttpError } from '@/lib/api';
 import { BOOKING_TYPE_OPTIONS } from '@/lib/bookings';
-import { bookingTypesApi } from '@/api/bookingTypes';
 import { fromLocalInput, toLocalDateTimeInput } from '@/lib/date';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
@@ -40,46 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { bookingFormSchema, type BookingFormValues as FormValues } from './bookingFormSchema';
+import { useBookingSubmission } from './useBookingSubmission';
 import { RecurrenceForm } from './RecurrenceForm';
+import { SaveAsTemplateDialog } from './SaveAsTemplateDialog';
+import { WaitlistOfferDialog } from './WaitlistOfferDialog';
 import { BookingRuleHint } from './BookingRuleHint';
 import { BookingSuggestionsPanel } from './BookingSuggestionsPanel';
-import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
-import type { Booking, BookingConflictsWith, BookingSuggestion, BookingType } from '@/types';
-
-// Floor specifico per le prenotazioni di tipo "studio individuale" (vedi
-// STUDIO_MIN_DURATION_MINUTES in services/bookingValidator.js): 1 ora minima
-// per evitare frammentazione delle aule in slot troppo brevi. Replicato qui
-// per dare feedback immediato nel form prima del submit.
-const STUDIO_MIN_DURATION_MINUTES = 60;
-
-// I messaggi sono "chiavi" (es. 'room_required') tradotte runtime via i18n.
-const schema = z
-  .object({
-    roomId: z.string().min(1, 'room_required'),
-    startTime: z.string().min(1, 'start_required'),
-    endTime: z.string().min(1, 'end_required'),
-    type: z.enum(['studio_individuale', 'lezione', 'prova', 'concerto', 'altro']),
-    purpose: z.string().max(255).optional(),
-    notes: z.string().max(2000).optional(),
-  })
-  .refine(
-    (data) => fromLocalInput(data.endTime).getTime() > fromLocalInput(data.startTime).getTime(),
-    { path: ['endTime'], message: 'end_after_start' },
-  )
-  .refine(
-    (data) => {
-      if (data.type !== 'studio_individuale') return true;
-      const startMs = fromLocalInput(data.startTime).getTime();
-      const endMs = fromLocalInput(data.endTime).getTime();
-      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
-        return true; // altre refine catturano già la finestra invalida
-      }
-      return (endMs - startMs) / 60000 >= STUDIO_MIN_DURATION_MINUTES;
-    },
-    { path: ['endTime'], message: 'studio_min_duration' },
-  );
-
-type FormValues = z.infer<typeof schema>;
+import type { Booking, BookingSuggestion, BookingType } from '@/types';
 
 interface Props {
   open: boolean;
@@ -114,60 +72,29 @@ export function BookingFormDialog({
   booking,
   duplicateFrom,
 }: Props) {
-  const qc = useQueryClient();
   const { t } = useTranslation();
-  const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'admin';
   const isEdit = !!booking;
-  const [serverError, setServerError] = useState<string | null>(null);
-  // Owner della prenotazione: id dell'utente target (admin only). null = self.
-  const [onBehalfOfUserId, setOnBehalfOfUserId] = useState<number | null>(null);
-  // Quando il backend ritorna BOOKING_CONFLICT, mostriamo un popup separato
-  // (chiudendo questo dialog) con offerta di iscrizione alla waitlist.
-  // Il payload include anche `roomLabel` perché lo showtime del popup è
-  // dopo la chiusura del Dialog principale: la roomsQuery non è più
-  // garantita disponibile, quindi pre-calcoliamo l'etichetta umana qui.
-  const [conflictPayload, setConflictPayload] = useState<{
-    roomId: number;
-    startTime: string;
-    endTime: string;
-    type: BookingType;
-    purpose?: string;
-    roomLabel: string | null;
-  } | null>(null);
-  // §2.11 Slot alternativi: se il backend invia `suggestions` nel 409 le
-  // mostriamo INLINE sopra il form; il popup waitlist resta solo per il caso
-  // suggestions vuoto (vedi onError).
-  const [suggestions, setSuggestions] = useState<BookingSuggestion[]>([]);
-  const [conflictsWith, setConflictsWith] = useState<BookingConflictsWith | null>(null);
-
+  const {
+    currentUser,
+    roomsQuery,
+    typesQuery,
+    usersQuery,
+    serverError,
+    conflictPayload,
+    dismissWaitlist,
+    suggestions,
+    conflictsWith,
+    clearSuggestions,
+    resetSubmission,
+    onBehalfOfUserId,
+    setOnBehalfOfUserId,
+    recurrence,
+    setRecurrence,
+    waitlistMutation,
+    onSubmit,
+  } = useBookingSubmission({ open, booking, onOpenChange, onCreated });
+  const isAdmin = currentUser?.role === 'admin';
   const tBookingError = (key?: string) => (key ? t(`booking.form_validation.${key}`) : undefined);
-
-  const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
-    queryFn: () => roomsApi.list({ bookable: true }),
-    staleTime: 60_000,
-    enabled: open,
-  });
-
-  // Catalog dinamico tipi prenotazione (gap #7 EasyRoom parity).
-  // Restituisce SOLO i tipi attivi, già ordinati per sortOrder. Se la query
-  // fallisce o è in caricamento, fallback a `BOOKING_TYPE_OPTIONS` statico.
-  const typesQuery = useQuery({
-    queryKey: ['booking-types', 'active'],
-    queryFn: () => bookingTypesApi.list(),
-    staleTime: 5 * 60_000, // catalog cambia raramente
-    enabled: open,
-  });
-
-  // Lista utenti per il selettore "Prenota a nome di…" (admin only). Carico
-  // solo utenti approved+active (gli unici che il backend accetta come owner).
-  const usersQuery = useQuery({
-    queryKey: ['users', 'approved-active'],
-    queryFn: () => usersApi.list({ status: 'approved', active: true }),
-    staleTime: 60_000,
-    enabled: open && isAdmin,
-  });
 
   const initialValues = useMemo<FormValues>(() => {
     if (booking) {
@@ -217,7 +144,7 @@ export function BookingFormDialog({
     reset,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: initialValues,
   });
 
@@ -225,23 +152,13 @@ export function BookingFormDialog({
   useEffect(() => {
     if (open) {
       reset(initialValues);
-      setServerError(null);
-      setSuggestions([]);
-      setConflictsWith(null);
-      // In edit mode pre-seleziono l'owner corrente; in create mode default = self.
-      setOnBehalfOfUserId(booking ? booking.userId : null);
-      // Resetta anche lo state della ricorrenza ad ogni apertura per evitare
-      // che una scelta di una sessione precedente persista in una nuova
-      // (es. utente apre il dialog, attiva weekly, chiude senza submit,
-      // riapre per un'altra prenotazione: si aspetta state pulito).
-      setRecurrence(emptyRecurrence());
+      resetSubmission(booking ? booking.userId : null);
     }
-  }, [open, initialValues, reset, booking]);
+  }, [open, initialValues, reset, booking, resetSubmission]);
 
   const roomId = watch('roomId');
   const type = watch('type');
 
-  const [recurrence, setRecurrence] = useState<RecurrenceState>(() => emptyRecurrence());
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
 
   // Data YYYY-MM-DD della prima occorrenza, derivata dal campo startTime del
@@ -257,164 +174,6 @@ export function BookingFormDialog({
     }
   }, [startTimeWatch]);
 
-  type CreateResult =
-    | { kind: 'single' }
-    | { kind: 'recurring'; created: number; skipped: number }
-    | { kind: 'updated' };
-
-  const createMutation = useMutation<CreateResult, unknown, FormValues>({
-    mutationFn: async (values) => {
-      const payload = {
-        roomId: Number(values.roomId),
-        startTime: fromLocalInput(values.startTime).toISOString(),
-        endTime: fromLocalInput(values.endTime).toISOString(),
-        type: values.type,
-        purpose: values.purpose?.trim() ?? undefined,
-        notes: values.notes?.trim() ?? undefined,
-      };
-      // Edit mode: PUT /api/bookings/:id. Solo admin può cambiare userId
-      // (riassegnazione owner): se non-admin, ignoriamo la selezione.
-      if (booking) {
-        await bookingsApi.update(booking.id, {
-          ...payload,
-          ...(isAdmin && onBehalfOfUserId && onBehalfOfUserId !== booking.userId
-            ? { userId: onBehalfOfUserId }
-            : {}),
-        });
-        return { kind: 'updated' };
-      }
-      // Create on-behalf-of: solo admin; il backend ignora il campo se non lo è.
-      const onBehalf =
-        isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser.id
-          ? { onBehalfOfUserId }
-          : {};
-      if (recurrence.enabled) {
-        // startDate del payload = data della prima occorrenza (presa da
-        // startTime locale). endDate è scelto dall'utente nel form.
-        const startDate = fromLocalInput(values.startTime).toISOString().slice(0, 10);
-        const res = await bookingsApi.createRecurring({
-          ...payload,
-          ...onBehalf,
-          recurrence: {
-            frequency: recurrence.frequency,
-            interval: recurrence.interval,
-            byWeekday:
-              recurrence.frequency === 'weekly' && recurrence.byWeekday.length > 0
-                ? recurrence.byWeekday
-                : null,
-            startDate,
-            endDate: recurrence.endDate,
-            excludeDates: recurrence.excludeDates,
-          },
-          skipConflicts: recurrence.skipConflicts,
-        });
-        return { kind: 'recurring', created: res.createdCount, skipped: res.skipped };
-      }
-      await bookingsApi.create({ ...payload, ...onBehalf });
-      return { kind: 'single' };
-    },
-    onSuccess: (res) => {
-      if (res.kind === 'recurring') {
-        toast.success(
-          res.skipped > 0
-            ? t('booking.form.recurring_created_some_skipped', {
-                created: res.created,
-                skipped: res.skipped,
-              })
-            : t('booking.form.recurring_created', { count: res.created }),
-        );
-      } else if (res.kind === 'updated') {
-        toast.success(t('booking.form.updated_success'));
-      } else {
-        toast.success(t('booking.form.created_success'));
-      }
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
-      void qc.invalidateQueries({ queryKey: ['availability'] });
-      onCreated?.();
-      onOpenChange(false);
-    },
-    onError: (err, values) => {
-      // RECURRENCE_CONFLICTS (409): la serie aveva date in conflitto e
-      // l'utente NON aveva attivato skipConflicts. Mostriamo un toast con
-      // CTA che ri-sottomette automaticamente con skipConflicts=true.
-      // (Se skipConflicts era già on, il backend ritorna 201 con conflicts[]
-      // dentro la response normale, non un errore.)
-      const code = err instanceof HttpError ? err.payload.code : undefined;
-      if (code === 'RECURRENCE_CONFLICTS' && recurrence.enabled) {
-        const payload = err instanceof HttpError ? err.payload : null;
-        const conflicts = (payload as { conflicts?: unknown[] } | null)?.conflicts ?? [];
-        const validCount = (payload as { validCount?: number } | null)?.validCount ?? 0;
-        toast.error(
-          t('booking.form.recurring_conflicts_title', {
-            count: conflicts.length,
-          }),
-          {
-            description: t('booking.form.recurring_conflicts_description', {
-              valid: validCount,
-            }),
-            action: {
-              label: t('booking.form.recurring_conflicts_action'),
-              onClick: () => {
-                setRecurrence((prev) => ({ ...prev, skipConflicts: true }));
-                // Re-submit con il flag attivato
-                createMutation.mutate(values);
-              },
-            },
-            duration: 10000,
-          },
-        );
-        return;
-      }
-      // Estraggo BOOKING_CONFLICT (anche EXCLUSION_VIOLATION lato DB-level)
-      // per offrire l'opzione waitlist o, da §2.11, slot alternativi inline.
-      // Considero solo le creazioni single (la ricorrente ha skipped[] separato).
-      const isConflict = code === 'BOOKING_CONFLICT' || code === 'EXCLUSION_VIOLATION';
-      if (isConflict && !recurrence.enabled && values.roomId) {
-        const payload = err instanceof HttpError ? err.payload : null;
-        const incomingSuggestions = payload?.suggestions ?? [];
-        const incomingConflict = payload?.conflictsWith ?? null;
-
-        if (incomingSuggestions.length > 0) {
-          // §2.11: mostra le alternative INLINE; non chiudere il dialog,
-          // non aprire il popup waitlist. L'utente clicca una chip e
-          // ri-conferma il form. Il bottone waitlist resta accessibile in
-          // fondo (popup) come fallback se nessuna alternativa convince.
-          setSuggestions(incomingSuggestions);
-          setConflictsWith(incomingConflict);
-          setConflictPayload(null);
-          setServerError(null);
-          return;
-        }
-
-        // Nessuna alternativa: comportamento pre-§2.11 (popup waitlist).
-        const roomId = Number(values.roomId);
-        const room = roomsQuery.data?.rooms.find((x) => x.id === roomId);
-        const roomLabel = room
-          ? [room.name, room.building?.name, room.floor].filter(Boolean).join(' · ')
-          : null;
-        setConflictPayload({
-          roomId,
-          startTime: fromLocalInput(values.startTime).toISOString(),
-          endTime: fromLocalInput(values.endTime).toISOString(),
-          type: values.type,
-          purpose: values.purpose?.trim() ?? undefined,
-          roomLabel,
-        });
-        // Niente serverError inline: chiudiamo questo dialog e lasciamo
-        // che sia il popup waitlist (sibling) a comunicare il conflict.
-        setSuggestions([]);
-        setConflictsWith(null);
-        setServerError(null);
-        onOpenChange(false);
-      } else {
-        setConflictPayload(null);
-        setSuggestions([]);
-        setConflictsWith(null);
-        setServerError(httpErrorMessage(err));
-      }
-    },
-  });
-
   // Applica un suggerimento al form (pre-compila roomId/startTime/endTime,
   // mantenendo type/purpose già impostati dall'utente) e azzera la lista
   // di suggestion così la UI torna pulita. L'utente conferma con "Prenota".
@@ -428,32 +187,8 @@ export function BookingFormDialog({
       shouldValidate: true,
       shouldDirty: true,
     });
-    setSuggestions([]);
-    setConflictsWith(null);
+    clearSuggestions();
     toast.info(t('booking.suggestions.applied'));
-  };
-
-  const waitlistMutation = useMutation({
-    mutationFn: () => {
-      if (!conflictPayload) throw new Error('no_conflict_payload');
-      const { roomId, startTime, endTime, type, purpose } = conflictPayload;
-      return waitlistApi.join({ roomId, startTime, endTime, type, purpose });
-    },
-    onSuccess: (res) => {
-      toast.success(t('waitlist.joined', { position: res.entry.position + 1 }));
-      void qc.invalidateQueries({ queryKey: ['waitlist', 'me'] });
-      // Il dialog principale è già chiuso; chiudiamo anche il popup waitlist.
-      setConflictPayload(null);
-    },
-    onError: (err) => toast.error(httpErrorMessage(err)),
-  });
-
-  const onSubmit = (values: FormValues) => {
-    setServerError(null);
-    setConflictPayload(null);
-    setSuggestions([]);
-    setConflictsWith(null);
-    createMutation.mutate(values);
   };
 
   const dirtyClose = useDirtyDialogClose({
@@ -752,9 +487,7 @@ export function BookingFormDialog({
         onConfirm={() => {
           waitlistMutation.mutate();
         }}
-        onClose={() => {
-          setConflictPayload(null);
-        }}
+        onClose={dismissWaitlist}
       />
 
       {/* Conferma scarto modifiche non salvate (skill rule
@@ -769,228 +502,5 @@ export function BookingFormDialog({
         onConfirm={dirtyClose.confirm}
       />
     </>
-  );
-}
-
-// =====================================================
-// Dialog di offerta waitlist
-// =====================================================
-//
-// Si apre automaticamente quando il backend rifiuta una booking con code
-// 'BOOKING_CONFLICT'. Mostra il riepilogo (aula + orari) e chiede all'utente
-// se vuole iscriversi alla coda. Se sì, parte la mutation; al completamento
-// il dialog si chiude e l'utente vede toast + card waitlist sulla Dashboard.
-function WaitlistOfferDialog({
-  payload,
-  loading,
-  onConfirm,
-  onClose,
-}: {
-  payload: {
-    roomId: number;
-    startTime: string;
-    endTime: string;
-    type: BookingType;
-    roomLabel: string | null;
-  } | null;
-  loading: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const open = !!payload;
-  const start = payload ? new Date(payload.startTime) : null;
-  const end = payload ? new Date(payload.endTime) : null;
-  const fmt = (d: Date) =>
-    d.toLocaleString(undefined, {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && !loading && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="inline-flex items-center gap-2">
-            <ListChecks className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            {t('waitlist.offer_dialog_title')}
-          </DialogTitle>
-          <DialogDescription>{t('waitlist.offer_dialog_description')}</DialogDescription>
-        </DialogHeader>
-
-        {payload && start && end && (
-          <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
-            {payload.roomLabel && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {t('booking.form.room')}
-                </span>
-                <span className="font-medium">{payload.roomLabel}</span>
-              </div>
-            )}
-            <div className="text-xs text-muted-foreground">
-              {fmt(start)} → {fmt(end)}
-            </div>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-            {t('waitlist.offer_dialog_decline')}
-          </Button>
-          <Button type="button" onClick={onConfirm} disabled={loading}>
-            {loading ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <ListChecks className="h-4 w-4" />
-            )}
-            {t('waitlist.offer_dialog_confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// =====================================================
-// Sub-dialog "Salva come template"
-// =====================================================
-//
-// Aperto dal pulsante secondario nel footer del BookingFormDialog. Riusa
-// i valori CORRENTI del form principale (aula, orario, tipo, scopo) e
-// chiede solo il nome + flag favorito. Il backend deriverà:
-//   - dayOfWeek      = startTime.getDay()
-//   - startMinutes   = ore*60 + minuti di startTime
-//   - durationMinutes = (endTime - startTime) in minuti
-function SaveAsTemplateDialog({
-  open,
-  onOpenChange,
-  currentValues,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  currentValues: {
-    roomId: number | null;
-    startTime: string;
-    endTime: string;
-    type: BookingType;
-    purpose: string;
-  };
-}) {
-  const { t } = useTranslation();
-  const qc = useQueryClient();
-  const [name, setName] = useState('');
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setName('');
-      setIsFavorite(false);
-    }
-  }, [open]);
-
-  const saveMutation = useMutation({
-    mutationFn: () => {
-      if (!currentValues.roomId) throw new Error('no_room');
-      const start = fromLocalInput(currentValues.startTime);
-      const end = fromLocalInput(currentValues.endTime);
-      const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
-      return bookingTemplatesApi.create({
-        name: name.trim(),
-        roomId: currentValues.roomId,
-        dayOfWeek: start.getDay(),
-        startMinutes: start.getHours() * 60 + start.getMinutes(),
-        durationMinutes,
-        type: currentValues.type,
-        purpose: currentValues.purpose.trim() || null,
-        isFavorite,
-      });
-    },
-    onSuccess: (res) => {
-      toast.success(t('booking.template.saved_toast', { name: res.template.name }));
-      void qc.invalidateQueries({ queryKey: ['booking-templates'] });
-      onOpenChange(false);
-    },
-    onError: (err) => toast.error(httpErrorMessage(err)),
-  });
-
-  const canSave = name.trim().length > 0 && currentValues.roomId != null && !saveMutation.isPending;
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!saveMutation.isPending) onOpenChange(o);
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="inline-flex items-center gap-2">
-            <Bookmark className="h-5 w-5 text-primary" />
-            {t('booking.template.save_dialog_title')}
-          </DialogTitle>
-          <DialogDescription>{t('booking.template.save_dialog_description')}</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="tpl-name">{t('booking.template.name_label')}</Label>
-            <Input
-              id="tpl-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-              }}
-              placeholder={t('booking.template.name_placeholder')}
-              maxLength={100}
-              autoFocus
-            />
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
-              checked={isFavorite}
-              onChange={(e) => {
-                setIsFavorite(e.target.checked);
-              }}
-            />
-            <span>{t('booking.template.favorite_label')}</span>
-          </label>
-          <p className="text-[11px] text-muted-foreground">{t('booking.template.favorite_hint')}</p>
-        </div>
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-            }}
-            disabled={saveMutation.isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              saveMutation.mutate();
-            }}
-            disabled={!canSave}
-          >
-            {saveMutation.isPending ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <Bookmark className="h-4 w-4" />
-            )}
-            {t('booking.template.save_button')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
