@@ -15,8 +15,11 @@ module.exports = function registerAcademicYears(router) {
    *   - Admin (o `scope=admin`) → ritorna tutti gli AA con settings + flag
    *     `canCreateNew` per AA futuri non ancora presenti.
    *
+   * `phase` ('past'|'current'|'next'|'future') è relativa all'AA di riferimento:
+   * l'AA avviato dall'admin, altrimenti quello del calendario.
+   *
    * Shape:
-   *   { items: [{ academicYear, label, isCurrent, isNext, submissionOpen,
+   *   { items: [{ academicYear, label, phase, isCurrent, isNext, submissionOpen,
    *               hasSettings, canCreateNew? }],
    *     default: "Y/Y+1" }
    */
@@ -25,6 +28,13 @@ module.exports = function registerAcademicYears(router) {
       const today = new Date();
       const currentLabel = calendarService.currentAcademicYear(today);
       const nextLabel = calendarService.nextAcademicYear(today);
+
+      const activeForRef = await MonteOreSettings.findOne({
+        where: { isActiveForTeachers: true, status: 'published' },
+      });
+      const referenceYear = calendarService.referenceAcademicYear(activeForRef, today);
+      const phaseOf = (aa) => calendarService.academicYearPhase(aa, referenceYear);
+      const labelOf = (aa) => `AA ${aa} (${calendarService.PHASE_LABEL_IT[phaseOf(aa)]})`;
 
       const isAdmin =
         req.user?.role === 'admin' || (req.query.scope === 'admin' && req.user?.role === 'admin');
@@ -49,15 +59,13 @@ module.exports = function registerAcademicYears(router) {
         const isNext = target === nextLabel;
         const isCurrent = target === currentLabel;
         const adminActivated = !!activeSettings && activeSettings.academicYear === target;
-        let label = `AA ${target}`;
-        if (adminActivated) label += " (attivato dall'amministrazione)";
-        else if (isCurrent) label += ' (in corso)';
-        else if (isNext) label += ' (prossimo)';
+        const label = labelOf(target);
         return res.json({
           items: [
             {
               academicYear: target,
               label,
+              phase: phaseOf(target),
               isCurrent,
               isNext,
               submissionOpen,
@@ -75,13 +83,10 @@ module.exports = function registerAcademicYears(router) {
       const items = all.map((s) => {
         const isCurrent = s.academicYear === currentLabel;
         const isNext = s.academicYear === nextLabel;
-        let label = `AA ${s.academicYear}`;
-        if (s.isActiveForTeachers) label += ' (attivato per docenti)';
-        else if (isCurrent) label += ' (in corso)';
-        else if (isNext) label += ' (prossimo)';
         return {
           academicYear: s.academicYear,
-          label,
+          label: labelOf(s.academicYear),
+          phase: phaseOf(s.academicYear),
           isCurrent,
           isNext,
           submissionOpen: calendarService.isSubmissionWindowOpen(s, today),
@@ -98,7 +103,8 @@ module.exports = function registerAcademicYears(router) {
         if (!present.has(aaLabel)) {
           items.push({
             academicYear: aaLabel,
-            label: `AA ${aaLabel}${aaLabel === currentLabel ? ' (in corso)' : aaLabel === nextLabel ? ' (prossimo)' : ''}`,
+            label: labelOf(aaLabel),
+            phase: phaseOf(aaLabel),
             isCurrent: aaLabel === currentLabel,
             isNext: aaLabel === nextLabel,
             submissionOpen: false,
@@ -113,7 +119,7 @@ module.exports = function registerAcademicYears(router) {
       // Ordina DESC per stringa "YYYY/YYYY"
       items.sort((a, b) => (a.academicYear < b.academicYear ? 1 : -1));
 
-      res.json({ items, default: currentLabel });
+      res.json({ items, default: referenceYear });
     } catch (err) {
       next(err);
     }

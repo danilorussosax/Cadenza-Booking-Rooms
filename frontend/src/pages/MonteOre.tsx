@@ -287,7 +287,7 @@ export default function MonteOre() {
           il monte ore dell'AA prossimo (rollover automatico durante la
           finestra di submission). Diversifica visivamente il caso normale
           (AA corrente) dal caso più raro (AA futuro) per evitare confusione. */}
-      {targetItem && (!targetItem.isCurrent || targetItem.adminActivated) && (
+      {targetItem && (targetItem.phase !== 'current' || targetItem.adminActivated) && (
         <Alert>
           <CalendarRange className="h-4 w-4" />
           <AlertDescription>
@@ -295,7 +295,7 @@ export default function MonteOre() {
               Stai compilando il monte ore per l'AA {targetItem.academicYear}
               {targetItem.adminActivated
                 ? " (attivato dall'amministrazione)"
-                : targetItem.isNext
+                : targetItem.phase === 'next'
                   ? ' (prossimo)'
                   : ''}
             </p>

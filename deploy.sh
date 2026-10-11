@@ -348,6 +348,10 @@ green "    ✓ moduli locali ≥ server (lock-based, nessuna regressione)"
 # ------------------------------------------------------------
 if [[ "$CHANGE_COUNT" -gt 0 && "$AUTO_YES" -eq 0 ]]; then
   echo
+  if [[ ! -t 0 ]]; then
+    red "[ERR] Conferma interattiva impossibile (stdin non è un terminale). Usa --yes per procedere senza conferma."
+    exit 1
+  fi
   read -r -p "Procedo con il deploy su ${SSH_TARGET}? [y/N] " ans
   [[ "$ans" =~ ^[yY]$ ]] || { yellow "Deploy annullato."; exit 0; }
 fi

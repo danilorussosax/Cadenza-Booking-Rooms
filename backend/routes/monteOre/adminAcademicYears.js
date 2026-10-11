@@ -110,12 +110,19 @@ module.exports = function registerAdminAcademicYears(adminRouter) {
           });
           if (!target) workflow.fail('Anno non trovato', 'NOT_FOUND', 404);
           if (status === 'published') validateSettings(target.toJSON());
-          if (status === 'archived' && academicYear >= calendarService.currentAcademicYear())
-            workflow.fail(
-              'Puoi archiviare solo gli anni accademici conclusi',
-              'ACADEMIC_YEAR_NOT_ENDED',
-              409,
-            );
+          if (status === 'archived') {
+            const active = await MonteOreSettings.findOne({
+              where: { instituteId, isActiveForTeachers: true, status: 'published' },
+              transaction,
+            });
+            const reference = calendarService.referenceAcademicYear(active);
+            if (calendarService.academicYearPhase(academicYear, reference) !== 'past')
+              workflow.fail(
+                'Puoi archiviare solo gli anni accademici passati',
+                'ACADEMIC_YEAR_NOT_ENDED',
+                409,
+              );
+          }
           await target.update(
             { status, ...(status === 'archived' ? { isActiveForTeachers: false } : {}) },
             { transaction },

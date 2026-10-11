@@ -206,6 +206,29 @@ function nextAcademicYear(today = new Date()) {
 }
 
 /**
+ * Fase di un AA relativa all'AA di riferimento ("in corso"):
+ * 'past' | 'current' | 'next' | 'future'. Il riferimento è l'AA avviato
+ * dall'admin se presente, altrimenti quello del calendario.
+ */
+function academicYearPhase(academicYear, referenceYear) {
+  const diff = Number(academicYear.slice(0, 4)) - Number(referenceYear.slice(0, 4));
+  if (diff < 0) return 'past';
+  if (diff === 0) return 'current';
+  if (diff === 1) return 'next';
+  return 'future';
+}
+
+const PHASE_LABEL_IT = { past: 'passato', current: 'in corso', next: 'prossimo', future: 'futuro' };
+
+/**
+ * AA di riferimento: quello con `isActiveForTeachers` (pubblicato), altrimenti
+ * l'AA corrente da calendario. `activeSettings` può essere null.
+ */
+function referenceAcademicYear(activeSettings, today = new Date()) {
+  return activeSettings?.academicYear ?? currentAcademicYear(today);
+}
+
+/**
  * Ritorna true se la data `today` è dentro la finestra di submission
  * configurata in `settings` (estremi inclusi). Confronto effettuato su
  * stringhe `YYYY-MM-DD` per evitare side-effect di timezone.
@@ -286,6 +309,9 @@ module.exports = {
   defaultRangeForAcademicYear,
   currentAcademicYear,
   nextAcademicYear,
+  academicYearPhase,
+  referenceAcademicYear,
+  PHASE_LABEL_IT,
   isSubmissionWindowOpen,
   resolveTargetAcademicYearForTeacher,
   computeEaster,

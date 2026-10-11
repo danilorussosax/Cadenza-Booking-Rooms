@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarPlus, UserCheck, UserX } from 'lucide-react';
-import { monteOreAdminApi, monteOreApi, type AcademicYearOption } from '@/api/monteOre';
+import {
+  monteOreAdminApi,
+  monteOreApi,
+  type AcademicYearOption,
+  type AcademicYearPhase,
+} from '@/api/monteOre';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,6 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { NewAcademicYearDialog } from './NewAcademicYearDialog';
 
 const LS_KEY = 'monteOre.admin.selectedYear';
@@ -39,16 +52,14 @@ function writeStoredYear(y: string) {
   }
 }
 
-type YearPhase = 'past' | 'current' | 'next' | 'future';
-
-const PHASE_LABEL: Record<YearPhase, string> = {
+const PHASE_LABEL: Record<AcademicYearPhase, string> = {
   past: 'Passato',
   current: 'In corso',
   next: 'Prossimo',
   future: 'Futuro',
 };
 
-const PHASE_VARIANT: Record<YearPhase, 'muted' | 'success' | 'secondary' | 'outline'> = {
+const PHASE_VARIANT: Record<AcademicYearPhase, 'muted' | 'success' | 'secondary' | 'outline'> = {
   past: 'muted',
   current: 'success',
   next: 'secondary',
@@ -57,17 +68,12 @@ const PHASE_VARIANT: Record<YearPhase, 'muted' | 'success' | 'secondary' | 'outl
 
 const startYear = (aa: string) => Number(aa.slice(0, 4));
 
-/**
- * Fase relativa di un AA rispetto all'AA di riferimento ("in corso"):
- * l'AA avviato dall'admin se presente, altrimenti quello del calendario.
- */
-function phaseOf(academicYear: string, referenceYear: string | undefined): YearPhase {
-  if (!referenceYear) return 'future';
-  const diff = startYear(academicYear) - startYear(referenceYear);
+/** Fase che ogni AA assumerebbe se `startedYear` diventasse l'anno in corso. */
+function phaseIfStarted(academicYear: string, startedYear: string): AcademicYearPhase {
+  const diff = startYear(academicYear) - startYear(startedYear);
   if (diff < 0) return 'past';
   if (diff === 0) return 'current';
-  if (diff === 1) return 'next';
-  return 'future';
+  return diff === 1 ? 'next' : 'future';
 }
 
 interface Props {
@@ -96,15 +102,11 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
   });
 
   const [creating, setCreating] = useState(false);
+  const [confirmStart, setConfirmStart] = useState<{ year: string; active: boolean } | null>(null);
   const [suggestedYear, setSuggestedYear] = useState<string | undefined>(undefined);
 
   const items = yearsQuery.data?.items ?? [];
   const defaultYear = yearsQuery.data?.default;
-  // AA di riferimento: quello avviato dall'admin, altrimenti quello in corso da calendario.
-  const referenceYear =
-    items.find((i) => i.adminActivated)?.academicYear ??
-    items.find((i) => i.isCurrent)?.academicYear ??
-    defaultYear;
 
   const activateMut = useMutation({
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
@@ -179,7 +181,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
           <SelectGroup>
             {items.map((i) => (
               <SelectItem key={i.academicYear} value={i.academicYear}>
-                AA {i.academicYear} · {PHASE_LABEL[phaseOf(i.academicYear, referenceYear)]}
+                AA {i.academicYear} · {PHASE_LABEL[i.phase]}
                 {i.canCreateNew && !i.hasSettings ? ' · non creato' : ''}
               </SelectItem>
             ))}
@@ -202,9 +204,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       {/* Badge contestuali per l'AA selezionato */}
       {selected && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={PHASE_VARIANT[phaseOf(selected.academicYear, referenceYear)]}>
-            {PHASE_LABEL[phaseOf(selected.academicYear, referenceYear)]}
-          </Badge>
+          <Badge variant={PHASE_VARIANT[selected.phase]}>{PHASE_LABEL[selected.phase]}</Badge>
           <Badge variant="secondary">
             {selected.submissionOpen ? 'Invio aperto' : 'Invio chiuso'}
           </Badge>
@@ -231,7 +231,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
             size="sm"
             disabled={activateMut.isPending}
             onClick={() =>
-              activateMut.mutate({ year: selected.academicYear, active: !selected.adminActivated })
+              setConfirmStart({ year: selected.academicYear, active: !selected.adminActivated })
             }
             className="gap-1.5"
             title={
@@ -263,7 +263,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
           {selected.status === 'archived' ? 'Ripubblica anno' : 'Pubblica anno'}
         </Button>
       )}
-      {selected?.status === 'published' && defaultYear && selected.academicYear < defaultYear && (
+      {selected?.status === 'published' && selected.phase === 'past' && (
         <Button
           variant="outline"
           size="sm"
@@ -279,6 +279,63 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
           «Prossimo» e i docenti vedono questo anno. Le date nel calendario regolano l’apertura
           della compilazione.
         </p>
+      )}
+
+      {confirmStart && (
+        <Dialog open onOpenChange={(o) => !o && setConfirmStart(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {confirmStart.active
+                  ? `Avviare l'AA ${confirmStart.year}?`
+                  : 'Ripristinare la selezione automatica?'}
+              </DialogTitle>
+              <DialogDescription>
+                {confirmStart.active
+                  ? "L'anno diventa «In corso» e i docenti vedranno questo anno. Le altre fasce si riallineano:"
+                  : "L'anno in corso tornerà a seguire il calendario. Le fasce si riallineano:"}
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="space-y-1 text-sm">
+              {items
+                .filter((i) => i.hasSettings)
+                .map((i) => {
+                  const calendarCurrent = items.find((x) => x.isCurrent)?.academicYear;
+                  const after = confirmStart.active
+                    ? phaseIfStarted(i.academicYear, confirmStart.year)
+                    : phaseIfStarted(i.academicYear, calendarCurrent ?? confirmStart.year);
+                  return (
+                    <li key={i.academicYear} className="flex items-center justify-between gap-2">
+                      <span>AA {i.academicYear}</span>
+                      <span className="text-muted-foreground">
+                        {PHASE_LABEL[i.phase]}
+                        {after !== i.phase && (
+                          <>
+                            {' → '}
+                            <strong className="text-foreground">{PHASE_LABEL[after]}</strong>
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmStart(null)}>
+                Annulla
+              </Button>
+              <Button
+                disabled={activateMut.isPending}
+                onClick={() => {
+                  activateMut.mutate(confirmStart);
+                  setConfirmStart(null);
+                }}
+              >
+                {confirmStart.active ? 'Avvia' : 'Ripristina'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       <NewAcademicYearDialog

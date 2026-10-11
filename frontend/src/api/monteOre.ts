@@ -171,10 +171,14 @@ export interface MonteOreSuspension {
 // Academic year selector / bootstrap (F3 — gestione AA)
 // ============================================================
 
+export type AcademicYearPhase = 'past' | 'current' | 'next' | 'future';
+
 export interface AcademicYearOption {
   status?: AcademicYearStatus;
   academicYear: string;
   label: string;
+  /** Fase relativa all'AA di riferimento (avviato dall'admin, altrimenti calendario). */
+  phase: AcademicYearPhase;
   isCurrent: boolean;
   isNext: boolean;
   submissionOpen: boolean;
