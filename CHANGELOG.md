@@ -10,6 +10,22 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.21.0] — 11 ottobre 2026
+
+Semplificazione della preparazione e gestione degli anni accademici.
+
+- Procedura guidata con anteprima del calendario, regole e sospensioni; copia selettiva da un anno precedente.
+- Stati bozza, pubblicato e archiviato; pubblicazione separata dalla selezione dell’anno docente e dalla finestra di invio.
+- Creazione uniforme, letture senza scritture, validazione delle date e conservazione dei calendari personalizzati ai riavvii.
+- Copia delle date secondo la distanza fra gli anni, gestione dei bisestili e delle sessioni omonime, protezione dalle creazioni concorrenti.
+- Corretto il cambio anno nel form e l’invalidazione delle cache; la rimozione di un vecchio override non disattiva un anno selezionato successivamente.
+- Migrazione additiva e ripetibile: gli anni esistenti restano pubblicati. Compatibilità mantenuta per i piani legacy.
+- Versionamento SemVer automatico dai commit convenzionali, con aggiornamento coordinato dei quattro pacchetti e lockfile.
+
+Verifiche: 1.891 test backend superati sia in Europe/Rome sia in UTC; soglie di copertura rispettate; 281 test frontend e 25 test browser superati. Migrazione, workflow e concorrenza verificati anche su PostgreSQL.
+
+Guida operativa: [gestione anni accademici](docs/ANNI_ACCADEMICI.md).
+
 ## [1.20.0] — 10 ottobre 2026
 
 Correzioni del piano di debug e riattivazione della bacheca personale.
