@@ -40,6 +40,9 @@ export default mergeConfig(
           'src/components/layout/AppLayout.tsx',
           'src/components/layout/AuthLayout.tsx',
           'src/components/monteOre/MonteOreGrid.tsx',
+          // Parti della pagina admin Monte Ore (ex pages/admin/MonteOre.tsx, già
+          // fuori scope come page-level): coperte da E2E. shared.ts resta nello scope.
+          'src/components/monteOre/admin/**/*.tsx',
           'src/components/profile/TwoFaSection.tsx',
           'src/components/legal/ConsentGate.tsx',
           'src/components/pwa/InstallPwaPrompt.tsx',
