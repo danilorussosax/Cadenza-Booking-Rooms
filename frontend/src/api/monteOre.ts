@@ -129,7 +129,10 @@ export interface ImportExcelResponse {
 // Sezione B — settings, suspensions, slot, amendments
 // ============================================================
 
+export type AcademicYearStatus = 'draft' | 'published' | 'archived';
+
 export interface MonteOreSettings {
+  status?: AcademicYearStatus;
   id: number;
   instituteId: number;
   academicYear: string;
@@ -169,6 +172,7 @@ export interface MonteOreSuspension {
 // ============================================================
 
 export interface AcademicYearOption {
+  status?: AcademicYearStatus;
   academicYear: string;
   label: string;
   isCurrent: boolean;
@@ -196,6 +200,19 @@ export interface BootstrapAcademicYearPayload {
   mode?: AcademicYearBootstrapMode;
   previousYear?: string | null;
   overwrite?: boolean;
+  copyRules?: boolean;
+  copyCalendar?: boolean;
+  copyCustom?: boolean;
+  copyExamSessions?: boolean;
+  settings?: Partial<MonteOreSettings>;
+  publish?: boolean;
+}
+
+export interface AcademicYearPreview {
+  settings: MonteOreSettings;
+  suspensions: MonteOreSuspension[];
+  warnings: string[];
+  availableDays: number[];
 }
 
 export interface BootstrapResponse {
@@ -600,7 +617,7 @@ export const monteOreAdminApi = {
 
   // ---- Settings (calendario didattico, finestra inserimento) ----
   getSettings: (academicYear?: string) =>
-    api<{ settings: MonteOreSettings }>('/api/admin/monte-ore/settings', {
+    api<{ settings: MonteOreSettings | null }>('/api/admin/monte-ore/settings', {
       query: academicYear ? { academicYear } : undefined,
     }),
 
@@ -684,6 +701,18 @@ export const monteOreAdminApi = {
    * ott, finestra inserimento default e suspensions (festività + opzionali
    * personalizzate clonate dall'AA precedente con +1 anno).
    */
+  previewAcademicYear: (payload: BootstrapAcademicYearPayload) =>
+    api<AcademicYearPreview>('/api/admin/monte-ore/academic-years/preview', {
+      method: 'POST',
+      body: payload,
+    }),
+
+  setAcademicYearStatus: (year: string, status: 'published' | 'archived') =>
+    api<{ settings: MonteOreSettings }>(
+      `/api/admin/monte-ore/academic-years/${encodeURIComponent(year)}/status`,
+      { method: 'POST', body: { status } },
+    ),
+
   createAcademicYear: (payload: BootstrapAcademicYearPayload) =>
     calendarRequest<BootstrapResponse>('/api/admin/monte-ore/academic-years', 'POST', payload),
 

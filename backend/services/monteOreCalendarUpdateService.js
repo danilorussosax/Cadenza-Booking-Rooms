@@ -1,12 +1,26 @@
 'use strict';
 
-const { MonteOreProposal, MonteOreAmendment, Booking, MailOutbox, User } = require('../models');
+const {
+  MonteOreProposal,
+  MonteOreAmendment,
+  Booking,
+  MailOutbox,
+  User,
+  MonteOreSettings,
+} = require('../models');
 const workflow = require('./monteOreWorkflowService');
 const { render } = require('./templateRenderer');
 
 // Evaluate a calendar mutation in its own transaction. A preview is rolled back.
 async function updateCalendar(year, actor, confirmed, mutate) {
   return workflow.transact(async (transaction) => {
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year }, transaction });
+    if (settings?.status === 'archived')
+      workflow.fail(
+        'Anno archiviato: ripubblicalo prima di modificarlo',
+        'ACADEMIC_YEAR_ARCHIVED',
+        409,
+      );
     const proposals = await MonteOreProposal.findAll({
       where: { academicYear: year },
       transaction,

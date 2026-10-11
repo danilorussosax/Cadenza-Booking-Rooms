@@ -5,7 +5,7 @@ const { DataTypes } = require('sequelize');
 /**
  * Monte Ore — configurazione globale dell'istituto.
  *
- * Singleton de facto: una riga per istituto. Contiene:
+ * Una riga per istituto e anno accademico. Contiene:
  *   - calendario didattico (date inizio/fine lezioni)
  *   - finestra di inserimento (range in cui i docenti possono editare)
  *   - soglia minima ore (default 324)
@@ -34,8 +34,15 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(16),
         allowNull: false,
       },
+      // Existing installations remain published; bootstrap explicitly creates drafts.
+      status: {
+        type: DataTypes.STRING(16),
+        allowNull: false,
+        defaultValue: 'published',
+        validate: { isIn: [['draft', 'published', 'archived']] },
+      },
       // Periodo accademico (1 nov → 31 ott dell'anno successivo).
-      // Calcolato dall'AA all'init, ma editabile per casi particolari.
+      // Calcolato dall'AA alla creazione e validato dalle API amministrative.
       academicYearStart: { type: DataTypes.DATEONLY, allowNull: false },
       academicYearEnd: { type: DataTypes.DATEONLY, allowNull: false },
       // Periodo effettivo di lezione (es. 3 nov → 10 ott). All'interno di

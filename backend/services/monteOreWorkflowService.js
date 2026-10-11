@@ -53,6 +53,8 @@ async function loadPlan(id, transaction, lock = false) {
     where: { academicYear: proposal.academicYear },
     transaction,
   });
+  if (lock && settings && settings.status !== 'published')
+    fail('Anno non pubblicato per la compilazione', 'ACADEMIC_YEAR_NOT_PUBLISHED', 409);
   const suspensions = await MonteOreSuspension.findAll({
     where: { academicYear: proposal.academicYear },
     transaction,

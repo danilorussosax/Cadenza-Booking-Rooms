@@ -129,7 +129,7 @@ jobs:
         run: npm ci
 
       - name: Run Postgres-only tests
-        run: npx vitest run postgres.test.js tests/integration/excludeConstraint.test.js tests/integration/monteOreWorkflow.test.js tests/integration/release120.test.js
+        run: npx vitest run postgres.test.js tests/integration/excludeConstraint.test.js tests/integration/monteOreWorkflow.test.js tests/integration/release120.test.js tests/integration/academicYearLifecycle.test.js
 
   frontend:
     name: Frontend · typecheck + test + build

@@ -18,8 +18,8 @@
  * Tutte queste righe sono `category='holiday'`.
  *
  * In mode='from_previous' si comporta come default per le festività + copia
- * dall'AA precedente le sospensioni `custom` ed `exam_session` shiftate di
- * +365 giorni (approssimazione: l'admin può rifinire dopo).
+ * dall'AA precedente le sospensioni `custom` ed `exam_session` traslate
+ * in base alla distanza fra gli anni; il calendario è verificabile in anteprima.
  */
 
 const dayjs = require('dayjs');
@@ -31,17 +31,13 @@ const {
   nextAcademicYear,
 } = require('./monteOreCalendarService');
 
-/**
- * Primo lunedì utile da `dateIso` (incluso). Ritorna 'YYYY-MM-DD'.
- */
-function firstMondayFrom(dateIso) {
-  let d = dayjs(dateIso);
-  // dayjs.day(): 0=domenica, 1=lunedì … 6=sabato.
-  while (d.day() !== 1) {
-    d = d.add(1, 'day');
-  }
-  return d.format('YYYY-MM-DD');
-}
+const {
+  invalid,
+  validateYear,
+  validateSettings,
+  firstMondayFrom,
+  defaultSettingsFor,
+} = require('./academicYearConfig');
 
 function isoDate(year, month, day) {
   return dayjs(new Date(year, month - 1, day)).format('YYYY-MM-DD');
@@ -109,26 +105,6 @@ function defaultHolidaysFor(academicYear) {
   ].map((h) => ({ ...h, category: 'holiday', notes: null }));
 }
 
-/**
- * Build dei `defaultRange` con `lessonsStartDate` = primo lunedì utile da 1
- * nov Y, non hard-coded a 3 nov.
- */
-function defaultSettingsFor(academicYear) {
-  const [Y0] = academicYear.split('/').map(Number);
-  const Y = Y0;
-  const Y1 = Y0 + 1;
-  return {
-    academicYearStart: isoDate(Y, 11, 1),
-    academicYearEnd: isoDate(Y1, 10, 31),
-    lessonsStartDate: firstMondayFrom(isoDate(Y, 11, 1)),
-    lessonsEndDate: isoDate(Y1, 10, 31),
-    submissionWindowStart: isoDate(Y, 9, 1),
-    submissionWindowEnd: isoDate(Y, 10, 31),
-    minRequiredHours: 324,
-    maxAmendmentsPerYear: 3,
-  };
-}
-
 async function resolveInstituteId(instituteId) {
   if (instituteId) return instituteId;
   const inst = await Institute.findOne({ order: [['id', 'ASC']] });
@@ -140,172 +116,191 @@ async function resolveInstituteId(instituteId) {
   return inst.id;
 }
 
-/**
- * Bootstrap dell'AA. Idempotente: se chiamato due volte con overwrite=false
- * non duplica righe.
- *
- * @param {object} opts
- * @param {string} opts.academicYear              "2025/2026"
- * @param {number} [opts.instituteId]             default = primo istituto
- * @param {'default'|'from_previous'} [opts.mode] default 'default'
- * @param {string} [opts.previousYear]            usato in mode='from_previous'
- * @param {boolean} [opts.overwrite]              se true sovrascrive i settings
- * @param {object} [opts.transaction]             transazione Sequelize opzionale
- * @returns {Promise<{settings: object, suspensionsCreated: number, suspensionsSkipped: number}>}
- */
-async function bootstrapAcademicYear({
+/** Build the exact preview without writes; creation uses the same plan. */
+async function previewAcademicYear({
   academicYear,
   instituteId = null,
   mode = 'default',
   previousYear = null,
-  overwrite = false,
+  copyRules = true,
+  copyCalendar = true,
+  copyCustom = true,
+  copyExamSessions = true,
+  settings: overrides = {},
   transaction = null,
 } = {}) {
-  if (!academicYear || !/^\d{4}\/\d{4}$/.test(academicYear)) {
-    const e = new Error('academicYear non valido (atteso formato "YYYY/YYYY")');
-    e.status = 400;
-    throw e;
+  const targetStart = validateYear(academicYear);
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides))
+    invalid('Impostazioni non valide');
+  for (const option of [copyRules, copyCalendar, copyCustom, copyExamSessions]) {
+    if (typeof option !== 'boolean') invalid('Le opzioni di copia devono essere booleane');
   }
-  const [a, b] = academicYear.split('/').map(Number);
-  if (b !== a + 1) {
-    const e = new Error('academicYear non coerente: il secondo anno deve essere il primo + 1');
-    e.status = 400;
-    throw e;
-  }
-
-  const run = async (t) => {
-    const realInstituteId = await resolveInstituteId(instituteId);
-
-    // 1) Settings — findOrCreate per non sovrascrivere se overwrite=false
-    const defaults = defaultSettingsFor(academicYear);
-    const [settings, created] = await MonteOreSettings.findOrCreate({
-      where: { instituteId: realInstituteId, academicYear },
-      defaults: { instituteId: realInstituteId, academicYear, ...defaults },
-      transaction: t,
+  if (!['default', 'from_previous'].includes(mode)) invalid('Origine dati non valida');
+  const realInstituteId = await resolveInstituteId(instituteId);
+  const settings = {
+    instituteId: realInstituteId,
+    academicYear,
+    ...defaultSettingsFor(academicYear),
+    status: 'draft',
+  };
+  const suspensions = defaultHolidaysFor(academicYear);
+  const warnings = [];
+  if (mode === 'from_previous') {
+    const sourceStart = validateYear(previousYear);
+    if (sourceStart >= targetStart)
+      invalid("Scegli un anno sorgente precedente all'anno da creare");
+    const source = await MonteOreSettings.findOne({
+      where: { instituteId: realInstituteId, academicYear: previousYear },
+      transaction,
     });
-    if (!created && overwrite) {
-      await settings.update(defaults, { transaction: t });
+    if (!source) invalid('Anno sorgente non trovato');
+    const delta = targetStart - sourceStart;
+    const shift = (date) => dayjs(date).add(delta, 'year').format('YYYY-MM-DD');
+    if (copyRules) {
+      for (const field of [
+        'minRequiredHours',
+        'maxAmendmentsPerYear',
+        'maxHoursPerDay',
+        'dailyBreakAfterHours',
+        'dailyBreakMinutes',
+      ])
+        settings[field] = source[field];
     }
-
-    // 2) Holidays deterministiche
-    const holidays = defaultHolidaysFor(academicYear);
-
-    // Pre-fetch esistenti (match per name + dateFrom, evita duplicati anche
-    // tra run successivi anche se le date "slittano" tra anni).
-    const existingHolidays = await MonteOreSuspension.findAll({
-      where: { instituteId: realInstituteId, academicYear, category: 'holiday' },
-      transaction: t,
-    });
-    const existingKey = (s) => `${s.name}::${String(s.dateFrom).slice(0, 10)}`;
-    const existingSet = new Set(existingHolidays.map(existingKey));
-
-    let suspensionsCreated = 0;
-    let suspensionsSkipped = 0;
-
-    for (const h of holidays) {
-      const key = `${h.name}::${h.dateFrom}`;
-      if (existingSet.has(key) && !overwrite) {
-        suspensionsSkipped += 1;
-        continue;
-      }
-      if (existingSet.has(key) && overwrite) {
-        const ex = existingHolidays.find((s) => existingKey(s) === key);
-        await ex.update(
-          {
-            dateFrom: h.dateFrom,
-            dateTo: h.dateTo,
-            kind: h.kind,
-            category: 'holiday',
-            notes: h.notes,
-          },
-          { transaction: t },
-        );
-        // Considerato come "ricreato"
-        suspensionsCreated += 1;
-        continue;
-      }
-      await MonteOreSuspension.create(
-        {
-          instituteId: realInstituteId,
-          academicYear,
-          name: h.name,
-          dateFrom: h.dateFrom,
-          dateTo: h.dateTo,
-          kind: h.kind,
-          category: 'holiday',
-          notes: h.notes,
-        },
-        { transaction: t },
-      );
-      suspensionsCreated += 1;
+    if (copyCalendar) {
+      for (const field of [
+        'lessonsStartDate',
+        'lessonsEndDate',
+        'submissionWindowStart',
+        'submissionWindowEnd',
+      ])
+        settings[field] = shift(source[field]);
     }
-
-    // 3) Eventuale copia da AA precedente (mode='from_previous')
-    if (mode === 'from_previous' && previousYear) {
-      if (!/^\d{4}\/\d{4}$/.test(previousYear)) {
-        const e = new Error('previousYear non valido');
-        e.status = 400;
-        throw e;
-      }
-      const fromCustom = await MonteOreSuspension.findAll({
+    const categories = [copyCustom && 'custom', copyExamSessions && 'exam_session'].filter(Boolean);
+    if (categories.length) {
+      const rows = await MonteOreSuspension.findAll({
         where: {
           instituteId: realInstituteId,
           academicYear: previousYear,
-          category: { [Op.in]: ['custom', 'exam_session'] },
+          category: { [Op.in]: categories },
         },
-        transaction: t,
+        transaction,
       });
-      // Recupera anche le righe (custom/exam_session) già presenti nell'AA
-      // target, per evitare duplicati su run ripetuti.
-      const existingCopies = await MonteOreSuspension.findAll({
-        where: {
-          instituteId: realInstituteId,
-          academicYear,
-          category: { [Op.in]: ['custom', 'exam_session'] },
-        },
-        transaction: t,
-      });
-      const copiesSet = new Set(existingCopies.map(existingKey));
-      for (const s of fromCustom) {
-        const shiftedFrom = dayjs(s.dateFrom).add(365, 'day').format('YYYY-MM-DD');
-        const shiftedTo = dayjs(s.dateTo).add(365, 'day').format('YYYY-MM-DD');
-        const key = `${s.name}::${shiftedFrom}`;
-        if (copiesSet.has(key) && !overwrite) {
-          suspensionsSkipped += 1;
-          continue;
-        }
-        await MonteOreSuspension.create(
-          {
-            instituteId: realInstituteId,
-            academicYear,
-            name: s.name,
-            dateFrom: shiftedFrom,
-            dateTo: shiftedTo,
-            kind: s.kind,
-            category: s.category,
-            notes: s.notes,
-          },
-          { transaction: t },
+      for (const row of rows)
+        suspensions.push({
+          name: row.name,
+          dateFrom: shift(row.dateFrom),
+          dateTo: shift(row.dateTo),
+          kind: row.kind,
+          category: row.category,
+          notes: row.notes,
+        });
+    }
+    warnings.push(
+      'Le date copiate mantengono giorno e mese, non il giorno della settimana. Il 29 febbraio diventa 28 febbraio negli anni non bisestili. Verifica ponti e sessioni.',
+    );
+  }
+  const allowed = Object.keys(defaultSettingsFor(academicYear));
+  for (const field of allowed)
+    if (overrides[field] !== undefined) settings[field] = overrides[field];
+  validateSettings(settings);
+  await MonteOreSettings.build(settings).validate();
+  for (const row of suspensions) {
+    if (
+      row.dateFrom < settings.academicYearStart ||
+      row.dateTo > settings.academicYearEnd ||
+      row.dateFrom > row.dateTo
+    )
+      invalid(`Sospensione fuori anno: ${row.name}`);
+  }
+  const overlaps = [];
+  for (let i = 0; i < suspensions.length; i++) {
+    for (let j = i + 1; j < suspensions.length; j++) {
+      if (
+        suspensions[i].dateFrom <= suspensions[j].dateTo &&
+        suspensions[j].dateFrom <= suspensions[i].dateTo
+      )
+        overlaps.push(`${suspensions[i].name} / ${suspensions[j].name}`);
+    }
+  }
+  if (overlaps.length) warnings.push(`Sospensioni sovrapposte: ${overlaps.join(', ')}`);
+  const availableDays = [0, 0, 0, 0, 0, 0, 0];
+  for (
+    let d = dayjs(settings.lessonsStartDate);
+    d.format('YYYY-MM-DD') <= settings.lessonsEndDate;
+    d = d.add(1, 'day')
+  ) {
+    const date = d.format('YYYY-MM-DD');
+    if (!suspensions.some((s) => date >= s.dateFrom && date <= s.dateTo)) availableDays[d.day()]++;
+  }
+  return { settings, suspensions, warnings, availableDays };
+}
+
+async function bootstrapAcademicYear(options = {}) {
+  const run = async (transaction) => {
+    validateYear(options.academicYear);
+    const instituteId = await resolveInstituteId(options.instituteId);
+    // Serialize startup and manual creation across PM2 workers.
+    await Institute.findByPk(instituteId, { transaction, lock: transaction.LOCK.UPDATE });
+    const existing = await MonteOreSettings.findOne({
+      where: { instituteId, academicYear: options.academicYear },
+      transaction,
+    });
+    if (existing && !options.overwrite) {
+      return {
+        settings: existing.toJSON(),
+        suspensionsCreated: 0,
+        suspensionsSkipped: await MonteOreSuspension.count({
+          where: { instituteId, academicYear: options.academicYear },
+          transaction,
+        }),
+      };
+    }
+    if (existing?.status === 'archived')
+      invalid('Anno archiviato: ripubblicalo prima di modificarlo');
+    const plan = await previewAcademicYear({ ...options, instituteId, transaction });
+    const { status: _status, ...values } = plan.settings;
+    const settings = existing
+      ? await existing.update(values, { transaction })
+      : await MonteOreSettings.create(
+          { ...plan.settings, status: options.publish === true ? 'published' : 'draft' },
+          { transaction },
         );
-        suspensionsCreated += 1;
+    let suspensionsCreated = 0;
+    let suspensionsSkipped = 0;
+    const rows = await MonteOreSuspension.findAll({
+      where: { instituteId, academicYear: options.academicYear },
+      transaction,
+    });
+    for (const suspension of plan.suspensions) {
+      const match = rows.find(
+        (s) =>
+          s.category === suspension.category &&
+          s.name.trim().toLowerCase() === suspension.name.trim().toLowerCase() &&
+          (suspension.category === 'holiday' ||
+            (s.dateFrom === suspension.dateFrom && s.dateTo === suspension.dateTo)),
+      );
+      if (match) {
+        await match.update(suspension, { transaction });
+        suspensionsSkipped++;
+      } else {
+        rows.push(
+          await MonteOreSuspension.create(
+            { ...suspension, instituteId, academicYear: options.academicYear },
+            { transaction },
+          ),
+        );
+        suspensionsCreated++;
       }
     }
-
-    return {
-      settings: settings.toJSON ? settings.toJSON() : settings,
-      suspensionsCreated,
-      suspensionsSkipped,
-    };
+    return { settings: settings.toJSON(), suspensionsCreated, suspensionsSkipped };
   };
-
-  if (transaction) return run(transaction);
-  return sequelize.transaction(run);
+  return options.transaction ? run(options.transaction) : sequelize.transaction(run);
 }
 
 /**
  * Garantisce che gli AA "attivi" (corrente + prossimo) abbiano `MonteOreSettings`
- * e le festività di default. Idempotente: chiamabile a ogni boot senza
- * duplicare nulla. Per ogni istituto presente nel sistema.
+ * e le festività di default quando ancora mancanti. Gli anni già configurati
+ * restano intatti, comprese le festività eliminate o spostate. Per ogni istituto presente nel sistema.
  *
  * Pensato per essere chiamato in `server.js` dopo il seed, così che ogni AA
  * compaia automaticamente con il calendario completo, senza bisogno che
@@ -349,6 +344,7 @@ async function ensureBootstrapForActiveYears({ today = new Date() } = {}) {
 
 module.exports = {
   bootstrapAcademicYear,
+  previewAcademicYear,
   ensureBootstrapForActiveYears,
   defaultHolidaysFor,
   defaultSettingsFor,

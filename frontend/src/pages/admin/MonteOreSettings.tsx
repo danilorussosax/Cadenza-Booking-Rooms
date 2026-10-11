@@ -60,6 +60,7 @@ export default function AdminMonteOreSettings() {
     onSuccess: () => {
       toast.success('Impostazioni salvate');
       void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'settings'] });
+      void qc.invalidateQueries({ queryKey: ['monte-ore'] });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -112,7 +113,7 @@ export default function AdminMonteOreSettings() {
               variant="outline"
               size="sm"
               onClick={handleDownloadTemplate}
-              disabled={!year || downloading}
+              disabled={!settings || downloading}
             >
               <Download className="h-4 w-4" />
               {downloading ? 'Download…' : 'Scarica template Excel'}
@@ -130,6 +131,7 @@ export default function AdminMonteOreSettings() {
         <Skeleton className="h-72 w-full" />
       ) : settings ? (
         <SettingsForm
+          key={`${settings.id}-${JSON.stringify(settings)}`}
           settings={settings}
           onSave={(p) => updateMutation.mutate(p)}
           saving={updateMutation.isPending}
@@ -137,11 +139,15 @@ export default function AdminMonteOreSettings() {
       ) : (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Impossibile caricare le impostazioni.</AlertDescription>
+          <AlertDescription>
+            {settingsQuery.isError
+              ? 'Impossibile caricare le impostazioni.'
+              : 'Anno non ancora creato. Scegli «Crea nuovo anno accademico…» dal selettore per prepararlo.'}
+          </AlertDescription>
         </Alert>
       )}
 
-      {year && (
+      {year && settings && settings.status !== 'archived' && (
         <SuspensionsCard
           academicYear={year}
           suspensions={suspensions}
@@ -149,7 +155,9 @@ export default function AdminMonteOreSettings() {
         />
       )}
 
-      {year && <ExamSessionsEditor academicYear={year} />}
+      {year && settings && settings.status !== 'archived' && (
+        <ExamSessionsEditor academicYear={year} />
+      )}
     </div>
   );
 }
@@ -268,85 +276,82 @@ function SettingsForm({
         <CardTitle className="text-lg">Periodo lezioni e finestra inserimento</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-0 sm:pt-0">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label>Inizio anno accademico</Label>
-            <Input
-              type="date"
-              value={form.academicYearStart ?? ''}
-              onChange={(e) => update('academicYearStart', e.target.value)}
-            />
+        {settings.status === 'archived' && (
+          <p className="text-sm">Anno archiviato. Ripubblicalo per modificarlo.</p>
+        )}
+        <fieldset disabled={settings.status === 'archived'} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Inizio anno accademico</Label>
+              <Input type="date" value={form.academicYearStart ?? ''} readOnly />
+            </div>
+            <div>
+              <Label>Fine anno accademico</Label>
+              <Input type="date" value={form.academicYearEnd ?? ''} readOnly />
+            </div>
+            <div>
+              <Label>Inizio lezioni</Label>
+              <Input
+                type="date"
+                value={form.lessonsStartDate ?? ''}
+                onChange={(e) => update('lessonsStartDate', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Fine lezioni</Label>
+              <Input
+                type="date"
+                value={form.lessonsEndDate ?? ''}
+                onChange={(e) => update('lessonsEndDate', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Apertura invio docenti</Label>
+              <Input
+                type="date"
+                value={form.submissionWindowStart ?? ''}
+                onChange={(e) => update('submissionWindowStart', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Chiusura invio docenti</Label>
+              <Input
+                type="date"
+                value={form.submissionWindowEnd ?? ''}
+                onChange={(e) => update('submissionWindowEnd', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Soglia minima ore</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                value={form.minRequiredHours ?? 324}
+                onChange={(e) => update('minRequiredHours', Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label>Max richieste variazione / anno</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={form.maxAmendmentsPerYear ?? 3}
+                onChange={(e) => update('maxAmendmentsPerYear', Number(e.target.value))}
+              />
+            </div>
           </div>
-          <div>
-            <Label>Fine anno accademico</Label>
-            <Input
-              type="date"
-              value={form.academicYearEnd ?? ''}
-              onChange={(e) => update('academicYearEnd', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Inizio lezioni</Label>
-            <Input
-              type="date"
-              value={form.lessonsStartDate ?? ''}
-              onChange={(e) => update('lessonsStartDate', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Fine lezioni</Label>
-            <Input
-              type="date"
-              value={form.lessonsEndDate ?? ''}
-              onChange={(e) => update('lessonsEndDate', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Apertura inserimento docenti</Label>
-            <Input
-              type="date"
-              value={form.submissionWindowStart ?? ''}
-              onChange={(e) => update('submissionWindowStart', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Chiusura inserimento docenti</Label>
-            <Input
-              type="date"
-              value={form.submissionWindowEnd ?? ''}
-              onChange={(e) => update('submissionWindowEnd', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Soglia minima ore</Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.5}
-              value={form.minRequiredHours ?? 324}
-              onChange={(e) => update('minRequiredHours', Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <Label>Max richieste variazione / anno</Label>
-            <Input
-              type="number"
-              min={0}
-              step={1}
-              value={form.maxAmendmentsPerYear ?? 3}
-              onChange={(e) => update('maxAmendmentsPerYear', Number(e.target.value))}
-            />
-          </div>
-        </div>
 
-        <DailyConstraintsSection form={form} update={update} />
+          <DailyConstraintsSection form={form} update={update} />
 
-        <div className="flex justify-end">
-          <Button onClick={() => onSave(form)} disabled={saving || hasBreakCoherenceError(form)}>
-            <Save className="h-4 w-4" />
-            Salva impostazioni
-          </Button>
-        </div>
+          <div className="flex justify-end">
+            <Button onClick={() => onSave(form)} disabled={saving || hasBreakCoherenceError(form)}>
+              <Save className="h-4 w-4" />
+              Salva impostazioni
+            </Button>
+          </div>
+        </fieldset>
       </CardContent>
     </Card>
   );

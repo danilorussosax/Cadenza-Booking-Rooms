@@ -26,7 +26,8 @@
     "e2e": "npm --prefix frontend run e2e",
     "e2e:ui": "npm --prefix frontend run e2e:ui",
     "e2e:headed": "npm --prefix frontend run e2e:headed",
-    "soak": "bash loadtest/soak.sh"
+    "soak": "bash loadtest/soak.sh",
+    "release:version": "node scripts/release-version.cjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",

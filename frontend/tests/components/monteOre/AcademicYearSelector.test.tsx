@@ -115,9 +115,9 @@ describe('<AdminAcademicYearSelector />', () => {
   it("renderizza i badge contestuali per l'AA selezionato (in corso)", async () => {
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
-    // Aspetta che il bottone "Attiva per docenti" appaia (segnale che selected è risolto)
+    // Aspetta che il bottone "Mostra ai docenti" appaia (segnale che selected è risolto)
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Attiva per docenti/i })).toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
     );
     // Badge "in corso": testo deve essere uno span Badge (dom < 50 chars).
     // Usiamo getAllByText e verifichiamo almeno uno renderizzato come <span> (badge).
@@ -125,10 +125,10 @@ describe('<AdminAcademicYearSelector />', () => {
     expect(matches.length).toBeGreaterThan(0);
   });
 
-  it('renderizza badge "prossimo" + "submission aperta" per AA isNext', async () => {
+  it('renderizza badge "prossimo" + "Invio aperto" per AA isNext', async () => {
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2026/2027" onChange={vi.fn()} />);
-    await waitFor(() => expect(screen.queryByText(/submission aperta/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Invio aperto/i)).toBeInTheDocument());
     expect(screen.getAllByText(/prossimo/i).length).toBeGreaterThan(0);
   });
 
@@ -139,25 +139,25 @@ describe('<AdminAcademicYearSelector />', () => {
     });
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
     await waitFor(() => expect(screen.queryByText(/attivato per docenti/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Disattiva per docenti/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Usa selezione automatica/i })).toBeInTheDocument();
   });
 
-  it('mostra bottone "Attiva per docenti" se adminActivated=false e hasSettings=true', async () => {
+  it('mostra bottone "Mostra ai docenti" se adminActivated=false e hasSettings=true', async () => {
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Attiva per docenti/i })).toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
     );
   });
 
-  it('click su "Attiva per docenti" chiama activate API con (year, true)', async () => {
+  it('click su "Mostra ai docenti" chiama activate API con (year, true)', async () => {
     activateMock.mockResolvedValue({ activated: null, deactivated: 0 });
     listAcademicYearsMock.mockResolvedValue(baseResponse());
     renderWithProviders(<AdminAcademicYearSelector value="2025/2026" onChange={vi.fn()} />);
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Attiva per docenti/i })).toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).toBeInTheDocument(),
     );
-    screen.getByRole('button', { name: /Attiva per docenti/i }).click();
+    screen.getByRole('button', { name: /Mostra ai docenti/i }).click();
     await waitFor(() => expect(activateMock).toHaveBeenCalled());
     expect(activateMock).toHaveBeenCalledWith('2025/2026', true);
   });
@@ -179,7 +179,7 @@ describe('<AdminAcademicYearSelector />', () => {
     renderWithProviders(<AdminAcademicYearSelector value="2027/2028" onChange={vi.fn()} />);
     await waitFor(() => expect(screen.queryByText(/non ancora creato/i)).toBeInTheDocument());
     // E NON mostra bottone toggle (richiede hasSettings)
-    expect(screen.queryByRole('button', { name: /Attiva per docenti/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mostra ai docenti/i })).not.toBeInTheDocument();
   });
 
   it('non crasha se localStorage non è disponibile (readStoredYear catch)', async () => {

@@ -74,12 +74,23 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
       monteOreAdminApi.activateAcademicYearForTeachers(year, active),
     onSuccess: (res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
+      void queryClient.invalidateQueries({ queryKey: ['monte-ore'] });
       if (vars.active) {
         toast.success(`AA ${vars.year} attivato per i docenti`);
       } else {
         toast.success(`Override rimosso: ripristinata logica automatica`);
       }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const statusMut = useMutation({
+    mutationFn: ({ year, status }: { year: string; status: 'published' | 'archived' }) =>
+      monteOreAdminApi.setAcademicYearStatus(year, status),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['monte-ore'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+      toast.success('Stato anno aggiornato');
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -107,7 +118,11 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       // Pre-compila con il primo AA "futuro" candidato (canCreateNew=true);
       // se non c'è, lascia vuoto e l'utente digiterà a mano.
       const candidate = items.find((i) => i.canCreateNew);
-      setSuggestedYear(candidate?.academicYear);
+      const latest = items.reduce(
+        (max, item) => Math.max(max, Number(item.academicYear.slice(0, 4))),
+        0,
+      );
+      setSuggestedYear(candidate?.academicYear ?? `${latest + 1}/${latest + 2}`);
       setCreating(true);
       return;
     }
@@ -158,7 +173,14 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
           )}
           {selected.isCurrent && <Badge variant="success">in corso</Badge>}
           {selected.isNext && !selected.isCurrent && <Badge variant="secondary">prossimo</Badge>}
-          {selected.submissionOpen && <Badge variant="secondary">submission aperta</Badge>}
+          <Badge variant="secondary">
+            {selected.submissionOpen ? 'Invio aperto' : 'Invio chiuso'}
+          </Badge>
+          {selected.status && (
+            <Badge variant="outline">
+              {{ draft: 'Bozza', published: 'Pubblicato', archived: 'Archiviato' }[selected.status]}
+            </Badge>
+          )}
           {!selected.hasSettings && (
             <Badge variant="muted" className="text-amber-700 dark:text-amber-400">
               non ancora creato
@@ -168,34 +190,62 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       )}
 
       {/* Toggle "attivo per i docenti" — solo se l'AA esiste */}
-      {selected && selected.hasSettings && (
+      {selected &&
+        selected.hasSettings &&
+        (!selected.status || selected.status === 'published') && (
+          <Button
+            type="button"
+            variant={selected.adminActivated ? 'outline' : 'default'}
+            size="sm"
+            disabled={activateMut.isPending}
+            onClick={() =>
+              activateMut.mutate({ year: selected.academicYear, active: !selected.adminActivated })
+            }
+            className="gap-1.5"
+            title={
+              selected.adminActivated
+                ? 'Rimuovi override: torna alla logica automatica della finestra di submission'
+                : "Imposta questo AA come visibile ai docenti per l'inserimento"
+            }
+          >
+            {selected.adminActivated ? (
+              <>
+                <UserX className="h-3.5 w-3.5" />
+                Usa selezione automatica
+              </>
+            ) : (
+              <>
+                <UserCheck className="h-3.5 w-3.5" />
+                Mostra ai docenti
+              </>
+            )}
+          </Button>
+        )}
+
+      {selected?.hasSettings && selected.status !== 'published' && selected.status && (
         <Button
-          type="button"
-          variant={selected.adminActivated ? 'outline' : 'default'}
           size="sm"
-          disabled={activateMut.isPending}
-          onClick={() =>
-            activateMut.mutate({ year: selected.academicYear, active: !selected.adminActivated })
-          }
-          className="gap-1.5"
-          title={
-            selected.adminActivated
-              ? 'Rimuovi override: torna alla logica automatica della finestra di submission'
-              : "Imposta questo AA come visibile ai docenti per l'inserimento"
-          }
+          disabled={statusMut.isPending}
+          onClick={() => statusMut.mutate({ year: selected.academicYear, status: 'published' })}
         >
-          {selected.adminActivated ? (
-            <>
-              <UserX className="h-3.5 w-3.5" />
-              Disattiva per docenti
-            </>
-          ) : (
-            <>
-              <UserCheck className="h-3.5 w-3.5" />
-              Attiva per docenti
-            </>
-          )}
+          {selected.status === 'archived' ? 'Ripubblica anno' : 'Pubblica anno'}
         </Button>
+      )}
+      {selected?.status === 'published' && defaultYear && selected.academicYear < defaultYear && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={statusMut.isPending}
+          onClick={() => statusMut.mutate({ year: selected.academicYear, status: 'archived' })}
+        >
+          Archivia anno
+        </Button>
+      )}
+      {selected?.hasSettings && (
+        <p className="basis-full text-xs text-muted-foreground">
+          La visibilità sceglie l’anno mostrato. Le date nel calendario regolano l’apertura della
+          compilazione.
+        </p>
       )}
 
       <NewAcademicYearDialog

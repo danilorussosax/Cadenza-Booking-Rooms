@@ -67,12 +67,12 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     await Institute.create({ name: 'X', code: 'X', city: 'X', country: 'IT' });
     const { authHeader: adminHeader } = await createAdmin();
 
-    // GET autocrea le settings
+    // GET is read-only; PUT explicitly initializes the complete calendar
     const get = await request(app)
       .get('/api/admin/monte-ore/settings?academicYear=2025/2026')
       .set('Authorization', adminHeader);
     expect(get.status).toBe(200);
-    expect(get.body.settings.academicYear).toBe('2025/2026');
+    expect(get.body.settings).toBeNull();
 
     // PUT aggiorna minRequiredHours
     const put = await request(app)
@@ -100,7 +100,7 @@ describe('Monte Ore — Sezione B (calendar + slots + amendments)', () => {
     const list = await request(app)
       .get('/api/admin/monte-ore/suspensions?academicYear=2025/2026')
       .set('Authorization', adminHeader);
-    expect(list.body.suspensions).toHaveLength(1);
+    expect(list.body.suspensions).toHaveLength(7);
 
     // DELETE
     await request(app)

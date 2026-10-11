@@ -46,6 +46,8 @@ const { updateCalendar } = require('../services/monteOreCalendarUpdateService');
 const { randomUUID } = require('crypto');
 const slotService = require('../services/monteOreSlotService');
 const calendarService = require('../services/monteOreCalendarService');
+const { validateYear, validateSettings } = require('../services/academicYearConfig');
+const { bootstrapAcademicYear, previewAcademicYear } = require('../services/academicYearBootstrap');
 const { resolveAnnualThreshold } = require('../services/monteOreThresholdService');
 const { validateDailyConstraints } = require('../services/monteOreDailyValidator');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
@@ -68,7 +70,8 @@ function defaultRangeForYear(label) {
 
 async function isWithinSubmissionWindow(academicYear, user = null) {
   const settings = await MonteOreSettings.findOne({ where: { academicYear } });
-  if (!settings) return true; // se non configurato, consenti (modalità dev)
+  if (!settings) return true; // Compatibility for legacy plans without a calendar.
+  if (settings.status !== 'published') return false;
   const now = dayjs().format('YYYY-MM-DD');
   if (now >= settings.submissionWindowStart && now <= settings.submissionWindowEnd) {
     return true;
@@ -162,6 +165,11 @@ router.get('/me', authenticate, requireApproved, async (req, res, next) => {
   try {
     const year = req.query.year || currentAcademicYearLabel();
     const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
+    if (settings && settings.status !== 'published')
+      return res.status(409).json({
+        error: 'Anno non pubblicato per la compilazione',
+        code: 'ACADEMIC_YEAR_NOT_PUBLISHED',
+      });
     const range = settings
       ? { validFrom: settings.lessonsStartDate, validTo: settings.lessonsEndDate }
       : defaultRangeForYear(year);
@@ -244,6 +252,9 @@ async function findOwnProposalEditable(
   year = currentAcademicYearLabel(),
   transaction = null,
 ) {
+  const settings = await MonteOreSettings.findOne({ where: { academicYear: year }, transaction });
+  if (settings && settings.status !== 'published')
+    workflow.fail('Anno non pubblicato per la compilazione', 'ACADEMIC_YEAR_NOT_PUBLISHED', 409);
   const proposal = await MonteOreProposal.findOne({
     where: { userId, academicYear: year },
     transaction,
@@ -887,7 +898,7 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
     if (!isAdmin) {
       // Override admin: settings con isActiveForTeachers=true vincono.
       const activeSettings = await MonteOreSettings.findOne({
-        where: { isActiveForTeachers: true },
+        where: { isActiveForTeachers: true, status: 'published' },
       });
       const nextSettings = await MonteOreSettings.findOne({
         where: { academicYear: nextLabel },
@@ -917,6 +928,7 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
             isNext,
             submissionOpen,
             hasSettings: !!targetSettings,
+            status: targetSettings?.status,
             adminActivated,
           },
         ],
@@ -942,6 +954,7 @@ router.get('/academic-years', authenticate, async (req, res, next) => {
         hasSettings: true,
         adminActivated: !!s.isActiveForTeachers,
         settingsId: s.id,
+        status: s.status,
       };
     });
 
@@ -1085,42 +1098,96 @@ async function findExistingSuspension({ instituteId, academicYear, name, dateFro
  *
  * Ritorna `{ settings, suspensionsCreated, suspensionsSkipped }`.
  */
+// HTTP input never supplies a transaction or changes the installation's institute.
+function academicYearInput(body = {}) {
+  return Object.fromEntries(
+    [
+      'academicYear',
+      'mode',
+      'previousYear',
+      'copyRules',
+      'copyCalendar',
+      'copyCustom',
+      'copyExamSessions',
+      'settings',
+      'publish',
+    ]
+      .filter((key) => body[key] !== undefined)
+      .map((key) => [key, body[key]]),
+  );
+}
+
+adminRouter.post(
+  '/academic-years/preview',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      res.json(await previewAcademicYear(academicYearInput(req.body)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 adminRouter.post('/academic-years', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const { academicYear, mode, previousYear, overwrite } = req.body || {};
-    if (!academicYear || !/^\d{4}\/\d{4}$/.test(academicYear)) {
-      return res.status(400).json({
-        error: 'academicYear non valido (atteso formato "YYYY/YYYY")',
-        code: 'VALIDATION_FAILED',
-      });
-    }
-    const [a, b] = academicYear.split('/').map(Number);
-    if (b !== a + 1) {
-      return res.status(400).json({
-        error: 'academicYear non coerente: il secondo anno deve essere il primo + 1',
-        code: 'VALIDATION_FAILED',
-      });
-    }
-    const { bootstrapAcademicYear } = require('../services/academicYearBootstrap');
+    validateYear(req.body.academicYear);
     const result = await updateCalendar(
-      academicYear,
+      req.body.academicYear,
       req.user,
       req.body.confirmImpact === true,
       (transaction) =>
         bootstrapAcademicYear({
-          academicYear,
-          mode: mode === 'from_previous' ? 'from_previous' : 'default',
-          previousYear: previousYear || null,
-          overwrite: !!overwrite,
+          ...academicYearInput(req.body),
+          overwrite: req.body.overwrite === true,
           transaction,
         }),
     );
     res.status(201).json(result);
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
+
+adminRouter.post(
+  '/academic-years/:academicYear/status',
+  authenticate,
+  requireRole('admin'),
+  async (req, res, next) => {
+    try {
+      const { academicYear } = req.params;
+      validateYear(academicYear);
+      const status = req.body.status;
+      if (!['published', 'archived'].includes(status)) workflow.fail('Stato non valido');
+      const instituteId = await resolveDefaultInstituteId();
+      const settings = await workflow.transact(async (transaction) => {
+        await Institute.findByPk(instituteId, { transaction, lock: transaction.LOCK.UPDATE });
+        const target = await MonteOreSettings.findOne({
+          where: { academicYear, instituteId },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!target) workflow.fail('Anno non trovato', 'NOT_FOUND', 404);
+        if (status === 'published') validateSettings(target.toJSON());
+        if (status === 'archived' && academicYear >= calendarService.currentAcademicYear())
+          workflow.fail(
+            'Puoi archiviare solo gli anni accademici conclusi',
+            'ACADEMIC_YEAR_NOT_ENDED',
+            409,
+          );
+        await target.update(
+          { status, ...(status === 'archived' ? { isActiveForTeachers: false } : {}) },
+          { transaction },
+        );
+        return target;
+      });
+      res.json({ settings });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 /**
  * POST /api/admin/monte-ore/academic-years/:academicYear/activate-for-teachers
@@ -1143,16 +1210,30 @@ adminRouter.post(
       if (!/^\d{4}\/\d{4}$/.test(academicYear)) {
         return res.status(400).json({ error: 'academicYear non valido' });
       }
-      const target = await MonteOreSettings.findOne({ where: { academicYear } });
+      const instituteId = await resolveDefaultInstituteId();
+      const target = await MonteOreSettings.findOne({ where: { academicYear, instituteId } });
       if (!target) {
         return res.status(404).json({ error: 'Settings non trovati per questo AA' });
       }
-      const { sequelize } = require('../models');
-      const result = await sequelize.transaction(async (t) => {
+      if (active && target.status !== 'published')
+        workflow.fail('Pubblica prima questo anno accademico', 'ACADEMIC_YEAR_NOT_PUBLISHED', 409);
+      const result = await workflow.transact(async (t) => {
+        await Institute.findByPk(instituteId, { transaction: t, lock: t.LOCK.UPDATE });
+        await target.reload({ transaction: t });
+        if (active && target.status !== 'published')
+          workflow.fail(
+            'Pubblica prima questo anno accademico',
+            'ACADEMIC_YEAR_NOT_PUBLISHED',
+            409,
+          );
         const [deactivated] = await MonteOreSettings.update(
           { isActiveForTeachers: false },
           {
-            where: { instituteId: target.instituteId, isActiveForTeachers: true },
+            where: {
+              instituteId: target.instituteId,
+              isActiveForTeachers: true,
+              ...(active ? {} : { id: target.id }),
+            },
             transaction: t,
           },
         );
@@ -1430,6 +1511,13 @@ adminRouter.post(
         });
       }
 
+      if (settings.status === 'archived')
+        workflow.fail(
+          'Anno archiviato: ripubblicalo prima di modificarlo',
+          'ACADEMIC_YEAR_ARCHIVED',
+          409,
+        );
+
       // --- Calcolo ore totali del pattern (somma delle fasce, non moltiplicato per occurrences) ---
       const totalHoursPattern = schedules.reduce((acc, s) => {
         const [sh, sm] = s.startTime.split(':').map(Number);
@@ -1604,19 +1692,10 @@ adminRouter.get('/settings/list', authenticate, requireRole('admin'), async (req
 adminRouter.get('/settings', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const year = req.query.academicYear || calendarService.currentAcademicYear();
-    let settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
-    if (!settings) {
-      const instituteId = await resolveDefaultInstituteId();
-      const def = calendarService.defaultRangeForAcademicYear(year);
-      settings = await MonteOreSettings.create({
-        instituteId,
-        academicYear: year,
-        ...def,
-        minRequiredHours: 324,
-        maxAmendmentsPerYear: 3,
-      });
-    }
-    res.json({ settings: settings.toJSON() });
+    validateYear(year);
+    const instituteId = await resolveDefaultInstituteId();
+    const settings = await MonteOreSettings.findOne({ where: { academicYear: year, instituteId } });
+    res.json({ settings: settings ? settings.toJSON() : null });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
@@ -1626,22 +1705,39 @@ adminRouter.get('/settings', authenticate, requireRole('admin'), async (req, res
 adminRouter.put('/settings', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const year = req.body.academicYear || calendarService.currentAcademicYear();
-    let settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
-    if (!settings) {
-      const instituteId = await resolveDefaultInstituteId();
-      const def = calendarService.defaultRangeForAcademicYear(year);
-      settings = await MonteOreSettings.create({
-        instituteId,
-        academicYear: year,
-        ...def,
-        minRequiredHours: 324,
-        maxAmendmentsPerYear: 3,
-      });
-    }
-    await updateCalendar(year, req.user, req.body.confirmImpact === true, (transaction) =>
-      settings.update(sanitizeSettings(req.body), { transaction }),
+    validateYear(year);
+    const instituteId = await resolveDefaultInstituteId();
+    const settings = await updateCalendar(
+      year,
+      req.user,
+      req.body.confirmImpact === true,
+      async (transaction) => {
+        let target = await MonteOreSettings.findOne({
+          where: { academicYear: year, instituteId },
+          transaction,
+        });
+        if (!target) {
+          const created = await bootstrapAcademicYear({
+            academicYear: year,
+            instituteId,
+            settings: sanitizeSettings(req.body),
+            transaction,
+          });
+          return created.settings;
+        }
+        if (target.status === 'archived')
+          workflow.fail(
+            'Anno archiviato: ripubblicalo prima di modificarlo',
+            'ACADEMIC_YEAR_ARCHIVED',
+            409,
+          );
+        const values = sanitizeSettings(req.body);
+        validateSettings({ ...target.toJSON(), ...values });
+        await target.update(values, { transaction });
+        return target.toJSON();
+      },
     );
-    res.json({ settings: settings.toJSON() });
+    res.json({ settings });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     // Errore di validazione model (es. range fuori scope o coerenza
@@ -1883,6 +1979,26 @@ adminRouter.get('/', authenticate, requireRole('admin'), async (req, res, next) 
     });
     setPaginationHeaders(res, count, limit, offset);
     res.json({ proposals: rows.map(serializeProposal) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.use('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    if (req.method !== 'GET' && /^\d+$/.test(req.params.id)) {
+      const proposal = await MonteOreProposal.findByPk(req.params.id);
+      const settings =
+        proposal &&
+        (await MonteOreSettings.findOne({ where: { academicYear: proposal.academicYear } }));
+      if (settings?.status === 'archived')
+        workflow.fail(
+          'Anno archiviato: ripubblicalo prima di modificarlo',
+          'ACADEMIC_YEAR_ARCHIVED',
+          409,
+        );
+    }
+    next();
   } catch (err) {
     next(err);
   }

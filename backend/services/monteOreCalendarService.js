@@ -175,17 +175,7 @@ function computeWeeks(settings, suspensions = []) {
  * date "1 nov 2025 → 31 ott 2026".
  */
 function defaultRangeForAcademicYear(academicYear) {
-  const [a] = academicYear.split('/').map(Number);
-  return {
-    academicYearStart: `${a}-11-01`,
-    academicYearEnd: `${a + 1}-10-31`,
-    // Default lezioni: leggermente dentro il range AA (3 nov → 30 giu)
-    lessonsStartDate: `${a}-11-03`,
-    lessonsEndDate: `${a + 1}-10-31`,
-    // Finestra inserimento: tutto settembre-ottobre dell'anno X
-    submissionWindowStart: `${a}-09-01`,
-    submissionWindowEnd: `${a}-10-31`,
-  };
+  return require('./academicYearConfig').defaultSettingsFor(academicYear);
 }
 
 /** Anno accademico corrente: 1 nov → 31 ott. */
@@ -223,7 +213,7 @@ function nextAcademicYear(today = new Date()) {
  * `settings.submissionWindowStart` / `End` sono DATEONLY.
  */
 function isSubmissionWindowOpen(settings, today = new Date()) {
-  if (!settings) return false;
+  if (!settings || (settings.status && settings.status !== 'published')) return false;
   const start = settings.submissionWindowStart;
   const end = settings.submissionWindowEnd;
   if (!start || !end) return false;
@@ -250,7 +240,11 @@ function resolveTargetAcademicYearForTeacher(
   nextSettings = null,
   activeSettings = null,
 ) {
-  if (activeSettings && activeSettings.isActiveForTeachers) {
+  if (
+    activeSettings &&
+    activeSettings.isActiveForTeachers &&
+    (!activeSettings.status || activeSettings.status === 'published')
+  ) {
     return activeSettings.academicYear;
   }
   if (nextSettings && isSubmissionWindowOpen(nextSettings, today)) {

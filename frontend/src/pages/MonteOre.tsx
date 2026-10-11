@@ -89,7 +89,8 @@ export default function MonteOre() {
     queryFn: () => monteOreApi.getAcademicYearForTeacher(),
   });
   const targetItem = targetYearQuery.data?.items[0];
-  const targetYear = targetItem?.academicYear;
+  const yearUnavailable = targetItem?.status === 'draft' || targetItem?.status === 'archived';
+  const targetYear = yearUnavailable ? undefined : targetItem?.academicYear;
 
   const proposalQuery = useQuery({
     queryKey: ['monte-ore', 'me', targetYear],
@@ -211,6 +212,17 @@ export default function MonteOre() {
     return <ModuleDisabledCard moduleLabel="Monte Ore" />;
   }
 
+  if (yearUnavailable) {
+    return (
+      <Alert>
+        <AlertDescription>
+          L’anno accademico non è ancora disponibile per la compilazione. Attendi la pubblicazione
+          da parte dell’amministrazione.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   if (!proposal) {
     return (
       <div className="mx-auto max-w-7xl">
@@ -289,7 +301,7 @@ export default function MonteOre() {
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {targetItem.adminActivated
-                ? "L'amministrazione ha selezionato questo anno accademico come quello attivo per l'inserimento."
+                ? "L'amministrazione ha selezionato questo anno. La compilazione segue le date configurate nel calendario."
                 : targetItem.submissionOpen
                   ? 'La finestra di inserimento è attualmente aperta.'
                   : 'La finestra di inserimento non risulta aperta al momento.'}

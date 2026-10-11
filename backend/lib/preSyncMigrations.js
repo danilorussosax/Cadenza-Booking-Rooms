@@ -311,6 +311,7 @@ async function ensurePostgresEnumValue(enumTypeName, value) {
 }
 
 async function runPreSyncMigrations() {
+  await require('./academicYearMigration').up(sequelize.getQueryInterface());
   await require('./monteOreWorkflowMigration').up(sequelize.getQueryInterface());
   const added = await ensureUserStatusColumn();
   if (added) {

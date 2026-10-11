@@ -1,17 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarPlus, Info } from 'lucide-react';
 import {
   monteOreAdminApi,
-  type AcademicYearBootstrapMode,
   type AcademicYearOption,
+  type AcademicYearPreview,
+  type BootstrapAcademicYearPayload,
+  type MonteOreSettings,
 } from '@/api/monteOre';
 import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -21,283 +21,299 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-const AA_REGEX = /^\d{4}\/\d{4}$/;
-
-/**
- * Validazione client-side del formato AA "YYYY/YYYY" con secondo anno = primo + 1.
- * Replica la validazione backend (`/api/admin/monte-ore/academic-years` 400).
- */
-function validateAcademicYear(input: string): { ok: boolean; error?: string } {
-  if (!input) return { ok: false, error: "Indica l'anno accademico." };
-  if (!AA_REGEX.test(input)) {
-    return { ok: false, error: 'Formato non valido (atteso "YYYY/YYYY").' };
-  }
-  const [a, b] = input.split('/').map(Number);
-  if (b !== a + 1) {
-    return {
-      ok: false,
-      error: 'Il secondo anno deve essere il primo + 1 (es. 2026/2027).',
-    };
-  }
-  return { ok: true };
-}
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  /**
-   * Lista completa degli AA già esistenti, usata per popolare il select
-   * "AA precedente" in mode=from_previous e per pre-compilare l'AA candidato.
-   */
   existingYears: AcademicYearOption[];
-  /** AA suggerito da pre-compilare (es. il primo AA con `canCreateNew=true`). */
   suggestedYear?: string;
-  /** Callback dopo creazione riuscita (per selezionare il nuovo AA, ecc.). */
-  onCreated?: (academicYear: string) => void;
+  onCreated?: (year: string) => void;
 }
 
-export function NewAcademicYearDialog({
-  open,
-  onClose,
-  existingYears,
-  suggestedYear,
-  onCreated,
-}: Props) {
-  const qc = useQueryClient();
-  const [academicYear, setAcademicYear] = useState(suggestedYear ?? '');
-  const [mode, setMode] = useState<AcademicYearBootstrapMode>('default');
-  const [previousYear, setPreviousYear] = useState<string>('');
-  const [overwrite, setOverwrite] = useState(false);
+const dateFields = [
+  ['lessonsStartDate', 'Inizio lezioni'],
+  ['lessonsEndDate', 'Fine lezioni'],
+  ['submissionWindowStart', 'Apertura invio'],
+  ['submissionWindowEnd', 'Chiusura invio'],
+] as const;
 
-  // Re-inizializza il form ogni volta che il dialog si apre con una proposta
-  // di AA diversa (utente cambia voce nel selettore).
-  const resetForm = () => {
-    setAcademicYear(suggestedYear ?? '');
-    setMode('default');
-    setPreviousYear('');
-    setOverwrite(false);
-  };
-
-  const validation = useMemo(() => validateAcademicYear(academicYear), [academicYear]);
-
-  const preview = useMemo(() => {
-    if (!validation.ok) return null;
-    const [a, b] = academicYear.split('/').map(Number);
-    return { startYear: a, endYear: b };
-  }, [academicYear, validation.ok]);
-
-  // Solo AA esistenti = candidati validi per "da AA precedente".
-  const previousYearOptions = existingYears.filter((y) => y.hasSettings);
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      monteOreAdminApi.createAcademicYear({
-        academicYear,
-        mode,
-        previousYear: mode === 'from_previous' ? previousYear || null : null,
-        overwrite,
-      }),
-    onSuccess: (data) => {
-      const created = data.suspensionsCreated;
-      const skipped = data.suspensionsSkipped;
-      toast.success(
-        `AA ${academicYear} creato — ${created} sospensioni inserite` +
-          (skipped > 0 ? `, ${skipped} saltate (già presenti)` : ''),
-      );
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
-      onCreated?.(academicYear);
-      resetForm();
-      onClose();
-    },
-    onError: (err) => {
-      toast.error(httpErrorMessage(err));
-    },
-  });
-
-  const canSubmit =
-    validation.ok && (mode === 'default' || !!previousYear) && !createMutation.isPending;
-
+export function NewAcademicYearDialog(props: Props) {
   return (
     <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) {
-          resetForm();
-          onClose();
-        }
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open) props.onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarPlus className="h-5 w-5 text-primary" />
-            Crea nuovo anno accademico
-          </DialogTitle>
-          <DialogDescription>
-            Inizializza calendario didattico, finestra inserimento e festività per l'AA scelto.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form
-          className="space-y-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (canSubmit) createMutation.mutate();
-          }}
-        >
-          {/* Campo AA + preview */}
-          <div className="space-y-2">
-            <Label htmlFor="aa-input">Anno accademico</Label>
-            <Input
-              id="aa-input"
-              value={academicYear}
-              placeholder="2026/2027"
-              autoComplete="off"
-              maxLength={9}
-              onChange={(e) => setAcademicYear(e.target.value.trim())}
-              aria-invalid={academicYear !== '' && !validation.ok}
-            />
-            {academicYear !== '' && !validation.ok && (
-              <p className="text-xs text-destructive">{validation.error}</p>
-            )}
-            {preview && (
-              <p className="text-xs text-muted-foreground">
-                Calendario: <strong>1 novembre {preview.startYear}</strong> →{' '}
-                <strong>31 ottobre {preview.endYear}</strong>
-              </p>
-            )}
-          </div>
-
-          {/* Mode radio */}
-          <div className="space-y-2">
-            <Label>Origine dati</Label>
-            <div className="grid gap-2">
-              <label
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                  mode === 'default' ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="mode"
-                  value="default"
-                  checked={mode === 'default'}
-                  onChange={() => setMode('default')}
-                  className="mt-1 h-4 w-4 accent-primary"
-                />
-                <div>
-                  <p className="text-sm font-medium">Default (festività deterministiche)</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Crea le festività canoniche del calendario italiano (1 nov, 8 dic, Natale,
-                    Pasqua, 25 apr, 1 mag, 2 giu) + chiusure standard.
-                  </p>
-                </div>
-              </label>
-              <label
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                  mode === 'from_previous' ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="mode"
-                  value="from_previous"
-                  checked={mode === 'from_previous'}
-                  onChange={() => setMode('from_previous')}
-                  className="mt-1 h-4 w-4 accent-primary"
-                  disabled={previousYearOptions.length === 0}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Da AA precedente (clona personalizzate +1 anno)
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Copia le sospensioni custom (es. ponti, recuperi) dall'AA scelto e ne fa
-                    scorrere le date di un anno.
-                  </p>
-                  {previousYearOptions.length === 0 && (
-                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                      Nessun AA precedente disponibile da cui clonare.
-                    </p>
-                  )}
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Select AA precedente (visibile solo se mode=from_previous) */}
-          {mode === 'from_previous' && previousYearOptions.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="prev-aa">AA precedente da cui clonare</Label>
-              <Select value={previousYear} onValueChange={setPreviousYear}>
-                <SelectTrigger id="prev-aa">
-                  <SelectValue placeholder="— scegli AA —" />
-                </SelectTrigger>
-                <SelectContent>
-                  {previousYearOptions.map((y) => (
-                    <SelectItem key={y.academicYear} value={y.academicYear}>
-                      {y.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Overwrite */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-dashed p-3 hover:bg-muted/30">
-            <Checkbox
-              checked={overwrite}
-              onCheckedChange={(v) => setOverwrite(v === true)}
-              className="mt-0.5"
-            />
-            <div>
-              <p className="text-sm font-medium">Sovrascrivi impostazioni esistenti</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Se l'AA è già stato creato, ne reimposta date di calendario e finestra inserimento
-                ai default e ri-applica le festività deterministiche. Le proposte e gli amendment
-                già presenti non vengono toccati.
-              </p>
-            </div>
-          </label>
-
-          {createMutation.error ? (
-            <Alert variant="destructive">
-              <Info className="h-4 w-4" />
-              <AlertDescription>{httpErrorMessage(createMutation.error)}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                resetForm();
-                onClose();
-              }}
-              disabled={createMutation.isPending}
-            >
-              Annulla
-            </Button>
-            <Button type="submit" disabled={!canSubmit}>
-              <CalendarPlus className="h-4 w-4" />
-              {createMutation.isPending ? 'Creazione…' : 'Crea AA'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      {props.open && <YearForm {...props} />}
     </Dialog>
   );
 }
 
+function YearForm({ existingYears, suggestedYear, onClose, onCreated }: Props) {
+  const qc = useQueryClient();
+  const [payload, setPayload] = useState<BootstrapAcademicYearPayload>({
+    academicYear: suggestedYear ?? '',
+    mode: 'default',
+    copyRules: true,
+    copyCalendar: true,
+    copyCustom: true,
+    copyExamSessions: true,
+  });
+  const [preview, setPreview] = useState<AcademicYearPreview | null>(null);
+  const [reviewed, setReviewed] = useState(false);
+  const [step, setStep] = useState(1);
+  const year = payload.academicYear;
+  const [start, end] = year.split('/').map(Number);
+  const valid = /^\d{4}\/\d{4}$/.test(year) && start >= 1900 && end === start + 1;
+  const exists = existingYears.some((y) => y.academicYear === year && y.hasSettings);
+  const sources = existingYears.filter((y) => y.hasSettings && y.academicYear < year);
+  const previewMut = useMutation({
+    mutationFn: () => monteOreAdminApi.previewAcademicYear(payload),
+    onSuccess: (data) => {
+      setPreview(data);
+      setReviewed(true);
+      setStep(2);
+    },
+  });
+  const createMut = useMutation({
+    mutationFn: (publish: boolean) =>
+      monteOreAdminApi.createAcademicYear({ ...payload, settings: preview?.settings, publish }),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: ['monte-ore'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+      toast.success(
+        data.settings.status === 'published'
+          ? `AA ${year} pubblicato`
+          : `AA ${year} salvato in bozza`,
+      );
+      onCreated?.(year);
+      onClose();
+    },
+  });
+  const pending = previewMut.isPending || createMut.isPending;
+  const change = (patch: Partial<BootstrapAcademicYearPayload>) => {
+    setPayload((p) => ({ ...p, ...patch }));
+    setReviewed(false);
+  };
+  const changeSetting = (key: keyof MonteOreSettings, value: string | number) => {
+    if (!preview) return;
+    setPreview({ ...preview, settings: { ...preview.settings, [key]: value } });
+    setPayload((p) => ({ ...p, settings: { ...preview.settings, [key]: value } }));
+    setReviewed(false);
+  };
+  const error = previewMut.error ?? createMut.error;
+  return (
+    <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Crea nuovo anno accademico</DialogTitle>
+        <DialogDescription>
+          {step === 1
+            ? '1. Scegli anno e origine dei dati'
+            : '2. Controlla il calendario e salva o pubblica'}
+        </DialogDescription>
+      </DialogHeader>
+      <fieldset disabled={pending} className="space-y-4 min-w-0">
+        {step === 1 ? (
+          <>
+            <Label htmlFor="aa-input">Anno accademico</Label>
+            <Input
+              id="aa-input"
+              value={year}
+              placeholder="2026/2027"
+              maxLength={9}
+              onChange={(e) => change({ academicYear: e.target.value.trim(), settings: undefined })}
+            />
+            {year && !valid && (
+              <p className="text-sm text-destructive">
+                Formato non valido: usa YYYY/YYYY, con il secondo anno uguale al primo + 1.
+              </p>
+            )}
+            {exists && (
+              <p className="text-sm text-destructive">
+                Questo anno esiste già. Modificalo dal calendario didattico.
+              </p>
+            )}
+            <Label htmlFor="year-origin">Origine dati</Label>
+            <select
+              id="year-origin"
+              className="w-full rounded-md border bg-background p-2"
+              value={payload.mode}
+              onChange={(e) =>
+                change({
+                  mode: e.target.value as 'default' | 'from_previous',
+                  previousYear: sources[0]?.academicYear,
+                  settings: undefined,
+                })
+              }
+            >
+              <option value="default">Configurazione standard</option>
+              <option value="from_previous" disabled={!sources.length}>
+                Copia da un anno precedente
+              </option>
+            </select>
+            {payload.mode === 'from_previous' && (
+              <>
+                <Label htmlFor="previous-year">Anno da cui copiare</Label>
+                <select
+                  id="previous-year"
+                  className="w-full rounded-md border bg-background p-2"
+                  value={payload.previousYear ?? ''}
+                  onChange={(e) => change({ previousYear: e.target.value, settings: undefined })}
+                >
+                  <option value="" disabled>
+                    Scegli un anno
+                  </option>
+                  {sources.map((s) => (
+                    <option key={s.academicYear} value={s.academicYear}>
+                      {s.academicYear}
+                    </option>
+                  ))}
+                </select>
+                {(
+                  [
+                    ['copyRules', 'Regole: soglia ore, variazioni e vincoli giornalieri'],
+                    ['copyCalendar', 'Periodo lezioni e finestra di invio'],
+                    ['copyCustom', 'Sospensioni personalizzate'],
+                    ['copyExamSessions', 'Sessioni d’esame'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={payload[key]}
+                      onChange={(e) => change({ [key]: e.target.checked, settings: undefined })}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Le sei sospensioni standard sono ricalcolate: Immacolata, Natale, Pasqua, 25 aprile, 1
+              maggio e 2 giugno. Potrai aggiungere altre chiusure dal calendario.
+            </p>
+          </>
+        ) : (
+          preview && (
+            <>
+              <p className="font-medium">
+                AA {year} · {preview.settings.academicYearStart} →{' '}
+                {preview.settings.academicYearEnd}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dateFields.map(([key, label]) => (
+                  <div key={key}>
+                    <Label htmlFor={key}>{label}</Label>
+                    <Input
+                      id={key}
+                      type="date"
+                      value={preview.settings[key]}
+                      onChange={(e) => changeSetting(key, e.target.value)}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <Label htmlFor="year-hours">Soglia minima ore</Label>
+                  <Input
+                    id="year-hours"
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={preview.settings.minRequiredHours}
+                    onChange={(e) => changeSetting('minRequiredHours', Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="year-amendments">Max variazioni annue</Label>
+                  <Input
+                    id="year-amendments"
+                    type="number"
+                    min={0}
+                    value={preview.settings.maxAmendmentsPerYear}
+                    onChange={(e) => changeSetting('maxAmendmentsPerYear', Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <p className="text-sm">
+                Limite giornaliero: {preview.settings.maxHoursPerDay ?? 'non impostato'} ore. Pausa:{' '}
+                {preview.settings.dailyBreakMinutes ?? 'non impostata'} min dopo{' '}
+                {preview.settings.dailyBreakAfterHours ?? '—'} ore.
+              </p>
+              <div className="rounded-md border p-3 text-sm space-y-1">
+                <p className="font-medium">Sospensioni previste ({preview.suspensions.length})</p>
+                {preview.suspensions.map((s, i) => (
+                  <p key={`${s.name}-${i}`}>
+                    {s.name}: {s.dateFrom} → {s.dateTo}
+                  </p>
+                ))}
+              </div>
+              {reviewed && (
+                <p className="text-sm">
+                  Giorni senza sospensioni (lun–sab):{' '}
+                  {[1, 2, 3, 4, 5, 6].map((d) => preview.availableDays[d]).join(' · ')}. Il
+                  conteggio non include disponibilità delle aule e vincoli del piano.
+                </p>
+              )}
+              {preview.warnings.map((w) => (
+                <Alert key={w}>
+                  <AlertDescription>{w}</AlertDescription>
+                </Alert>
+              ))}
+              <p className="text-sm text-muted-foreground">
+                La bozza resta riservata all’amministrazione. Pubblicare rende l’anno disponibile
+                secondo le date di invio; non apre automaticamente la finestra.
+              </p>
+            </>
+          )
+        )}
+      </fieldset>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{httpErrorMessage(error)}</AlertDescription>
+        </Alert>
+      )}
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose} disabled={pending}>
+          Annulla
+        </Button>
+        {step === 2 && (
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              setStep(1);
+              setReviewed(false);
+            }}
+          >
+            Indietro
+          </Button>
+        )}
+        {step === 1 || !reviewed ? (
+          <Button
+            disabled={
+              pending ||
+              !valid ||
+              exists ||
+              (payload.mode === 'from_previous' &&
+                !sources.some((s) => s.academicYear === payload.previousYear))
+            }
+            onClick={() => previewMut.mutate()}
+          >
+            {pending ? 'Verifica…' : step === 1 ? 'Controlla anteprima' : 'Aggiorna anteprima'}
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" disabled={pending} onClick={() => createMut.mutate(false)}>
+              Salva bozza
+            </Button>
+            <Button disabled={pending} onClick={() => createMut.mutate(true)}>
+              Pubblica anno
+            </Button>
+          </>
+        )}
+      </DialogFooter>
+    </DialogContent>
+  );
+}
 export default NewAcademicYearDialog;
