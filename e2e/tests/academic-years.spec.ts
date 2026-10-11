@@ -21,14 +21,22 @@ test('prepare, preview, publish and switch academic years', async ({ page }) => 
   await page.getByRole('button', { name: 'Salva bozza', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Crea nuovo anno accademico' })).toHaveCount(0);
   await expect(page.getByText('Bozza', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Mostra ai docenti' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Avvia', exact: true })).toHaveCount(0);
   await expect(page.locator('input[type="number"]').first()).toHaveValue('240');
   await page.getByRole('button', { name: 'Pubblica anno', exact: true }).click();
   await expect(page.getByText('Pubblicato', { exact: true })).toBeVisible();
   await expect(page.getByText('Invio chiuso', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Mostra ai docenti' }).click();
-  await expect(page.getByRole('button', { name: 'Usa selezione automatica' })).toBeVisible();
-  await page.getByRole('button', { name: 'Usa selezione automatica' }).click();
+  await page.getByRole('button', { name: 'Avvia', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: /Avviare l'AA/ })
+    .getByRole('button', { name: 'Avvia', exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Ripristina automatico' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ripristina automatico' }).click();
+  await page
+    .getByRole('dialog', { name: /Ripristinare la selezione automatica/ })
+    .getByRole('button', { name: 'Ripristina', exact: true })
+    .click();
   // A second year must get its own default form, not the previous year's 240 hours.
   await page.locator('#aa-select').click();
   await page.getByRole('option', { name: /Crea nuovo anno accademico/ }).click();
