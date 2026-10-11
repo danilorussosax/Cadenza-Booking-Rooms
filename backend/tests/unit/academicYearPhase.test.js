@@ -1,6 +1,5 @@
 'use strict';
 
-const { describe, it, expect } = require('vitest');
 const svc = require('../../services/monteOreCalendarService');
 
 describe('academicYearPhase', () => {
