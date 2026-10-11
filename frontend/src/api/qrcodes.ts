@@ -47,6 +47,9 @@ export const qrcodesApi = {
       query: { v: cacheBuster },
     }),
 
+  /** ZIP con i PNG di tutte le aule (una cartella per sede). */
+  downloadAll: () => apiBlob('/api/structure/rooms/qr/download-all'),
+
   regenerate: (roomId: number) =>
     api<{ ok: boolean; roomId: number; qrTokenUpdatedAt: string; url: string }>(
       `/api/structure/rooms/${roomId}/qr/regenerate`,

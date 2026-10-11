@@ -872,6 +872,77 @@ describe('routes/structure — Rooms', () => {
       expect(res.status).toBe(403);
     });
   });
+
+  describe('GET /api/structure/rooms/qr/download-all (ZIP)', () => {
+    const binaryParser = (res, cb) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    };
+
+    // Legge la central directory: [{ name, crc, data }]
+    function readZip(buf) {
+      const eocd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+      const count = buf.readUInt16LE(eocd + 10);
+      let p = buf.readUInt32LE(eocd + 16);
+      const out = [];
+      for (let i = 0; i < count; i += 1) {
+        expect(buf.readUInt32LE(p)).toBe(0x02014b50);
+        const crc = buf.readUInt32LE(p + 16);
+        const size = buf.readUInt32LE(p + 20);
+        const nameLen = buf.readUInt16LE(p + 28);
+        const local = buf.readUInt32LE(p + 42);
+        const name = buf.subarray(p + 46, p + 46 + nameLen).toString('utf8');
+        const dataStart = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+        out.push({ name, crc, data: buf.subarray(dataStart, dataStart + size) });
+        p += 46 + nameLen;
+      }
+      return out;
+    }
+
+    it('200 ZIP con un PNG per aula, in cartelle per sede, e crea i token mancanti', async () => {
+      const { authHeader } = await createAdmin();
+      const inst = await createInstitute();
+      const b = await createBuilding(inst.id, { name: 'Sede/Centrale' });
+      const r1 = await createRoom(b.id, { name: 'Aula 1', code: 'A1' });
+      const r2 = await createRoom(b.id, { name: 'Aula 2', code: 'A2' });
+      const res = await request(app)
+        .get('/api/structure/rooms/qr/download-all')
+        .set('Authorization', authHeader)
+        .buffer(true)
+        .parse(binaryParser);
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/application\/zip/);
+      expect(res.headers['content-disposition']).toMatch(/attachment; filename="qr-aule-.*\.zip"/);
+      const files = readZip(res.body);
+      expect(files.map((f) => f.name).sort()).toEqual([
+        'Sede Centrale/Aula 1 (A1).png',
+        'Sede Centrale/Aula 2 (A2).png',
+      ]);
+      for (const f of files) {
+        expect(f.data.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+        expect(require('node:zlib').crc32(f.data)).toBe(f.crc);
+      }
+      await r1.reload();
+      await r2.reload();
+      expect(r1.qrToken).toMatch(/^[a-f0-9]{32}$/);
+      expect(r2.qrToken).toMatch(/^[a-f0-9]{32}$/);
+    });
+
+    it('404 senza aule, 401 senza sessione, 403 per non admin', async () => {
+      const { authHeader } = await createAdmin();
+      const none = await request(app)
+        .get('/api/structure/rooms/qr/download-all')
+        .set('Authorization', authHeader);
+      expect(none.status).toBe(404);
+      expect((await request(app).get('/api/structure/rooms/qr/download-all')).status).toBe(401);
+      const user = await createAuthedUser();
+      const res = await request(app)
+        .get('/api/structure/rooms/qr/download-all')
+        .set('Authorization', user.authHeader);
+      expect(res.status).toBe(403);
+    });
+  });
 });
 
 describe('routes/structure — Equipment', () => {

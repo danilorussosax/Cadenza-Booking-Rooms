@@ -488,6 +488,20 @@ function RoomsQrTable() {
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
 
+  const downloadAllMutation = useMutation({
+    mutationFn: () => qrcodesApi.downloadAll(),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qr-aule-${new Date().toISOString().slice(0, 10)}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });
+    },
+    onError: (err) => toast.error(httpErrorMessage(err)),
+  });
+
   const rooms = useMemo(() => overviewQuery.data?.rooms ?? [], [overviewQuery.data]);
 
   if (overviewQuery.isLoading) {
@@ -512,30 +526,46 @@ function RoomsQrTable() {
           <CardTitle>QR-code per aula</CardTitle>
           <p className="text-sm text-muted-foreground">
             Ogni aula ha un cartello con logo, sede, aula e istruzioni per il check-in. Scarica il
-            PNG per stamparlo. La rigenerazione invalida tutti i QR fisici stampati prima.
+            PNG di un'aula o tutti insieme in un file ZIP. La rigenerazione invalida tutti i QR
+            fisici stampati prima.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            if (
-              window.confirm(
-                'Rigenerare i QR-code di TUTTE le aule?\nDovrai ristampare e sostituire ogni QR fisico.',
-              )
-            ) {
-              bulkMutation.mutate();
-            }
-          }}
-          disabled={bulkMutation.isPending || rooms.length === 0}
-        >
-          {bulkMutation.isPending ? (
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          Rigenera tutti
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => downloadAllMutation.mutate()}
+            disabled={downloadAllMutation.isPending || rooms.length === 0}
+          >
+            {downloadAllMutation.isPending ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Scarica tutti (ZIP)
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (
+                window.confirm(
+                  'Rigenerare i QR-code di TUTTE le aule?\nDovrai ristampare e sostituire ogni QR fisico.',
+                )
+              ) {
+                bulkMutation.mutate();
+              }
+            }}
+            disabled={bulkMutation.isPending || rooms.length === 0}
+          >
+            {bulkMutation.isPending ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Rigenera tutti
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="pt-0 sm:pt-0">
         {rooms.length === 0 ? (
