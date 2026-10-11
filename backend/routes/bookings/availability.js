@@ -13,6 +13,7 @@ const { authenticate } = require('../../middleware/auth');
 
 const { BookingRule } = require('../../models');
 const { dayjs } = require('./shared');
+const { COUNTS_TOWARD_QUOTAS } = require('../../services/bookingValidator');
 
 module.exports = function registerAvailability(router) {
   // =====================================================
@@ -39,6 +40,7 @@ module.exports = function registerAvailability(router) {
           where: {
             userId: req.user.id,
             status: 'confirmed',
+            ...COUNTS_TOWARD_QUOTAS,
             startTime: { [Op.gte]: weekStart, [Op.lte]: weekEnd },
           },
           attributes: ['id', 'roomId', 'startTime', 'endTime'],
@@ -47,6 +49,7 @@ module.exports = function registerAvailability(router) {
           where: {
             userId: req.user.id,
             status: 'confirmed',
+            ...COUNTS_TOWARD_QUOTAS,
             startTime: { [Op.gte]: dayStart, [Op.lte]: dayEnd },
           },
           attributes: ['id', 'roomId', 'startTime', 'endTime'],

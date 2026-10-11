@@ -269,6 +269,7 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
         purpose,
         notes,
         status: 'confirmed',
+        origin: 'monte_ore',
       },
       { transaction },
     );

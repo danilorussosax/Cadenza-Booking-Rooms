@@ -248,6 +248,7 @@ async function materialize(plan, slots, transaction, changedIds = null) {
         type: slot.bookingType,
         purpose: slot.purpose,
         status: 'confirmed',
+        origin: 'monte_ore',
       },
       { transaction },
     );

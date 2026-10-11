@@ -309,6 +309,7 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
               purpose: sched.purpose || null,
               notes: sched.notes || null,
               status: 'confirmed',
+              origin: 'monte_ore',
             },
             { transaction: t },
           );
@@ -368,6 +369,7 @@ async function generateBookingsForProposal(proposalId, { actorUser, includePast 
               type: slot.bookingType,
               purpose: slot.purpose || null,
               status: 'confirmed',
+              origin: 'monte_ore',
             },
             { transaction: t },
           );

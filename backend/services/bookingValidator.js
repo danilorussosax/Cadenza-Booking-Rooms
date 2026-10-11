@@ -53,6 +53,17 @@ const STUDIO_MIN_DURATION_MINUTES = 60;
  * Ogni chiamata a validateBooking che riceve `cache` evita di rifare quelle
  * query, riducendo da ~10-15 query/call a ~3-5 query/call dopo la prima.
  */
+/**
+ * Filtro per i conteggi di QUOTA (prenotazioni attive, ore/settimana, ore/giorno,
+ * intervallo minimo, eccezioni a fascia oraria, quote per risorsa).
+ *
+ * Le prenotazioni generate dal monte ore (origin='monte_ore') non consumano le
+ * quote delle prenotazioni libere: il docente può prenotare altre aule oltre al
+ * proprio piano. NON va usato nei controlli di conflitto (aula occupata, utente
+ * già impegnato altrove), dove quelle prenotazioni devono continuare a contare.
+ */
+const COUNTS_TOWARD_QUOTAS = { origin: { [Op.ne]: 'monte_ore' } };
+
 function createValidationCache() {
   return {
     rule: new Map(), // role → BookingRule
@@ -258,6 +269,7 @@ async function validateBooking({
     const activeWhere = {
       userId: user.id,
       status: 'confirmed',
+      ...COUNTS_TOWARD_QUOTAS,
       endTime: { [Op.gt]: now.toDate() },
     };
     if (ignoreBookingId) activeWhere.id = { [Op.ne]: ignoreBookingId };
@@ -276,6 +288,7 @@ async function validateBooking({
       where: {
         userId: user.id,
         status: 'confirmed',
+        ...COUNTS_TOWARD_QUOTAS,
         startTime: { [Op.gte]: weekStart.toDate(), [Op.lte]: weekEnd.toDate() },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
@@ -302,6 +315,7 @@ async function validateBooking({
       where: {
         userId: user.id,
         status: 'confirmed',
+        ...COUNTS_TOWARD_QUOTAS,
         startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
@@ -334,6 +348,7 @@ async function validateBooking({
         where: {
           userId: user.id,
           status: 'confirmed',
+          ...COUNTS_TOWARD_QUOTAS,
           endTime: { [Op.gt]: windowStart },
           startTime: { [Op.lt]: windowEnd },
           ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
@@ -421,6 +436,7 @@ async function validateBooking({
           where: {
             userId: user.id,
             status: 'confirmed',
+            ...COUNTS_TOWARD_QUOTAS,
             startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
             ...(exc.roomId != null ? { roomId: exc.roomId } : {}),
             ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
@@ -685,6 +701,7 @@ async function checkResourceQuotas({
     const baseWhere = {
       userId: user.id,
       status: 'confirmed',
+      ...COUNTS_TOWARD_QUOTAS,
       ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       ...(matchingRoomIds ? { roomId: { [Op.in]: matchingRoomIds } } : {}),
     };
@@ -790,5 +807,6 @@ module.exports = {
   canCancel,
   checkResourceQuotas,
   createValidationCache,
+  COUNTS_TOWARD_QUOTAS,
   STUDIO_MIN_DURATION_MINUTES,
 };

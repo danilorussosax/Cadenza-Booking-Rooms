@@ -83,6 +83,16 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      // Provenienza della prenotazione. 'monte_ore' = generata dal piano monte
+      // ore del docente: non consuma le quote delle prenotazioni libere
+      // (attive, ore/settimana, ore/giorno, intervallo, quote per risorsa) ma
+      // continua a occupare aula e tempo del docente nei controlli di conflitto.
+      origin: {
+        type: DataTypes.STRING(16),
+        allowNull: false,
+        defaultValue: 'manual',
+        validate: { isIn: [['manual', 'monte_ore']] },
+      },
     },
     {
       tableName: 'bookings',

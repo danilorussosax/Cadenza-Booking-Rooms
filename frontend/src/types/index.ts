@@ -293,6 +293,8 @@ export interface Booking {
   /** Sistema check-in / anti ghost-booking. */
   checkedInAt?: string | null;
   autoCancelledAt?: string | null;
+  /** 'monte_ore' = generata dal piano monte ore (non consuma le quote delle prenotazioni libere). */
+  origin?: 'manual' | 'monte_ore';
   user?: User;
   room?: Room;
   /** Scheda concerto: presente solo per booking type='concerto' con dati salvati. */
