@@ -34,6 +34,7 @@ const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('.
 // di sostituire i metodi via vi.spyOn.
 const emailService = require('./emailService');
 const instrumentLoanEmail = require('./instrumentLoanEmail');
+const { cancel } = require('./bookingLifecycle');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger').child({ scope: 'reminderScheduler' });
 
@@ -203,24 +204,14 @@ async function tickGhostCancel() {
 
     const emailOn = await emailService.emailEnabled();
     for (const bk of due) {
-      await bk.update({
-        status: 'cancelled',
-        cancelReason: 'auto: ghost booking',
-        cancelledAt: new Date(),
-        autoCancelledAt: new Date(),
+      // Annullo + mail ghost_cancellation (se le email sono attive) + promozione
+      // esplicita della lista d'attesa, tutti nel ciclo di vita.
+      await cancel({
+        booking: bk,
+        reason: 'auto: ghost booking',
+        fields: { autoCancelledAt: new Date() },
+        mail: emailOn && bk.user ? 'ghost_cancellation' : null,
       });
-      if (emailOn && bk.user) {
-        // Refetch per avere dati aggiornati post-update
-        const fresh = await Booking.findByPk(bk.id, {
-          include: [
-            { model: User, as: 'user' },
-            { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-          ],
-        });
-        emailService
-          .sendBookingEmail({ user: fresh.user, booking: fresh, kind: 'ghost_cancellation' })
-          .catch(() => {});
-      }
     }
     logger.info({ count: due.length, scope: 'reminder.ghost' }, 'ghost-cancel sweep done');
   } catch (err) {

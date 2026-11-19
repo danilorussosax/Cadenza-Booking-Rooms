@@ -39,6 +39,7 @@ const {
 const { authenticate, requireApproved } = require('../middleware/auth');
 const { gdprLimiter } = require('../middleware/rateLimit');
 const logger = require('../lib/logger');
+const { cancelMany } = require('../services/bookingLifecycle');
 
 const router = express.Router();
 
@@ -238,18 +239,17 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       // restano per integrità storica e fini probatori (regolamento prestiti,
       // contestazioni). Sono già "anonime" perché user.firstName/lastName lo sono.
       const now = new Date();
-      const cancelledFuture = await Booking.update(
-        { status: 'cancelled' },
-        {
-          where: {
-            userId,
-            startTime: { [require('sequelize').Op.gt]: now },
-            status: ['confirmed', 'pending_approval'],
-          },
-          individualHooks: true,
-          transaction: t,
+      const futureBookings = await Booking.findAll({
+        where: {
+          userId,
+          startTime: { [require('sequelize').Op.gt]: now },
+          status: ['confirmed', 'pending_approval'],
         },
-      );
+        transaction: t,
+      });
+      // Annullo + promozione lista d'attesa (dopo il commit) via ciclo di vita.
+      const cancelledFuture = (await cancelMany({ bookings: futureBookings, transaction: t }))
+        .length;
 
       // User è paranoid: la CASCADE FK non scatta. Eliminiamo a mano le
       // proposte Monte Ore (con schedules/slots/amendments via CASCADE).
@@ -264,7 +264,7 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       await user.destroy({ transaction: t });
 
       return {
-        cancelledFutureBookings: cancelledFuture[0] || 0,
+        cancelledFutureBookings: cancelledFuture,
         removedMonteOreProposals,
       };
     });

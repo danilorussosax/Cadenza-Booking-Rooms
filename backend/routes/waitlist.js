@@ -1,13 +1,11 @@
 'use strict';
 
 const express = require('express');
-const { withSerializableRetry } = require('../lib/serializableTx');
-const { bookingStatus, notifyAdminsOfPendingBooking } = require('../services/bookingPolicy');
-const { Op, Transaction } = require('sequelize');
-const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
+const { book } = require('../services/bookingLifecycle');
+const { Op } = require('sequelize');
+const { sequelize, BookingWaitlist, Room, Building } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
 const { validateBooking } = require('../services/bookingValidator');
-const { sendBookingEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -179,13 +177,19 @@ router.post(
           .json({ error: 'Tempo per il claim scaduto', code: 'WAITLIST_EXPIRED' });
       }
 
-      // Crea la booking + chiude la entry in una transazione SERIALIZABLE
-      const result = await withSerializableRetry(
-        sequelize,
-        {
-          isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-        },
-        async (t) => {
+      // Crea la booking + chiude la entry nella stessa transazione SERIALIZABLE
+      // (stato, validazione, effetti post-commit sono nel ciclo di vita).
+      const { full } = await book({
+        actor: req.user,
+        roomId: entry.roomId,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        type: entry.type || 'studio_individuale',
+        purpose: entry.purpose,
+        invalidStatus: 409,
+        invalidCode: 'BOOKING_CONFLICT',
+        invalidMessage: 'Slot non più disponibile',
+        before: async (t) => {
           await entry.reload({ transaction: t, lock: t.LOCK.UPDATE });
           if (
             entry.claimedAt ||
@@ -198,33 +202,8 @@ router.post(
               code: 'WAITLIST_INVALID_STATE',
             });
           }
-          const room = await Room.findByPk(entry.roomId, { transaction: t });
-          const validation = await validateBooking({
-            user: req.user,
-            roomId: entry.roomId,
-            startTime: entry.startTime,
-            endTime: entry.endTime,
-            type: entry.type || 'studio_individuale',
-            transaction: t,
-          });
-          if (!validation.valid) {
-            const e = new Error(validation.errors[0] || 'Slot non più disponibile');
-            e.status = 409;
-            e.code = validation.codes?.find((c) => !!c) || 'BOOKING_CONFLICT';
-            throw e;
-          }
-          const booking = await Booking.create(
-            {
-              userId: req.user.id,
-              roomId: entry.roomId,
-              startTime: entry.startTime,
-              endTime: entry.endTime,
-              type: entry.type || 'studio_individuale',
-              purpose: entry.purpose,
-              status: bookingStatus(room, req.user),
-            },
-            { transaction: t },
-          );
+        },
+        within: async (t) => {
           await entry.update({ claimedAt: new Date() }, { transaction: t });
           // Sposta in giù le posizioni successive (la entry esce dalla coda)
           await BookingWaitlist.decrement('position', {
@@ -237,24 +216,8 @@ router.post(
             },
             transaction: t,
           });
-          return booking;
         },
-      );
-
-      // Reload con utente per email confirmation
-      const full = await Booking.findByPk(result.id, {
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'emailNotifications'],
-          },
-          { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-        ],
       });
-      if (full.status === 'pending_approval') notifyAdminsOfPendingBooking(full).catch(() => {});
-      else
-        sendBookingEmail({ user: full.user, booking: full, kind: 'confirmation' }).catch(() => {});
       res.status(201).json({ booking: full, message: 'Coda riscattata' });
     } catch (err) {
       if (err.status) {

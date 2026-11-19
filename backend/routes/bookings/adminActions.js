@@ -1,9 +1,9 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { sequelize, Booking, Room, User, Building } = require('../../models');
+const { sequelize, Booking } = require('../../models');
 const { authenticate, requireRole } = require('../../middleware/auth');
-const { sendBookingEmail } = require('../../services/emailService');
+const { cancelMany } = require('../../services/bookingLifecycle');
 const { fetchBookingFull } = require('./shared');
 
 module.exports = function registerAdminActions(router) {
@@ -23,42 +23,15 @@ module.exports = function registerAdminActions(router) {
 
       const targets = await Booking.findAll({
         where: { id: { [Op.in]: ids }, status: 'confirmed' },
-        attributes: ['id'],
       });
-      const targetIds = targets.map((b) => b.id);
-      if (targetIds.length === 0) {
+      if (targets.length === 0) {
         return res.json({ cancelled: 0, skipped: ids.length });
       }
 
-      const now = new Date();
-      await Booking.update(
-        { status: 'cancelled', cancelledAt: now, cancelReason: reason },
-        { where: { id: { [Op.in]: targetIds }, status: 'confirmed' }, individualHooks: true },
-      );
-
-      // Email fire-and-forget a ogni utente coinvolto
-      const full = await Booking.findAll({
-        where: { id: { [Op.in]: targetIds } },
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: [
-              'id',
-              'firstName',
-              'lastName',
-              'role',
-              'email',
-              'emailNotifications',
-              'notifyOnCancellation',
-            ],
-          },
-          { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-        ],
-      });
-      for (const b of full) {
-        sendBookingEmail({ user: b.user, booking: b, kind: 'cancellation' }).catch(() => {});
-      }
+      // Annullo in un'unica transazione; dopo il commit: mail a ogni utente
+      // coinvolto e promozione della lista d'attesa (sempre best-effort).
+      const done = await cancelMany({ bookings: targets, reason, mail: 'cancellation' });
+      const targetIds = done.map((b) => b.id);
 
       res.json({ cancelled: targetIds.length, skipped: ids.length - targetIds.length });
     } catch (err) {
