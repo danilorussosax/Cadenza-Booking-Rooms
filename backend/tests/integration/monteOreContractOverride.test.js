@@ -16,11 +16,18 @@ const request = require('supertest');
 const { buildApp } = require('../../app');
 const { Institute, MonteOreSettings, MonteOreSlot, User } = require('../../models');
 const { createAuthedUser, createAdmin, createRoom, createBookingRule } = require('../factories');
+const institutionTime = require('../../lib/institutionTime');
 
 describe('Monte Ore — deroga docenti a contratto orario', () => {
   let app;
   beforeAll(async () => {
+    // L'anno accademico dei fixture è 2025/2026: l'orologio è fissato a ottobre 2025
+    // così il test non dipende dalla data in cui viene eseguito.
+    institutionTime.setClock(new Date('2025-10-15T10:00:00Z'));
     app = await buildApp({ serveFrontend: false });
+  });
+  afterAll(() => {
+    institutionTime.resetClock();
   });
   beforeEach(async () => {
     await globalThis.resetDatabase();
