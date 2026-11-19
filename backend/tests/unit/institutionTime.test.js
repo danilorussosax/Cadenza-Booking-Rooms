@@ -46,8 +46,8 @@ describe('institutionTime — mezzanotte', () => {
 });
 
 describe('institutionTime — settimana ISO', () => {
-  it('lunedì 23:30 Roma appartiene alla settimana che inizia quel giorno', () => {
-    const at = new Date('2026-11-22T22:30:00Z'); // lunedì 23 nov 23:30 Roma
+  it('lunedì 00:30 Roma appartiene alla settimana che inizia quel giorno', () => {
+    const at = new Date('2026-11-22T23:30:00Z'); // lunedì 23 nov 00:30 Roma
     expect(it_.startOfIsoWeek(at).toISOString()).toBe('2026-11-22T23:00:00.000Z');
     expect(it_.endOfIsoWeek(at).toISOString()).toBe('2026-11-29T22:59:59.999Z');
   });
