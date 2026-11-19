@@ -20,14 +20,18 @@ class DomainError extends Error {
    * @param {number} [opts.status=400]
    * @param {object|Array} [opts.details] dettagli strutturati per il client
    * @param {string[]} [opts.fields]      campi coinvolti
+   * @param {object} [opts.params] parametri di interpolazione ({{var}}) per la frase
+   *   tradotta `errors.code.<CODE>`; resi nel campo `params` della risposta (NON `details`,
+   *   che resta la lista di errori di validazione). Stessa shape per `fail(msg, code, status, params)`.
    */
-  constructor(code, message, { status = 400, details, fields } = {}) {
+  constructor(code, message, { status = 400, details, fields, params } = {}) {
     super(message);
     this.name = 'DomainError';
     this.code = code;
     this.status = status;
     if (details !== undefined) this.details = details;
     if (fields !== undefined) this.fields = fields;
+    if (params !== undefined) this.params = params;
   }
 }
 

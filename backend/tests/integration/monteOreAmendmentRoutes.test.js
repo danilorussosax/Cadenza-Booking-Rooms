@@ -242,6 +242,7 @@ describe('Monte Ore — route variazioni docente e inbox admin', () => {
       const res = await post(ctx, url, valid);
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('HOURS_NOT_MATCHING_CONTRACT');
+      expect(res.body.params).toEqual({ hours: expect.any(Number), current: expect.any(Number) });
     });
 
     it('201 crea la richiesta (aula opzionale) con contratto a ore minime', async () => {

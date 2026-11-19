@@ -289,6 +289,7 @@ describe('Monte Ore — deroga docenti a contratto orario', () => {
     expect(submit.status).toBe(400);
     expect(submit.body.code).toBe('HOURS_BELOW_THRESHOLD');
     expect(submit.body.error).toMatch(/60/);
+    expect(submit.body.params).toEqual({ hours: 60 });
     // Messaggio deve indicare che è una soglia personalizzata
     expect(submit.body.error).toMatch(/personalizzata/i);
   });

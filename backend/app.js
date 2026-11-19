@@ -513,6 +513,7 @@ function buildApp({ serveFrontend = true } = {}) {
         code: err.code,
         ...(err.details && { details: err.details }),
         ...(err.fields && { fields: err.fields }),
+        ...(err.params && { params: err.params }),
       });
     }
     const mapped = mapSequelizeError(err);

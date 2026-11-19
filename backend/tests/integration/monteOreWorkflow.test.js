@@ -228,6 +228,7 @@ describe('Monte Ore — revisione obbligatoria e contratto', () => {
     const next = await send(ctx, [change(ctx.slots[1].id)], 'request_key_02');
     expect(next.status).toBe(400);
     expect(next.body.code).toBe('AMENDMENT_LIMIT_REACHED');
+    expect(next.body.params).toEqual({ maximum: expect.any(Number) });
     await ctx.slots[0].reload();
     expect(ctx.slots[0].startTime).toBe('09:00');
     const email = await MailOutbox.findOne();
