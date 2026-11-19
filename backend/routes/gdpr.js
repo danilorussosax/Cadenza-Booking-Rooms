@@ -40,6 +40,7 @@ const { authenticate, requireApproved } = require('../middleware/auth');
 const { gdprLimiter } = require('../middleware/rateLimit');
 const logger = require('../lib/logger');
 const { cancelMany } = require('../services/bookingLifecycle');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -193,21 +194,20 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       // un altro admin per evitare lock-out e per garantire una catena
       // di responsabilità.
       await writeGdprAudit({ req, action: 'GDPR_DELETE_DENIED', statusCode: 403 });
-      return res.status(403).json({
-        error:
+      return next(
+        domainError(
+          'ADMIN_SELF_DELETE_FORBIDDEN',
           'Gli account amministratore non possono auto-cancellarsi. Contatta un altro amministratore.',
-        code: 'ADMIN_SELF_DELETE_FORBIDDEN',
-      });
+          { status: 403 },
+        ),
+      );
     }
 
     const photoUrl = req.user.profilePhotoUrl;
     const result = await sequelize.transaction(async (t) => {
       const user = await User.findByPk(userId, { transaction: t });
       if (!user) {
-        const err = new Error('Utente non trovato');
-        err.status = 404;
-        err.code = 'USER_NOT_FOUND';
-        throw err;
+        throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
       }
 
       // Genera un identificatore anonimo stabile e univoco (rispetta UNIQUE su email).
@@ -284,7 +284,6 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       ...result,
     });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   }
 });
@@ -329,23 +328,14 @@ router.post('/consent', authenticate, async (req, res, next) => {
     const { consentType, granted, policyVersion } = req.body || {};
 
     if (!VALID_CONSENT_TYPES.includes(consentType)) {
-      return res.status(400).json({
-        error: 'consentType non valido',
-        code: 'INVALID_CONSENT_TYPE',
-      });
+      throw domainError('INVALID_CONSENT_TYPE', 'consentType non valido');
     }
     if (typeof granted !== 'boolean') {
-      return res.status(400).json({
-        error: 'granted deve essere booleano',
-        code: 'INVALID_GRANTED',
-      });
+      throw domainError('INVALID_GRANTED', 'granted deve essere booleano');
     }
     const version = (policyVersion || '').toString().trim();
     if (!version || version.length > 40) {
-      return res.status(400).json({
-        error: 'policyVersion mancante o troppo lunga',
-        code: 'INVALID_POLICY_VERSION',
-      });
+      throw domainError('INVALID_POLICY_VERSION', 'policyVersion mancante o troppo lunga');
     }
 
     const consent = await UserConsent.create({

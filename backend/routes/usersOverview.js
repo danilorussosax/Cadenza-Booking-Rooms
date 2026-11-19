@@ -4,6 +4,7 @@ const express = require('express');
 const { User, OAuthSettings } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { loadCadenzaRules, resolveCadenzaRole } = require('../lib/group-role-map');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -65,10 +66,10 @@ router.post('/realign', authenticate, requireRole('admin'), async (req, res) => 
   const email = String(req.body?.email || '')
     .trim()
     .toLowerCase();
-  if (!email) return res.status(400).json({ error: 'Email mancante' });
+  if (!email) throw httpError(400, 'Email mancante');
 
   const target = await User.findOne({ where: { email } });
-  if (!target) return res.status(404).json({ error: 'Utente non trovato' });
+  if (!target) throw httpError(404, 'Utente non trovato');
 
   const settings = await OAuthSettings.findOne({ where: { id: 1 } });
   const rules = await loadCadenzaRules(settings);
@@ -78,9 +79,7 @@ router.post('/realign', authenticate, requireRole('admin'), async (req, res) => 
   );
 
   if (!resolved) {
-    return res
-      .status(400)
-      .json({ error: 'Nessun ruolo risolto dai gruppi: niente da riallineare' });
+    throw httpError(400, 'Nessun ruolo risolto dai gruppi: niente da riallineare');
   }
 
   target.role = resolved;
