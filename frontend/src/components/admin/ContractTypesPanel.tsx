@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { AlertCircle, Edit2, EyeOff, Lock, Plus, Trash2, Users } from 'lucide-react';
 import { contractTypesApi, type ContractTypeUpsertPayload } from '@/api/contractTypes';
 import type { ContractTypeRow } from '@/types';
-import { httpErrorMessage } from '@/lib/api';
+import { HttpError, httpErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,12 +52,14 @@ export function ContractTypesPanel() {
       setPendingImpact(null);
     },
     onError: async (err: unknown) => {
-      // Server può rispondere 409 IMPACT_CONFIRM_REQUIRED → apriamo il dialog
-      const errAny = err as {
-        status?: number;
-        data?: { code?: string; usersAffectedCount?: number };
-      };
-      if (errAny.status === 409 && errAny.data?.code === 'IMPACT_CONFIRM_REQUIRED' && editing) {
+      // Server può rispondere 409 IMPACT_CONFIRM_REQUIRED → apriamo il dialog.
+      // HttpError espone la risposta in `.payload` (non `.data`).
+      if (
+        err instanceof HttpError &&
+        err.status === 409 &&
+        err.payload.code === 'IMPACT_CONFIRM_REQUIRED' &&
+        editing
+      ) {
         // Recupera la lista impatto e mostra il dialog
         try {
           const impact = await contractTypesApi.impact(editing.id);
