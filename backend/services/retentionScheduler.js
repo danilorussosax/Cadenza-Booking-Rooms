@@ -30,6 +30,7 @@ dayjs.extend(timezone);
 const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
+const { msUntilNextRun } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });
 
 const DEFAULT_AUDIT_RETENTION_DAYS = 730; // 24 mesi
@@ -46,13 +47,8 @@ let lastError = null;
 let nextScheduledAt = null;
 
 function nextRunDelayMs() {
-  const now = dayjs();
-  // 03:00 in Europe/Rome → riconvertito in delta ms UTC per setTimeout.
-  let next = now.tz(SCHEDULER_TZ).startOf('day').add(TICK_HOUR, 'hour');
-  if (!next.isAfter(now)) {
-    next = next.add(1, 'day');
-  }
-  return next.diff(now);
+  // TICK_HOUR:00 nel fuso istituzionale → delta ms per setTimeout.
+  return msUntilNextRun({ hour: TICK_HOUR, tz: SCHEDULER_TZ });
 }
 
 function getAuditRetentionDays() {

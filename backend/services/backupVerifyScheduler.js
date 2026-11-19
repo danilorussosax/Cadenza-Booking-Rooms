@@ -52,6 +52,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
+const { msUntilNextRun } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupVerify' });
 const { listBackups, BACKUP_DIR } = require('../scripts/backup');
 const { validateTarball } = require('./backupRestore');
@@ -97,12 +98,14 @@ function getConfig() {
 
 function nextRunDelayMs() {
   const cfg = getConfig();
-  const now = dayjs().tz(SCHEDULER_TZ);
-  // Prossimo `cfg.dayOfWeek` alle hh:mm. Se oggi e' quel giorno e l'orario
-  // e' gia' passato → prossima settimana.
-  let target = now.day(cfg.dayOfWeek).hour(cfg.hour).minute(cfg.minute).second(0).millisecond(0);
-  if (target.isBefore(now)) target = target.add(7, 'day');
-  return target.diff(now);
+  // Prossimo `cfg.dayOfWeek` alle hh:mm (se oggi e' quel giorno e l'orario
+  // e' gia' passato → prossima settimana).
+  return msUntilNextRun({
+    dayOfWeek: cfg.dayOfWeek,
+    hour: cfg.hour,
+    minute: cfg.minute,
+    tz: SCHEDULER_TZ,
+  });
 }
 
 function scheduleNext() {
