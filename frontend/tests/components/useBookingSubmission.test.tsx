@@ -128,7 +128,7 @@ describe('useBookingSubmission', () => {
         frequency: 'weekly',
         interval: 2,
         byWeekday: ['MO'],
-        startDate: payload.startTime.slice(0, 10),
+        startDate: '2026-11-16',
         endDate: '2026-12-31',
         excludeDates: ['2026-11-30'],
       },

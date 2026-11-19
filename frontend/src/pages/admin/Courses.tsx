@@ -38,6 +38,7 @@ import { CoursesCsvImportDialog } from '@/components/admin/CoursesCsvImportDialo
 import { CourseLevelsSection } from '@/components/admin/CourseLevelsSection';
 import { cn } from '@/lib/utils';
 import type { Course } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 // Macro-tab in stile /admin/server-settings: card grandi con icona+label.
 type CoursesTab = 'corsi' | 'livelli';
@@ -247,7 +248,7 @@ export default function AdminCourses() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `corsi-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `corsi-${todayLocalIso()}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

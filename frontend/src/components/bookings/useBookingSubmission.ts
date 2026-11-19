@@ -6,7 +6,7 @@ import { bookingsApi } from '@/api/bookings';
 import { waitlistApi } from '@/api/waitlist';
 import { useAuth } from '@/contexts/AuthContext';
 import { httpErrorMessage, HttpError } from '@/lib/api';
-import { fromLocalInput } from '@/lib/date';
+import { fromLocalInput, toLocalIsoDate } from '@/lib/date';
 import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
 import type { Booking, BookingConflictsWith, BookingSuggestion, BookingType } from '@/types';
 import type { BookingFormValues as FormValues } from './bookingFormSchema';
@@ -83,7 +83,7 @@ export function useBookingSubmission({ open, booking, onOpenChange, onCreated }:
       if (recurrence.enabled) {
         // startDate del payload = data della prima occorrenza (presa da
         // startTime locale). endDate è scelto dall'utente nel form.
-        const startDate = fromLocalInput(values.startTime).toISOString().slice(0, 10);
+        const startDate = toLocalIsoDate(fromLocalInput(values.startTime));
         const res = await bookingsApi.createRecurring({
           ...payload,
           ...onBehalf,

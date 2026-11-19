@@ -15,6 +15,7 @@ import { EquipmentTemplateFormDialog } from './EquipmentTemplateFormDialog';
 import { EquipmentTemplatesCsvImportDialog } from './EquipmentTemplatesCsvImportDialog';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { EquipmentTemplate } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   EQUIPMENT_TYPE_OPTIONS.map((o) => [o.value, o.label]),
@@ -116,7 +117,7 @@ export function EquipmentTemplatesSection() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `dotazioni-${new Date().toISOString().slice(0, 10)}.csv`;
+                a.download = `dotazioni-${todayLocalIso()}.csv`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

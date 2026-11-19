@@ -61,3 +61,21 @@ export function relativeFromNow(date: string | Date) {
 export function startOfWeek() {
   return dayjs().startOf('isoWeek');
 }
+
+/**
+ * Data calendario 'YYYY-MM-DD' nel fuso LOCALE del browser (componenti
+ * getFullYear/getMonth/getDate). Non usare `toISOString().slice(0, 10)`:
+ * restituisce la data UTC, che differisce da quella locale vicino a mezzanotte
+ * (e per date costruite a mezzanotte locale nei fusi a est di UTC).
+ */
+export function toLocalIsoDate(d: Date): string {
+  const y = String(d.getFullYear()).padStart(4, '0');
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** «Oggi» come data calendario locale 'YYYY-MM-DD'. */
+export function todayLocalIso(): string {
+  return toLocalIsoDate(new Date());
+}

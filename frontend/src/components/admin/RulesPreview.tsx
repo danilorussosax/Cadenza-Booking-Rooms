@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Role } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 /**
  * Card "Simula prenotazione" — riusa il validator backend con un fake user
@@ -34,7 +35,7 @@ export function RulesPreview({ defaultRole }: { defaultRole: Role }) {
   const [role, setRole] = useState<Role>(defaultRole);
   const [roomId, setRoomId] = useState<string>('');
   const [courseId, setCourseId] = useState<string>('');
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<string>(() => todayLocalIso());
   const [timeFrom, setTimeFrom] = useState<string>('10:00');
   const [timeTo, setTimeTo] = useState<string>('11:00');
 
