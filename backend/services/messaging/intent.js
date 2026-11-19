@@ -42,6 +42,7 @@ const { withSerializableRetry } = require('../../lib/serializableTx');
 const { bookingStatus, notifyAdminsOfPendingBooking } = require('../bookingPolicy');
 const { sequelize, Booking, Room, Building, BookingTypeCatalog } = require('../../models');
 const { validateBooking } = require('../bookingValidator');
+const institutionTime = require('../../lib/institutionTime');
 
 const HELP_TEXT = `🤖 *Cadenza — Bot*
 
@@ -1167,11 +1168,11 @@ function parseDayQuery(s) {
     .trim()
     .toLowerCase();
   if (!term) return null;
-  if (term === 'oggi') return dayjs().startOf('day');
-  if (term === 'domani') return dayjs().add(1, 'day').startOf('day');
+  if (term === 'oggi') return dayjs(institutionTime.todayIso());
+  if (term === 'domani') return dayjs(institutionTime.todayIso()).add(1, 'day');
   if (DAY_NAMES[term]) {
     const target = DAY_NAMES[term];
-    let d = dayjs().startOf('day');
+    let d = dayjs(institutionTime.todayIso());
     while (d.isoWeekday() !== target) d = d.add(1, 'day');
     return d;
   }

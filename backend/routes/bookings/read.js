@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { getJwtSecret } = require('../../lib/secrets');
 const { icalLimiter } = require('../../middleware/rateLimit');
 const { parsePagination, setPaginationHeaders } = require('../../lib/pagination');
+const institutionTime = require('../../lib/institutionTime');
 
 const {
   Booking,
@@ -61,8 +62,8 @@ module.exports = function registerRead(router) {
         return res.status(401).json({ error: 'Token non valido', code: 'INVALID_TOKEN' });
       }
 
-      const from = dayjs().startOf('day').toDate();
-      const to = dayjs().add(90, 'day').endOf('day').toDate();
+      const from = institutionTime.startOfDay();
+      const to = institutionTime.endOfDay(undefined, 90);
 
       const bookings = await Booking.findAll({
         where: {

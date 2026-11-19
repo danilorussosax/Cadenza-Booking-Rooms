@@ -50,12 +50,12 @@ dayjs.extend(timezone);
 // TZ istituzionale. Le date scheduli sono in YYYY-MM-DD (Europe/Rome)
 // e le finestre orarie HH:MM sono ora locale italiana: senza .tz()
 // esplicito un VPS UTC produrrebbe Date sfasate di 1-2h (CET/CEST).
-const DEFAULT_TZ = 'Europe/Rome';
+const institutionTime = require('../lib/institutionTime');
 
 // Helper: combina YYYY-MM-DD + HH:MM → Date in Europe/Rome (UTC istante).
 function combine(dateOnly, hhmm) {
   const day = dayjs(dateOnly).format('YYYY-MM-DD');
-  return dayjs.tz(`${day} ${hhmm}`, DEFAULT_TZ).toDate();
+  return institutionTime.atLocal(day, hhmm);
 }
 
 /**

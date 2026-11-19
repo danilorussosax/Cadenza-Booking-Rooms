@@ -16,7 +16,7 @@ dayjs.extend(timezone);
 // Slot date sono YYYY-MM-DD (Europe/Rome). Senza tz esplicito un VPS UTC
 // produce Date sfasate di 1-2h e il findOne per cancellare il Booking
 // originale non lo trova mai (orfani in DB).
-const DEFAULT_TZ = 'Europe/Rome';
+const institutionTime = require('../lib/institutionTime');
 const {
   MonteOreProposal,
   MonteOreSchedule,
@@ -225,8 +225,8 @@ async function syncBookingForSlot(slotId, { actorUser, transaction = null } = {}
   }
 
   const dateIso = dayjs(slot.date).format('YYYY-MM-DD');
-  const startTime = dayjs.tz(`${dateIso} ${slot.startTime}`, DEFAULT_TZ).toDate();
-  const endTime = dayjs.tz(`${dateIso} ${slot.endTime}`, DEFAULT_TZ).toDate();
+  const startTime = institutionTime.atLocal(dateIso, slot.startTime);
+  const endTime = institutionTime.atLocal(dateIso, slot.endTime);
 
   if (slot.isActive) {
     // Caso "toggle_on" → ricrea il Booking se non esiste già

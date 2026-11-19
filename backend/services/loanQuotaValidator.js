@@ -14,6 +14,7 @@
  */
 
 const dayjs = require('dayjs');
+const institutionTime = require('../lib/institutionTime');
 const { Op } = require('sequelize');
 const { InstrumentLoanQuota, InstrumentLoan, Instrument } = require('../models');
 
@@ -94,7 +95,7 @@ async function checkLoanQuotas({
   if (quotas.length === 0) return issues;
 
   const requestedDays = daysBetween(fromDate, toDate);
-  const yearAgo = dayjs().subtract(365, 'day').startOf('day').format('YYYY-MM-DD');
+  const yearAgo = institutionTime.inInstitute().subtract(365, 'day').format('YYYY-MM-DD');
 
   for (const quota of quotas) {
     if (!quotaAppliesToRequest(quota, instrument)) continue;

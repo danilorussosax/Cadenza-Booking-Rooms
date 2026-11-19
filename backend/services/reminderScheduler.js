@@ -27,7 +27,7 @@ dayjs.extend(timezone);
 // solare italiana, non UTC. Su un VPS UTC alle 01:30 italiane (= 23:30
 // UTC del giorno prima) dayjs().startOf('day') ritornerebbe ieri →
 // reminder/overdue calcolati su un giorno sbagliato.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 const { Op } = require('sequelize');
 const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('../models');
 // Riferimento via oggetto-modulo (non destrutturato) per consentire ai test

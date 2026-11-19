@@ -41,7 +41,7 @@ dayjs.extend(timezone);
 // L'export Excel filtra per "giorno solare" italiano e indicizza
 // gli slot 30-min su ora locale. Senza .tz() su VPS UTC il "today"
 // è sfasato vicino a mezzanotte e gli indici slot vanno fuori riga.
-const REPORT_TZ = 'Europe/Rome';
+const REPORT_TZ = require('../lib/institutionTime').getTimezone();
 
 // Lazy-load di exceljs: la libreria pesa ~20 MB unpacked. Se manca sul VPS
 // (npm ci non eseguito), il backend deve partire lo stesso finché il modulo

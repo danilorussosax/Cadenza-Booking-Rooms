@@ -27,7 +27,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // "03:00 locali" = ora italiana, indipendente dal TZ del processo.
-const SCHEDULER_TZ = 'Europe/Rome';
+const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
 const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });

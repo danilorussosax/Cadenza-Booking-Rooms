@@ -2,6 +2,7 @@
 
 const { body, validationResult } = require('express-validator');
 const { recurringBookingLimiter } = require('../../middleware/rateLimit');
+const institutionTime = require('../../lib/institutionTime');
 const { sequelize, Booking, Room, User, Building } = require('../../models');
 const { authenticate, requireCompleteProfile, requireApproved } = require('../../middleware/auth');
 const { validateBooking, createValidationCache } = require('../../services/bookingValidator');
@@ -131,7 +132,7 @@ module.exports = function registerLegacyRecurring(router) {
             });
           } else {
             skipped.push({
-              date: r.occ.start.toISOString().slice(0, 10),
+              date: institutionTime.todayIso(r.occ.start),
               reason: (r.validation.errors || []).join('; ') || 'Validazione fallita',
               code: r.validation.codes?.find((c) => !!c) || 'BOOKING_INVALID',
             });
@@ -162,7 +163,7 @@ module.exports = function registerLegacyRecurring(router) {
                   /overlap|exclud/i.test(err?.message || '');
                 if (isOverlapErr) {
                   skipped.push({
-                    date: payload.startTime.toISOString().slice(0, 10),
+                    date: institutionTime.todayIso(payload.startTime),
                     reason: 'Conflitto rilevato a livello DB',
                     code: 'BOOKING_OVERLAP',
                   });

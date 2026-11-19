@@ -32,7 +32,8 @@ dayjs.extend(timezone);
 // Le ore del template (es. "10:00") sono ORA LOCALE istituzionale: senza
 // .tz('Europe/Rome') esplicito, su un VPS con TZ=UTC `t0.hour()` ritorna
 // 10 UTC (= 12 CEST) e la ricorrenza nasce con orari sfasati di 1-2h.
-const DEFAULT_TZ = 'Europe/Rome';
+const institutionTime = require('../lib/institutionTime');
+const DEFAULT_TZ = institutionTime.getTimezone();
 
 const MAX_OCCURRENCES = 52;
 const MAX_RANGE_DAYS = 366;
@@ -214,11 +215,9 @@ function expandOccurrences(rule, templateStartTime, templateEndTime) {
     // Ricostruiamo la data del Booking come HH:MM in Europe/Rome del
     // giorno-occorrenza. dayjs.tz risolve correttamente l'offset
     // (CET/CEST) e produce un istante UTC stabile per il DB.
-    const startTime = dayjs
-      .tz(`${iso} ${pad2(startHour)}:${pad2(startMinute)}`, DEFAULT_TZ)
-      .toDate();
+    const startTime = institutionTime.atLocal(iso, `${pad2(startHour)}:${pad2(startMinute)}`);
     const endIso = crossesMidnight ? dayjs(iso).add(1, 'day').format('YYYY-MM-DD') : iso;
-    const endTime = dayjs.tz(`${endIso} ${pad2(endHour)}:${pad2(endMinute)}`, DEFAULT_TZ).toDate();
+    const endTime = institutionTime.atLocal(endIso, `${pad2(endHour)}:${pad2(endMinute)}`);
     return { startTime, endTime };
   });
 }

@@ -23,6 +23,7 @@ const { resolveAnnualThreshold } = require('./monteOreThresholdService');
 const { validateDailyConstraints } = require('./monteOreDailyValidator');
 const { validateBooking } = require('./bookingValidator');
 const { withSerializableRetry } = require('../lib/serializableTx');
+const institutionTime = require('../lib/institutionTime');
 
 function fail(message, code = 'VALIDATION_FAILED', status = 400) {
   const error = new Error(message);
@@ -178,8 +179,8 @@ function expandRooms(plan, slots) {
 }
 
 async function checkBooking(plan, slot, transaction) {
-  const startTime = dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate();
-  const endTime = dayjs.tz(`${slot.date} ${slot.endTime}`, 'Europe/Rome').toDate();
+  const startTime = institutionTime.atLocal(slot.date, slot.startTime);
+  const endTime = institutionTime.atLocal(slot.date, slot.endTime);
   const result = await validateBooking({
     user: plan.user,
     roomId: slot.roomId,
@@ -392,10 +393,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
         dayOfWeek: dayjs(op.payload?.date).day(),
       };
       validateCalendar(slot, plan);
-      if (
-        checkPast &&
-        dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate() <= new Date()
-      )
+      if (checkPast && institutionTime.atLocal(slot.date, slot.startTime) <= institutionTime.now())
         fail('Non puoi modificare date già trascorse', 'PAST_SLOT');
       if (slot.roomId != null && !Number.isInteger(slot.roomId)) fail('Aula non valida');
       slots.push(slot);
@@ -406,10 +404,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
     const slot = slots.find((s) => s.id === op.slotId);
     if (!slot) fail('Occorrenza non appartenente alla proposta', 'NOT_FOUND');
     validateCalendar(slot, plan);
-    if (
-      checkPast &&
-      dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate() <= new Date()
-    )
+    if (checkPast && institutionTime.atLocal(slot.date, slot.startTime) <= institutionTime.now())
       fail('Non puoi modificare date già trascorse', 'PAST_SLOT');
     if (op.kind === 'toggle_off') slot.isActive = false;
     else if (op.kind === 'toggle_on') slot.isActive = true;
@@ -425,7 +420,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
       validateCalendar(target, plan);
       if (
         checkPast &&
-        dayjs.tz(`${target.date} ${target.startTime}`, 'Europe/Rome').toDate() <= new Date()
+        institutionTime.atLocal(target.date, target.startTime) <= institutionTime.now()
       )
         fail('Destinazione già trascorsa', 'PAST_SLOT');
       slot.isActive = false;
