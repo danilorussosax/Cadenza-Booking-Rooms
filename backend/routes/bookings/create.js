@@ -2,18 +2,10 @@
 
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
-const { sequelize, Booking, Room, User, Building } = require('../../models');
+const { Booking, User } = require('../../models');
 const { authenticate, requireCompleteProfile, requireApproved } = require('../../middleware/auth');
-const { validateBooking } = require('../../services/bookingValidator');
 const { findAlternativesWithTimeout } = require('../../services/bookingSuggestions');
-const { sendBookingEmail } = require('../../services/emailService');
-
-/**
- * Notifica gli admin attivi di una richiesta in attesa di approvazione.
- * Fire-and-forget: errori SMTP non bloccano la creazione della booking.
- */
-const { bookingStatus, notifyAdminsOfPendingBooking } = require('../../services/bookingPolicy');
-const { withSerializableRetry } = require('../../lib/serializableTx');
+const { book, BookingError } = require('../../services/bookingLifecycle');
 
 // =====================================================
 // Helper: arricchisce la response di conflitto con `suggestions` e
@@ -72,8 +64,6 @@ async function buildConflictExtras({ req, owner, roomId, startTime, endTime, typ
   }
 }
 
-const { WRITE_ISOLATION } = require('./shared');
-
 module.exports = function registerCreate(router) {
   // =====================================================
   // POST /api/bookings  - Crea prenotazione
@@ -124,123 +114,34 @@ module.exports = function registerCreate(router) {
           }
         }
 
-        // Aula "high-impact" (sala concerti, auditorium): per i non-admin la
-        // prenotazione nasce in 'pending_approval' e richiede l'ok di un admin.
-        // Gli admin bypassano (creano direttamente 'confirmed') anche quando
-        // prenotano per conto di un altro utente.
-        const room = await Room.findByPk(roomId);
-        const needsApproval = room && room.requiresApproval === true && req.user.role !== 'admin';
-        const initialStatus = bookingStatus(room, req.user);
-
-        const booking = await withSerializableRetry(
-          sequelize,
-          { isolationLevel: WRITE_ISOLATION },
-          async (t) => {
-            // Validazione contro l'owner (così rispetta i ruoli/aule consentiti
-            // dell'utente target). Quando admin prenota per altri, bypassiamo le
-            // quote del target: l'admin si assume la responsabilità della scelta.
-            const validation = await validateBooking({
-              user: owner,
-              roomId,
-              startTime,
-              endTime,
-              type,
-              bypassQuotas: isOnBehalf,
-              transaction: t,
-            });
-            if (!validation.valid) {
-              const e = new Error(validation.errors[0] || 'Prenotazione non valida');
-              e.status = 400;
-              e.issues = validation.errors;
-              // Propaga il primo `code` strutturato (es. QUOTA_EXCEEDED_*) al
-              // middleware errori; fallback BOOKING_INVALID.
-              e.code = validation.codes?.find((c) => !!c) || 'BOOKING_INVALID';
-              throw e;
-            }
-            return Booking.create(
-              {
-                userId: owner.id,
-                roomId,
-                startTime,
-                endTime,
-                purpose: purpose || null,
-                type: type || 'studio_individuale',
-                notes: notes || null,
-                status: initialStatus,
-              },
-              { transaction: t },
-            );
-          },
-        );
-
-        const full = await Booking.findByPk(booking.id, {
-          include: [
-            {
-              model: User,
-              as: 'user',
-              attributes: ['id', 'firstName', 'lastName', 'role', 'email', 'emailNotifications'],
-            },
-            { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-          ],
+        // Il ciclo di vita decide stato iniziale (aula high-impact: pending per i
+        // non-admin, anche quando l'admin prenota per conto di altri), validazione
+        // contro l'owner (quote bypassate se on-behalf), retry serializzabile ed
+        // effetti post-commit (mail conferma all'utente / notifica admin).
+        const { full } = await book({
+          actor: req.user,
+          owner,
+          roomId,
+          startTime,
+          endTime,
+          purpose,
+          type,
+          notes,
+          bypass: { quotas: isOnBehalf },
         });
-        // fire-and-forget email:
-        //   - in attesa di approvazione: mail all'admin (non all'utente)
-        //   - confermata: mail all'utente
-        if (needsApproval) {
-          notifyAdminsOfPendingBooking(full).catch(() => {});
-        } else {
-          sendBookingEmail({ user: full.user, booking: full, kind: 'confirmation' }).catch(
-            () => {},
-          );
-        }
         res.status(201).json({ booking: full });
       } catch (err) {
-        if (err.status === 400) {
-          const isConflict = err.code === 'BOOKING_CONFLICT';
-          const extras = isConflict
-            ? await buildConflictExtras({ req, owner, roomId, startTime, endTime, type })
-            : {};
-          return res.status(400).json({
+        if (err instanceof BookingError) {
+          // Conflitto (validatore o vincolo DB): arricchisce con alternative.
+          const extras =
+            err.code === 'BOOKING_CONFLICT'
+              ? await buildConflictExtras({ req, owner, roomId, startTime, endTime, type })
+              : {};
+          return res.status(err.status).json({
             error: err.message,
-            issues: err.issues,
+            ...(err.issues && { issues: err.issues }),
             code: err.code || 'BOOKING_INVALID',
             ...extras,
-          });
-        }
-        if (err.name === 'SequelizeUniqueConstraintError') {
-          const extras = await buildConflictExtras({
-            req,
-            owner,
-            roomId,
-            startTime,
-            endTime,
-            type,
-          });
-          return res.status(409).json({
-            error: 'Conflitto: prenotazione già esistente',
-            code: 'BOOKING_CONFLICT',
-            ...extras,
-          });
-        }
-        if (err.name === 'SequelizeExclusionConstraintError') {
-          const extras = await buildConflictExtras({
-            req,
-            owner,
-            roomId,
-            startTime,
-            endTime,
-            type,
-          });
-          return res.status(409).json({
-            error: 'Aula già occupata in questa fascia oraria',
-            code: 'BOOKING_CONFLICT',
-            ...extras,
-          });
-        }
-        if (err.name === 'SequelizeForeignKeyConstraintError') {
-          return res.status(400).json({
-            error: 'Riferimento non valido (aula o utente inesistenti)',
-            code: 'FK_CONSTRAINT',
           });
         }
         next(err);

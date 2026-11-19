@@ -10,7 +10,6 @@ require('./bookings/create')(router);
 require('./bookings/adminActions')(router);
 require('./bookings/approvals')(router);
 require('./bookings/updateAndCancel')(router);
-require('./bookings/legacyRecurring')(router);
 require('./bookings/availability')(router);
 require('./bookings/checkIn')(router);
 require('./bookings/concerts')(router);

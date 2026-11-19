@@ -3,16 +3,14 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const dayjs = require('dayjs');
-const { Op, Transaction } = require('sequelize');
-const { sequelize, BookingTemplate, Booking, Room, Building, User } = require('../models');
+const { Op } = require('sequelize');
+const { BookingTemplate, Room, Building } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
-const { validateBooking } = require('../services/bookingValidator');
-const { sendBookingEmail } = require('../services/emailService');
+const { book, BookingError } = require('../services/bookingLifecycle');
 
 const router = express.Router();
 
 const TYPE_VALUES = ['studio_individuale', 'lezione', 'prova', 'concerto', 'altro'];
-const WRITE_ISOLATION = Transaction.ISOLATION_LEVELS.SERIALIZABLE;
 
 const FAVORITE_LIMIT = 3;
 
@@ -269,73 +267,28 @@ router.post(
           .status(400)
           .json({ error: 'Aula del template non disponibile', code: 'ROOM_NOT_FOUND' });
       }
-      const needsApproval = room.requiresApproval === true && req.user.role !== 'admin';
-      const initialStatus = needsApproval ? 'pending_approval' : 'confirmed';
-
-      const booking = await sequelize.transaction(
-        { isolationLevel: WRITE_ISOLATION },
-        async (t) => {
-          const validation = await validateBooking({
-            user: req.user,
-            roomId: tpl.roomId,
-            startTime: start,
-            endTime: end,
-            type: tpl.type || 'studio_individuale',
-            transaction: t,
-          });
-          if (!validation.valid) {
-            const e = new Error(validation.errors[0] || 'Prenotazione non valida');
-            e.status = 400;
-            e.issues = validation.errors;
-            e.code = validation.codes?.find((c) => !!c) || 'BOOKING_INVALID';
-            throw e;
-          }
-          return Booking.create(
-            {
-              userId: req.user.id,
-              roomId: tpl.roomId,
-              startTime: start,
-              endTime: end,
-              purpose: tpl.purpose || null,
-              type: tpl.type || 'studio_individuale',
-              status: initialStatus,
-            },
-            { transaction: t },
-          );
-        },
-      );
-
-      const full = await Booking.findByPk(booking.id, {
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'firstName', 'lastName', 'role', 'email', 'emailNotifications'],
-          },
-          { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-        ],
+      // Stato iniziale, validazione, retry, mail utente / notifica admin
+      // (pending_approval) sono nel ciclo di vita.
+      const { full } = await book({
+        actor: req.user,
+        roomId: tpl.roomId,
+        startTime: start,
+        endTime: end,
+        type: tpl.type || 'studio_individuale',
+        purpose: tpl.purpose,
       });
-      // Email fire-and-forget come per /api/bookings POST
-      if (!needsApproval) {
-        sendBookingEmail({ user: full.user, booking: full, kind: 'confirmation' }).catch(() => {});
-      }
 
       res.status(201).json({
         booking: full,
         scheduled: { startTime: start, endTime: end },
       });
     } catch (err) {
-      if (err.status === 400) {
-        return res.status(400).json({
+      if (err instanceof BookingError) {
+        return res.status(err.status).json({
           error: err.message,
-          issues: err.issues,
+          ...(err.issues && { issues: err.issues }),
           code: err.code || 'BOOKING_INVALID',
         });
-      }
-      if (err.name === 'SequelizeUniqueConstraintError') {
-        return res
-          .status(409)
-          .json({ error: 'Conflitto: prenotazione già esistente', code: 'BOOKING_CONFLICT' });
       }
       next(err);
     }

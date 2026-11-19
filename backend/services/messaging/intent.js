@@ -37,11 +37,9 @@ dayjs.extend(customParseFormat);
 dayjs.extend(isoWeek);
 dayjs.locale('it');
 
-const { Op, Transaction } = require('sequelize');
-const { withSerializableRetry } = require('../../lib/serializableTx');
-const { bookingStatus, notifyAdminsOfPendingBooking } = require('../bookingPolicy');
-const { sequelize, Booking, Room, Building, BookingTypeCatalog } = require('../../models');
-const { validateBooking } = require('../bookingValidator');
+const { Op } = require('sequelize');
+const { book, cancel } = require('../bookingLifecycle');
+const { Booking, Room, Building, BookingTypeCatalog } = require('../../models');
 const institutionTime = require('../../lib/institutionTime');
 
 const HELP_TEXT = `🤖 *Cadenza — Bot*
@@ -268,22 +266,15 @@ async function handleCancel({ user, id, reason }) {
     return { intent: 'cancel', reply: `❌ La prenotazione #${id} è già terminata.` };
   }
   const cancelReason = reason ? String(reason).slice(0, 255) : 'Cancellata via bot';
-  const [affected] = await Booking.update(
-    {
-      status: 'cancelled',
-      cancelledAt: new Date(),
-      cancelReason,
-    },
-    {
-      where: {
-        id,
-        userId: user.id,
-        status: { [Op.in]: ['confirmed', 'pending_approval'] },
-      },
-    },
-  );
-  if (affected === 0) {
-    // Race con un altro `/cancel` o cambio stato concorrente
+  // Annullo condizionale (race con un altro /cancel o cambio stato concorrente)
+  // + promozione esplicita della lista d'attesa nel ciclo di vita.
+  const { cancelled } = await cancel({
+    booking: b,
+    reason: cancelReason,
+    expectStatuses: ['confirmed', 'pending_approval'],
+    onlyIf: { userId: user.id },
+  });
+  if (!cancelled) {
     return {
       intent: 'cancel',
       reply: `ℹ️ Prenotazione #${id} già annullata o non più cancellabile.`,
@@ -742,12 +733,18 @@ async function finalizeBook({ slots, session }) {
   }
   let booking;
   try {
-    booking = await withSerializableRetry(
-      sequelize,
-      {
-        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-      },
-      async (transaction) => {
+    ({ booking } = await book({
+      actor: user,
+      roomId: slots.roomId,
+      startTime: new Date(slots.startTime),
+      endTime: new Date(slots.endTime),
+      type: slots.type || 'studio_individuale',
+      purpose: 'Prenotazione via bot',
+      // Il bot non invia la mail di conferma all'utente (risponde in chat),
+      // notifica solo gli admin se la richiesta e' pending_approval.
+      notifyOwner: false,
+      // Ricarica utente e aula DENTRO la transazione (stato attuale dell'account).
+      before: async (transaction) => {
         const fresh = await User.findByPk(user.id, { transaction });
         if (!fresh?.isActive || (fresh.role !== 'admin' && fresh.status !== 'approved'))
           throw new Error('Account non disponibile');
@@ -756,45 +753,17 @@ async function finalizeBook({ slots, session }) {
           transaction,
         });
         if (!room?.isBookable || !room.building) throw new Error('Aula non disponibile');
-        const result = await validateBooking({
-          user: fresh,
-          roomId: slots.roomId,
-          startTime: new Date(slots.startTime),
-          endTime: new Date(slots.endTime),
-          type: slots.type || 'studio_individuale',
-          transaction,
-        });
-        if (!result.valid) throw new Error(result.errors.join('; '));
-        return Booking.create(
-          {
-            userId: fresh.id,
-            roomId: room.id,
-            startTime: new Date(slots.startTime),
-            endTime: new Date(slots.endTime),
-            type: slots.type || 'studio_individuale',
-            status: bookingStatus(room, fresh),
-            purpose: 'Prenotazione via bot',
-          },
-          { transaction },
-        );
+        return { owner: fresh, room };
       },
-    );
+    }));
   } catch (err) {
+    const detail = err.issues?.length ? err.issues.join('; ') : err.message;
     return {
-      reply: `❌ Prenotazione non valida: ${mdSafe(err.message)}.`,
+      reply: `❌ Prenotazione non valida: ${mdSafe(detail)}.`,
       session: { state: null, slots: null },
     };
   }
   const status = booking.status;
-  if (status === 'pending_approval') {
-    const full = await Booking.findByPk(booking.id, {
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
-        { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-      ],
-    });
-    notifyAdminsOfPendingBooking(full).catch(() => {});
-  }
   const start = dayjs(slots.startTime);
   const end = dayjs(slots.endTime);
   const summary =

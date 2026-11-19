@@ -3,17 +3,10 @@
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { recurringBookingLimiter } = require('../../middleware/rateLimit');
-const { sequelize, Booking, Room, User, Building, BookingRecurrence } = require('../../models');
+const { sequelize, Booking, Room, Building, BookingRecurrence } = require('../../models');
 const recurrenceExpander = require('../../services/recurrenceExpander');
 const { authenticate, requireCompleteProfile, requireApproved } = require('../../middleware/auth');
-const { validateBooking, createValidationCache } = require('../../services/bookingValidator');
-
-/**
- * Notifica gli admin attivi di una richiesta in attesa di approvazione.
- * Fire-and-forget: errori SMTP non bloccano la creazione della booking.
- */
-const { bookingStatus, notifyAdminsOfPendingBooking } = require('../../services/bookingPolicy');
-const { withSerializableRetry } = require('../../lib/serializableTx');
+const { checkOccurrences, bookSeries, cancelMany } = require('../../services/bookingLifecycle');
 
 const { BookingRule } = require('../../models');
 
@@ -25,16 +18,6 @@ const { BookingRule } = require('../../models');
 // per le booking normali; cancellazione di tutta la serie via DELETE su
 // /recurrences/:id (cascade).
 // =====================================================
-
-/**
- * Helper: notifica admin di creazione serie ricorrente in pending_approval
- * — fire-and-forget come le booking singole. Una sola email per serie.
- */
-function notifyAdminsRecurringPending(recurrence, sampleBookingFull) {
-  notifyAdminsOfPendingBooking(sampleBookingFull).catch((err) => {
-    console.warn('[recurring] notify admins failed:', err.message);
-  });
-}
 
 /**
  * Shim retro-compat per il formato legacy `recurrence: { weeks: N }`
@@ -65,7 +48,7 @@ function normalizeRecurrenceInput(recurrence, startTime) {
   return null;
 }
 
-const { dayjs, WRITE_ISOLATION } = require('./shared');
+const { dayjs } = require('./shared');
 
 module.exports = function registerRecurring(router) {
   router.post(
@@ -140,34 +123,26 @@ module.exports = function registerRecurring(router) {
         const room = await Room.findByPk(roomId);
         if (!room)
           return res.status(400).json({ error: 'Aula non trovata', code: 'ROOM_NOT_FOUND' });
-        const initialStatus = bookingStatus(room, req.user);
 
-        // Pre-validazione: lanciamo validateBooking per OGNI occorrenza FUORI
-        // dalla transazione (read-only check). Se troviamo conflitti e
+        // Pre-validazione: validateBooking per OGNI occorrenza FUORI dalla
+        // transazione (read-only check). Se troviamo conflitti e
         // skipConflicts=false, ritorniamo 409 con lista per UX. Se
         // skipConflicts=true, droppiamo le occorrenze in conflitto e
         // procediamo con le altre.
-        const validations = [];
-        const cache = createValidationCache();
-        for (const occ of occurrences) {
-          const v = await validateBooking({
-            user: req.user,
-            roomId,
-            startTime: occ.startTime,
-            endTime: occ.endTime,
-            type,
-            cache,
-          });
-          validations.push({ occ, valid: v.valid, errors: v.errors, codes: v.codes });
-        }
+        const validations = await checkOccurrences({
+          user: req.user,
+          roomId,
+          type,
+          occurrences,
+        });
 
         const conflicts = validations
           .filter((v) => !v.valid)
           .map((v) => ({
             startTime: v.occ.startTime,
             endTime: v.occ.endTime,
-            error: v.errors?.[0] || 'Conflitto',
-            code: v.codes?.find((c) => !!c) || 'BOOKING_INVALID',
+            error: v.message || 'Conflitto',
+            code: v.code || 'BOOKING_INVALID',
           }));
         const validOccurrences = validations.filter((v) => v.valid).map((v) => v.occ);
 
@@ -188,15 +163,19 @@ module.exports = function registerRecurring(router) {
           });
         }
 
-        // Crea la serie + tutti i booking in una transazione SERIALIZABLE.
-        // Re-validiamo dentro la transazione per chiudere la race window tra
-        // la pre-validazione e la insert (qualcuno potrebbe aver prenotato
-        // nel frattempo). Se trovo conflitti qui, abort.
-        const result = await withSerializableRetry(
-          sequelize,
-          { isolationLevel: WRITE_ISOLATION },
-          async (t) => {
-            const series = await BookingRecurrence.create(
+        // Il ciclo di vita crea la serie + tutti i booking in una transazione
+        // SERIALIZABLE, ri-valida ogni occorrenza dentro la tx (chiude la race
+        // window con la pre-validazione, saltando quelle perse) e invia UNA sola
+        // notifica admin per serie se la richiesta e' pending_approval.
+        const result = await bookSeries({
+          actor: req.user,
+          roomId,
+          type,
+          purpose,
+          notes,
+          occurrences: validOccurrences,
+          createSeries: (t) =>
+            BookingRecurrence.create(
               {
                 userId: req.user.id,
                 roomId,
@@ -208,62 +187,9 @@ module.exports = function registerRecurring(router) {
                 excludeDates: rule.excludeDates,
               },
               { transaction: t },
-            );
-
-            const created = [];
-            const tCache = createValidationCache();
-            for (const occ of validOccurrences) {
-              const v = await validateBooking({
-                user: req.user,
-                roomId,
-                startTime: occ.startTime,
-                endTime: occ.endTime,
-                type,
-                cache: tCache,
-                transaction: t,
-              });
-              if (!v.valid) {
-                // Race window: skip questa occorrenza, NON falliamo l'intera
-                // serie. Logghiamo per visibilità.
-                console.warn(
-                  `[recurring] race conflict skipped: ${occ.startTime.toISOString()} — ${v.errors?.[0]}`,
-                );
-                continue;
-              }
-              const b = await Booking.create(
-                {
-                  userId: req.user.id,
-                  roomId,
-                  startTime: occ.startTime,
-                  endTime: occ.endTime,
-                  purpose: purpose || null,
-                  type: type || 'studio_individuale',
-                  notes: notes || null,
-                  status: initialStatus,
-                  recurrenceId: series.id,
-                },
-                { transaction: t },
-              );
-              created.push(b);
-            }
-
-            return { series, created };
-          },
-        );
-
-        // Email: una conferma per il proprietario riferita alla PRIMA occorrenza
-        // (no spam di N email). L'admin riceve UNA notifica di pending se applicabile.
-        if (result.created.length > 0) {
-          const sample = await Booking.findByPk(result.created[0].id, {
-            include: [
-              { model: User, as: 'user' },
-              { model: Room, as: 'room', include: [{ model: Building, as: 'building' }] },
-            ],
-          });
-          if (initialStatus === 'pending_approval') {
-            notifyAdminsRecurringPending(result.series, sample);
-          }
-        }
+            ),
+        });
+        const initialStatus = result.status;
 
         return res.status(201).json({
           recurrenceId: result.series.id,
@@ -316,16 +242,12 @@ module.exports = function registerRecurring(router) {
         // Soft-cancel le future occorrenze (status='cancelled') invece di
         // hard-destroy: l'audit/iCal/reminders esistenti devono poterle
         // ancora referenziare per coerenza con il flusso DELETE /:id singolo.
-        for (const b of futureBookings) {
-          await b.update(
-            {
-              status: 'cancelled',
-              cancelledAt: now,
-              cancelReason: 'Cancellazione serie ricorrente',
-            },
-            { transaction: t },
-          );
-        }
+        // La promozione della lista d'attesa avviene dopo il commit.
+        await cancelMany({
+          bookings: futureBookings,
+          reason: 'Cancellazione serie ricorrente',
+          transaction: t,
+        });
         // Hard-destroy della serie: non serve più (occorrenze già marcate)
         await series.destroy({ transaction: t });
       });

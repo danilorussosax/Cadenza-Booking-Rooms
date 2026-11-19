@@ -1,11 +1,9 @@
 'use strict';
 
-const { Op } = require('sequelize');
-const { sequelize, Booking, Room, Building } = require('../../models');
+const { Booking, Room, Building } = require('../../models');
 const { authenticate, requireRole } = require('../../middleware/auth');
-const { sendBookingEmail } = require('../../services/emailService');
-const { withSerializableRetry } = require('../../lib/serializableTx');
-const { WRITE_ISOLATION, fetchBookingFull } = require('./shared');
+const { approve, cancel } = require('../../services/bookingLifecycle');
+const { fetchBookingFull } = require('./shared');
 
 module.exports = function registerApprovals(router) {
   // =====================================================
@@ -38,53 +36,9 @@ module.exports = function registerApprovals(router) {
   // un confirmed sovrapposto, l'approvazione fallisce con 409.
   router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const result = await withSerializableRetry(
-        sequelize,
-        { isolationLevel: WRITE_ISOLATION },
-        async (t) => {
-          const booking = await Booking.findByPk(req.params.id, { transaction: t });
-          if (!booking) {
-            const e = new Error('Prenotazione non trovata');
-            e.status = 404;
-            e.code = 'NOT_FOUND';
-            throw e;
-          }
-          if (booking.status !== 'pending_approval') {
-            const e = new Error('La prenotazione non è in attesa di approvazione');
-            e.status = 400;
-            e.code = 'BOOKING_INVALID_STATE';
-            throw e;
-          }
-          // Conflict check: nessuna confirmed che si sovrapponga sullo stesso roomId.
-          const conflict = await Booking.findOne({
-            where: {
-              roomId: booking.roomId,
-              status: 'confirmed',
-              id: { [Op.ne]: booking.id },
-              [Op.and]: [
-                { startTime: { [Op.lt]: booking.endTime } },
-                { endTime: { [Op.gt]: booking.startTime } },
-              ],
-            },
-            transaction: t,
-          });
-          if (conflict) {
-            const e = new Error(
-              "Slot non più disponibile: nel frattempo è stata confermata un'altra prenotazione",
-            );
-            e.status = 409;
-            e.code = 'BOOKING_CONFLICT';
-            throw e;
-          }
-          await booking.update({ status: 'confirmed' }, { transaction: t });
-          return booking;
-        },
-      );
-      const full = await fetchBookingFull(result.id);
-      sendBookingEmail({ user: full.user, booking: full, kind: 'booking_approved' }).catch(
-        () => {},
-      );
-      res.json({ booking: full });
+      // Verifica stato + conflitti, conferma e mail 'booking_approved'.
+      const { booking } = await approve({ bookingId: req.params.id });
+      res.json({ booking });
     } catch (err) {
       next(err);
     }
@@ -107,15 +61,21 @@ module.exports = function registerApprovals(router) {
           code: 'BOOKING_INVALID_STATE',
         });
       }
-      await booking.update({
-        status: 'cancelled',
-        cancelledAt: new Date(),
-        cancelReason: reason || 'Richiesta non approvata',
+      // Rifiuto = annullo con mail 'booking_rejected'. Update condizionale: se
+      // nel frattempo lo stato e' cambiato (race) non annulla due volte.
+      const { cancelled } = await cancel({
+        booking,
+        reason: reason || 'Richiesta non approvata',
+        expectStatuses: ['pending_approval'],
+        mail: 'booking_rejected',
       });
+      if (!cancelled) {
+        return res.status(400).json({
+          error: 'La prenotazione non è in attesa di approvazione',
+          code: 'BOOKING_INVALID_STATE',
+        });
+      }
       const full = await fetchBookingFull(booking.id);
-      sendBookingEmail({ user: full.user, booking: full, kind: 'booking_rejected' }).catch(
-        () => {},
-      );
       res.json({ booking: full });
     } catch (err) {
       next(err);
