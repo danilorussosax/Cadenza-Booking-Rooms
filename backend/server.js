@@ -98,6 +98,11 @@ async function start() {
       await require('./seeders/initial')();
     }
 
+    await require('./lib/institutionTimeBoot').configureFromInstitute({
+      Institute: require('./models').Institute,
+      logger: require('./lib/logger'),
+    });
+
     try {
       const { ensureBootstrapForActiveYears } = require('./services/academicYearBootstrap');
       const bootstrapped = await ensureBootstrapForActiveYears();

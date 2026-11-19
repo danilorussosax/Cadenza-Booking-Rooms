@@ -42,8 +42,8 @@ dayjs.extend(timezone);
 // TZ istituzionale: le finestre orarie delle exception sono espresse in
 // ora locale italiana, non UTC. Senza conversione, su un VPS con TZ=UTC
 // `dayjs(b.startTime).hour()` ritorna l'ora UTC e la finestra 14-17
-// confronta valori sbagliati. Allineato a bookingValidator.DEFAULT_TZ.
-const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
+// confronta valori sbagliati. Allineato a bookingValidator.institutionTz().
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 function parseHHmm(s) {
   const [h, m] = s.split(':').map(Number);
@@ -121,8 +121,8 @@ async function findOverlappingBookings(excDef, { onlyFuture = true } = {}) {
     // Lettura day-of-week / ora locale in TZ istituzionale: l'eccezione è
     // espressa in Europe/Rome, il filtro deve allinearsi indipendentemente
     // dal TZ del processo Node (locale Mac vs CI/VPS UTC).
-    const startLocal = dayjs(b.startTime).tz(DEFAULT_TZ);
-    const endLocal = dayjs(b.endTime).tz(DEFAULT_TZ);
+    const startLocal = dayjs(b.startTime).tz(institutionTz());
+    const endLocal = dayjs(b.endTime).tz(institutionTz());
     if (dowSet && !dowSet.has(startLocal.day())) return false;
     if (winStart != null && winEnd != null) {
       const sM = startLocal.hour() * 60 + startLocal.minute();

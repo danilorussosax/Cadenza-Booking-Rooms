@@ -26,7 +26,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('it');
 
-const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
@@ -161,7 +161,7 @@ function buildInstrumentLoanPdf({ res, loan, institute, kind = 'delivery' }) {
   // componente oraria e sono safe senza .tz(). Senza questa conversione
   // su VPS UTC il "Documento generato il 23:00" della sera (ora locale)
   // veniva stampato come "21:00" del fuso UTC.
-  const tz = institute?.timezone || DEFAULT_TZ;
+  const tz = institute?.timezone || institutionTz();
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 56, left: 56, right: 56, bottom: 56 },

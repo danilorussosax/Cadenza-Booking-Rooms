@@ -28,7 +28,6 @@ dayjs.extend(timezone);
 
 const institutionTime = require('../lib/institutionTime');
 
-const INSTITUTE_TZ = institutionTime.getTimezone();
 const DEFAULT_ORIGIN = 'monte_ore';
 
 function fail(message, code = 'VALIDATION_FAILED', status = 400) {
@@ -422,7 +421,6 @@ async function generateForProposal(proposalId, { actorUser, includePast = false 
 
 module.exports = {
   generateForProposal,
-  INSTITUTE_TZ,
   toInstant,
   slotInstants,
   resolveSlots,

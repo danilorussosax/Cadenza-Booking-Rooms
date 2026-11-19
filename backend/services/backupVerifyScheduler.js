@@ -51,7 +51,7 @@ const timezone = require('dayjs/plugin/timezone');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 const { msUntilNextRun } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupVerify' });
 const { listBackups, BACKUP_DIR } = require('../scripts/backup');
@@ -104,7 +104,7 @@ function nextRunDelayMs() {
     dayOfWeek: cfg.dayOfWeek,
     hour: cfg.hour,
     minute: cfg.minute,
-    tz: SCHEDULER_TZ,
+    tz: institutionTz(),
   });
 }
 
@@ -452,7 +452,7 @@ async function start() {
   const dayName = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'][cfg.dayOfWeek];
   const hh = String(cfg.hour).padStart(2, '0');
   const mm = String(cfg.minute).padStart(2, '0');
-  logger.info(`[verify] scheduler avviato (tick ${dayName} alle ${hh}:${mm} ${SCHEDULER_TZ})`);
+  logger.info(`[verify] scheduler avviato (tick ${dayName} alle ${hh}:${mm} ${institutionTz()})`);
 }
 
 function stop() {
