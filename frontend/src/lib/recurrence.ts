@@ -9,6 +9,8 @@
  *   - excludeDates skip-per-data
  */
 
+import { toLocalIsoDate } from '@/lib/date';
+
 export type WeekdayCode = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
 
 export interface RecurrenceState {
@@ -57,7 +59,7 @@ export function expandPreviewDates(
 
   const excluded = new Set(rule.excludeDates);
   const out: string[] = [];
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = toLocalIsoDate;
 
   if (rule.frequency === 'daily') {
     const cur = new Date(start);

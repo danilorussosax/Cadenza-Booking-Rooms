@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { instrumentsApi, loansApi } from '@/api/instruments';
 import { httpErrorMessage } from '@/lib/api';
-import { formatDate } from '@/lib/date';
+import { formatDate, todayLocalIso } from '@/lib/date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -162,7 +162,7 @@ export default function AdminInstruments() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `instruments-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `instruments-${todayLocalIso()}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();

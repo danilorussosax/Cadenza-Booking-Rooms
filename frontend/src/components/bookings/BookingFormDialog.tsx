@@ -5,7 +5,7 @@ import { Bookmark, LoaderCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { BOOKING_TYPE_OPTIONS } from '@/lib/bookings';
-import { fromLocalInput, toLocalDateTimeInput } from '@/lib/date';
+import { fromLocalInput, toLocalDateTimeInput, toLocalIsoDate } from '@/lib/date';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -168,7 +168,7 @@ export function BookingFormDialog({
   const recurrenceStartDate = useMemo(() => {
     if (!startTimeWatch) return '';
     try {
-      return fromLocalInput(startTimeWatch).toISOString().slice(0, 10);
+      return toLocalIsoDate(fromLocalInput(startTimeWatch));
     } catch {
       return '';
     }

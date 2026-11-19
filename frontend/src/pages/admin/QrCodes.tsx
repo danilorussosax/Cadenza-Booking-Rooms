@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import { qrcodesApi, type BuildingCheckInEntry, type QrRoomEntry } from '@/api/qrcodes';
 import { httpErrorMessage } from '@/lib/api';
-import { dayjs } from '@/lib/date';
+import { dayjs, todayLocalIso } from '@/lib/date';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -494,7 +494,7 @@ function RoomsQrTable() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `qr-aule-${new Date().toISOString().slice(0, 10)}.zip`;
+      link.download = `qr-aule-${todayLocalIso()}.zip`;
       link.click();
       URL.revokeObjectURL(url);
       void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });

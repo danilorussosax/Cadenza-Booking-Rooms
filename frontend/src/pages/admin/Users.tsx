@@ -69,6 +69,7 @@ import { IsidataImportContent } from '@/pages/admin/integrations/IsidataImport';
 import { IsidataLogo } from '@/components/icons/IsidataLogo';
 import { Esse3Logo } from '@/components/icons/Esse3Logo';
 import type { Role, User, UserStatus } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
 const ROLE_LABEL_KEY: Record<Role, string> = {
@@ -302,7 +303,7 @@ export default function AdminUsers() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `utenti-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `utenti-${todayLocalIso()}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

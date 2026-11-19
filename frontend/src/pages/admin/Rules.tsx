@@ -60,6 +60,7 @@ import type {
   BookingRuleExceptionScope,
   Role,
 } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -1023,7 +1024,7 @@ function ExceptionDialog({
   // bloccante: l'admin potrebbe avere un motivo storico/audit).
   const isPastOnlyRange = (() => {
     if (form.kind !== 'block') return false;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalIso();
     const effectiveDateTo = form.singleDate ? form.dateFrom : form.dateTo;
     return !!effectiveDateTo && effectiveDateTo < today;
   })();

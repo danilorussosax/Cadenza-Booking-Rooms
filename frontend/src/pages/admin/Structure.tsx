@@ -39,6 +39,7 @@ import { EquipmentFormDialog } from '@/components/admin/EquipmentFormDialog';
 import { CsvImportDialog } from '@/components/admin/CsvImportDialog';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { Building, Equipment, Institute, Room } from '@/types';
+import { todayLocalIso } from '@/lib/date';
 
 type DeleteTarget =
   | { kind: 'institute'; entity: Institute }
@@ -695,7 +696,7 @@ function InstituteCard({
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `struttura-${institute.code ?? institute.id}-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `struttura-${institute.code ?? institute.id}-${todayLocalIso()}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
