@@ -37,6 +37,7 @@ const instrumentLoanEmail = require('./instrumentLoanEmail');
 const { cancel } = require('./bookingLifecycle');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger').child({ scope: 'reminderScheduler' });
+const { createJob } = require('../lib/jobRunner');
 
 const TICK_MS = 5 * 60 * 1000; // 5 minuti
 const WINDOW_BEFORE_MS = 65 * 60 * 1000; // fino a 65 min nel futuro
@@ -44,7 +45,6 @@ const WINDOW_AFTER_MS = 55 * 60 * 1000; // almeno 55 min nel futuro
 // Reminder prestiti: 2 giorni prima (intervallo [+1, +2] giorni rispetto a oggi).
 const LOAN_REMINDER_DAYS_AHEAD = 2;
 
-let timer = null;
 let lastTickAt = null;
 let lastError = null;
 
@@ -255,36 +255,39 @@ async function tickAll() {
 function getStatus() {
   return {
     name: 'reminder',
-    enabled: timer != null,
+    enabled: job.isActive(),
     running: false,
     intervalMs: TICK_MS,
     lastTickAt,
     lastError,
-    nextTickAt: timer ? new Date(Date.now() + TICK_MS) : null,
+    nextTickAt: job.isActive() ? new Date(Date.now() + TICK_MS) : null,
   };
 }
 
+// Un solo job: tickAll esegue in sequenza reminder prenotazioni, ghost-cancel,
+// prestiti e waitlist (l'ordine conta: il ghost-cancel promuove la waitlist).
+// Primo tick a 10s dal boot (utile in dev), poi ogni TICK_MS.
+const job = createJob({
+  name: 'reminder',
+  run: tickAll,
+  schedule: { type: 'interval', everyMs: TICK_MS, initialDelayMs: 10_000 },
+});
+
 function start() {
-  if (timer) return;
+  if (job.isActive()) return;
   // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
   // In fork mode / dev / test isSchedulerMaster() ritorna sempre true.
-  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+  if (!job.start()) {
     logger.info('[reminder] scheduler skipped — non-master cluster instance');
     return;
   }
-  // primo tick subito (utile in dev) poi ogni TICK_MS
-  setTimeout(tickAll, 10_000);
-  timer = setInterval(tickAll, TICK_MS);
   logger.info(
     `[reminder] scheduler avviato (ogni ${TICK_MS / 1000 / 60} min · bookings + loans + waitlist)`,
   );
 }
 
 function stop() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+  job.stop();
 }
 
 module.exports = {

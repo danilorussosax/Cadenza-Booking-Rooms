@@ -51,8 +51,8 @@ const timezone = require('dayjs/plugin/timezone');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
-const { msUntilNextRun } = require('../lib/jobRunner');
+const { getTimezone } = require('../lib/institutionTime');
+const { createJob } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupVerify' });
 const { listBackups, BACKUP_DIR } = require('../scripts/backup');
 const { validateTarball } = require('./backupRestore');
@@ -60,7 +60,6 @@ const { sequelize, MailOutbox } = require('../models');
 
 const CRITICAL_TABLES = ['Users', 'Bookings', 'Rooms', 'Buildings'];
 
-let timer = null;
 let inProgress = false;
 let lastRun = null;
 
@@ -96,26 +95,30 @@ function getConfig() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Scheduling
 
+// Prossimo `cfg.dayOfWeek` alle hh:mm (se oggi e' quel giorno e l'orario e'
+// gia' passato → prossima settimana). Config e fuso letti a ogni armamento.
+const job = createJob({
+  name: 'backupVerify',
+  run: () => tick(),
+  schedule: () => {
+    const cfg = getConfig();
+    return {
+      type: 'weekly',
+      dayOfWeek: cfg.dayOfWeek,
+      hour: cfg.hour,
+      minute: cfg.minute,
+      tz: getTimezone(),
+    };
+  },
+  enabled: () => getConfig().enabled,
+});
+
 function nextRunDelayMs() {
-  const cfg = getConfig();
-  // Prossimo `cfg.dayOfWeek` alle hh:mm (se oggi e' quel giorno e l'orario
-  // e' gia' passato → prossima settimana).
-  return msUntilNextRun({
-    dayOfWeek: cfg.dayOfWeek,
-    hour: cfg.hour,
-    minute: cfg.minute,
-    tz: SCHEDULER_TZ,
-  });
+  return job.msToNext();
 }
 
 function scheduleNext() {
-  if (timer) clearTimeout(timer);
-  const cfg = getConfig();
-  if (!cfg.enabled) {
-    timer = null;
-    return;
-  }
-  timer = setTimeout(tick, nextRunDelayMs());
+  job.reschedule();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -437,9 +440,9 @@ async function tick() {
 }
 
 async function start() {
-  if (timer) return; // idempotente
+  if (job.isActive()) return; // idempotente
   // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
-  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+  if (!job.isGateOpen()) {
     logger.info('[verify] scheduler skipped — non-master cluster instance');
     return;
   }
@@ -452,14 +455,11 @@ async function start() {
   const dayName = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'][cfg.dayOfWeek];
   const hh = String(cfg.hour).padStart(2, '0');
   const mm = String(cfg.minute).padStart(2, '0');
-  logger.info(`[verify] scheduler avviato (tick ${dayName} alle ${hh}:${mm} ${SCHEDULER_TZ})`);
+  logger.info(`[verify] scheduler avviato (tick ${dayName} alle ${hh}:${mm} ${getTimezone()})`);
 }
 
 function stop() {
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
+  job.stop();
 }
 
 /** Per `opsSnapshot.gatherSchedulers` e widget /admin/ops. */
@@ -467,12 +467,12 @@ function getStatus() {
   const cfg = getConfig();
   return {
     name: 'backupVerify',
-    enabled: cfg.enabled && timer != null,
+    enabled: cfg.enabled && job.isActive(),
     running: inProgress,
     intervalMs: 7 * 24 * 60 * 60 * 1000,
     lastTickAt: lastRun?.finishedAt ?? null,
     lastError: lastRun && !lastRun.ok ? (lastRun.reason ?? lastRun.error ?? 'unknown') : null,
-    nextTickAt: timer ? new Date(Date.now() + nextRunDelayMs()).toISOString() : null,
+    nextTickAt: job.isActive() ? new Date(Date.now() + nextRunDelayMs()).toISOString() : null,
     lastRun,
   };
 }

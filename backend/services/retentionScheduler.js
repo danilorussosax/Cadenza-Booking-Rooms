@@ -27,10 +27,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // "03:00 locali" = ora italiana, indipendente dal TZ del processo.
-const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
+const { getTimezone } = require('../lib/institutionTime');
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
-const { msUntilNextRun } = require('../lib/jobRunner');
+const { createJob } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });
 
 const DEFAULT_AUDIT_RETENTION_DAYS = 730; // 24 mesi
@@ -41,15 +41,16 @@ const TICK_HOUR = 3; // 03:00 locali
 const BACKEND_ROOT = path.resolve(__dirname, '..');
 const AUDIT_ARCHIVE_DIR = path.join(BACKEND_ROOT, 'backups', 'audit');
 
-let timer = null;
 let lastTickAt = null;
 let lastError = null;
 let nextScheduledAt = null;
 
-function nextRunDelayMs() {
-  // TICK_HOUR:00 nel fuso istituzionale → delta ms per setTimeout.
-  return msUntilNextRun({ hour: TICK_HOUR, tz: SCHEDULER_TZ });
-}
+// TICK_HOUR:00 nel fuso istituzionale, letto a ogni armamento (non a import-time).
+const job = createJob({
+  name: 'retention',
+  run: () => tick(),
+  schedule: () => ({ type: 'daily', hour: TICK_HOUR, tz: getTimezone() }),
+});
 
 function getAuditRetentionDays() {
   const raw = Number(process.env.GDPR_AUDIT_LOG_RETENTION_DAYS);
@@ -383,16 +384,14 @@ async function tick() {
 }
 
 function scheduleNext() {
-  if (timer) clearTimeout(timer);
-  const delay = nextRunDelayMs();
-  nextScheduledAt = new Date(Date.now() + delay);
-  timer = setTimeout(tick, delay);
+  job.reschedule();
+  nextScheduledAt = job.isActive() ? new Date(Date.now() + job.msToNext()) : null;
 }
 
 function getStatus() {
   return {
     name: 'retention',
-    enabled: timer != null,
+    enabled: job.isActive(),
     running: false,
     intervalMs: 24 * 60 * 60 * 1000,
     lastTickAt,
@@ -402,9 +401,9 @@ function getStatus() {
 }
 
 function start() {
-  if (timer) return;
+  if (job.isActive()) return;
   // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
-  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+  if (!job.isGateOpen()) {
     logger.info('[retention] scheduler skipped — non-master cluster instance');
     return;
   }
@@ -415,10 +414,7 @@ function start() {
 }
 
 function stop() {
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
+  job.stop();
 }
 
 module.exports = {
