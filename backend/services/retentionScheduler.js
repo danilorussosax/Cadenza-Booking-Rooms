@@ -27,7 +27,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // "03:00 locali" = ora italiana, indipendente dal TZ del processo.
-const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 const { Op } = require('sequelize');
 const { AuditLog, MailOutbox } = require('../models');
 const { msUntilNextRun } = require('../lib/jobRunner');
@@ -48,7 +48,7 @@ let nextScheduledAt = null;
 
 function nextRunDelayMs() {
   // TICK_HOUR:00 nel fuso istituzionale → delta ms per setTimeout.
-  return msUntilNextRun({ hour: TICK_HOUR, tz: SCHEDULER_TZ });
+  return msUntilNextRun({ hour: TICK_HOUR, tz: institutionTz() });
 }
 
 function getAuditRetentionDays() {

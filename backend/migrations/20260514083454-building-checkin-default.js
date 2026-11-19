@@ -25,25 +25,16 @@
  * backend/lib/checkInPolicy.js.
  */
 
+const { runPreSyncStep } = require('../lib/preSyncMigrations');
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.sequelize.transaction(async (t) => {
-      // 1) buildings.checkInDefault
-      const buildingsDesc = await queryInterface.describeTable('buildings');
-      if (!buildingsDesc.checkInDefault) {
-        await queryInterface.addColumn(
-          'buildings',
-          'checkInDefault',
-          {
-            type: Sequelize.BOOLEAN,
-            allowNull: false,
-            defaultValue: false,
-          },
-          { transaction: t },
-        );
-      }
+    // 1) buildings.checkInDefault: stessa definizione delle pre-sync (una sola
+    //    fonte), eseguita fuori dalla transazione come al boot. Idempotente.
+    await runPreSyncStep('buildings.checkInDefault');
 
+    await queryInterface.sequelize.transaction(async (t) => {
       // 2) rooms.requireCheckIn → NULLABLE
       const roomsDesc = await queryInterface.describeTable('rooms');
       if (roomsDesc.requireCheckIn && roomsDesc.requireCheckIn.allowNull === false) {

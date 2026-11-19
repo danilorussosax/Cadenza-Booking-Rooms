@@ -9,16 +9,13 @@
  * Idempotente.
  */
 
+const { runPreSyncStep } = require('../lib/preSyncMigrations');
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    const desc = await queryInterface.describeTable('oauth_settings');
-    if (!desc.allowedEmailDomains) {
-      await queryInterface.addColumn('oauth_settings', 'allowedEmailDomains', {
-        type: Sequelize.STRING(1000),
-        allowNull: true,
-      });
-    }
+  // Stessa definizione delle pre-sync (una sola fonte).
+  async up() {
+    await runPreSyncStep('oauth_settings.allowedEmailDomains');
   },
 
   async down(queryInterface) {

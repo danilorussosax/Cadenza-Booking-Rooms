@@ -419,6 +419,11 @@ router.put('/institutes/:id', authenticate, requireRole('admin'), async (req, re
   const inst = await Institute.findByPk(req.params.id);
   if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
   await inst.update(pickInstituteFields(req.body));
+  // Il fuso salvato dall'admin diventa subito il fuso istituzionale attivo.
+  await require('../lib/institutionTimeBoot').configureFromInstitute({
+    Institute,
+    logger: require('../lib/logger'),
+  });
   res.json({ institute: inst });
 });
 

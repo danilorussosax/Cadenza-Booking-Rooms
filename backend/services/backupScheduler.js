@@ -35,7 +35,7 @@ dayjs.extend(timezone);
 // L'orario configurato (default 02:30) è inteso come ora italiana. Su un
 // VPS UTC il tick partirebbe alle 02:30 UTC = 04:30 CEST, un'ora prima
 // del previsto.
-const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 const { msUntilNextRun } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
@@ -144,7 +144,11 @@ function getCachedConfig() {
 
 function nextRunDelayMs() {
   const cfg = getCachedConfig();
-  return msUntilNextRun({ hour: cfg.scheduledHour, minute: cfg.scheduledMinute, tz: SCHEDULER_TZ });
+  return msUntilNextRun({
+    hour: cfg.scheduledHour,
+    minute: cfg.scheduledMinute,
+    tz: institutionTz(),
+  });
 }
 
 async function tick() {

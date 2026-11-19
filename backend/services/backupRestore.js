@@ -18,7 +18,7 @@ dayjs.extend(timezone);
 // I nomi-file timestamp dei tarball (es. pre-restore-20260514-0230.tar.gz)
 // devono allinearsi all'ora italiana mostrata in UI/log, non al TZ del
 // processo Node: su VPS UTC si chiamerebbero "0030" invece di "0230".
-const TS_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -121,7 +121,7 @@ async function validateTarball(archivePath) {
 function ts() {
   // Timestamp filename in Europe/Rome: indipendente dal TZ del processo
   // così i nomi-file restano coerenti con l'orario locale dell'istituto.
-  return dayjs().tz(TS_TZ).format('YYYYMMDD-HHmmss');
+  return dayjs().tz(institutionTz()).format('YYYYMMDD-HHmmss');
 }
 
 /** Ritorna `true` se attualmente è in corso un restore (single-flight). */

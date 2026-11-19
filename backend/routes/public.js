@@ -36,7 +36,7 @@ dayjs.extend(timezone);
 // Widget pubblici (display kiosk + landing istituto): le fasce orarie
 // del giorno e l'identificazione del "prossimo concerto oggi" devono
 // essere in ora italiana, non nel TZ del processo Node.
-const PUBLIC_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const router = express.Router();
 
@@ -406,8 +406,8 @@ router.get('/stats', async (req, res) => {
   // anche se il processo Node gira in UTC (container/CI/VPS managed).
   const buckets = new Array(24).fill(0);
   for (const bk of todayBookings) {
-    const sh = Math.max(0, dayjs(bk.startTime).tz(PUBLIC_TZ).hour());
-    const eh = Math.min(24, dayjs(bk.endTime).tz(PUBLIC_TZ).hour() + 1);
+    const sh = Math.max(0, dayjs(bk.startTime).tz(institutionTz()).hour());
+    const eh = Math.min(24, dayjs(bk.endTime).tz(institutionTz()).hour() + 1);
     for (let h = sh; h < eh; h++) buckets[h] += 1;
   }
   const bookingsByHour = buckets

@@ -15,7 +15,7 @@ require('dayjs/locale/it');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('it');
-const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 const { decrypt } = require('../lib/crypto');
 const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');
@@ -164,7 +164,7 @@ async function buildBookingContext({ user, booking, extra }) {
   // i timestamp UTC salvati a DB venivano formattati nella TZ del processo
   // Node (UTC sul VPS), risultando sfasati di 1-2h rispetto al frontend che
   // formatta nella TZ del browser dell'utente.
-  const tz = inst?.timezone || DEFAULT_TZ;
+  const tz = inst?.timezone || institutionTz();
   const room = booking.room || {};
   const building = room.building || {};
   const start = dayjs(booking.startTime).tz(tz);
@@ -208,7 +208,7 @@ async function buildBookingContext({ user, booking, extra }) {
   };
 }
 
-function normalizeExtra(extra, tz = DEFAULT_TZ) {
+function normalizeExtra(extra, tz = institutionTz()) {
   if (!extra || typeof extra !== 'object') return {};
   const out = { ...extra };
   const base = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/$/, '');

@@ -11,27 +11,16 @@
  * ledger.
  */
 
+const { runPreSyncStep } = require('../lib/preSyncMigrations');
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up(queryInterface, Sequelize) {
+  async up(queryInterface) {
+    // Colonna: stessa definizione delle pre-sync (una sola fonte). Gli indici
+    // restano qui (le pre-sync non li gestiscono).
+    await runPreSyncStep('booking_rule_exceptions.roomId');
+
     await queryInterface.sequelize.transaction(async (t) => {
-      const desc = await queryInterface.describeTable('booking_rule_exceptions');
-
-      if (!desc.roomId) {
-        await queryInterface.addColumn(
-          'booking_rule_exceptions',
-          'roomId',
-          {
-            type: Sequelize.INTEGER,
-            allowNull: true,
-            references: { model: 'rooms', key: 'id' },
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE',
-          },
-          { transaction: t },
-        );
-      }
-
       // addIndex è idempotente solo se controlliamo prima — addIndex su
       // indice esistente fallisce su Postgres ("relation already exists").
       const indexes = await queryInterface.showIndex('booking_rule_exceptions', { transaction: t });

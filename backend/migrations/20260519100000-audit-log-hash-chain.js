@@ -15,22 +15,14 @@
  * Idempotente.
  */
 
+const { runPreSyncStep } = require('../lib/preSyncMigrations');
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    const desc = await queryInterface.describeTable('audit_log');
-    if (!desc.rowHash) {
-      await queryInterface.addColumn('audit_log', 'rowHash', {
-        type: Sequelize.STRING(64),
-        allowNull: true,
-      });
-    }
-    if (!desc.prevHash) {
-      await queryInterface.addColumn('audit_log', 'prevHash', {
-        type: Sequelize.STRING(64),
-        allowNull: true,
-      });
-    }
+  // Stessa definizione delle pre-sync (una sola fonte).
+  async up() {
+    await runPreSyncStep('audit_log.rowHash');
+    await runPreSyncStep('audit_log.prevHash');
   },
 
   async down(queryInterface) {

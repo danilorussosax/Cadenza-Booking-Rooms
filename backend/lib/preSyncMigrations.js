@@ -942,8 +942,22 @@ async function runPreSyncMigrations() {
   }
 }
 
+/**
+ * Esegue UN passo di PRE_SYNC_STEPS per nome (stessa definizione usata al boot).
+ * Usato dalle migrazioni sequelize-cli che duplicavano una colonna già gestita
+ * qui: così `db:cli:migrate` e boot non possono divergere.
+ *
+ * @returns {Promise<boolean>} true se il passo ha modificato lo schema.
+ */
+async function runPreSyncStep(name) {
+  const s = PRE_SYNC_STEPS.find((x) => x.name === name);
+  if (!s) throw new Error(`Passo pre-sync sconosciuto: ${name}`);
+  return (await s.run()) === true;
+}
+
 module.exports = {
   runPreSyncMigrations,
+  runPreSyncStep,
   addColumnIfMissing,
   columnTypes,
   PRE_SYNC_STEPS,

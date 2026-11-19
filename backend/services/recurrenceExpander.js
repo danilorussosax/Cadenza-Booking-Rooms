@@ -33,7 +33,7 @@ dayjs.extend(timezone);
 // .tz('Europe/Rome') esplicito, su un VPS con TZ=UTC `t0.hour()` ritorna
 // 10 UTC (= 12 CEST) e la ricorrenza nasce con orari sfasati di 1-2h.
 const institutionTime = require('../lib/institutionTime');
-const DEFAULT_TZ = institutionTime.getTimezone();
+const institutionTz = () => institutionTime.getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const MAX_OCCURRENCES = 52;
 const MAX_RANGE_DAYS = 366;
@@ -190,8 +190,8 @@ function expandOccurrences(rule, templateStartTime, templateEndTime) {
   // proviene dal Booking (timestamp UTC) ma l'ora "vista" dall'utente è
   // quella italiana. Senza .tz() su VPS UTC l'utente che ha prenotato
   // 10:00 vedrebbe la ricorrenza nascere alle 08:00 d'estate.
-  const t0 = dayjs(templateStartTime).tz(DEFAULT_TZ);
-  const t1 = dayjs(templateEndTime).tz(DEFAULT_TZ);
+  const t0 = dayjs(templateStartTime).tz(institutionTz());
+  const t1 = dayjs(templateEndTime).tz(institutionTz());
   if (!t0.isValid() || !t1.isValid()) {
     throw new RecurrenceError(
       'templateStartTime/templateEndTime non validi',

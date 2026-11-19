@@ -31,7 +31,7 @@ const { Op } = require('sequelize');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const DEFAULT_TZ = require('../../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const PURPOSE_RESET = 'reset';
 const PURPOSE_INITIAL_SETUP = 'initial_setup';
@@ -152,13 +152,13 @@ async function sendSetupLink({
     },
     reset: {
       url: resetUrl,
-      expiresAtLong: dayjs(expiresAt).tz(DEFAULT_TZ).format('DD/MM/YYYY HH:mm'),
+      expiresAtLong: dayjs(expiresAt).tz(institutionTz()).format('DD/MM/YYYY HH:mm'),
     },
     institute: {
       name: institute?.name || 'Cadenza',
       copyright: `© ${new Date().getFullYear()} ${institute?.name || 'Cadenza'}`,
     },
-    now: { dateTime: dayjs().tz(DEFAULT_TZ).format('DD/MM/YYYY HH:mm') },
+    now: { dateTime: dayjs().tz(institutionTz()).format('DD/MM/YYYY HH:mm') },
   };
 
   // 4) Send via sendSecurityEmail (priority 0, bypassa throttle/bounce gate)

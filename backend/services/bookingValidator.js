@@ -24,7 +24,7 @@ dayjs.extend(timezone);
 // "08:00"–"22:00") sono espresse in ORA LOCALE ITALIANA, non UTC: senza questa
 // conversione, su server UTC una prenotazione delle 09:00 IT (= 07:00 UTC in DST)
 // veniva rifiutata con "fascia consentita 08:00–22:00" perché start.hour()=7.
-const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 /**
  * Valida una richiesta di prenotazione rispetto alle regole del ruolo,
@@ -202,8 +202,8 @@ async function validateBooking({
   // (= 07:00 UTC, < 08:00). Vedi emailService.js / icalService.js per
   // l'analogo pattern.
   if (rule.allowedStartTime && rule.allowedEndTime) {
-    const startLocal = start.tz(DEFAULT_TZ);
-    const endLocal = end.tz(DEFAULT_TZ);
+    const startLocal = start.tz(institutionTz());
+    const endLocal = end.tz(institutionTz());
     const startMins = startLocal.hour() * 60 + startLocal.minute();
     const endMins = endLocal.hour() * 60 + endLocal.minute();
     const [aH, aM] = rule.allowedStartTime.split(':').map(Number);
@@ -495,13 +495,13 @@ function exceptionAppliesToDate(exception, dateLike) {
 // =====================================================
 // Helper: la prenotazione [start,end] si sovrappone alla finestra HH:mm?
 // Se startTime/endTime mancano, la finestra copre l'intero giorno.
-// La finestra è in ora locale Europe/Rome (vedi DEFAULT_TZ); convertiamo
+// La finestra è in ora locale Europe/Rome (vedi institutionTz()); convertiamo
 // start/end per evitare l'off-by-2h su VPS UTC durante DST estiva.
 // =====================================================
 function overlapsWindow(start, end, winStart, winEnd) {
   if (!winStart || !winEnd) return true;
-  const startLocal = start.tz(DEFAULT_TZ);
-  const endLocal = end.tz(DEFAULT_TZ);
+  const startLocal = start.tz(institutionTz());
+  const endLocal = end.tz(institutionTz());
   const s = startLocal.hour() * 60 + startLocal.minute();
   const e = endLocal.hour() * 60 + endLocal.minute();
   const ws = parseHHmm(winStart);
@@ -514,8 +514,8 @@ function overlapsWindow(start, end, winStart, winEnd) {
 // (stessa logica timezone-aware di overlapsWindow).
 // =====================================================
 function minutesInsideWindow(start, end, winStart, winEnd) {
-  const startLocal = start.tz(DEFAULT_TZ);
-  const endLocal = end.tz(DEFAULT_TZ);
+  const startLocal = start.tz(institutionTz());
+  const endLocal = end.tz(institutionTz());
   const sM = startLocal.hour() * 60 + startLocal.minute();
   const eM = endLocal.hour() * 60 + endLocal.minute();
   const ws = winStart ? parseHHmm(winStart) : 0;

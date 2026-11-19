@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 // "giorno solare" e "settimana ISO" istituzionali (Europe/Rome). Su un
 // VPS UTC vicino a mezzanotte italiana il dayStart può cadere il giorno
 // prima/dopo, falsando i totali ora.
-const DEFAULT_TZ = require('../../lib/institutionTime').getTimezone();
+const institutionTz = () => require('../../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
 
 const { Booking, Room, User } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
@@ -24,7 +24,7 @@ module.exports = function registerAvailability(router) {
   router.get('/usage/me', authenticate, async (req, res, next) => {
     try {
       const rule = await BookingRule.findOne({ where: { role: req.user.role } });
-      const nowLocal = dayjs().tz(DEFAULT_TZ);
+      const nowLocal = dayjs().tz(institutionTz());
       const weekStart = nowLocal.startOf('isoWeek').toDate();
       const weekEnd = nowLocal.endOf('isoWeek').toDate();
       const dayStart = nowLocal.startOf('day').toDate();
@@ -222,8 +222,8 @@ module.exports = function registerAvailability(router) {
     // un concerto delle 22:30 italiane = 20:30 UTC, su VPS UTC sarebbe
     // fuori da [00:00 UTC, 23:59 UTC] di "ieri".
     const dateStr = req.query.date ? String(req.query.date) : null;
-    const parsed = dateStr ? dayjs.tz(dateStr, DEFAULT_TZ) : dayjs().tz(DEFAULT_TZ);
-    const date = parsed.isValid() ? parsed : dayjs().tz(DEFAULT_TZ);
+    const parsed = dateStr ? dayjs.tz(dateStr, institutionTz()) : dayjs().tz(institutionTz());
+    const date = parsed.isValid() ? parsed : dayjs().tz(institutionTz());
     const dayStart = date.startOf('day').toDate();
     const dayEnd = date.endOf('day').toDate();
 
