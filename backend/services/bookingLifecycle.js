@@ -151,7 +151,11 @@ function runAfterCommit(transaction, fn) {
     }
   };
   if (transaction && typeof transaction.afterCommit === 'function') {
-    transaction.afterCommit(safe);
+    // Fire-and-forget (come l'hook storico): attendere qui terrebbe occupata la
+    // connessione del commit mentre gli effetti aprono nuove transazioni.
+    transaction.afterCommit(() => {
+      void safe();
+    });
     return Promise.resolve();
   }
   return safe();
@@ -226,6 +230,7 @@ async function placeBooking(t, p) {
       startTime: p.startTime,
       endTime: p.endTime,
       type: p.type,
+      ignoreBookingId: p.ignoreBookingId,
       bypassQuotas: !!p.bypass?.quotas,
       bypassAdvance: !!p.bypass?.advance,
       bypassPastDates: !!p.bypass?.pastDates,
@@ -290,7 +295,13 @@ async function placeBooking(t, p) {
  * @param {Function} [p.before]   async (t) => ({ owner?, actor?, room? }) primo passo dentro la tx
  * @param {Function} [p.within]   async (t, booking) dopo la insert, stessa tx (collegamenti: slot monte ore, coda...)
  * @param {object} [p.transaction] tx esterna: niente tx/retry propri, effetti su afterCommit
+ * @param {number} [p.ignoreBookingId] prenotazione da ignorare nel controllo conflitti
  * @param {boolean} [p.notifyOwner=true] [p.notifyAdmins=true]
+ *        Con `notifyOwner:false` non parte la mail di conferma; la notifica admin
+ *        riguarda solo lo stato pending_approval. Per prenotazioni 'confirmed'
+ *        generate in blocco (monte ore, bot) `notifyOwner:false` basta a
+ *        silenziare TUTTO: gli effetti post-commit vengono saltati.
+ *        `cancel`/`cancelMany` non inviano mail se `mail` non e' indicato.
  * @returns {Promise<{ booking, status, full }>}
  * @throws {BookingError} validazione / conflitto / FK
  */
@@ -314,9 +325,12 @@ async function book(p) {
     notifyAdmins: p.notifyAdmins !== false,
   };
   let full = null;
-  await runAfterCommit(p.transaction, async () => {
-    full = await deliverCreationEffects(booking.id, effects);
-  });
+  const hasEffects =
+    effects.notifyOwner || (effects.status === 'pending_approval' && effects.notifyAdmins);
+  if (hasEffects)
+    await runAfterCommit(p.transaction, async () => {
+      full = await deliverCreationEffects(booking.id, effects);
+    });
   // Con tx esterna `full` non e' ancora disponibile (gli effetti partono dopo
   // il commit): il chiamante ricarica se serve.
   if (!p.transaction && !full) full = await loadFull(booking.id);
