@@ -22,6 +22,7 @@ const { auditMiddleware } = require('./middleware/audit');
 const { originGuard } = require('./middleware/originGuard');
 const { requestContextMiddleware } = require('./middleware/requestContext');
 const { mapSequelizeError } = require('./lib/dbErrors');
+const { DomainError } = require('./lib/domainError');
 const sentry = require('./lib/sentry');
 
 function buildApp({ serveFrontend = true } = {}) {
@@ -507,13 +508,14 @@ function buildApp({ serveFrontend = true } = {}) {
   // Error handler (stessa logica di server.js)
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
-    if (err && err.status && err.code) {
+    if (err && err.status && (err.code || err instanceof DomainError)) {
       return res.status(err.status).json({
         error: err.message,
-        code: err.code,
+        ...(err.code && { code: err.code }),
         ...(err.details && { details: err.details }),
         ...(err.fields && { fields: err.fields }),
         ...(err.params && { params: err.params }),
+        ...(err.extra && err.extra),
       });
     }
     const mapped = mapSequelizeError(err);

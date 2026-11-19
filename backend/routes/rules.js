@@ -9,6 +9,7 @@ const {
   findOverlappingBookings,
   cancelOverlappingBookings,
 } = require('../services/exceptionOverlapService');
+const { domainError, httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -36,16 +37,16 @@ router.get('/exceptions', authenticate, async (req, res) => {
   const where = {};
   if (role) {
     if (!VALID_ROLES_FOR_EXCEPTION.includes(role)) {
-      return res.status(400).json({ error: 'Ruolo non valido' });
+      throw httpError(400, 'Ruolo non valido');
     }
     where.role = { [Op.in]: [role, 'all'] };
   } else if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Riservato agli admin' });
+    throw httpError(403, 'Riservato agli admin');
   }
   if (roomId) {
     const id = Number(roomId);
     if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ error: 'roomId non valido' });
+      throw httpError(400, 'roomId non valido');
     }
     // null (globale) OR match aula richiesta
     where.roomId = { [Op.or]: [null, id] };
@@ -141,18 +142,14 @@ router.post('/exceptions', authenticate, requireRole('admin'), async (req, res, 
   try {
     const errors = validateExceptionPayload(req.body || {});
     if (errors.length > 0)
-      return res
-        .status(400)
-        .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
+      throw httpError(400, 'Validazione fallita', { details: errors.map((m) => ({ message: m })) });
     const payload = normalizeException(req.body);
     await assertRoomExists(payload.roomId);
     const created = await BookingRuleException.create(payload);
     res.status(201).json({ exception: created });
   } catch (err) {
     if (err.code === 'ROOM_NOT_FOUND') {
-      return res
-        .status(400)
-        .json({ error: err.message, code: err.code, details: [{ message: err.message }] });
+      throw domainError(err.code, err.message, { details: [{ message: err.message }] });
     }
     next(err);
   }
@@ -170,9 +167,7 @@ router.post(
     try {
       const errs = validateExceptionPayload(req.body || {});
       if (errs.length > 0) {
-        return res
-          .status(400)
-          .json({ error: 'Validazione fallita', details: errs.map((m) => ({ message: m })) });
+        throw httpError(400, 'Validazione fallita', { details: errs.map((m) => ({ message: m })) });
       }
       const def = normalizeException(req.body);
       const overlapping = await findOverlappingBookings(def, { onlyFuture: true });
@@ -233,12 +228,9 @@ router.post(
   async (req, res, next) => {
     try {
       const exception = await BookingRuleException.findByPk(req.params.id);
-      if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
+      if (!exception) throw httpError(404, 'Eccezione non trovata');
       if (exception.kind !== 'block') {
-        return res.status(400).json({
-          error: 'Operazione disponibile solo per kind=block',
-          code: 'NOT_BLOCK_KIND',
-        });
+        throw domainError('NOT_BLOCK_KIND', 'Operazione disponibile solo per kind=block');
       }
       const result = await cancelOverlappingBookings(exception, {
         reason: req.body?.reason ? String(req.body.reason).slice(0, 200) : exception.name,
@@ -254,21 +246,17 @@ router.post(
 router.put('/exceptions/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const exception = await BookingRuleException.findByPk(req.params.id);
-    if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
+    if (!exception) throw httpError(404, 'Eccezione non trovata');
     const errors = validateExceptionPayload(req.body || {});
     if (errors.length > 0)
-      return res
-        .status(400)
-        .json({ error: 'Validazione fallita', details: errors.map((m) => ({ message: m })) });
+      throw httpError(400, 'Validazione fallita', { details: errors.map((m) => ({ message: m })) });
     const payload = normalizeException(req.body);
     await assertRoomExists(payload.roomId);
     await exception.update(payload);
     res.json({ exception });
   } catch (err) {
     if (err.code === 'ROOM_NOT_FOUND') {
-      return res
-        .status(400)
-        .json({ error: err.message, code: err.code, details: [{ message: err.message }] });
+      throw domainError(err.code, err.message, { details: [{ message: err.message }] });
     }
     next(err);
   }
@@ -277,7 +265,7 @@ router.put('/exceptions/:id', authenticate, requireRole('admin'), async (req, re
 // DELETE /api/rules/exceptions/:id  (admin)
 router.delete('/exceptions/:id', authenticate, requireRole('admin'), async (req, res) => {
   const exception = await BookingRuleException.findByPk(req.params.id);
-  if (!exception) return res.status(404).json({ error: 'Eccezione non trovata' });
+  if (!exception) throw httpError(404, 'Eccezione non trovata');
   await exception.destroy();
   res.json({ message: 'Eccezione eliminata' });
 });
@@ -286,10 +274,10 @@ router.delete('/exceptions/:id', authenticate, requireRole('admin'), async (req,
 router.get('/:role', authenticate, async (req, res) => {
   const role = req.params.role;
   if (!['admin', 'docente', 'studente'].includes(role)) {
-    return res.status(400).json({ error: 'Ruolo non valido' });
+    throw httpError(400, 'Ruolo non valido');
   }
   const rule = await BookingRule.findOne({ where: { role } });
-  if (!rule) return res.status(404).json({ error: 'Regola non trovata' });
+  if (!rule) throw httpError(404, 'Regola non trovata');
   res.json({ rule });
 });
 
@@ -325,16 +313,12 @@ router.put(
     try {
       const errs = validationResult(req);
       if (!errs.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validazione fallita',
-          code: 'VALIDATION_FAILED',
-          details: errs.array(),
-        });
+        throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
       }
 
       const role = req.params.role;
       if (!['admin', 'docente', 'studente'].includes(role)) {
-        return res.status(400).json({ error: 'Ruolo non valido', code: 'VALIDATION_FAILED' });
+        throw domainError('VALIDATION_FAILED', 'Ruolo non valido');
       }
 
       // Sequelize Model.upsert() restituisce [instance, created]: created=true

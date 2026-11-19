@@ -26,6 +26,7 @@ const { sendSecurityEmail } = emailService;
 const { PasswordResetToken, Institute } = require('../models');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
+const { domainError, httpError } = require('../lib/domainError');
 
 const router = express.Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -108,11 +109,9 @@ router.post(
     try {
       const errs = validationResult(req);
       if (!errs.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validazione fallita',
-          code: 'VALIDATION_FAILED',
-          details: errs.array(),
-        });
+        return next(
+          domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() }),
+        );
       }
 
       const { email, password, firstName, lastName, matricola, courseId, role } = req.body;
@@ -123,7 +122,7 @@ router.post(
       if (courseId) {
         const course = await Course.findByPk(courseId);
         if (!course || !course.isActive) {
-          return res.status(400).json({ error: 'Corso non valido', code: 'COURSE_INVALID' });
+          return next(domainError('COURSE_INVALID', 'Corso non valido'));
         }
       }
 
@@ -160,20 +159,21 @@ router.post(
           // collisionato. Distinguamo email vs matricola per UX.
           const fields = Array.isArray(err.errors) ? err.errors.map((e) => e.path) : [];
           if (fields.includes('email')) {
-            return res
-              .status(409)
-              .json({ error: 'Email già registrata', code: 'EMAIL_ALREADY_REGISTERED' });
+            return next(
+              domainError('EMAIL_ALREADY_REGISTERED', 'Email già registrata', { status: 409 }),
+            );
           }
           if (fields.includes('matricola')) {
-            return res
-              .status(409)
-              .json({ error: 'Matricola già registrata', code: 'MATRICOLA_ALREADY_USED' });
+            return next(
+              domainError('MATRICOLA_ALREADY_USED', 'Matricola già registrata', { status: 409 }),
+            );
           }
-          return res.status(409).json({
-            error: 'Vincolo di unicità violato',
-            code: 'UNIQUE_CONSTRAINT',
-            fields,
-          });
+          return next(
+            domainError('UNIQUE_CONSTRAINT', 'Vincolo di unicità violato', {
+              status: 409,
+              fields: fields,
+            }),
+          );
         }
         throw err;
       }
@@ -261,11 +261,16 @@ router.post('/login', loginLimiter, (req, res, next) => {
         attributes: ['id', 'lockedUntil', 'failedLoginAttempts'],
       });
       if (candidate?.lockedUntil && candidate.lockedUntil > new Date()) {
-        return res.status(423).json({
-          error: 'Account temporaneamente bloccato per troppi tentativi falliti',
-          code: 'ACCOUNT_LOCKED',
-          retryAfterMinutes: Math.ceil((candidate.lockedUntil - new Date()) / 60000),
-        });
+        return next(
+          domainError(
+            'ACCOUNT_LOCKED',
+            'Account temporaneamente bloccato per troppi tentativi falliti',
+            {
+              status: 423,
+              extra: { retryAfterMinutes: Math.ceil((candidate.lockedUntil - new Date()) / 60000) },
+            },
+          ),
+        );
       }
     }
 
@@ -306,15 +311,13 @@ router.post('/login', loginLimiter, (req, res, next) => {
           }
         }
         if (info?.code === 'PASSWORD_NOT_SET' || info?.code === 'OAUTH_ONLY') {
-          return res.status(401).json({
-            error: info.message || 'Email o password non validi',
-            code: info.code,
-          });
+          return next(
+            domainError(info.code, info.message || 'Email o password non validi', { status: 401 }),
+          );
         }
-        return res.status(401).json({
-          error: 'Email o password non validi',
-          code: 'INVALID_CREDENTIALS',
-        });
+        return next(
+          domainError('INVALID_CREDENTIALS', 'Email o password non validi', { status: 401 }),
+        );
       }
 
       // Login OK — reset contatori lockout
@@ -397,8 +400,7 @@ router.patch(
   ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
 
     const {
       matricola,
@@ -414,16 +416,14 @@ router.patch(
     if (courseId) {
       const course = await Course.findByPk(courseId);
       if (!course || !course.isActive) {
-        return res.status(400).json({ error: 'Corso non valido', code: 'COURSE_INVALID' });
+        throw domainError('COURSE_INVALID', 'Corso non valido');
       }
     }
 
     if (matricola && matricola !== req.user.matricola) {
       const matExists = await User.findOne({ where: { matricola } });
       if (matExists)
-        return res
-          .status(409)
-          .json({ error: 'Matricola già registrata', code: 'MATRICOLA_ALREADY_USED' });
+        throw domainError('MATRICOLA_ALREADY_USED', 'Matricola già registrata', { status: 409 });
     }
 
     if (matricola !== undefined) req.user.matricola = matricola || null;
@@ -448,24 +448,15 @@ router.patch(
     ) {
       if (req.user.role === 'studente') {
         if (!req.user.matricola) {
-          return res.status(400).json({
-            error: 'La matricola è obbligatoria per gli studenti',
-            code: 'MATRICOLA_REQUIRED',
-          });
+          throw domainError('MATRICOLA_REQUIRED', 'La matricola è obbligatoria per gli studenti');
         }
         if (!req.user.courseId) {
-          return res.status(400).json({
-            error: 'Il corso è obbligatorio',
-            code: 'COURSE_REQUIRED',
-          });
+          throw domainError('COURSE_REQUIRED', 'Il corso è obbligatorio');
         }
         req.user.status = 'approved';
       } else if (req.user.role === 'docente') {
         if (!req.user.courseId) {
-          return res.status(400).json({
-            error: 'Il corso è obbligatorio',
-            code: 'COURSE_REQUIRED',
-          });
+          throw domainError('COURSE_REQUIRED', 'Il corso è obbligatorio');
         }
         // resta 'pending' in attesa dell'amministratore
       }
@@ -482,7 +473,7 @@ router.patch(
 // (multipart/form-data, field name "file")
 // =====================================================
 router.post('/me/photo', authenticate, photoUpload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+  if (!req.file) throw httpError(400, 'Nessun file caricato');
   tryDeleteOldPhoto(req.user.profilePhotoUrl);
   const newUrl = `/storage/${req.file.filename}`;
   req.user.profilePhotoUrl = newUrl;
@@ -553,10 +544,10 @@ router.post(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res.status(400).json({
-        error: `Password di almeno ${PASSWORD_MIN_LEN} caratteri, con almeno una maiuscola e una cifra`,
-        code: 'PASSWORD_POLICY',
-      });
+      throw domainError(
+        'PASSWORD_POLICY',
+        `Password di almeno ${PASSWORD_MIN_LEN} caratteri, con almeno una maiuscola e una cifra`,
+      );
     }
 
     const { currentPassword, newPassword } = req.body;
@@ -666,9 +657,9 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
       try {
         payload = twoFa.verifyPre2faToken(tempToken);
       } catch {
-        return res
-          .status(401)
-          .json({ error: 'Token temporaneo non valido o scaduto', code: 'TWO_FA_BAD_TEMP_TOKEN' });
+        throw domainError('TWO_FA_BAD_TEMP_TOKEN', 'Token temporaneo non valido o scaduto', {
+          status: 401,
+        });
       }
       user = await User.findByPk(payload.id);
       if (
@@ -677,9 +668,7 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
         user.tokenVersion !== payload.tokenVersion ||
         !user.twoFaEnabled
       ) {
-        return res
-          .status(400)
-          .json({ error: 'Stato 2FA inconsistente', code: 'TWO_FA_INVALID_STATE' });
+        throw domainError('TWO_FA_INVALID_STATE', 'Stato 2FA inconsistente');
       }
       purpose = 'login';
     } else {
@@ -716,9 +705,9 @@ router.post('/2fa/verify', tfaVerifyLimiter, async (req, res, next) => {
       try {
         payload = twoFa.verifyPre2faToken(req.body.tempToken);
       } catch {
-        return res
-          .status(401)
-          .json({ error: 'Token temporaneo non valido o scaduto', code: 'TWO_FA_BAD_TEMP_TOKEN' });
+        throw domainError('TWO_FA_BAD_TEMP_TOKEN', 'Token temporaneo non valido o scaduto', {
+          status: 401,
+        });
       }
       const result = await authSecurity.verifyLogin(payload, req.body);
       return res.status(result.status).json(result.body);
@@ -1019,7 +1008,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array()[0].msg });
+      throw httpError(400, errors.array()[0].msg);
     }
     const { token: tokenPlain, newPassword } = req.body;
     const tokenHash = hashResetToken(tokenPlain);

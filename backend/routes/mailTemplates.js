@@ -8,6 +8,7 @@ const { DEFAULTS, KINDS, KIND_LABELS } = require('../services/mailTemplateDefaul
 const { render, renderText, extractVariables } = require('../services/templateRenderer');
 const { sendTestEmail } = require('../services/emailService');
 const dayjs = require('dayjs');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -110,7 +111,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 // GET /api/admin/mail-templates/:kind
 router.get('/:kind', authenticate, requireRole('admin'), async (req, res) => {
   const { kind } = req.params;
-  if (!DEFAULTS[kind]) return res.status(404).json({ error: 'Tipo template sconosciuto' });
+  if (!DEFAULTS[kind]) throw httpError(404, 'Tipo template sconosciuto');
   const t = await loadOrSeed(kind);
   res.json({
     template: {
@@ -137,11 +138,10 @@ router.put(
   ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
 
     const { kind } = req.params;
-    if (!DEFAULTS[kind]) return res.status(404).json({ error: 'Tipo template sconosciuto' });
+    if (!DEFAULTS[kind]) throw httpError(404, 'Tipo template sconosciuto');
 
     const t = await loadOrSeed(kind);
     if (req.body.subject !== undefined) t.subject = req.body.subject;
@@ -155,7 +155,7 @@ router.put(
 // POST /api/admin/mail-templates/:kind/reset
 router.post('/:kind/reset', authenticate, requireRole('admin'), async (req, res) => {
   const { kind } = req.params;
-  if (!DEFAULTS[kind]) return res.status(404).json({ error: 'Tipo template sconosciuto' });
+  if (!DEFAULTS[kind]) throw httpError(404, 'Tipo template sconosciuto');
   const t = await loadOrSeed(kind);
   t.subject = DEFAULTS[kind].subject;
   t.bodyHtml = DEFAULTS[kind].bodyHtml;
@@ -168,7 +168,7 @@ router.post('/:kind/reset', authenticate, requireRole('admin'), async (req, res)
 // Body opzionale { subject, bodyHtml } per anteprima della bozza non ancora salvata
 router.post('/:kind/preview', authenticate, requireRole('admin'), async (req, res) => {
   const { kind } = req.params;
-  if (!DEFAULTS[kind]) return res.status(404).json({ error: 'Tipo template sconosciuto' });
+  if (!DEFAULTS[kind]) throw httpError(404, 'Tipo template sconosciuto');
   const t = await loadOrSeed(kind);
   const subjectTpl = req.body?.subject ?? t.subject;
   const bodyTpl = req.body?.bodyHtml ?? t.bodyHtml;
@@ -193,10 +193,10 @@ router.post(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res.status(400).json({ error: 'Indirizzo destinatario non valido' });
+      throw httpError(400, 'Indirizzo destinatario non valido');
     }
     const { kind } = req.params;
-    if (!DEFAULTS[kind]) return res.status(404).json({ error: 'Tipo template sconosciuto' });
+    if (!DEFAULTS[kind]) throw httpError(404, 'Tipo template sconosciuto');
     const t = await loadOrSeed(kind);
     const subjectTpl = req.body?.subject ?? t.subject;
     const bodyTpl = req.body?.bodyHtml ?? t.bodyHtml;

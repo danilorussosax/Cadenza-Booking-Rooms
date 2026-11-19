@@ -25,6 +25,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { authenticate } = require('../middleware/auth');
+const { domainError, httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -69,20 +70,18 @@ router.get('/:slug', authenticate, async (req, res, next) => {
   try {
     const { slug } = req.params;
     if (!isValidSlug(slug)) {
-      return res.status(404).json({ error: 'Manuale non trovato', code: 'NOT_FOUND' });
+      throw domainError('NOT_FOUND', 'Manuale non trovato', { status: 404 });
     }
     const def = MANUALS[slug];
     if (!canRead(def, req.user.role)) {
-      return res
-        .status(403)
-        .json({ error: 'Manuale non disponibile per il tuo ruolo', code: 'FORBIDDEN' });
+      throw domainError('FORBIDDEN', 'Manuale non disponibile per il tuo ruolo', { status: 403 });
     }
     const filePath = path.join(DOCS_DIR, def.file);
     let content;
     try {
       content = await fs.promises.readFile(filePath, 'utf8');
     } catch {
-      return res.status(404).json({ error: 'File manuale non disponibile', code: 'NOT_FOUND' });
+      throw domainError('NOT_FOUND', 'File manuale non disponibile', { status: 404 });
     }
     res.set('Content-Type', 'text/markdown; charset=utf-8');
     // Cache 5 min — l'admin che pubblica un fix al manuale lo vede entro 5 min.
@@ -110,14 +109,14 @@ const sendScreenshot = (req, res, next) => {
   try {
     const file = req.params.file;
     if (!/^[a-z0-9._-]+\.png$/i.test(file)) {
-      return res.status(400).json({ error: 'Filename non valido' });
+      return next(httpError(400, 'Filename non valido'));
     }
     const full = path.resolve(SCREENSHOTS_DIR, file);
     if (!full.startsWith(SCREENSHOTS_DIR + path.sep)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return next(httpError(403, 'Forbidden'));
     }
     if (!fs.existsSync(full)) {
-      return res.status(404).json({ error: 'Screenshot non trovato' });
+      return next(httpError(404, 'Screenshot non trovato'));
     }
     res.set('Cache-Control', 'public, max-age=86400'); // 1 giorno
     return res.sendFile(full);

@@ -6,6 +6,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { decrypt } = require('../lib/crypto');
 const { defaultRulesFromSettings } = require('../lib/group-role-map');
 const { getAppOnlyToken, listTenantGroups } = require('../lib/ms-graph');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -50,23 +51,23 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 // PUT /api/admin/group-role-map — sostituisce l'intero set di regole (replace-all).
 router.put('/', authenticate, requireRole('admin'), async (req, res) => {
   const input = Array.isArray(req.body?.rules) ? req.body.rules : null;
-  if (!input) return res.status(400).json({ error: 'Campo "rules" mancante o non valido' });
-  if (input.length > 100) return res.status(400).json({ error: 'Troppe regole (max 100)' });
+  if (!input) throw httpError(400, 'Campo "rules" mancante o non valido');
+  if (input.length > 100) throw httpError(400, 'Troppe regole (max 100)');
 
   const seen = new Set();
   const cleaned = [];
   for (const r of input) {
     const name = String(r?.groupDisplayName || '').trim();
-    if (!name) return res.status(400).json({ error: 'Ogni regola richiede un gruppo' });
+    if (!name) throw httpError(400, 'Ogni regola richiede un gruppo');
     if (!VALID_ROLES.includes(r?.role)) {
-      return res.status(400).json({ error: `Ruolo non valido: ${r?.role}` });
+      throw httpError(400, `Ruolo non valido: ${r?.role}`);
     }
     const priority = Number.parseInt(r?.priority, 10);
     if (!Number.isInteger(priority) || priority < 1) {
-      return res.status(400).json({ error: 'Priority deve essere un intero ≥ 1' });
+      throw httpError(400, 'Priority deve essere un intero ≥ 1');
     }
     const key = name.toLowerCase();
-    if (seen.has(key)) return res.status(400).json({ error: `Gruppo duplicato: "${name}"` });
+    if (seen.has(key)) throw httpError(400, `Gruppo duplicato: "${name}"`);
     seen.add(key);
     cleaned.push({
       groupId: r.groupId ? String(r.groupId) : null,

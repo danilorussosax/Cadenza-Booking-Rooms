@@ -15,6 +15,7 @@ const { body, validationResult } = require('express-validator');
 const { Announcement, User, Course, Building } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { normalizeAudience, VALID_KINDS } = require('../services/audienceMatcher');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -93,24 +94,18 @@ router.post(
     try {
       const errs = validationResult(req);
       if (!errs.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validazione fallita',
-          code: 'VALIDATION_FAILED',
-          details: errs.array(),
-        });
+        throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
       }
       const payload = buildPayload(req.body, req.user.id);
       const fieldErrors = validateUpsertPayload(payload);
       if (fieldErrors.length) {
-        return res.status(400).json({
-          error: fieldErrors[0],
-          code: 'VALIDATION_FAILED',
+        throw domainError('VALIDATION_FAILED', fieldErrors[0], {
           details: fieldErrors.map((m) => ({ message: m })),
         });
       }
       const audienceErr = await validateAudienceTarget(payload.audience);
       if (audienceErr) {
-        return res.status(400).json({ error: audienceErr, code: 'INVALID_AUDIENCE_TARGET' });
+        throw domainError('INVALID_AUDIENCE_TARGET', audienceErr);
       }
 
       const ann = await Announcement.create(payload);
@@ -139,7 +134,7 @@ router.post(
 router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ann = await Announcement.findByPk(req.params.id);
-    if (!ann) return res.status(404).json({ error: 'Avviso non trovato', code: 'NOT_FOUND' });
+    if (!ann) throw domainError('NOT_FOUND', 'Avviso non trovato', { status: 404 });
 
     const merged = {
       title: req.body.title ?? ann.title,
@@ -153,15 +148,13 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     const payload = buildPayload({ ...merged }, ann.createdBy);
     const fieldErrors = validateUpsertPayload(payload);
     if (fieldErrors.length) {
-      return res.status(400).json({
-        error: fieldErrors[0],
-        code: 'VALIDATION_FAILED',
+      throw domainError('VALIDATION_FAILED', fieldErrors[0], {
         details: fieldErrors.map((m) => ({ message: m })),
       });
     }
     const audienceErr = await validateAudienceTarget(payload.audience);
     if (audienceErr) {
-      return res.status(400).json({ error: audienceErr, code: 'INVALID_AUDIENCE_TARGET' });
+      throw domainError('INVALID_AUDIENCE_TARGET', audienceErr);
     }
 
     await ann.update(payload);
@@ -177,7 +170,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ann = await Announcement.findByPk(req.params.id);
-    if (!ann) return res.status(404).json({ error: 'Avviso non trovato', code: 'NOT_FOUND' });
+    if (!ann) throw domainError('NOT_FOUND', 'Avviso non trovato', { status: 404 });
     await ann.destroy({ force: req.query.force === 'true' });
     res.json({ message: 'Avviso eliminato' });
   } catch (err) {
@@ -192,7 +185,7 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
 router.post('/:id/resend', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ann = await Announcement.findByPk(req.params.id);
-    if (!ann) return res.status(404).json({ error: 'Avviso non trovato', code: 'NOT_FOUND' });
+    if (!ann) throw domainError('NOT_FOUND', 'Avviso non trovato', { status: 404 });
     await ann.update({ emailSentAt: null });
     const { sendAnnouncementBroadcast } = require('../services/announcementEmail');
     const result = await sendAnnouncementBroadcast(ann.id);

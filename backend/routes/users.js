@@ -18,6 +18,7 @@ const {
   TTL_SETUP_MAX_DAYS,
 } = require('../services/auth/sendSetupLink');
 const logger = require('../lib/logger');
+const { domainError, httpError } = require('../lib/domainError');
 
 // Policy password: identica a quella di registrazione/reset (routes/auth.js).
 // Tenere sincronizzate per evitare downgrade della robustezza via rotte admin.
@@ -148,9 +149,7 @@ router.post(
   async (req, res, next) => {
     try {
       if (!req.file) {
-        return res
-          .status(400)
-          .json({ error: 'File mancante (campo "file")', code: 'FILE_REQUIRED' });
+        return next(domainError('FILE_REQUIRED', 'File mancante (campo "file")'));
       }
       const result = await importUsersFromFile(
         req.file.buffer,
@@ -164,7 +163,7 @@ router.post(
         err.code === 'PARSE_FAILED' ||
         err.code === 'EMPTY_FILE'
       ) {
-        return res.status(400).json({ error: err.message, code: err.code });
+        throw domainError(err.code, err.message);
       }
       next(err);
     }
@@ -177,27 +176,23 @@ router.post('/', authenticate, requireRole('admin'), async (req, res, next) => {
     const { firstName, lastName, email, password, role, matricola, courseId, isActive } = req.body;
 
     if (!firstName?.trim() || !lastName?.trim() || !email?.trim()) {
-      return res
-        .status(400)
-        .json({ error: 'Nome, cognome ed email sono obbligatori', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Nome, cognome ed email sono obbligatori');
     }
     if (!password || !PASSWORD_REGEX.test(password)) {
-      return res.status(400).json({ error: PASSWORD_POLICY_MSG, code: 'PASSWORD_POLICY' });
+      throw domainError('PASSWORD_POLICY', PASSWORD_POLICY_MSG);
     }
 
     const existing = await User.findOne({ where: { email: email.toLowerCase().trim() } });
     if (existing)
-      return res.status(409).json({
-        error: 'Esiste già un account con questa email',
-        code: 'EMAIL_ALREADY_REGISTERED',
+      throw domainError('EMAIL_ALREADY_REGISTERED', 'Esiste già un account con questa email', {
+        status: 409,
       });
 
     if (matricola?.trim()) {
       const existingMatricola = await User.findOne({ where: { matricola: matricola.trim() } });
       if (existingMatricola)
-        return res.status(409).json({
-          error: 'Matricola già assegnata a un altro utente',
-          code: 'MATRICOLA_ALREADY_USED',
+        throw domainError('MATRICOLA_ALREADY_USED', 'Matricola già assegnata a un altro utente', {
+          status: 409,
         });
     }
 
@@ -259,7 +254,7 @@ router.get('/pending/count', authenticate, requireRole('admin'), async (req, res
 // Approva un utente in attesa (admin)
 router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+  if (!user) throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
   user.status = 'approved';
   await user.save();
   res.json({ user: user.toSafeJSON() });
@@ -268,7 +263,7 @@ router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res)
 // Rifiuta un utente in attesa (admin)
 router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+  if (!user) throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
   user.status = 'rejected';
   await user.save();
   res.json({ user: user.toSafeJSON() });
@@ -278,7 +273,7 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
 // Da usare dopo aver corretto un typo o quando il provider è stato sbloccato.
 router.post('/:id/reset-bounce', authenticate, requireRole('admin'), async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+  if (!user) throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
   user.emailBouncedAt = null;
   user.emailBouncedReason = null;
   await user.save();
@@ -290,7 +285,7 @@ router.get('/:id', authenticate, requireRole('admin'), async (req, res) => {
   const user = await User.findByPk(req.params.id, {
     include: [{ model: Course, as: 'course' }],
   });
-  if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+  if (!user) throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
   res.json({ user: user.toSafeJSON() });
 });
 
@@ -315,13 +310,10 @@ router.put(
     try {
       const user = await User.findByPk(req.params.id);
       if (!user) {
-        return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+        throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
       }
       if (user.role !== 'docente') {
-        return res.status(400).json({
-          error: 'Override Monte Ore valido solo per ruolo docente',
-          code: 'WRONG_ROLE',
-        });
+        throw domainError('WRONG_ROLE', 'Override Monte Ore valido solo per ruolo docente');
       }
 
       const {
@@ -351,10 +343,10 @@ router.put(
       const LEGACY_CONTRACT_CODES = ['titolare', 'contratto_orario', 'supplente', 'altro'];
       if (contractType !== null && !LEGACY_CONTRACT_CODES.includes(contractType)) {
         if (!/^[a-z0-9_]{1,40}$/.test(contractType)) {
-          return res.status(400).json({
-            error: 'contractType non valido (formato atteso: a-z, 0-9, _; max 40 char)',
-            code: 'INVALID_CONTRACT_TYPE',
-          });
+          throw domainError(
+            'INVALID_CONTRACT_TYPE',
+            'contractType non valido (formato atteso: a-z, 0-9, _; max 40 char)',
+          );
         }
         const ct = await ContractType.findOne({
           where: { code: contractType },
@@ -366,10 +358,10 @@ router.put(
           )
             .map((c) => c.code)
             .join(', ');
-          return res.status(400).json({
-            error: `contractType "${contractType}" non trovato. Ammessi: ${validCodes || LEGACY_CONTRACT_CODES.join(', ')}`,
-            code: 'INVALID_CONTRACT_TYPE',
-          });
+          throw domainError(
+            'INVALID_CONTRACT_TYPE',
+            `contractType "${contractType}" non trovato. Ammessi: ${validCodes || LEGACY_CONTRACT_CODES.join(', ')}`,
+          );
         }
       }
 
@@ -377,10 +369,10 @@ router.put(
       if (rawHours !== undefined && rawHours !== null && rawHours !== '') {
         const n = Number(rawHours);
         if (!Number.isFinite(n) || n < 0 || n > 1500) {
-          return res.status(400).json({
-            error: 'Override ore deve essere un numero tra 0 e 1500',
-            code: 'OVERRIDE_OUT_OF_RANGE',
-          });
+          throw domainError(
+            'OVERRIDE_OUT_OF_RANGE',
+            'Override ore deve essere un numero tra 0 e 1500',
+          );
         }
         hoursOverride = n;
       }
@@ -391,10 +383,10 @@ router.put(
       // Motivazione obbligatoria se si IMPOSTA almeno una deroga.
       const settingOverride = hoursOverride != null || bypass === true;
       if (settingOverride && !reason) {
-        return res.status(400).json({
-          error: 'Motivazione obbligatoria quando si imposta una deroga',
-          code: 'OVERRIDE_REASON_REQUIRED',
-        });
+        throw domainError(
+          'OVERRIDE_REASON_REQUIRED',
+          'Motivazione obbligatoria quando si imposta una deroga',
+        );
       }
 
       // Fase 6.1 — deroga finestra submission. Accetta stringa YYYY-MM-DD
@@ -407,10 +399,10 @@ router.put(
         } else {
           const s = String(rawSubmissionUntil).slice(0, 10);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-            return res.status(400).json({
-              error: 'monteOreSubmissionAllowedUntil deve essere YYYY-MM-DD',
-              code: 'INVALID_DATE',
-            });
+            throw domainError(
+              'INVALID_DATE',
+              'monteOreSubmissionAllowedUntil deve essere YYYY-MM-DD',
+            );
           }
           submissionAllowedUntil = s;
         }
@@ -454,7 +446,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
-      return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+      throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
     }
 
     // Whitelist + coercizione tipi: tutto il resto del body viene scartato
@@ -476,29 +468,23 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     // sbaglio "Disattiva" sul proprio profilo.
     if (user.id === req.user.id) {
       if (updates.role !== undefined && updates.role !== user.role) {
-        return res.status(400).json({
-          error: 'Non puoi cambiare il tuo stesso ruolo. Chiedi a un altro amministratore.',
-          code: 'CANNOT_SELF_ROLE_CHANGE',
-        });
+        throw domainError(
+          'CANNOT_SELF_ROLE_CHANGE',
+          'Non puoi cambiare il tuo stesso ruolo. Chiedi a un altro amministratore.',
+        );
       }
       if (updates.isActive === false) {
-        return res.status(400).json({
-          error: 'Non puoi disattivare il tuo stesso account.',
-          code: 'CANNOT_SELF_DEACTIVATE',
-        });
+        throw domainError('CANNOT_SELF_DEACTIVATE', 'Non puoi disattivare il tuo stesso account.');
       }
       if (updates.status === 'rejected') {
-        return res.status(400).json({
-          error: 'Non puoi rifiutare il tuo stesso account.',
-          code: 'CANNOT_SELF_REJECT',
-        });
+        throw domainError('CANNOT_SELF_REJECT', 'Non puoi rifiutare il tuo stesso account.');
       }
     }
 
     // Anti-lockout: blocca la rimozione dell'ULTIMO admin attivo.
     const lockout = await checkAdminLockout(user, updates);
     if (!lockout.ok) {
-      return res.status(409).json({ error: lockout.error, code: lockout.code });
+      throw domainError(lockout.code, lockout.error, { status: 409 });
     }
 
     // Reset password (gestito separatamente: NON è in pickAllowed perché viene
@@ -511,10 +497,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
       updates.tokenVersion = (user.tokenVersion ?? 0) + 1;
     } else if (typeof req.body.newPassword === 'string') {
       // Stringa fornita ma non conforme alla policy → errore esplicito (vs ignorare).
-      return res.status(400).json({
-        error: PASSWORD_POLICY_MSG,
-        code: 'PASSWORD_POLICY',
-      });
+      throw domainError('PASSWORD_POLICY', PASSWORD_POLICY_MSG);
     }
 
     await sequelize.transaction(async (transaction) => {
@@ -538,16 +521,14 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ error: 'Utente non trovato', code: 'USER_NOT_FOUND' });
+    if (!user) throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
     if (user.id === req.user.id) {
-      return res
-        .status(400)
-        .json({ error: 'Non puoi eliminare te stesso', code: 'CANNOT_DELETE_SELF' });
+      throw domainError('CANNOT_DELETE_SELF', 'Non puoi eliminare te stesso');
     }
     // Anti-lockout: cancellare un admin equivale a un "demote totale".
     const lockout = await checkAdminLockout(user, { isActive: false });
     if (!lockout.ok) {
-      return res.status(409).json({ error: lockout.error, code: lockout.code });
+      throw domainError(lockout.code, lockout.error, { status: 409 });
     }
     const result = await sequelize.transaction(async (t) => {
       const removedBookings = await Booking.destroy({
@@ -572,10 +553,11 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
     });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({
-        error: "Impossibile eliminare: l'utente è ancora referenziato da altri dati.",
-        code: 'FK_CONSTRAINT',
-      });
+      throw domainError(
+        'FK_CONSTRAINT',
+        "Impossibile eliminare: l'utente è ancora referenziato da altri dati.",
+        { status: 409 },
+      );
     }
     next(err);
   }
@@ -588,9 +570,9 @@ router.post('/bulk-approve', authenticate, requireRole('admin'), async (req, res
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
     const action = req.body?.action;
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     if (action !== 'approve' && action !== 'reject') {
-      return res.status(400).json({ error: 'Azione non valida', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Azione non valida');
     }
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
     const [changed] = await User.update(
@@ -607,12 +589,9 @@ router.post('/bulk-approve', authenticate, requireRole('admin'), async (req, res
 router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     if (ids.includes(req.user.id)) {
-      return res.status(400).json({
-        error: 'Non puoi includere te stesso nella selezione',
-        code: 'CANNOT_DELETE_SELF',
-      });
+      throw domainError('CANNOT_DELETE_SELF', 'Non puoi includere te stesso nella selezione');
     }
     // Anti-lockout: la selezione bulk non deve azzerare gli admin attivi.
     const adminsInSelection = await User.count({
@@ -623,12 +602,12 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
         where: { role: 'admin', isActive: true, status: 'approved' },
       });
       if (totalActiveAdmins - adminsInSelection < 1) {
-        return res.status(409).json({
-          error:
-            "Operazione bloccata: la selezione lascerebbe l'istituto senza amministratori. " +
+        throw domainError(
+          'LAST_ADMIN_LOCKOUT',
+          "Operazione bloccata: la selezione lascerebbe l'istituto senza amministratori. " +
             'Promuovi prima un altro utente ad admin o rimuovi gli admin dalla selezione.',
-          code: 'LAST_ADMIN_LOCKOUT',
-        });
+          { status: 409 },
+        );
       }
     }
     const result = await sequelize.transaction(async (t) => {
@@ -651,9 +630,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
     res.json(result);
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({
-        error: 'Eliminazione bloccata da vincoli di integrità.',
-      });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }

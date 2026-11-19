@@ -37,6 +37,7 @@ dayjs.extend(timezone);
 // del giorno e l'identificazione del "prossimo concerto oggi" devono
 // essere in ora italiana, non nel TZ del processo Node.
 const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -182,17 +183,17 @@ router.get('/agenda', async (req, res) => {
     const from = dayjs(req.query.from);
     const to = dayjs(req.query.to);
     if (!from.isValid() || !to.isValid()) {
-      return res.status(400).json({ error: 'Range non valido' });
+      throw httpError(400, 'Range non valido');
     }
     if (to.diff(from, 'day') > 14) {
-      return res.status(400).json({ error: 'Range troppo ampio (max 14 giorni)' });
+      throw httpError(400, 'Range troppo ampio (max 14 giorni)');
     }
     rangeStart = from.startOf('day').toDate();
     rangeEnd = to.endOf('day').toDate();
     responseDate = from.format('YYYY-MM-DD');
   } else {
     const date = req.query.date ? dayjs(req.query.date) : dayjs();
-    if (!date.isValid()) return res.status(400).json({ error: 'Data non valida' });
+    if (!date.isValid()) throw httpError(400, 'Data non valida');
     rangeStart = date.startOf('day').toDate();
     rangeEnd = date.endOf('day').toDate();
     responseDate = date.format('YYYY-MM-DD');

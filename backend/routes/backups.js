@@ -9,6 +9,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { performBackup, listBackups, deleteBackup, BACKUP_DIR } = require('../scripts/backup');
 const backupScheduler = require('../services/backupScheduler');
 const logger = require('../lib/logger').child({ scope: 'backups.route' });
+const { domainError, httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -76,25 +77,20 @@ router.put('/settings', authenticate, requireRole('admin'), async (req, res, nex
       const v = req.body[field];
       if (type === 'boolean') {
         if (typeof v !== 'boolean') {
-          return res
-            .status(400)
-            .json({ error: `${field} deve essere booleano`, code: 'INVALID_FIELD' });
+          throw domainError('INVALID_FIELD', `${field} deve essere booleano`);
         }
         updates[field] = v;
       } else if (type === 'int') {
         const n = Number(v);
         if (!Number.isFinite(n) || n < min || n > max || !Number.isInteger(n)) {
-          return res.status(400).json({
-            error: `${field} deve essere un intero tra ${min} e ${max}`,
-            code: 'INVALID_FIELD',
-          });
+          throw domainError('INVALID_FIELD', `${field} deve essere un intero tra ${min} e ${max}`);
         }
         updates[field] = n;
       }
     }
 
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'Nessun campo da aggiornare', code: 'NO_UPDATES' });
+      throw domainError('NO_UPDATES', 'Nessun campo da aggiornare');
     }
 
     const { BackupSettings } = require('../models');
@@ -201,10 +197,10 @@ router.post(
 router.get('/:filename/download', authenticate, requireRole('admin'), async (req, res) => {
   const filename = req.params.filename;
   if (!FILENAME_REGEX.test(filename)) {
-    return res.status(400).json({ error: 'Nome file non valido' });
+    throw httpError(400, 'Nome file non valido');
   }
   const fp = path.join(BACKUP_DIR, filename);
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Backup non trovato' });
+  if (!fs.existsSync(fp)) throw httpError(404, 'Backup non trovato');
   res.download(fp, filename);
 });
 

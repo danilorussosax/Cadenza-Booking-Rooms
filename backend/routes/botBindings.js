@@ -18,6 +18,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { BotBinding, ChatSession } = require('../models');
 const rateLimit = require('../services/messaging/rateLimit');
+const { domainError } = require('../lib/domainError');
 
 const OTP_TTL_MIN = 10;
 const OTP_LEN = 6;
@@ -76,7 +77,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const binding = await BotBinding.findOne({ where: { id, userId: req.user.id } });
-    if (!binding) return res.status(404).json({ error: 'Binding non trovato', code: 'NOT_FOUND' });
+    if (!binding) throw domainError('NOT_FOUND', 'Binding non trovato', { status: 404 });
     // Soft-cleanup ChatSession associata (così ripartirà fresca alla rebind).
     await ChatSession.destroy({
       where: { channel: binding.channel, externalId: binding.externalId },

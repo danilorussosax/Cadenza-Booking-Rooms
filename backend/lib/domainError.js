@@ -23,15 +23,18 @@ class DomainError extends Error {
    * @param {object} [opts.params] parametri di interpolazione ({{var}}) per la frase
    *   tradotta `errors.code.<CODE>`; resi nel campo `params` della risposta (NON `details`,
    *   che resta la lista di errori di validazione). Stessa shape per `fail(msg, code, status, params)`.
+   * @param {object} [opts.extra] campi aggiuntivi non standard (es. `field`, `retryAfter`)
+   *   fusi al primo livello del body
    */
-  constructor(code, message, { status = 400, details, fields, params } = {}) {
+  constructor(code, message, { status = 400, details, fields, params, extra } = {}) {
     super(message);
     this.name = 'DomainError';
-    this.code = code;
+    if (code !== undefined && code !== null) this.code = code;
     this.status = status;
     if (details !== undefined) this.details = details;
     if (fields !== undefined) this.fields = fields;
     if (params !== undefined) this.params = params;
+    if (extra !== undefined) this.extra = extra;
   }
 }
 
@@ -39,4 +42,13 @@ function domainError(code, message, opts) {
   return new DomainError(code, message, opts);
 }
 
-module.exports = { DomainError, domainError };
+/**
+ * Errore HTTP storico SENZA `code` (body `{ error }` + eventuali `extra`/`details`).
+ * Il gestore centrale lo rende ugualmente perché è un `DomainError`.
+ * Preferire `domainError(code, ...)` per i nuovi errori.
+ */
+function httpError(status, message, opts) {
+  return new DomainError(undefined, message, { ...opts, status });
+}
+
+module.exports = { DomainError, domainError, httpError };

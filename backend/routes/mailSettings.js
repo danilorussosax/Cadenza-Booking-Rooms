@@ -6,6 +6,7 @@ const { MailSettings } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { encrypt } = require('../lib/crypto');
 const { sendTestEmail, invalidateCache } = require('../services/emailService');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -72,8 +73,7 @@ router.put(
   ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
 
     let row = await MailSettings.findByPk(1);
     if (!row) row = await MailSettings.create({ id: 1 });

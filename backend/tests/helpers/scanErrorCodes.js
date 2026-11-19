@@ -17,6 +17,7 @@ const SKIP_DIRS = new Set([
 // `code: 'X'`, `.code = 'X'` e il secondo argomento delle factory `fail(msg, 'X')`.
 const PATTERNS = [
   /\bcode\s*[:=]\s*'([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)'/g,
+  /\bdomainError\(\s*'([A-Z][A-Z0-9_]+)'/g,
   /\bfail\(\s*(?:`[^`]*`|'[^']*'|"[^"]*"|[^,]+),\s*'([A-Z][A-Z0-9_]+)'/g,
 ];
 

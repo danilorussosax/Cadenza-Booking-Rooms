@@ -23,6 +23,7 @@ const { MessagingSettings } = require('../models');
 const { encrypt, decrypt } = require('../lib/crypto');
 const messaging = require('../services/messaging');
 const telegramSetup = require('../services/messaging/telegramSetup');
+const { domainError } = require('../lib/domainError');
 
 router.use(authenticate, requireRole('admin'));
 
@@ -61,7 +62,7 @@ router.put('/:channel', async (req, res, next) => {
   try {
     const { channel } = req.params;
     if (!messaging.SUPPORTED_CHANNELS.includes(channel)) {
-      return res.status(400).json({ error: 'Canale non supportato', code: 'CHANNEL_INVALID' });
+      throw domainError('CHANNEL_INVALID', 'Canale non supportato');
     }
     const { isEnabled, settings, credentials } = req.body ?? {};
     let row = await MessagingSettings.findOne({ where: { channel } });
@@ -76,11 +77,10 @@ router.put('/:channel', async (req, res, next) => {
         const tok = credentials.botToken;
         if (typeof tok === 'string' && tok !== SECRET_PLACEHOLDER && tok !== '') {
           if (!TELEGRAM_TOKEN_RE.test(tok.trim())) {
-            return res.status(400).json({
-              error:
-                'Formato botToken Telegram non valido. Atteso "<botId>:<segreto>" come fornito da @BotFather.',
-              code: 'TELEGRAM_TOKEN_INVALID',
-            });
+            throw domainError(
+              'TELEGRAM_TOKEN_INVALID',
+              'Formato botToken Telegram non valido. Atteso "<botId>:<segreto>" come fornito da @BotFather.',
+            );
           }
         }
       }
@@ -114,13 +114,10 @@ router.post('/:channel/test', async (req, res, next) => {
   try {
     const { channel } = req.params;
     if (!messaging.SUPPORTED_CHANNELS.includes(channel)) {
-      return res.status(400).json({ error: 'Canale non supportato', code: 'CHANNEL_INVALID' });
+      throw domainError('CHANNEL_INVALID', 'Canale non supportato');
     }
     const config = await messaging.loadChannelConfig(channel);
-    if (!config)
-      return res
-        .status(400)
-        .json({ error: 'Canale disabilitato o non configurato', code: 'CHANNEL_DISABLED' });
+    if (!config) throw domainError('CHANNEL_DISABLED', 'Canale disabilitato o non configurato');
     const adapter = messaging.getAdapter(channel);
     if (!adapter?.testConnection)
       return res.json({ ok: false, error: 'testConnection non implementato per questo canale' });
@@ -143,20 +140,18 @@ router.get('/:channel/webhook-info', async (req, res, next) => {
   try {
     const { channel } = req.params;
     if (channel !== 'telegram') {
-      return res.status(400).json({
-        error: `Verifica webhook non supportata per il canale "${channel}"`,
-        code: 'WEBHOOK_INFO_UNSUPPORTED',
-      });
+      throw domainError(
+        'WEBHOOK_INFO_UNSUPPORTED',
+        `Verifica webhook non supportata per il canale "${channel}"`,
+      );
     }
     const row = await MessagingSettings.findOne({ where: { channel } });
     if (!row || !row.credentialsEncrypted) {
-      return res
-        .status(400)
-        .json({ error: 'Salva prima il botToken Telegram', code: 'CREDENTIALS_MISSING' });
+      throw domainError('CREDENTIALS_MISSING', 'Salva prima il botToken Telegram');
     }
     const credentials = JSON.parse(decrypt(row.credentialsEncrypted));
     if (!credentials.botToken) {
-      return res.status(400).json({ error: 'botToken non presente', code: 'BOT_TOKEN_MISSING' });
+      throw domainError('BOT_TOKEN_MISSING', 'botToken non presente');
     }
     const expectedUrl = telegramSetup.buildWebhookUrl(
       process.env.FRONTEND_URL || process.env.APP_URL || '',
@@ -201,26 +196,23 @@ router.post('/:channel/auto-configure', async (req, res, next) => {
   try {
     const { channel } = req.params;
     if (channel !== 'telegram') {
-      return res.status(400).json({
-        error: `Auto-configure non supportato per il canale "${channel}"`,
-        code: 'AUTO_CONFIGURE_UNSUPPORTED',
-      });
+      throw domainError(
+        'AUTO_CONFIGURE_UNSUPPORTED',
+        `Auto-configure non supportato per il canale "${channel}"`,
+      );
     }
 
     const row = await MessagingSettings.findOne({ where: { channel } });
     if (!row || !row.credentialsEncrypted) {
-      return res.status(400).json({
-        error: 'Salva prima il botToken nelle credenziali Telegram',
-        code: 'CREDENTIALS_MISSING',
-      });
+      throw domainError(
+        'CREDENTIALS_MISSING',
+        'Salva prima il botToken nelle credenziali Telegram',
+      );
     }
 
     const credentials = JSON.parse(decrypt(row.credentialsEncrypted));
     if (!credentials.botToken) {
-      return res.status(400).json({
-        error: 'botToken non presente nelle credenziali salvate',
-        code: 'BOT_TOKEN_MISSING',
-      });
+      throw domainError('BOT_TOKEN_MISSING', 'botToken non presente nelle credenziali salvate');
     }
 
     // Se il webhookSecret non esiste, generane uno e persistilo. Questo permette
@@ -255,11 +247,7 @@ router.post('/:channel/auto-configure', async (req, res, next) => {
       // Lascia comunque persistito il secret generato: ri-cliccando dopo aver
       // sistemato FRONTEND_URL non bisognerà ri-generarlo.
       if (secretGenerated) await row.save();
-      return res.status(400).json({
-        error: err.message,
-        code: 'AUTO_CONFIGURE_FAILED',
-        secretGenerated,
-      });
+      throw domainError('AUTO_CONFIGURE_FAILED', err.message, { extra: { secretGenerated } });
     }
 
     // Tutto bene → assicurati che isEnabled sia ON (è il senso del bottone).

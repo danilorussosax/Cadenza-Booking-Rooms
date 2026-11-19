@@ -155,9 +155,9 @@ const { stringify: csvStringify } = require('csv-stringify/sync');
 router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const instituteId = parseInt(req.query.instituteId, 10);
-    if (!instituteId) return res.status(400).json({ error: 'instituteId obbligatorio' });
+    if (!instituteId) throw httpError(400, 'instituteId obbligatorio');
     const inst = await Institute.findByPk(instituteId);
-    if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
+    if (!inst) throw httpError(404, 'Istituto non trovato');
 
     const buildings = await Building.findAll({
       where: { instituteId },
@@ -397,7 +397,7 @@ router.get('/institutes/:id', authenticate, async (req, res) => {
       },
     ],
   });
-  if (!institute) return res.status(404).json({ error: 'Istituto non trovato' });
+  if (!institute) throw httpError(404, 'Istituto non trovato');
   res.json({ institute });
 });
 
@@ -408,8 +408,7 @@ router.post(
   [body('name').notEmpty().trim()],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
     const institute = await Institute.create(pickInstituteFields(req.body));
     res.status(201).json({ institute });
   },
@@ -417,7 +416,7 @@ router.post(
 
 router.put('/institutes/:id', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findByPk(req.params.id);
-  if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
+  if (!inst) throw httpError(404, 'Istituto non trovato');
   await inst.update(pickInstituteFields(req.body));
   // Il fuso salvato dall'admin diventa subito il fuso istituzionale attivo.
   await require('../lib/institutionTimeBoot').configureFromInstitute({
@@ -474,7 +473,7 @@ router.get('/checkin-settings', authenticate, requireRole('admin'), async (req, 
     attributes: ['id', 'checkInRequireInstituteNetwork', 'instituteNetworkCidrs'],
     order: [['id', 'ASC']],
   });
-  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+  if (!inst) throw httpError(404, 'Istituto non configurato');
   res.json({
     checkInRequireInstituteNetwork: !!inst.checkInRequireInstituteNetwork,
     instituteNetworkCidrs: Array.isArray(inst.instituteNetworkCidrs)
@@ -489,21 +488,15 @@ router.get('/checkin-settings', authenticate, requireRole('admin'), async (req, 
 
 router.put('/checkin-settings', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findOne({ order: [['id', 'ASC']] });
-  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+  if (!inst) throw httpError(404, 'Istituto non configurato');
 
   const { checkInRequireInstituteNetwork, instituteNetworkCidrs } = req.body || {};
 
   if (typeof checkInRequireInstituteNetwork !== 'boolean') {
-    return res.status(400).json({
-      error: 'checkInRequireInstituteNetwork deve essere booleano',
-      code: 'VALIDATION',
-    });
+    throw domainError('VALIDATION', 'checkInRequireInstituteNetwork deve essere booleano');
   }
   if (!Array.isArray(instituteNetworkCidrs)) {
-    return res.status(400).json({
-      error: 'instituteNetworkCidrs deve essere un array',
-      code: 'VALIDATION',
-    });
+    throw domainError('VALIDATION', 'instituteNetworkCidrs deve essere un array');
   }
 
   // Valida ogni CIDR; aggrega errori per UX migliore.
@@ -519,11 +512,7 @@ router.put('/checkin-settings', authenticate, requireRole('admin'), async (req, 
     }
   }
   if (errors.length > 0) {
-    return res.status(400).json({
-      error: 'CIDR non validi',
-      code: 'INVALID_CIDR',
-      errors,
-    });
+    throw domainError('INVALID_CIDR', 'CIDR non validi', { extra: { errors } });
   }
 
   // Safety: se il toggle viene attivato con allowlist vuota, è una
@@ -569,7 +558,7 @@ router.get('/module-settings', authenticate, requireRole('admin'), async (req, r
     attributes: ['id', ...cols],
     order: [['id', 'ASC']],
   });
-  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+  if (!inst) throw httpError(404, 'Istituto non configurato');
   const out = {};
   for (const m of listModules()) {
     out[m.column] = !!inst[m.column];
@@ -579,7 +568,7 @@ router.get('/module-settings', authenticate, requireRole('admin'), async (req, r
 
 router.put('/module-settings', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findOne({ order: [['id', 'ASC']] });
-  if (!inst) return res.status(404).json({ error: 'Istituto non configurato' });
+  if (!inst) throw httpError(404, 'Istituto non configurato');
 
   // Itera sul registry: per ogni modulo accettiamo il booleano sotto la
   // sua colonna esatta. Body sconosciuti (campi non in registry) sono
@@ -590,10 +579,7 @@ router.put('/module-settings', authenticate, requireRole('admin'), async (req, r
     if (typeof v === 'boolean') update[m.column] = v;
   }
   if (Object.keys(update).length === 0) {
-    return res.status(400).json({
-      error: 'Nessun flag valido nel body',
-      code: 'VALIDATION',
-    });
+    throw domainError('VALIDATION', 'Nessun flag valido nel body');
   }
   await inst.update(update);
   // Propaga immediatamente la modifica al middleware moduleGuard, senza
@@ -611,7 +597,7 @@ router.put('/module-settings', authenticate, requireRole('admin'), async (req, r
 router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const inst = await Institute.findByPk(req.params.id);
-    if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
+    if (!inst) throw httpError(404, 'Istituto non trovato');
     let photoSnapshot = [];
     let logoUrl = null;
     const result = await sequelize.transaction(async (t) => {
@@ -665,7 +651,7 @@ router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req,
     });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }
@@ -687,8 +673,8 @@ router.post(
   logoUpload.single('file'),
   async (req, res) => {
     const inst = await Institute.findByPk(req.params.id);
-    if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
-    if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+    if (!inst) throw httpError(404, 'Istituto non trovato');
+    if (!req.file) throw httpError(400, 'Nessun file caricato');
 
     tryDeleteOldLogo(inst.logoUrl);
     const newUrl = `/storage/${req.file.filename}`;
@@ -700,7 +686,7 @@ router.post(
 // Rimuovi logo
 router.delete('/institutes/:id/logo', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findByPk(req.params.id);
-  if (!inst) return res.status(404).json({ error: 'Istituto non trovato' });
+  if (!inst) throw httpError(404, 'Istituto non trovato');
   tryDeleteOldLogo(inst.logoUrl);
   await inst.update({ logoUrl: null });
   res.json({ institute: inst });
@@ -781,13 +767,10 @@ router.patch(
   async (req, res, next) => {
     try {
       const b = await Building.findByPk(req.params.id);
-      if (!b) return res.status(404).json({ error: 'Edificio non trovato', code: 'NOT_FOUND' });
+      if (!b) throw domainError('NOT_FOUND', 'Edificio non trovato', { status: 404 });
       const raw = req.body?.enabled;
       if (typeof raw !== 'boolean') {
-        return res.status(400).json({
-          error: 'Campo "enabled" deve essere boolean',
-          code: 'VALIDATION_FAILED',
-        });
+        throw domainError('VALIDATION_FAILED', 'Campo "enabled" deve essere boolean');
       }
       await b.update({ checkInDefault: raw });
       const rooms = await Room.findAll({
@@ -820,7 +803,7 @@ router.get('/buildings/:id', authenticate, async (req, res) => {
       { model: Room, as: 'rooms', include: [{ model: Equipment, as: 'equipment' }] },
     ],
   });
-  if (!building) return res.status(404).json({ error: 'Edificio non trovato' });
+  if (!building) throw httpError(404, 'Edificio non trovato');
   res.json({ building });
 });
 
@@ -835,8 +818,7 @@ router.post(
   ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
     try {
       const building = await Building.create(pickAllowed(req.body, BUILDING_ALLOWED));
       res.status(201).json({ building });
@@ -860,7 +842,7 @@ router.post(
   async (req, res, next) => {
     try {
       const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-      if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+      if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
       const rooms = await Room.findAll({
         where: { buildingId: { [Op.in]: ids } },
         attributes: ['id', 'photoUrl'],
@@ -888,7 +870,7 @@ router.post(
       res.json(result);
     } catch (err) {
       if (err.name === 'SequelizeForeignKeyConstraintError') {
-        return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+        throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
       }
       next(err);
     }
@@ -898,7 +880,7 @@ router.post(
 router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const b = await Building.findByPk(req.params.id);
-    if (!b) return res.status(404).json({ error: 'Edificio non trovato' });
+    if (!b) throw httpError(404, 'Edificio non trovato');
     await b.update(pickAllowed(req.body, BUILDING_ALLOWED));
     res.json({ building: b });
   } catch (err) {
@@ -912,7 +894,7 @@ router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res
 router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const b = await Building.findByPk(req.params.id);
-    if (!b) return res.status(404).json({ error: 'Edificio non trovato' });
+    if (!b) throw httpError(404, 'Edificio non trovato');
     let photoSnapshot = [];
     const result = await sequelize.transaction(async (t) => {
       const rooms = await Room.findAll({
@@ -942,7 +924,7 @@ router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, 
     res.json({ message: 'Edificio eliminato', removedBookings: result });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }
@@ -957,7 +939,7 @@ router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, 
 router.post('/rooms/bulk-delete', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     // Snapshot delle photoUrl prima di cancellare le righe — i file su disco
     // verranno rimossi dopo il commit per evitare file orfani in /uploads.
     const snap = await Room.findAll({
@@ -979,7 +961,7 @@ router.post('/rooms/bulk-delete', authenticate, requireRole('admin'), async (req
     res.json(result);
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }
@@ -1046,13 +1028,13 @@ router.get('/rooms/search', authenticate, async (req, res, next) => {
     const to = req.query.to ? new Date(req.query.to) : null;
 
     if (from && Number.isNaN(from.getTime())) {
-      return res.status(400).json({ error: 'from non valido', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'from non valido');
     }
     if (to && Number.isNaN(to.getTime())) {
-      return res.status(400).json({ error: 'to non valido', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'to non valido');
     }
     if (from && to && from.getTime() >= to.getTime()) {
-      return res.status(400).json({ error: 'from deve precedere to', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'from deve precedere to');
     }
 
     // 1) Base query sulle Room: filtri "esatti" che possono andare in WHERE
@@ -1170,7 +1152,7 @@ router.get('/rooms/:id', authenticate, async (req, res) => {
       { model: Equipment, as: 'equipment' },
     ],
   });
-  if (!room) return res.status(404).json({ error: 'Aula non trovata' });
+  if (!room) throw httpError(404, 'Aula non trovata');
   res.json({ room });
 });
 
@@ -1182,8 +1164,7 @@ router.post(
   async (req, res, next) => {
     try {
       const errs = validationResult(req);
-      if (!errs.isEmpty())
-        return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+      if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
       const room = await Room.create(pickAllowed(req.body, ROOM_ALLOWED));
       res.status(201).json({ room });
     } catch (err) {
@@ -1200,7 +1181,7 @@ router.post(
 router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const r = await Room.findByPk(req.params.id);
-    if (!r) return res.status(404).json({ error: 'Aula non trovata' });
+    if (!r) throw httpError(404, 'Aula non trovata');
     await r.update(pickAllowed(req.body, ROOM_ALLOWED));
     res.json({ room: r });
   } catch (err) {
@@ -1229,6 +1210,7 @@ router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res, ne
 const { buildRoomQrCard } = require('../services/roomQrCard');
 const { buildZip } = require('../services/zipStore');
 const cryptoLib = require('crypto');
+const { domainError, httpError } = require('../lib/domainError');
 
 function generateQrToken() {
   // 16 byte → 32 char hex. Spazio ~3.4×10^38, collisione trascurabile.
@@ -1256,7 +1238,7 @@ router.get('/rooms/:id/qr', authenticate, requireRole('admin'), async (req, res,
         { model: Building, as: 'building', include: [{ model: Institute, as: 'institute' }] },
       ],
     });
-    if (!room) return res.status(404).json({ error: 'Aula non trovata', code: 'NOT_FOUND' });
+    if (!room) throw domainError('NOT_FOUND', 'Aula non trovata', { status: 404 });
 
     await ensureRoomQrToken(room);
     const url = buildQrUrl(req, room);
@@ -1296,7 +1278,7 @@ router.get('/rooms/qr/download-all', authenticate, requireRole('admin'), async (
       ],
     });
     if (rooms.length === 0) {
-      return res.status(404).json({ error: 'Nessuna aula configurata', code: 'NOT_FOUND' });
+      throw domainError('NOT_FOUND', 'Nessuna aula configurata', { status: 404 });
     }
 
     const entries = new Array(rooms.length);
@@ -1345,7 +1327,7 @@ router.post(
   async (req, res, next) => {
     try {
       const room = await Room.findByPk(req.params.id);
-      if (!room) return res.status(404).json({ error: 'Aula non trovata', code: 'NOT_FOUND' });
+      if (!room) throw domainError('NOT_FOUND', 'Aula non trovata', { status: 404 });
       room.qrToken = generateQrToken();
       await room.save();
       res.json({
@@ -1409,9 +1391,9 @@ router.post(
   async (req, res, next) => {
     try {
       const room = await Room.findByPk(req.params.id);
-      if (!room) return res.status(404).json({ error: 'Aula non trovata', code: 'NOT_FOUND' });
+      if (!room) throw domainError('NOT_FOUND', 'Aula non trovata', { status: 404 });
       if (!req.file?.buffer) {
-        return res.status(400).json({ error: 'Nessun file caricato', code: 'VALIDATION_FAILED' });
+        throw domainError('VALIDATION_FAILED', 'Nessun file caricato');
       }
 
       // Ridimensiona + converte in WEBP. `rotate()` applica l'orientazione EXIF
@@ -1440,10 +1422,10 @@ router.post(
     } catch (err) {
       // Errori sharp (formato corrotto, ecc.)
       if (err && err.message && /sharp|input|unsupported/i.test(err.message)) {
-        return res.status(400).json({
-          error: 'Immagine non valida o formato non supportato',
-          code: 'FILE_FORMAT_UNSUPPORTED',
-        });
+        throw domainError(
+          'FILE_FORMAT_UNSUPPORTED',
+          'Immagine non valida o formato non supportato',
+        );
       }
       next(err);
     }
@@ -1453,7 +1435,7 @@ router.post(
 // Rimuovi foto aula
 router.delete('/rooms/:id/photo', authenticate, requireRole('admin'), async (req, res) => {
   const room = await Room.findByPk(req.params.id);
-  if (!room) return res.status(404).json({ error: 'Aula non trovata', code: 'NOT_FOUND' });
+  if (!room) throw domainError('NOT_FOUND', 'Aula non trovata', { status: 404 });
   tryDeleteOldRoomPhoto(room.photoUrl);
   await room.update({ photoUrl: null });
   res.json({ room });
@@ -1462,7 +1444,7 @@ router.delete('/rooms/:id/photo', authenticate, requireRole('admin'), async (req
 router.delete('/rooms/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const r = await Room.findByPk(req.params.id);
-    if (!r) return res.status(404).json({ error: 'Aula non trovata' });
+    if (!r) throw httpError(404, 'Aula non trovata');
     const photoUrl = r.photoUrl;
     const result = await sequelize.transaction(async (t) => {
       const removedBookings = await Booking.destroy({
@@ -1476,7 +1458,7 @@ router.delete('/rooms/:id', authenticate, requireRole('admin'), async (req, res,
     res.json({ message: 'Aula eliminata', removedBookings: result });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }
@@ -1505,8 +1487,7 @@ router.post(
   async (req, res, next) => {
     try {
       const errs = validationResult(req);
-      if (!errs.isEmpty())
-        return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+      if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
       const eq = await Equipment.create(pickAllowed(req.body, EQUIPMENT_ALLOWED));
       res.status(201).json({ equipment: eq });
     } catch (err) {
@@ -1523,7 +1504,7 @@ router.post(
 router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const e = await Equipment.findByPk(req.params.id);
-    if (!e) return res.status(404).json({ error: 'Attrezzatura non trovata' });
+    if (!e) throw httpError(404, 'Attrezzatura non trovata');
     await e.update(pickAllowed(req.body, EQUIPMENT_ALLOWED));
     res.json({ equipment: e });
   } catch (err) {
@@ -1536,7 +1517,7 @@ router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res
 
 router.delete('/equipment/:id', authenticate, requireRole('admin'), async (req, res) => {
   const e = await Equipment.findByPk(req.params.id);
-  if (!e) return res.status(404).json({ error: 'Attrezzatura non trovata' });
+  if (!e) throw httpError(404, 'Attrezzatura non trovata');
   await e.destroy();
   res.json({ message: 'Attrezzatura eliminata' });
 });
@@ -1561,12 +1542,12 @@ router.post(
   async (req, res, next) => {
     try {
       const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-      if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+      if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
       const deleted = await EquipmentTemplate.destroy({ where: { id: { [Op.in]: ids } } });
       res.json({ deleted });
     } catch (err) {
       if (err.name === 'SequelizeForeignKeyConstraintError') {
-        return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+        throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
       }
       next(err);
     }
@@ -1598,7 +1579,7 @@ router.get(
 // Import CSV (admin) — singola colonna "Dotazione" (o "Nome"); ogni riga = un nome.
 router.post('/equipment-templates/import', authenticate, requireRole('admin'), async (req, res) => {
   const csv = typeof req.body?.csv === 'string' ? req.body.csv : '';
-  if (!csv.trim()) return res.status(400).json({ error: 'Body "csv" mancante' });
+  if (!csv.trim()) throw httpError(400, 'Body "csv" mancante');
 
   const lines = csv
     .split(/\r?\n/)
@@ -1654,8 +1635,7 @@ router.post(
   [body('name').notEmpty().trim()],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
     try {
       const tpl = await EquipmentTemplate.create({
         name: req.body.name.trim(),
@@ -1664,7 +1644,7 @@ router.post(
       res.status(201).json({ template: tpl });
     } catch (err) {
       if (err.name === 'SequelizeUniqueConstraintError') {
-        return res.status(409).json({ error: 'Dotazione già esistente' });
+        throw httpError(409, 'Dotazione già esistente');
       }
       res.status(500).json({ error: 'Errore creazione dotazione' });
     }
@@ -1673,7 +1653,7 @@ router.post(
 
 router.put('/equipment-templates/:id', authenticate, requireRole('admin'), async (req, res) => {
   const tpl = await EquipmentTemplate.findByPk(req.params.id);
-  if (!tpl) return res.status(404).json({ error: 'Dotazione non trovata' });
+  if (!tpl) throw httpError(404, 'Dotazione non trovata');
   await tpl.update({
     name: typeof req.body.name === 'string' ? req.body.name.trim() : tpl.name,
     type: req.body.type || tpl.type,
@@ -1683,7 +1663,7 @@ router.put('/equipment-templates/:id', authenticate, requireRole('admin'), async
 
 router.delete('/equipment-templates/:id', authenticate, requireRole('admin'), async (req, res) => {
   const tpl = await EquipmentTemplate.findByPk(req.params.id);
-  if (!tpl) return res.status(404).json({ error: 'Dotazione non trovata' });
+  if (!tpl) throw httpError(404, 'Dotazione non trovata');
   await tpl.destroy();
   res.json({ message: 'Dotazione eliminata' });
 });

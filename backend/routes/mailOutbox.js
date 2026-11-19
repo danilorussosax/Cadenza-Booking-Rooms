@@ -19,6 +19,7 @@ const { Op } = require('sequelize');
 const { MailOutbox } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const emailService = require('../services/emailService');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -63,7 +64,7 @@ router.get(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+      throw httpError(400, 'Validazione fallita', { details: errs.array() });
     }
     const page = req.query.page || 1;
     const limit = req.query.limit || DEFAULT_LIMIT;
@@ -149,14 +150,12 @@ router.post(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res.status(400).json({ error: 'ID non valido' });
+      throw httpError(400, 'ID non valido');
     }
     const row = await MailOutbox.findByPk(req.params.id);
-    if (!row) return res.status(404).json({ error: 'Email non trovata' });
+    if (!row) throw httpError(404, 'Email non trovata');
     if (row.status !== 'dead') {
-      return res.status(400).json({
-        error: `Retry consentito solo per status='dead' (attuale: ${row.status})`,
-      });
+      throw httpError(400, `Retry consentito solo per status='dead' (attuale: ${row.status})`);
     }
     await row.update({
       status: 'pending',
@@ -177,10 +176,10 @@ router.delete(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res.status(400).json({ error: 'ID non valido' });
+      throw httpError(400, 'ID non valido');
     }
     const removed = await MailOutbox.destroy({ where: { id: req.params.id } });
-    if (removed === 0) return res.status(404).json({ error: 'Email non trovata' });
+    if (removed === 0) throw httpError(404, 'Email non trovata');
     res.json({ ok: true });
   },
 );

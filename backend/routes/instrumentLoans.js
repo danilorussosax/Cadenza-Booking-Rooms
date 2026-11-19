@@ -12,6 +12,7 @@ const { sendInstrumentLoanEmail } = require('../services/instrumentLoanEmail');
 const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const { utils: instrumentsUtils } = require('./instruments');
+const { domainError } = require('../lib/domainError');
 const { annotateStatus } = instrumentsUtils;
 
 const router = express.Router();
@@ -130,41 +131,31 @@ router.post(
   async (req, res, next) => {
     const errs = validationResult(req);
     if (!errs.isEmpty())
-      return res
-        .status(400)
-        .json({ error: 'Validazione fallita', details: errs.array(), code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
     const { instrumentId, fromDate, toDate, notes } = req.body;
 
     const start = dayjs(fromDate);
     const end = dayjs(toDate);
     if (!start.isValid() || !end.isValid()) {
-      return res.status(400).json({ error: 'Date non valide', code: 'LOAN_INVALID_DATE' });
+      throw domainError('LOAN_INVALID_DATE', 'Date non valide');
     }
     if (end.isBefore(start)) {
-      return res.status(400).json({
-        error: 'La data di restituzione deve essere successiva alla data di inizio',
-        code: 'LOAN_INVALID_DATE',
-      });
+      throw domainError(
+        'LOAN_INVALID_DATE',
+        'La data di restituzione deve essere successiva alla data di inizio',
+      );
     }
     if (start.isBefore(institutionTime.startOfDay())) {
-      return res
-        .status(400)
-        .json({ error: 'Non puoi richiedere un prestito nel passato', code: 'LOAN_INVALID_DATE' });
+      throw domainError('LOAN_INVALID_DATE', 'Non puoi richiedere un prestito nel passato');
     }
 
     const instrument = await Instrument.findByPk(instrumentId);
-    if (!instrument)
-      return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+    if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
     if (!instrument.isLoanable) {
-      return res.status(400).json({
-        error: 'Strumento non disponibile per il prestito',
-        code: 'INSTRUMENT_NOT_LOANABLE',
-      });
+      throw domainError('INSTRUMENT_NOT_LOANABLE', 'Strumento non disponibile per il prestito');
     }
     if (instrument.condition === 'fuori_uso' || instrument.condition === 'da_riparare') {
-      return res
-        .status(400)
-        .json({ error: 'Strumento non disponibile (condizione)', code: 'INSTRUMENT_NOT_LOANABLE' });
+      throw domainError('INSTRUMENT_NOT_LOANABLE', 'Strumento non disponibile (condizione)');
     }
 
     // Verifica regola di abilitazione PER STRUMENTO. Coerente con
@@ -176,10 +167,11 @@ router.post(
         : [];
       if (allowedCourseIds.length > 0) {
         if (!req.user.courseId || !allowedCourseIds.includes(req.user.courseId)) {
-          return res.status(403).json({
-            error: 'Il tuo corso non è abilitato a richiedere il prestito di questo strumento',
-            code: 'INSTRUMENT_NOT_ALLOWED_FOR_COURSE',
-          });
+          throw domainError(
+            'INSTRUMENT_NOT_ALLOWED_FOR_COURSE',
+            'Il tuo corso non è abilitato a richiedere il prestito di questo strumento',
+            { status: 403 },
+          );
         }
       }
     }
@@ -207,10 +199,9 @@ router.post(
           transaction: t,
         });
         if (conflict) {
-          const e = new Error('Lo strumento è già impegnato nel periodo richiesto');
-          e.status = 409;
-          e.code = 'LOAN_CONFLICT';
-          throw e;
+          throw domainError('LOAN_CONFLICT', 'Lo strumento è già impegnato nel periodo richiesto', {
+            status: 409,
+          });
         }
 
         // Quote prestiti per ruolo (vedi services/loanQuotaValidator.js).
@@ -226,11 +217,10 @@ router.post(
           });
           if (quotaIssues.length > 0) {
             const first = quotaIssues[0];
-            const e = new Error(first.message);
-            e.status = 409;
-            e.code = first.code;
-            e.details = quotaIssues.map((i) => ({ message: i.message, code: i.code }));
-            throw e;
+            throw domainError(first.code, first.message, {
+              status: 409,
+              details: quotaIssues.map((i) => ({ message: i.message, code: i.code })),
+            });
           }
         }
 
@@ -252,11 +242,6 @@ router.post(
       );
       res.status(201).json({ loan: annotateStatus(full) });
     } catch (err) {
-      if (err.status) {
-        const body = { error: err.message, code: err.code };
-        if (err.details) body.details = err.details;
-        return res.status(err.status).json(body);
-      }
       next(err);
     }
   },
@@ -275,10 +260,8 @@ router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res)
   );
   if (affected === 0) {
     const exists = await InstrumentLoan.findByPk(req.params.id);
-    if (!exists) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
-    return res
-      .status(400)
-      .json({ error: "Stato non valido per l'approvazione", code: 'LOAN_INVALID_STATE' });
+    if (!exists) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
+    throw domainError('LOAN_INVALID_STATE', "Stato non valido per l'approvazione");
   }
   const full = await findLoanFull(req.params.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_approved' }).catch(() => {});
@@ -292,10 +275,8 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
   );
   if (affected === 0) {
     const exists = await InstrumentLoan.findByPk(req.params.id);
-    if (!exists) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
-    return res
-      .status(400)
-      .json({ error: 'Stato non valido per il rifiuto', code: 'LOAN_INVALID_STATE' });
+    if (!exists) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
+    throw domainError('LOAN_INVALID_STATE', 'Stato non valido per il rifiuto');
   }
   const full = await findLoanFull(req.params.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_rejected' }).catch(() => {});
@@ -308,9 +289,9 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
 
 router.post('/:id/return', authenticate, async (req, res) => {
   const loan = await findLoanFull(req.params.id);
-  if (!loan) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
+  if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
   if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
+    throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
   }
   // UPDATE atomico con WHERE status IN (active, overdue): se due richieste
   // concorrenti tentano il return, una sola restituisce affectedRows=1.
@@ -328,13 +309,9 @@ router.post('/:id/return', authenticate, async (req, res) => {
     // Diagnosi: ricarica per dare messaggio specifico
     const fresh = await InstrumentLoan.findByPk(loan.id);
     if (fresh?.status === 'returned') {
-      return res
-        .status(400)
-        .json({ error: 'Prestito già restituito', code: 'LOAN_ALREADY_RETURNED' });
+      throw domainError('LOAN_ALREADY_RETURNED', 'Prestito già restituito');
     }
-    return res
-      .status(400)
-      .json({ error: 'Stato non valido per la restituzione', code: 'LOAN_INVALID_STATE' });
+    throw domainError('LOAN_INVALID_STATE', 'Stato non valido per la restituzione');
   }
   const full = await findLoanFull(loan.id);
   sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_returned' }).catch(() => {});
@@ -346,17 +323,14 @@ router.post('/:id/return', authenticate, async (req, res) => {
 // =========================================================
 router.delete('/:id', authenticate, async (req, res) => {
   const loan = await InstrumentLoan.findByPk(req.params.id);
-  if (!loan) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
+  if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
   if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
+    throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
   }
   // Solo admin può cancellare un prestito già attivo/restituito (per pulizia inventario);
   // l'utente può solo cancellare la propria richiesta in attesa.
   if (req.user.role !== 'admin' && loan.status !== 'requested') {
-    return res.status(400).json({
-      error: 'Puoi cancellare solo richieste ancora in attesa',
-      code: 'LOAN_INVALID_STATE',
-    });
+    throw domainError('LOAN_INVALID_STATE', 'Puoi cancellare solo richieste ancora in attesa');
   }
   const removed = await InstrumentLoan.destroy({
     where: {
@@ -365,9 +339,7 @@ router.delete('/:id', authenticate, async (req, res) => {
     },
   });
   if (!removed)
-    return res
-      .status(409)
-      .json({ error: 'Lo stato del prestito è cambiato', code: 'LOAN_INVALID_STATE' });
+    throw domainError('LOAN_INVALID_STATE', 'Lo stato del prestito è cambiato', { status: 409 });
   res.json({ message: 'Prestito eliminato' });
 });
 
@@ -378,9 +350,9 @@ router.delete('/:id', authenticate, async (req, res) => {
 router.get('/:id/pdf', authenticate, async (req, res, next) => {
   try {
     const loan = await findLoanFull(req.params.id);
-    if (!loan) return res.status(404).json({ error: 'Prestito non trovato', code: 'NOT_FOUND' });
+    if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
     if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
+      throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
     }
     const kind = req.query.kind === 'return' ? 'return' : 'delivery';
 
