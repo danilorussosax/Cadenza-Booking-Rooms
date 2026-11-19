@@ -65,6 +65,7 @@ router.get('/', async (req, res) => {
 // Export CSV (admin) — round-trip safe con POST /import: SAD + Denominazione.
 // =====================================================
 const { stringify: csvStringify } = require('csv-stringify/sync');
+const { httpError } = require('../lib/domainError');
 router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const courses = await Course.findAll({ order: [['code', 'ASC']] });
@@ -92,10 +93,10 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
 // =====================================================
 router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
   const csv = typeof req.body?.csv === 'string' ? req.body.csv : '';
-  if (!csv.trim()) return res.status(400).json({ error: 'Body "csv" mancante' });
+  if (!csv.trim()) throw httpError(400, 'Body "csv" mancante');
 
   const parsed = parseCoursesCsv(csv);
-  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  if (parsed.error) throw httpError(400, parsed.error);
 
   let created = 0;
   let updated = 0;
@@ -178,7 +179,7 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res) => {
 router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     const result = await sequelize.transaction(async (t) => {
       const [detachedUsers] = await User.update(
         { courseId: null },
@@ -193,9 +194,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
     res.json(result);
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({
-        error: 'Impossibile eliminare alcuni corsi: vincoli di integrità.',
-      });
+      throw httpError(409, 'Impossibile eliminare alcuni corsi: vincoli di integrità.');
     }
     next(err);
   }
@@ -204,7 +203,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
 // Dettaglio singolo corso
 router.get('/:id', async (req, res) => {
   const course = await Course.findByPk(req.params.id);
-  if (!course) return res.status(404).json({ error: 'Corso non trovato' });
+  if (!course) throw httpError(404, 'Corso non trovato');
   res.json({ course });
 });
 
@@ -220,14 +219,13 @@ router.post(
   ],
   async (req, res) => {
     const errs = validationResult(req);
-    if (!errs.isEmpty())
-      return res.status(400).json({ error: 'Validazione fallita', details: errs.array() });
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
     try {
       const course = await Course.create(req.body);
       res.status(201).json({ course });
     } catch (err) {
       if (err.name === 'SequelizeUniqueConstraintError') {
-        return res.status(409).json({ error: 'Codice corso già esistente' });
+        throw httpError(409, 'Codice corso già esistente');
       }
       res.status(500).json({ error: 'Errore creazione corso' });
     }
@@ -237,7 +235,7 @@ router.post(
 // Modifica
 router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
   const course = await Course.findByPk(req.params.id);
-  if (!course) return res.status(404).json({ error: 'Corso non trovato' });
+  if (!course) throw httpError(404, 'Corso non trovato');
   await course.update(req.body);
   res.json({ course });
 });
@@ -246,7 +244,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const course = await Course.findByPk(req.params.id);
-    if (!course) return res.status(404).json({ error: 'Corso non trovato' });
+    if (!course) throw httpError(404, 'Corso non trovato');
     const result = await sequelize.transaction(async (t) => {
       const [detachedUsers] = await User.update(
         { courseId: null },
@@ -258,9 +256,7 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
     res.json({ message: 'Corso eliminato', detachedUsers: result });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({
-        error: 'Impossibile eliminare il corso: vincoli di integrità.',
-      });
+      throw httpError(409, 'Impossibile eliminare il corso: vincoli di integrità.');
     }
     next(err);
   }

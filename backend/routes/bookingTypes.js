@@ -19,6 +19,7 @@ const express = require('express');
 const { BookingTypeCatalog } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 const adminRouter = express.Router();
@@ -90,13 +91,11 @@ adminRouter.put('/:code', authenticate, requireRole('admin'), async (req, res, n
   try {
     const code = String(req.params.code || '').toLowerCase();
     if (!code || !/^[a-z][a-z0-9_]{1,39}$/.test(code)) {
-      return res.status(400).json({ error: 'code non valido', code: 'INVALID_CODE' });
+      throw domainError('INVALID_CODE', 'code non valido');
     }
     const target = await BookingTypeCatalog.findOne({ where: { code } });
     if (!target) {
-      return res
-        .status(404)
-        .json({ error: 'Tipo prenotazione non trovato', code: 'TYPE_NOT_FOUND' });
+      throw domainError('TYPE_NOT_FOUND', 'Tipo prenotazione non trovato', { status: 404 });
     }
     const updates = pickAllowed(req.body, EDITABLE_FIELDS);
     // Safety: i tipi system devono restare con almeno una entry attiva
@@ -106,11 +105,11 @@ adminRouter.put('/:code', authenticate, requireRole('admin'), async (req, res, n
         where: { isActive: true },
       });
       if (otherActive <= 1) {
-        return res.status(409).json({
-          error:
-            "Impossibile disattivare l'ultimo tipo prenotazione attivo. Attivane un altro prima.",
-          code: 'LAST_ACTIVE_TYPE',
-        });
+        throw domainError(
+          'LAST_ACTIVE_TYPE',
+          "Impossibile disattivare l'ultimo tipo prenotazione attivo. Attivane un altro prima.",
+          { status: 409 },
+        );
       }
     }
     await target.update(updates);

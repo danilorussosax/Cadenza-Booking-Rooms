@@ -13,6 +13,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { InstrumentLoanQuota, Instrument } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -121,17 +122,11 @@ router.post(
     try {
       const errs = validationResult(req);
       if (!errs.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validazione fallita',
-          code: 'VALIDATION_FAILED',
-          details: errs.array(),
-        });
+        throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
       }
       const { errors, normalized } = validateLoanQuotaPayload(req.body || {});
       if (errors.length) {
-        return res.status(400).json({
-          error: errors[0],
-          code: 'VALIDATION_FAILED',
+        throw domainError('VALIDATION_FAILED', errors[0], {
           details: errors.map((m) => ({ message: m })),
         });
       }
@@ -140,10 +135,7 @@ router.post(
       if (normalized.scopeKind === 'instrument') {
         const instrument = await Instrument.findByPk(Number(normalized.scopeValue));
         if (!instrument) {
-          return res.status(404).json({
-            error: 'Strumento non trovato',
-            code: 'INSTRUMENT_NOT_FOUND',
-          });
+          throw domainError('INSTRUMENT_NOT_FOUND', 'Strumento non trovato', { status: 404 });
         }
       }
 
@@ -161,7 +153,7 @@ router.post(
 router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const quota = await InstrumentLoanQuota.findByPk(req.params.id);
-    if (!quota) return res.status(404).json({ error: 'Quota non trovata', code: 'NOT_FOUND' });
+    if (!quota) throw domainError('NOT_FOUND', 'Quota non trovata', { status: 404 });
 
     const merged = {
       role: req.body.role ?? quota.role,
@@ -173,9 +165,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     };
     const { errors, normalized } = validateLoanQuotaPayload(merged);
     if (errors.length) {
-      return res.status(400).json({
-        error: errors[0],
-        code: 'VALIDATION_FAILED',
+      throw domainError('VALIDATION_FAILED', errors[0], {
         details: errors.map((m) => ({ message: m })),
       });
     }
@@ -192,7 +182,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const quota = await InstrumentLoanQuota.findByPk(req.params.id);
-    if (!quota) return res.status(404).json({ error: 'Quota non trovata', code: 'NOT_FOUND' });
+    if (!quota) throw domainError('NOT_FOUND', 'Quota non trovata', { status: 404 });
     await quota.destroy({ force: req.query.force === 'true' });
     res.json({ message: 'Quota eliminata' });
   } catch (err) {

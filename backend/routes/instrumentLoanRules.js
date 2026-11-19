@@ -4,6 +4,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { InstrumentLoanRule, Course } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -55,13 +56,11 @@ router.put(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return res
-        .status(400)
-        .json({ error: 'Validazione fallita', details: errs.array(), code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
     }
     const { family } = req.params;
     if (!FAMILIES.includes(family)) {
-      return res.status(400).json({ error: 'Famiglia non valida', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Famiglia non valida');
     }
     const ids = Array.isArray(req.body.allowedCourseIds)
       ? req.body.allowedCourseIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
@@ -96,7 +95,7 @@ router.put(
 router.delete('/:family', authenticate, requireRole('admin'), async (req, res) => {
   const { family } = req.params;
   if (!FAMILIES.includes(family)) {
-    return res.status(400).json({ error: 'Famiglia non valida', code: 'VALIDATION_FAILED' });
+    throw domainError('VALIDATION_FAILED', 'Famiglia non valida');
   }
   await InstrumentLoanRule.destroy({ where: { family } });
   res.json({ message: 'Regola eliminata (la famiglia torna in stato permissivo)' });

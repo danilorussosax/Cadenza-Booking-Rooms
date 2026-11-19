@@ -134,6 +134,7 @@ router.get('/', authenticate, async (req, res) => {
 // Registrati PRIMA di /:id per non venire intercettati dalla rotta dinamica.
 // =========================================================
 const { importInstruments, exportInstruments } = require('../services/instrumentImporter');
+const { domainError, httpError } = require('../lib/domainError');
 
 // GET /api/instruments/export → text/csv (Excel-compatibile)
 router.get('/export', authenticate, requireRole('admin'), async (req, res, next) => {
@@ -176,7 +177,7 @@ router.post('/import', authenticate, requireRole('admin'), async (req, res, next
 router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     const snap = await Instrument.findAll({
       where: { id: { [Op.in]: ids } },
       attributes: ['id', 'photoUrl'],
@@ -196,7 +197,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
     res.json(result);
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(409).json({ error: 'Eliminazione bloccata da vincoli di integrità.' });
+      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
     }
     next(err);
   }
@@ -206,9 +207,9 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
 router.post('/bulk-toggle-loanable', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).json({ error: 'Nessun id fornito' });
+    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
     if (typeof req.body?.isLoanable !== 'boolean') {
-      return res.status(400).json({ error: 'isLoanable richiesto', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'isLoanable richiesto');
     }
     const [changed] = await Instrument.update(
       { isLoanable: req.body.isLoanable },
@@ -234,8 +235,7 @@ router.get('/:id', authenticate, async (req, res) => {
       },
     ],
   });
-  if (!instrument)
-    return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+  if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
   const obj = instrument.toJSON();
   obj.loans = (obj.loans || []).map((l) => annotateStatus(l));
   res.json({ instrument: obj });
@@ -267,9 +267,7 @@ router.post(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty())
-      return res
-        .status(400)
-        .json({ error: 'Validazione fallita', details: errs.array(), code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
     try {
       if (req.body.code) {
         const existing = await Instrument.findOne({ where: { code: req.body.code } });
@@ -285,9 +283,9 @@ router.post(
       res.status(201).json({ instrument });
     } catch (err) {
       if (err.name === 'SequelizeUniqueConstraintError') {
-        return res
-          .status(409)
-          .json({ error: 'Codice strumento già usato', code: 'INSTRUMENT_CODE_DUPLICATE' });
+        throw domainError('INSTRUMENT_CODE_DUPLICATE', 'Codice strumento già usato', {
+          status: 409,
+        });
       }
       throw err;
     }
@@ -297,8 +295,7 @@ router.post(
 // PUT /api/instruments/:id — aggiorna (admin)
 router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
   const instrument = await Instrument.findByPk(req.params.id);
-  if (!instrument)
-    return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+  if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
   const allowed = [
     'code',
     'name',
@@ -327,9 +324,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
     res.json({ instrument });
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
-      return res
-        .status(409)
-        .json({ error: 'Codice strumento già usato', code: 'INSTRUMENT_CODE_DUPLICATE' });
+      throw domainError('INSTRUMENT_CODE_DUPLICATE', 'Codice strumento già usato', { status: 409 });
     }
     throw err;
   }
@@ -339,17 +334,16 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const instrument = await Instrument.findByPk(req.params.id);
-    if (!instrument)
-      return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+    if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
     const photoUrl = instrument.photoUrl;
     await instrument.destroy();
     tryDeleteOldPhoto(photoUrl);
     res.json({ message: 'Strumento eliminato' });
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
-      return res
-        .status(409)
-        .json({ error: 'Eliminazione bloccata da vincoli di integrità.', code: 'FK_CONSTRAINT' });
+      throw domainError('FK_CONSTRAINT', 'Eliminazione bloccata da vincoli di integrità.', {
+        status: 409,
+      });
     }
     next(err);
   }
@@ -364,10 +358,9 @@ router.post(
   async (req, res, next) => {
     try {
       const instrument = await Instrument.findByPk(req.params.id);
-      if (!instrument)
-        return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+      if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
       if (!req.file?.buffer) {
-        return res.status(400).json({ error: 'Nessun file caricato', code: 'VALIDATION_FAILED' });
+        throw domainError('VALIDATION_FAILED', 'Nessun file caricato');
       }
       const processed = await sharp(req.file.buffer)
         .rotate()
@@ -382,10 +375,10 @@ router.post(
       res.json({ instrument, photoUrl: newUrl });
     } catch (err) {
       if (err && err.message && /sharp|input|unsupported/i.test(err.message)) {
-        return res.status(400).json({
-          error: 'Immagine non valida o formato non supportato',
-          code: 'FILE_FORMAT_UNSUPPORTED',
-        });
+        throw domainError(
+          'FILE_FORMAT_UNSUPPORTED',
+          'Immagine non valida o formato non supportato',
+        );
       }
       next(err);
     }
@@ -395,8 +388,7 @@ router.post(
 // DELETE /api/instruments/:id/photo
 router.delete('/:id/photo', authenticate, requireRole('admin'), async (req, res) => {
   const instrument = await Instrument.findByPk(req.params.id);
-  if (!instrument)
-    return res.status(404).json({ error: 'Strumento non trovato', code: 'NOT_FOUND' });
+  if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
   tryDeleteOldPhoto(instrument.photoUrl);
   await instrument.update({ photoUrl: null });
   res.json({ instrument });
