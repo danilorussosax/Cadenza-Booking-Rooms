@@ -20,6 +20,7 @@ const {
 } = require('../services/integrations/isidata/fieldMapping');
 const { computeDiff, computeSafetyChecks } = require('../services/integrations/diffEngine');
 const { getProfile } = require('../services/integrations/profiles');
+const { domainError } = require('../lib/domainError');
 
 // Token formato: `${adminId}-${Date.now()}-${hex16}${ext}` con ext `.csv|.xlsx|...`.
 // Stringere la regex impedisce che varianti tipo `1-foo.csv` (senza Date e
@@ -214,9 +215,7 @@ function makePreviewHandler(source) {
   return async (req, res, next) => {
     try {
       if (!req.file) {
-        return res
-          .status(400)
-          .json({ error: 'File mancante (campo "file")', code: 'FILE_REQUIRED' });
+        return next(domainError('FILE_REQUIRED', 'File mancante (campo "file")'));
       }
       let mappingOverrides = null;
       if (req.body.mappingOverrides) {
@@ -224,24 +223,18 @@ function makePreviewHandler(source) {
         // Cap dimensione del JSON dell'admin: evita CPU-spike su parse di
         // payload patologici. 4KB > 10× la dimensione di un override realistico.
         if (typeof raw === 'string' && raw.length > 4096) {
-          return res
-            .status(400)
-            .json({ error: 'mappingOverrides troppo grande', code: 'VALIDATION_FAILED' });
+          return next(domainError('VALIDATION_FAILED', 'mappingOverrides troppo grande'));
         }
         let parsed;
         try {
           parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
         } catch {
-          return res
-            .status(400)
-            .json({ error: 'mappingOverrides JSON non valido', code: 'VALIDATION_FAILED' });
+          return next(domainError('VALIDATION_FAILED', 'mappingOverrides JSON non valido'));
         }
         try {
           mappingOverrides = sanitizeOverrides(parsed);
         } catch (err) {
-          return res
-            .status(400)
-            .json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
+          return next(domainError(err.code || 'VALIDATION_FAILED', err.message));
         }
       }
 
@@ -256,7 +249,7 @@ function makePreviewHandler(source) {
         );
       } catch (err) {
         if (err.code === 'FILE_TOO_LARGE' || err.code === 'PARSE_FAILED') {
-          return res.status(400).json({ error: err.message, code: err.code });
+          return next(domainError(err.code, err.message));
         }
         throw err;
       }
@@ -388,7 +381,7 @@ function makePreviewHandler(source) {
       });
     } catch (err) {
       if (err && /multer/i.test(err.name || '')) {
-        return res.status(400).json({ error: err.message, code: 'UPLOAD_FAILED' });
+        return next(domainError('UPLOAD_FAILED', err.message));
       }
       next(err);
     }
@@ -405,25 +398,23 @@ function makeApplyHandler(source) {
   return async (req, res, next) => {
     const { token, confirmedDiffHash, mappingOverrides, confirmCriticalWarnings } = req.body || {};
     if (!token || !confirmedDiffHash) {
-      return res
-        .status(400)
-        .json({ error: 'token e confirmedDiffHash sono obbligatori', code: 'VALIDATION_FAILED' });
+      return next(domainError('VALIDATION_FAILED', 'token e confirmedDiffHash sono obbligatori'));
     }
     if (typeof token !== 'string' || !TOKEN_REGEX.test(token)) {
-      return res.status(400).json({ error: 'token non valido', code: 'TOKEN_INVALID' });
+      return next(domainError('TOKEN_INVALID', 'token non valido'));
     }
     // Hash atteso: 64 char hex (SHA-256). Validare PRIMA del confronto evita
     // chiamate a Buffer.from con input non normalizzato e dà un errore parlante.
     if (typeof confirmedDiffHash !== 'string' || !/^[a-f0-9]{64}$/i.test(confirmedDiffHash)) {
-      return res.status(400).json({ error: 'hash non valido', code: 'VALIDATION_FAILED' });
+      return next(domainError('VALIDATION_FAILED', 'hash non valido'));
     }
     // Solo l'admin che ha caricato può applicare: il prefisso del token
     // contiene il suo id.
     const tokenAdminPrefix = String(token).split('-')[0];
     if (String(req.user.id) !== tokenAdminPrefix) {
-      return res
-        .status(403)
-        .json({ error: "token non appartenente all'admin corrente", code: 'TOKEN_FOREIGN' });
+      return next(
+        domainError('TOKEN_FOREIGN', "token non appartenente all'admin corrente", { status: 403 }),
+      );
     }
 
     // Sanitizza eventuali overrides anche in apply: il client può passarli di
@@ -433,15 +424,18 @@ function makeApplyHandler(source) {
     try {
       safeOverrides = sanitizeOverrides(mappingOverrides ?? null);
     } catch (err) {
-      return res.status(400).json({ error: err.message, code: err.code || 'VALIDATION_FAILED' });
+      return next(domainError(err.code || 'VALIDATION_FAILED', err.message));
     }
 
     const buffer = readTempFile(token);
     if (!buffer) {
-      return res.status(410).json({
-        error: 'File scaduto o non trovato — ricarica e riavvia la procedura',
-        code: 'TOKEN_EXPIRED',
-      });
+      return next(
+        domainError(
+          'TOKEN_EXPIRED',
+          'File scaduto o non trovato — ricarica e riavvia la procedura',
+          { status: 410 },
+        ),
+      );
     }
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     // Confronto in tempo costante: previene timing-attack sull'hash atteso
@@ -449,16 +443,18 @@ function makeApplyHandler(source) {
     const a = Buffer.from(fileHash, 'hex');
     const b = Buffer.from(confirmedDiffHash.toLowerCase(), 'hex');
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return res
-        .status(409)
-        .json({ error: 'Hash file non coincide — ricarica la preview', code: 'HASH_MISMATCH' });
+      return next(
+        domainError('HASH_MISMATCH', 'Hash file non coincide — ricarica la preview', {
+          status: 409,
+        }),
+      );
     }
 
     let parsed;
     try {
       parsed = await buildExternals(buffer, token, '', safeOverrides);
     } catch (err) {
-      return res.status(400).json({ error: err.message, code: err.code || 'PARSE_FAILED' });
+      return next(domainError(err.code || 'PARSE_FAILED', err.message));
     }
     const { externals, warnings } = parsed;
 
@@ -494,12 +490,13 @@ function makeApplyHandler(source) {
         .filter((w) => w.level === 'critical')
         .map((w) => w.code);
       if (criticalCodes.length > 0 && confirmCriticalWarnings !== true) {
-        return res.status(409).json({
-          error: 'Sono presenti warning critici: richiesta conferma esplicita',
-          code: 'CRITICAL_WARNINGS_PRESENT',
-          criticalCodes,
-          safetyChecks: safetyChecksApply,
-        });
+        return next(
+          domainError(
+            'CRITICAL_WARNINGS_PRESENT',
+            'Sono presenti warning critici: richiesta conferma esplicita',
+            { status: 409, extra: { criticalCodes, safetyChecks: safetyChecksApply } },
+          ),
+        );
       }
     }
 
@@ -819,7 +816,7 @@ router.get('/runs', authenticate, requireRole('admin'), async (req, res, next) =
     if (req.query.provider) {
       const ALLOWED_PROVIDERS = ['isidata', 'esse3'];
       if (!ALLOWED_PROVIDERS.includes(String(req.query.provider))) {
-        return res.status(400).json({ error: 'provider non valido', code: 'VALIDATION_FAILED' });
+        throw domainError('VALIDATION_FAILED', 'provider non valido');
       }
       where.provider = String(req.query.provider);
     }
@@ -895,11 +892,11 @@ router.get(
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'id non valido', code: 'VALIDATION_FAILED' });
+        throw domainError('VALIDATION_FAILED', 'id non valido');
       }
       const current = await IntegrationSyncRun.findByPk(id);
       if (!current) {
-        return res.status(404).json({ error: 'Run non trovato', code: 'NOT_FOUND' });
+        throw domainError('NOT_FOUND', 'Run non trovato', { status: 404 });
       }
       // Cerca il run precedente "success" dello stesso provider con id < current.id.
       // Ordinamento per startedAt DESC: il run più recente prima del corrente.

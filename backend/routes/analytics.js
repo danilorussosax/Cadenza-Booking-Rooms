@@ -29,6 +29,7 @@ const { stringify } = require('csv-stringify/sync');
 const PDFDocument = require('pdfkit');
 const { sequelize, Booking, Room, Building, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { domainError } = require('../lib/domainError');
 
 dayjs.extend(isoWeek);
 
@@ -249,7 +250,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const range = parseRange(req);
     if (!range) {
-      return res.status(400).json({ error: 'Range date non valido', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Range date non valido');
     }
     const data = await gatherAnalytics(range);
     res.json(data);
@@ -264,8 +265,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
 router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const range = parseRange(req);
-    if (!range)
-      return res.status(400).json({ error: 'Range date non valido', code: 'VALIDATION_FAILED' });
+    if (!range) throw domainError('VALIDATION_FAILED', 'Range date non valido');
 
     const rows = await Booking.findAll({
       attributes: ['id', 'startTime', 'endTime', 'status', 'autoCancelledAt'],
@@ -349,8 +349,7 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
 router.get('/export.pdf', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const range = parseRange(req);
-    if (!range)
-      return res.status(400).json({ error: 'Range date non valido', code: 'VALIDATION_FAILED' });
+    if (!range) throw domainError('VALIDATION_FAILED', 'Range date non valido');
 
     const data = await gatherAnalytics(range);
 

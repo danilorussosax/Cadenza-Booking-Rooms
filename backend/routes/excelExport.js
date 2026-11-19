@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { authenticate, requireRole } = require('../middleware/auth');
 const exporter = require('../services/excelExporter');
+const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get('/status', authenticate, requireRole('admin'), (_req, res) => {
 router.post('/export-now', authenticate, requireRole('admin'), async (_req, res) => {
   const r = await exporter.exportNow();
   if (!r.ok) {
-    return res.status(400).json({ error: r.reason });
+    throw httpError(400, r.reason);
   }
   res.json(r);
 });
@@ -32,7 +33,7 @@ router.post('/export-now', authenticate, requireRole('admin'), async (_req, res)
 // =====================================================
 router.get('/download', authenticate, requireRole('admin'), async (_req, res) => {
   if (!exporter.isEnabled()) {
-    return res.status(400).json({ error: 'Export disabilitato (EXCEL_EXPORT_ENABLED=false)' });
+    throw httpError(400, 'Export disabilitato (EXCEL_EXPORT_ENABLED=false)');
   }
   const filePath = exporter.getExportPath();
   if (!fs.existsSync(filePath)) {
