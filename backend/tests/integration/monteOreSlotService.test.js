@@ -163,16 +163,4 @@ describe('monteOreSlotService', () => {
       await expect(svc.toggleSlot(999999)).rejects.toThrow('Slot non trovato');
     });
   });
-
-  it('snapshotOriginalActive copia isActive in originalActive su tutti gli slot', async () => {
-    await svc.regenerateSlotsFromPattern(proposal.id);
-    await (await slotOn('2027-11-01')).update({ isActive: true });
-    await svc.snapshotOriginalActive(proposal.id);
-    expect((await slotOn('2027-11-01')).originalActive).toBe(true);
-    expect((await slotOn('2027-11-08')).originalActive).toBe(false);
-  });
-
-  it('classifyAmendment: ogni variazione richiede decisione', () => {
-    expect(svc.classifyAmendment()).toBe('pending');
-  });
 });

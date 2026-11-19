@@ -10,7 +10,7 @@ const {
   MonteOreSlot,
 } = require('../../models');
 const { authenticate, requireRole } = require('../../middleware/auth');
-const monteOreService = require('../../services/monteOreService');
+const generator = require('../../services/monteOreBookingGenerator');
 const workflow = require('../../services/monteOreWorkflowService');
 const slotService = require('../../services/monteOreSlotService');
 const { parsePagination, setPaginationHeaders } = require('../../lib/pagination');
@@ -281,7 +281,7 @@ module.exports = function registerAdminProposals(adminRouter) {
         ? await workflow
             .approvePlan(Number(req.params.id), req.user)
             .then((p) => ({ created: p.generationSummary.created, skipped: [], errors: [] }))
-        : await monteOreService.generateBookingsForProposal(Number(req.params.id), {
+        : await generator.generateForProposal(Number(req.params.id), {
             actorUser: req.user,
             includePast,
           });

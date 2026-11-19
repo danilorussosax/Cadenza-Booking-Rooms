@@ -25,8 +25,6 @@ describe('Stryker imports — moduli core', () => {
     expect(typeof bookingValidator.validateBooking).toBe('function');
   });
   it('services/monteOreSlotService esporta le funzioni chiave', () => {
-    expect(typeof monteOreSlotService.classifyAmendment).toBe('function');
-    expect(typeof monteOreSlotService.syncBookingForSlot).toBe('function');
     expect(typeof monteOreSlotService.regenerateSlotsFromPattern).toBe('function');
   });
   it('middleware/moduleGuard esporta requireModuleEnabled', () => {

@@ -570,7 +570,7 @@ describe('lib/withTransaction', () => {
 });
 
 describe('services/monteOreService.iterateOccurrences', () => {
-  const { iterateOccurrences } = require('../../services/monteOreService');
+  const { iterateOccurrences } = require('../../services/monteOreBookingGenerator');
 
   function collect(iter) {
     return Array.from(iter);

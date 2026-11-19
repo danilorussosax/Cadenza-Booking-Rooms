@@ -3,12 +3,12 @@
 const {
   MonteOreProposal,
   MonteOreAmendment,
-  Booking,
   MailOutbox,
   User,
   MonteOreSettings,
 } = require('../models');
 const workflow = require('./monteOreWorkflowService');
+const generator = require('./monteOreBookingGenerator');
 const { render } = require('./templateRenderer');
 
 // Evaluate a calendar mutation in its own transaction. A preview is rolled back.
@@ -58,31 +58,12 @@ async function updateCalendar(year, actor, confirmed, mutate) {
     }
     for (const { proposal, affected } of impacted) {
       const beforeSnapshot = affected.map((slot) => slot.toJSON());
+      await generator.cancelForSlots(affected, transaction, {
+        reason: 'Sospensione didattica amministrativa',
+      });
       for (const slot of affected) {
-        if (slot.bookingId) {
-          const booking = await Booking.findByPk(slot.bookingId, { transaction });
-          if (booking && (booking.checkedInAt || new Date(booking.startTime) < new Date()))
-            workflow.fail(
-              `La modifica coinvolge una lezione già trascorsa (${slot.date}); limita il blocco alle date future`,
-              'PAST_SLOT',
-            );
-          if (booking?.status === 'confirmed')
-            await booking.update(
-              {
-                status: 'cancelled',
-                cancelledAt: new Date(),
-                cancelReason: 'Sospensione didattica amministrativa',
-              },
-              { transaction },
-            );
-        }
         await slot.update(
-          {
-            isActive: false,
-            isLocked: true,
-            lockReason: 'Calendario aggiornato dal revisore',
-            bookingId: null,
-          },
+          { isActive: false, isLocked: true, lockReason: 'Calendario aggiornato dal revisore' },
           { transaction },
         );
       }

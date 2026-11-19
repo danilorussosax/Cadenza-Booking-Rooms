@@ -4,7 +4,7 @@
  * Integrazione: Monte Ore — flusso end-to-end docente → coordinatore → genera prenotazioni.
  *
  * Pre-condizioni:
- *   - una BookingRule per il ruolo docente (lo userà generateBookingsForProposal
+ *   - una BookingRule per il ruolo docente (lo userà il generatore di prenotazioni
  *     attraverso validateBooking).
  *   - una Room bookable.
  *   - un docente approved+active e un admin.
