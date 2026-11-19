@@ -25,6 +25,7 @@ const {
   MonteOreSuspension,
 } = require('../models');
 const { computeWeeks } = require('./monteOreCalendarService');
+const { activeMinutes } = require('./monteOrePlanRules');
 
 async function getActiveSettings(academicYear, instituteId = null) {
   const where = { academicYear };
@@ -128,12 +129,7 @@ async function recomputeTotals(proposalId, { transaction = null } = {}) {
     where: { proposalId, isActive: true, isLocked: false },
     ...tx,
   });
-  const totalMinutes = slots.reduce((acc, s) => {
-    const [sh, sm] = s.startTime.split(':').map(Number);
-    const [eh, em] = s.endTime.split(':').map(Number);
-    return acc + (eh * 60 + em - sh * 60 - sm);
-  }, 0);
-  const totalHours = totalMinutes / 60;
+  const totalHours = activeMinutes(slots) / 60;
   await MonteOreProposal.update(
     { totalHoursPlanned: totalHours },
     { where: { id: proposalId }, ...tx },

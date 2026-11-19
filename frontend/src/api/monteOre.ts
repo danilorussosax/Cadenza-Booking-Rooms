@@ -39,7 +39,31 @@ export interface MonteOreSchedule {
   updatedAt: string;
 }
 
+/** Risposta calcolata dal server: pronto? cosa blocca? cosa si può fare ora. */
+export interface MonteOreWorkflowState {
+  status: MonteOreStatus;
+  ready: boolean;
+  blockers: { code: string; message: string; violations?: unknown[] }[];
+  actions: {
+    teacher: {
+      editPattern: boolean;
+      selectDates: boolean;
+      submit: boolean;
+      requestAmendment: boolean;
+    };
+    admin: {
+      approve: boolean;
+      reject: boolean;
+      revertToDraft: boolean;
+      unlock: boolean;
+      editSchedules: boolean;
+    };
+  };
+}
+
 export interface MonteOreProposal {
+  /** Presente solo nelle risposte GET /me e GET admin /:id. */
+  workflow?: MonteOreWorkflowState;
   id: number;
   userId: number;
   academicYear: string;

@@ -16,21 +16,6 @@ const slotService = require('../../services/monteOreSlotService');
 const { resolveAnnualThreshold } = require('../../services/monteOreThresholdService');
 const academicYearContext = require('../../services/academicYearContext');
 const { resolveTeacherYear } = academicYearContext;
-const { validateDailyConstraints } = require('../../services/monteOreDailyValidator');
-
-/** Messaggio italiano per una violazione di vincolo giornaliero. */
-function formatDailyViolationMessage(v, totalViolations) {
-  const dayLabels = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-  const dayName = dayLabels[v.dayOfWeek] || `Giorno ${v.dayOfWeek}`;
-  const suffix = totalViolations > 1 ? ` (e altre ${totalViolations - 1} violazioni)` : '';
-  if (v.code === 'DAILY_HOURS_EXCEEDED') {
-    return `${dayName}: ${v.totalHours}h totali superano il massimo di ${v.limit}h giornaliere${suffix}`;
-  }
-  if (v.code === 'BREAK_REQUIRED') {
-    return `${dayName}: ${v.consecutiveHours}h consecutive richiedono una pausa di almeno ${v.breakNeeded} minuti dopo ${v.threshold}h${suffix}`;
-  }
-  return `Violazione vincolo giornaliero${suffix}`;
-}
 
 const {
   defaultRangeForYear,
@@ -128,7 +113,15 @@ module.exports = function registerTeacherProposals(router) {
           [{ model: MonteOreSchedule, as: 'schedules' }, 'startTime', 'ASC'],
         ],
       });
-      res.json({ proposal: serializeProposal(full) });
+      const plan = await workflow.loadPlan(full.id);
+      const windowOpen = (await academicYearContext.getAcademicYearContext(year, req.user))
+        .canSubmit;
+      res.json({
+        proposal: {
+          ...serializeProposal(full),
+          workflow: await workflow.describePlan(plan, { windowOpen }),
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -150,9 +143,8 @@ module.exports = function registerTeacherProposals(router) {
         const to = updates.validTo || proposal.validTo;
         if (from > to || !dayjs(from).isValid() || !dayjs(to).isValid())
           workflow.fail('Periodo non valido');
-        if (proposal.status === 'rejected')
-          Object.assign(updates, { status: 'draft', rejectedAt: null, rejectionReason: null });
         await proposal.update(updates, { transaction });
+        await workflow.reopenIfRejected(proposal, transaction);
         return proposal;
       });
       res.json({ proposal: proposal.toJSON() });
@@ -177,11 +169,7 @@ module.exports = function registerTeacherProposals(router) {
           { proposalId: proposal.id, ...data },
           { transaction },
         );
-        if (proposal.status === 'rejected')
-          await proposal.update(
-            { status: 'draft', rejectedAt: null, rejectionReason: null },
-            { transaction },
-          );
+        await workflow.reopenIfRejected(proposal, transaction);
         return schedule;
       });
       res.status(201).json({ schedule: schedule.toJSON() });
@@ -252,60 +240,7 @@ module.exports = function registerTeacherProposals(router) {
           'Sei fuori dalla finestra di inserimento del monte ore',
           'OUTSIDE_SUBMISSION_WINDOW',
         );
-      const proposal = await workflow.transact(async (transaction) => {
-        const proposal = await findOwnProposalEditable(req.user.id, year, transaction);
-        const plan = await workflow.loadPlan(proposal.id, transaction);
-        if (!plan.schedules.length)
-          workflow.fail('Imposta il pattern settimanale prima di inviare', 'EMPTY_PATTERN');
-        const distinctDays = new Set(plan.schedules.map((s) => s.dayOfWeek));
-        let validated;
-        if (plan.settings) {
-          const daily = validateDailyConstraints(plan.schedules, plan.settings);
-          if (!daily.ok) {
-            const error = new Error(
-              formatDailyViolationMessage(daily.violations[0], daily.violations.length),
-            );
-            error.status = 400;
-            error.code = daily.violations[0].code;
-            error.violations = daily.violations;
-            throw error;
-          }
-          // Detect pattern edits not yet propagated to the grid.
-          for (const slot of plan.slots.filter((s) => s.isActive)) {
-            const schedule = plan.schedules.find((s) => s.id === slot.scheduleId);
-            if (
-              !schedule ||
-              schedule.dayOfWeek !== slot.dayOfWeek ||
-              schedule.startTime !== slot.startTime ||
-              schedule.endTime !== slot.endTime
-            )
-              workflow.fail('Rigenera la griglia dopo aver modificato il pattern', 'STALE_GRID');
-          }
-          validated = await workflow.validatePlan(plan, workflow.expandRooms(plan, plan.slots), {
-            transaction,
-            snapshot: false,
-          });
-        }
-        await proposal.update(
-          {
-            status: 'submitted',
-            submittedAt: new Date(),
-            ...(validated
-              ? {
-                  workingDaysCount: validated.rule.bypassDayConstraint ? null : distinctDays.size,
-                  totalHoursRequested: validated.totalMinutes / 60,
-                  totalHoursPlanned: validated.totalMinutes / 60,
-                  minRequiredHoursSnapshot: validated.rule.minHours,
-                  contractSnapshot: validated.rule,
-                  requiresRevalidation: false,
-                  revalidationReason: null,
-                }
-              : {}),
-          },
-          { transaction },
-        );
-        return proposal;
-      });
+      const proposal = await workflow.submitPlan(req.user.id, year);
       res.json({ proposal: proposal.toJSON() });
     } catch (err) {
       if (err.violations)

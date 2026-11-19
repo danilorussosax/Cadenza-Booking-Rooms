@@ -22,7 +22,6 @@ import {
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
-import { validateDailyConstraints, describeDailyViolation } from '@/lib/monteOreDailyValidator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -108,54 +107,20 @@ export default function MonteOre() {
   });
 
   const proposal = proposalQuery.data?.proposal;
+  // Modificabile direttamente dal docente: lo decide il server (fallback sullo stato).
+  const isEditable =
+    proposal?.workflow?.actions.teacher.editPattern ??
+    (proposal ? ['draft', 'rejected'].includes(proposal.status) : false);
   const threshold =
-    proposal?.contractSnapshot && !['draft', 'rejected'].includes(proposal.status)
-      ? proposal.contractSnapshot
-      : thresholdQuery.data;
+    proposal?.contractSnapshot && !isEditable ? proposal.contractSnapshot : thresholdQuery.data;
   const hasIndividualOverride =
     threshold?.source === 'user_override' || threshold?.bypassDayConstraint === true;
-  const isLocked = proposal && !['draft', 'rejected'].includes(proposal.status);
+  const isLocked = proposal && !isEditable;
 
-  // Replica client-side delle validazioni backend (routes/monteOre.js:265-335)
-  // per disabilitare il submit e mostrare cosa manca. Il backend resta
-  // l'autorità: se l'admin non ha configurato MonteOreSettings per l'AA
-  // (threshold undefined) i blockers ore/giorni non si applicano.
-  const submitBlockers: string[] = (() => {
-    if (!proposal) return [];
-    const out: string[] = [];
-    if (proposal.schedules.length === 0) {
-      out.push('Aggiungi almeno una fascia oraria settimanale.');
-    }
-    if (threshold && !threshold.bypassDayConstraint && proposal.schedules.length > 0) {
-      const distinctDays = new Set(proposal.schedules.map((s) => s.dayOfWeek)).size;
-      if (distinctDays < 2 || distinctDays > 4) {
-        out.push(`Devi coprire tra 2 e 4 giorni della settimana (attualmente: ${distinctDays}).`);
-      }
-    }
-    if (threshold) {
-      const planned = Math.round(proposal.totalHoursPlanned * 60);
-      const required = Math.round(threshold.minHours * 60);
-      if (threshold.mode === 'maximum' && planned > required)
-        out.push(`Superi il massimo di ${threshold.minHours} h/anno.`);
-      else if (threshold.mode === 'exact' && planned !== required)
-        out.push(
-          `Pianifica esattamente ${threshold.minHours} h/anno (attuali: ${proposal.totalHoursPlanned.toFixed(2)}).`,
-        );
-      else if (threshold.mode !== 'maximum' && planned < required)
-        out.push(`Mancano ${((required - planned) / 60).toFixed(2)} h.`);
-      if (!planned) out.push('Seleziona le date nel calendario didattico.');
-    }
-    // Z2/Z3 — vincoli giornalieri (Regolamento Art. 2). Se l'admin non li
-    // ha configurati (tutti null), il validator ritorna ok=true senza warning.
-    if (threshold?.dailyConstraints && proposal.schedules.length > 0) {
-      const daily = validateDailyConstraints(proposal.schedules, threshold.dailyConstraints);
-      for (const v of daily.violations) {
-        out.push(describeDailyViolation(v));
-      }
-    }
-    return out;
-  })();
-  const canSubmit = submitBlockers.length === 0;
+  // Blocchi e azioni arrivano dal server (proposal.workflow): le regole di
+  // invio vivono solo nel backend (services/monteOreWorkflowService.js).
+  const submitBlockers: string[] = proposal?.workflow?.blockers.map((b) => b.message) ?? [];
+  const canSubmit = proposal?.workflow ? proposal.workflow.actions.teacher.submit : false;
 
   const updateMutation = useMutation({
     mutationFn: (payload: {
@@ -344,7 +309,7 @@ export default function MonteOre() {
         </Alert>
       )}
 
-      {['draft', 'rejected'].includes(proposal.status) && submitBlockers.length > 0 && (
+      {isEditable && submitBlockers.length > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>

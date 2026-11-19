@@ -2,20 +2,10 @@
 
 const multer = require('multer');
 
-const {
-  sequelize,
-  MonteOreProposal,
-  MonteOreSchedule,
-  User,
-  MonteOreSettings,
-  MonteOreSuspension,
-  MonteOreSlot,
-} = require('../../models');
+const { User, MonteOreSettings, MonteOreSuspension } = require('../../models');
 const { resolveAdminYear } = require('../../services/academicYearContext');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const workflow = require('../../services/monteOreWorkflowService');
-const slotService = require('../../services/monteOreSlotService');
-const { resolveAnnualThreshold } = require('../../services/monteOreThresholdService');
 
 // ---- Import Excel compilato dal docente (admin upload) ----
 //
@@ -180,132 +170,18 @@ module.exports = function registerImports(adminRouter) {
         const overwrite = overwriteParam !== 'false'; // default true
         const force = String(req.body?.force ?? req.query?.force ?? '').toLowerCase() === 'true';
 
-        const range = defaultRangeForYear(academicYear);
-        const now = new Date();
-        const originalName = req.file.originalname || 'import.xlsx';
-
-        // --- Transazione: findOrCreate proposal + ricrea schedules ---
-        const result = await sequelize.transaction(async (t) => {
-          const [proposal, created] = await MonteOreProposal.findOrCreate({
-            where: { userId: teacher.id, academicYear },
-            defaults: {
-              userId: teacher.id,
-              academicYear,
-              validFrom: range.validFrom,
-              validTo: range.validTo,
-              status: 'submitted',
-              source: 'admin_import',
-              importedAt: now,
-              importedById: req.user.id,
-              importSourceRef: originalName,
-              submittedAt: now,
-              coordinatorNotes: anagrafica.note || null,
-              totalHoursRequested: Number(totalHoursPattern.toFixed(2)),
-            },
-            transaction: t,
-          });
-
-          if (!created) {
-            if (!overwrite) {
-              const err = new Error('Proposta già esistente per questo docente e AA');
-              err.status = 409;
-              err.code = 'ALREADY_EXISTS';
-              throw err;
-            }
-            // Se la proposta esisteva in stato diverso da draft/submitted/rejected,
-            // richiediamo `force=true` per non sovrascrivere lavoro già approvato.
-            if (proposal.status === 'generated')
-              workflow.fail(
-                'Annulla la generazione prima di sostituire il piano via import',
-                'INVALID_STATE',
-              );
-            if (!['draft', 'submitted', 'rejected'].includes(proposal.status) && !force) {
-              const err = new Error(
-                `Proposta in stato '${proposal.status}': passa force=true per sovrascrivere`,
-              );
-              err.status = 409;
-              err.code = 'INVALID_STATE_FOR_OVERWRITE';
-              throw err;
-            }
-            // Cancella le righe esistenti (verranno ricreate sotto)
-            await MonteOreSchedule.destroy({
-              where: { proposalId: proposal.id },
-              transaction: t,
-            });
-            await proposal.update(
-              {
-                status: 'submitted',
-                source: 'admin_import',
-                importedAt: now,
-                importedById: req.user.id,
-                importSourceRef: originalName,
-                submittedAt: now,
-                coordinatorNotes: anagrafica.note || null,
-                totalHoursRequested: Number(totalHoursPattern.toFixed(2)),
-                rejectedAt: null,
-                rejectionReason: null,
-              },
-              { transaction: t },
-            );
-          }
-
-          // Crea le righe schedule in batch (era N INSERT sequenziali pre-v1.14.1).
-          // roomId=null: l'admin assegnerà l'aula prima di approvare la proposta.
-          const schedulePayloads = schedules.map((s) => ({
-            proposalId: proposal.id,
-            roomId: null,
-            dayOfWeek: s.dayOfWeek,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            bookingType: s.bookingType || 'lezione',
-            purpose: anagrafica.materia || null,
-            notes: s.notes || null,
-            excludeDates: [],
-          }));
-          if (schedulePayloads.length > 0) {
-            await MonteOreSchedule.bulkCreate(schedulePayloads, {
-              transaction: t,
-              validate: true,
-            });
-          }
-
-          await slotService.regenerateSlotsFromPattern(proposal.id, {
-            transaction: t,
-            confirmRemoval: true,
-          });
-          await MonteOreSlot.update(
-            { isActive: true },
-            {
-              where: { proposalId: proposal.id, isLocked: false },
-              transaction: t,
-              validate: false,
-            },
-          );
-          await slotService.recomputeTotals(proposal.id, { transaction: t });
-          const plan = await workflow.loadPlan(proposal.id, t);
-          const rule = await resolveAnnualThreshold(teacher.id, academicYear, { transaction: t });
-          if (rule.mode === 'exact' || rule.mode === 'maximum') {
-            await workflow.validatePlan(plan, workflow.expandRooms(plan, plan.slots), {
-              transaction: t,
-              snapshot: false,
-            });
-          }
-          await proposal.reload({ transaction: t });
-          await proposal.update(
-            {
-              contractSnapshot: rule,
-              minRequiredHoursSnapshot: rule.minHours,
-              totalHoursRequested: proposal.totalHoursPlanned,
-            },
-            { transaction: t },
-          );
-
-          // Reload con schedules per ritornare il dato fresco.
-          const fresh = await MonteOreProposal.findByPk(proposal.id, {
-            include: [{ model: MonteOreSchedule, as: 'schedules' }],
-            transaction: t,
-          });
-          return fresh;
+        const result = await workflow.importPlanAsSubmitted({
+          teacher,
+          academicYear,
+          actor: req.user,
+          schedules,
+          purpose: anagrafica.materia,
+          coordinatorNotes: anagrafica.note,
+          sourceRef: req.file.originalname || 'import.xlsx',
+          range: defaultRangeForYear(academicYear),
+          totalHoursPattern,
+          overwrite,
+          force,
         });
 
         return res.status(201).json({

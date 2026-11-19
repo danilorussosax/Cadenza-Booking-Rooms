@@ -14,6 +14,7 @@ const { resolveTeacherYear } = require('../../services/academicYearContext');
 const workflow = require('../../services/monteOreWorkflowService');
 const { randomUUID } = require('crypto');
 const slotService = require('../../services/monteOreSlotService');
+const { isAmendable } = require('../../services/monteOrePlanRules');
 
 /**
  * Helper comune per i 3 endpoint di "spostamento" (change-time, change-room,
@@ -37,7 +38,7 @@ async function loadOwnApprovedSlot(slotId, userId) {
     e.status = 403;
     throw e;
   }
-  if (!['approved', 'generated'].includes(proposal.status)) {
+  if (!isAmendable(proposal.status)) {
     const e = new Error('Spostamenti consentiti solo dopo approvazione');
     e.status = 400;
     e.code = 'INVALID_STATE';
@@ -88,7 +89,7 @@ module.exports = function registerTeacherAmendments(router) {
           where: { userId: req.user.id, academicYear: year },
         });
         if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-        if (!['approved', 'generated'].includes(proposal.status)) {
+        if (!isAmendable(proposal.status)) {
           return res
             .status(400)
             .json({ error: 'La proposta non è approvata', code: 'INVALID_STATE' });

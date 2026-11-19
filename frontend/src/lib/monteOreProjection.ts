@@ -1,5 +1,19 @@
 import type { AmendmentOperation, MonteOreSlot } from '@/api/monteOre';
 
+/** Ore attive (slot attivi e non bloccati): unica definizione lato client. */
+export function activeHours(
+  slots: Pick<MonteOreSlot, 'startTime' | 'endTime' | 'isActive' | 'isLocked'>[],
+): number {
+  let minutes = 0;
+  for (const s of slots) {
+    if (!s.isActive || s.isLocked) continue;
+    const [sh, sm] = s.startTime.split(':').map(Number);
+    const [eh, em] = s.endTime.split(':').map(Number);
+    minutes += eh * 60 + em - (sh * 60 + sm);
+  }
+  return minutes / 60;
+}
+
 /** Estimate a compound request in minutes; the API remains authoritative. */
 export function projectMonteOreHours(
   slots: MonteOreSlot[],

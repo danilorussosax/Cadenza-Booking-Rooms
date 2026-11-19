@@ -23,6 +23,7 @@ import {
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
+import { activeHours } from '@/lib/monteOreProjection';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,12 +51,6 @@ import {
 import type { BookingType } from '@/types';
 
 const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-
-function hoursOf(s: MonteOreSlot): number {
-  const [sh, sm] = s.startTime.split(':').map(Number);
-  const [eh, em] = s.endTime.split(':').map(Number);
-  return eh + em / 60 - (sh + sm / 60);
-}
 
 interface Props {
   requestCount?: number;
@@ -218,11 +213,7 @@ export default function MonteOreGrid({
   }, [slotsQuery.data]);
 
   const totals = useMemo(() => {
-    let active = 0;
-    for (const s of slotsQuery.data?.slots ?? []) {
-      if (s.isActive && !s.isLocked) active += hoursOf(s);
-    }
-    return { active };
+    return { active: activeHours(slotsQuery.data?.slots ?? []) };
   }, [slotsQuery.data]);
 
   // Callback stabili (identità invariata fra render consecutivi) → senza
@@ -534,9 +525,7 @@ const WeekRow = memo(function WeekRow({
   let weekTotal = 0;
   for (const d of week.days) {
     const slots = slotsByDate.get(d.date) ?? [];
-    weekTotal += slots
-      .filter((s) => s.isActive && !s.isLocked)
-      .reduce((acc, s) => acc + hoursOf(s), 0);
+    weekTotal += activeHours(slots);
   }
   return (
     <tr className="border-b last:border-0">
