@@ -15,7 +15,7 @@ require('dayjs/locale/it');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('it');
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 const { decrypt } = require('../lib/crypto');
 const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');

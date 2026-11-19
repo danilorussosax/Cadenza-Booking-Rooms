@@ -51,7 +51,7 @@ const timezone = require('dayjs/plugin/timezone');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const SCHEDULER_TZ = 'Europe/Rome';
+const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
 const logger = require('../lib/logger').child({ scope: 'backupVerify' });
 const { listBackups, BACKUP_DIR } = require('../scripts/backup');
 const { validateTarball } = require('./backupRestore');

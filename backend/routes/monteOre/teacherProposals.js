@@ -1,6 +1,7 @@
 'use strict';
 
 const dayjs = require('dayjs');
+const institutionTime = require('../../lib/institutionTime');
 
 const {
   MonteOreProposal,
@@ -20,7 +21,7 @@ async function isWithinSubmissionWindow(academicYear, user = null) {
   const settings = await MonteOreSettings.findOne({ where: { academicYear } });
   if (!settings) return true; // Compatibility for legacy plans without a calendar.
   if (settings.status !== 'published') return false;
-  const now = dayjs().format('YYYY-MM-DD');
+  const now = institutionTime.todayIso();
   if (now >= settings.submissionWindowStart && now <= settings.submissionWindowEnd) {
     return true;
   }

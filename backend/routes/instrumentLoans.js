@@ -3,6 +3,7 @@
 const express = require('express');
 const { withSerializableRetry } = require('../lib/serializableTx');
 const dayjs = require('dayjs');
+const institutionTime = require('../lib/institutionTime');
 const { Op, Transaction } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
@@ -84,7 +85,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 // GET /api/loans/overdue — prestiti scaduti (admin)
 //   Comprende sia gli "active" oltre toDate sia quelli già marcati "overdue".
 router.get('/overdue', authenticate, requireRole('admin'), async (req, res) => {
-  const today = dayjs().format('YYYY-MM-DD');
+  const today = institutionTime.todayIso();
   const loans = await InstrumentLoan.findAll({
     where: {
       [Op.or]: [{ status: 'overdue' }, { status: 'active', toDate: { [Op.lt]: today } }],
@@ -98,8 +99,8 @@ router.get('/overdue', authenticate, requireRole('admin'), async (req, res) => {
 // GET /api/loans/expiring?days=2 — in scadenza nei prossimi N giorni (admin)
 router.get('/expiring', authenticate, requireRole('admin'), async (req, res) => {
   const days = Math.max(1, Math.min(30, Number(req.query.days || 2)));
-  const today = dayjs().format('YYYY-MM-DD');
-  const limit = dayjs().add(days, 'day').format('YYYY-MM-DD');
+  const today = institutionTime.todayIso();
+  const limit = institutionTime.inInstitute().add(days, 'day').format('YYYY-MM-DD');
   const loans = await InstrumentLoan.findAll({
     where: {
       status: 'active',
@@ -145,7 +146,7 @@ router.post(
         code: 'LOAN_INVALID_DATE',
       });
     }
-    if (start.isBefore(dayjs().startOf('day'))) {
+    if (start.isBefore(institutionTime.startOfDay())) {
       return res
         .status(400)
         .json({ error: 'Non puoi richiedere un prestito nel passato', code: 'LOAN_INVALID_DATE' });

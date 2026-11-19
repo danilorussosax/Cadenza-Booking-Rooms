@@ -35,7 +35,7 @@ dayjs.extend(timezone);
 // L'orario configurato (default 02:30) è inteso come ora italiana. Su un
 // VPS UTC il tick partirebbe alle 02:30 UTC = 04:30 CEST, un'ora prima
 // del previsto.
-const SCHEDULER_TZ = 'Europe/Rome';
+const SCHEDULER_TZ = require('../lib/institutionTime').getTimezone();
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,

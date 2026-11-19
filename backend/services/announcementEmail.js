@@ -24,7 +24,7 @@ dayjs.extend(timezone);
 
 // L'email mostra date/orari all'utente: ora italiana indipendentemente
 // dal TZ del processo (container/UTC). Allinea pattern di emailService.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 const { Op } = require('sequelize');
 const { User, Announcement, Institute } = require('../models');
 const { audienceMatchesUserWhere } = require('./audienceMatcher');

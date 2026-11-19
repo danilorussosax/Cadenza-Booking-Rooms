@@ -18,7 +18,7 @@ dayjs.extend(timezone);
 // I nomi-file timestamp dei tarball (es. pre-restore-20260514-0230.tar.gz)
 // devono allinearsi all'ora italiana mostrata in UI/log, non al TZ del
 // processo Node: su VPS UTC si chiamerebbero "0030" invece di "0230".
-const TS_TZ = 'Europe/Rome';
+const TS_TZ = require('../lib/institutionTime').getTimezone();
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');

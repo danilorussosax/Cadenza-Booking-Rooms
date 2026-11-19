@@ -24,7 +24,7 @@ dayjs.extend(timezone);
 // "08:00"–"22:00") sono espresse in ORA LOCALE ITALIANA, non UTC: senza questa
 // conversione, su server UTC una prenotazione delle 09:00 IT (= 07:00 UTC in DST)
 // veniva rifiutata con "fascia consentita 08:00–22:00" perché start.hour()=7.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 
 /**
  * Valida una richiesta di prenotazione rispetto alle regole del ruolo,

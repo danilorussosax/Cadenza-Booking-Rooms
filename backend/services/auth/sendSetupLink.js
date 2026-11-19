@@ -31,7 +31,7 @@ const { Op } = require('sequelize');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../../lib/institutionTime').getTimezone();
 
 const PURPOSE_RESET = 'reset';
 const PURPOSE_INITIAL_SETUP = 'initial_setup';

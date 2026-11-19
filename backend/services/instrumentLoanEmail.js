@@ -23,7 +23,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // Email user-facing: ora italiana indipendente dal TZ del processo.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 dayjs.locale('it');
 const { render, renderText } = require('./templateRenderer');
 const { getTemplate, buildBookingContext: _unused } = require('./emailService');

@@ -36,7 +36,7 @@ dayjs.extend(timezone);
 // Widget pubblici (display kiosk + landing istituto): le fasce orarie
 // del giorno e l'identificazione del "prossimo concerto oggi" devono
 // essere in ora italiana, non nel TZ del processo Node.
-const PUBLIC_TZ = 'Europe/Rome';
+const PUBLIC_TZ = require('../lib/institutionTime').getTimezone();
 
 const router = express.Router();
 

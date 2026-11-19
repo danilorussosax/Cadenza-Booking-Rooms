@@ -31,6 +31,7 @@
  */
 
 const dayjs = require('dayjs');
+const institutionTime = require('../lib/institutionTime');
 const isoWeek = require('dayjs/plugin/isoWeek');
 const isSameOrAfter = require('dayjs/plugin/isSameOrAfter');
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore');
@@ -179,14 +180,10 @@ function defaultRangeForAcademicYear(academicYear) {
 }
 
 /** Anno accademico corrente: 1 nov → 31 ott. */
-function currentAcademicYear(today = new Date()) {
-  const d = dayjs(today);
-  const month = d.month() + 1;
-  const year = d.year();
-  // Da novembre in poi → AA = year/year+1
-  // Da gennaio a ottobre → AA = year-1/year
-  if (month >= 11) return `${year}/${year + 1}`;
-  return `${year - 1}/${year}`;
+function currentAcademicYear(today = institutionTime.now()) {
+  // Da novembre in poi → AA = year/year+1; da gennaio a ottobre → year-1/year.
+  // Mese/anno calcolati nel fuso dell'istituto, non in quello del processo.
+  return institutionTime.academicYearOf(today);
 }
 
 /**
@@ -199,7 +196,7 @@ function currentAcademicYear(today = new Date()) {
  *   - 1 nov 2026    → corrente "2026/2027" → next "2027/2028"
  *   - 31 ott 2026   → corrente "2025/2026" → next "2026/2027"
  */
-function nextAcademicYear(today = new Date()) {
+function nextAcademicYear(today = institutionTime.now()) {
   const cur = currentAcademicYear(today);
   const [a] = cur.split('/').map(Number);
   return `${a + 1}/${a + 2}`;
@@ -224,7 +221,7 @@ const PHASE_LABEL_IT = { past: 'passato', current: 'in corso', next: 'prossimo',
  * AA di riferimento: quello con `isActiveForTeachers` (pubblicato), altrimenti
  * l'AA corrente da calendario. `activeSettings` può essere null.
  */
-function referenceAcademicYear(activeSettings, today = new Date()) {
+function referenceAcademicYear(activeSettings, today = institutionTime.now()) {
   return activeSettings?.academicYear ?? currentAcademicYear(today);
 }
 
@@ -235,12 +232,12 @@ function referenceAcademicYear(activeSettings, today = new Date()) {
  *
  * `settings.submissionWindowStart` / `End` sono DATEONLY.
  */
-function isSubmissionWindowOpen(settings, today = new Date()) {
+function isSubmissionWindowOpen(settings, today = institutionTime.now()) {
   if (!settings || (settings.status && settings.status !== 'published')) return false;
   const start = settings.submissionWindowStart;
   const end = settings.submissionWindowEnd;
   if (!start || !end) return false;
-  const todayIso = dayjs(today).format('YYYY-MM-DD');
+  const todayIso = institutionTime.todayIso(today);
   const startIso = String(start).slice(0, 10);
   const endIso = String(end).slice(0, 10);
   return todayIso >= startIso && todayIso <= endIso;
@@ -259,7 +256,7 @@ function isSubmissionWindowOpen(settings, today = new Date()) {
  * `activeSettings` e `nextSettings` possono essere null/undefined.
  */
 function resolveTargetAcademicYearForTeacher(
-  today = new Date(),
+  today = institutionTime.now(),
   nextSettings = null,
   activeSettings = null,
 ) {

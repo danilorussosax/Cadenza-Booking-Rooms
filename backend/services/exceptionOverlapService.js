@@ -43,7 +43,7 @@ dayjs.extend(timezone);
 // ora locale italiana, non UTC. Senza conversione, su un VPS con TZ=UTC
 // `dayjs(b.startTime).hour()` ritorna l'ora UTC e la finestra 14-17
 // confronta valori sbagliati. Allineato a bookingValidator.DEFAULT_TZ.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 
 function parseHHmm(s) {
   const [h, m] = s.split(':').map(Number);

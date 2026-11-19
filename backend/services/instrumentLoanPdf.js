@@ -26,7 +26,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('it');
 
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../lib/institutionTime').getTimezone();
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 

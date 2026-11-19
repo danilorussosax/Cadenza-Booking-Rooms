@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 // "giorno solare" e "settimana ISO" istituzionali (Europe/Rome). Su un
 // VPS UTC vicino a mezzanotte italiana il dayStart può cadere il giorno
 // prima/dopo, falsando i totali ora.
-const DEFAULT_TZ = 'Europe/Rome';
+const DEFAULT_TZ = require('../../lib/institutionTime').getTimezone();
 
 const { Booking, Room, User } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
