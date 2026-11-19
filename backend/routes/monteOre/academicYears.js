@@ -2,6 +2,7 @@
 
 const { MonteOreSettings } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
+const academicYearContext = require('../../services/academicYearContext');
 const calendarService = require('../../services/monteOreCalendarService');
 
 module.exports = function registerAcademicYears(router) {
@@ -40,22 +41,18 @@ module.exports = function registerAcademicYears(router) {
         req.user?.role === 'admin' || (req.query.scope === 'admin' && req.user?.role === 'admin');
 
       if (!isAdmin) {
-        // Override admin: settings con isActiveForTeachers=true vincono.
-        const activeSettings = await MonteOreSettings.findOne({
-          where: { isActiveForTeachers: true, status: 'published' },
-        });
-        const nextSettings = await MonteOreSettings.findOne({
-          where: { academicYear: nextLabel },
-        });
-        const target = calendarService.resolveTargetAcademicYearForTeacher(
-          today,
-          nextSettings,
+        // Stessa risoluzione e stessa regola di finestra usate dall'invio.
+        const {
+          academicYear: target,
           activeSettings,
-        );
-        const targetSettings = await MonteOreSettings.findOne({ where: { academicYear: target } });
-        const submissionOpen = targetSettings
-          ? calendarService.isSubmissionWindowOpen(targetSettings, today)
-          : false;
+          nextSettings,
+        } = await academicYearContext.resolveTeacherTargetYear(today);
+        const targetSettings =
+          target === nextLabel
+            ? nextSettings
+            : await MonteOreSettings.findOne({ where: { academicYear: target } });
+        const yearCtx = academicYearContext.buildContext(target, targetSettings, req.user, today);
+        const submissionOpen = yearCtx.canSubmit;
         const isNext = target === nextLabel;
         const isCurrent = target === currentLabel;
         const adminActivated = !!activeSettings && activeSettings.academicYear === target;
@@ -69,6 +66,8 @@ module.exports = function registerAcademicYears(router) {
               isCurrent,
               isNext,
               submissionOpen,
+              submissionClosedReason: yearCtx.reason,
+              viaIndividualGrant: yearCtx.viaIndividualGrant,
               hasSettings: !!targetSettings,
               status: targetSettings?.status,
               adminActivated,

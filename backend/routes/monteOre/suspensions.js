@@ -1,9 +1,9 @@
 'use strict';
 
 const { MonteOreSettings, MonteOreSuspension, BookingRuleException } = require('../../models');
+const { resolveAdminYear } = require('../../services/academicYearContext');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const { updateCalendar } = require('../../services/monteOreCalendarUpdateService');
-const calendarService = require('../../services/monteOreCalendarService');
 
 const {
   sanitizeSuspension,
@@ -15,7 +15,7 @@ module.exports = function registerSuspensions(adminRouter) {
   // ---- Suspensions ----
   adminRouter.get('/suspensions', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.query.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       const items = await MonteOreSuspension.findAll({
         where: { academicYear: year },
         order: [['dateFrom', 'ASC']],
@@ -28,7 +28,7 @@ module.exports = function registerSuspensions(adminRouter) {
 
   adminRouter.post('/suspensions', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.body.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       const data = sanitizeSuspension(req.body);
       if (!data.name || !data.dateFrom || !data.dateTo) {
         return res

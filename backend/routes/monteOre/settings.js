@@ -1,10 +1,10 @@
 'use strict';
 
 const { MonteOreSettings } = require('../../models');
+const { resolveAdminYear } = require('../../services/academicYearContext');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const workflow = require('../../services/monteOreWorkflowService');
 const { updateCalendar } = require('../../services/monteOreCalendarUpdateService');
-const calendarService = require('../../services/monteOreCalendarService');
 const { validateYear, validateSettings } = require('../../services/academicYearConfig');
 const { bootstrapAcademicYear } = require('../../services/academicYearBootstrap');
 
@@ -59,7 +59,7 @@ module.exports = function registerSettings(adminRouter) {
 
   adminRouter.get('/settings', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.query.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       validateYear(year);
       const instituteId = await resolveDefaultInstituteId();
       const settings = await MonteOreSettings.findOne({
@@ -74,7 +74,7 @@ module.exports = function registerSettings(adminRouter) {
 
   adminRouter.put('/settings', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.body.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       validateYear(year);
       const instituteId = await resolveDefaultInstituteId();
       const settings = await updateCalendar(

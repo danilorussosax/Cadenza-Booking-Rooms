@@ -14,26 +14,9 @@ const { authenticate, requireApproved } = require('../../middleware/auth');
 const workflow = require('../../services/monteOreWorkflowService');
 const slotService = require('../../services/monteOreSlotService');
 const { resolveAnnualThreshold } = require('../../services/monteOreThresholdService');
+const academicYearContext = require('../../services/academicYearContext');
+const { resolveTeacherYear } = academicYearContext;
 const { validateDailyConstraints } = require('../../services/monteOreDailyValidator');
-
-async function isWithinSubmissionWindow(academicYear, user = null) {
-  const settings = await MonteOreSettings.findOne({ where: { academicYear } });
-  if (!settings) return true; // Compatibility for legacy plans without a calendar.
-  if (settings.status !== 'published') return false;
-  const now = dayjs().format('YYYY-MM-DD');
-  if (now >= settings.submissionWindowStart && now <= settings.submissionWindowEnd) {
-    return true;
-  }
-  // Deroga individuale (Fase 6.1): un docente subentrato in corso d'anno
-  // può avere `monteOreSubmissionAllowedUntil` valorizzato dalla Direzione,
-  // che lo abilita a inviare/modificare la propria proposta anche fuori
-  // dalla finestra globale, fino a quella data inclusa.
-  if (user && user.monteOreSubmissionAllowedUntil) {
-    const until = String(user.monteOreSubmissionAllowedUntil).slice(0, 10);
-    if (now <= until) return true;
-  }
-  return false;
-}
 
 /** Messaggio italiano per una violazione di vincolo giornaliero. */
 function formatDailyViolationMessage(v, totalViolations) {
@@ -50,7 +33,6 @@ function formatDailyViolationMessage(v, totalViolations) {
 }
 
 const {
-  currentAcademicYearLabel,
   defaultRangeForYear,
   serializeProposal,
   findOwnProposalEditable,
@@ -70,7 +52,7 @@ module.exports = function registerTeacherProposals(router) {
    */
   router.get('/me/threshold', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.query.year || currentAcademicYearLabel();
+      const year = await resolveTeacherYear(req);
       const resolved = await resolveAnnualThreshold(req.user.id, year);
       // Esponi anche i vincoli giornalieri istituzionali (Z2/Z3) per consentire
       // al frontend di mostrare warning inline durante l'editing del pattern.
@@ -95,7 +77,7 @@ module.exports = function registerTeacherProposals(router) {
 
   router.get('/me', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.query.year || currentAcademicYearLabel();
+      const year = await resolveTeacherYear(req);
       const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
       if (settings && settings.status !== 'published')
         return res.status(409).json({
@@ -157,7 +139,7 @@ module.exports = function registerTeacherProposals(router) {
       const proposal = await workflow.transact(async (transaction) => {
         const proposal = await findOwnProposalEditable(
           req.user.id,
-          req.body.academicYear || currentAcademicYearLabel(),
+          await resolveTeacherYear(req),
           transaction,
         );
         const updates = {};
@@ -184,7 +166,7 @@ module.exports = function registerTeacherProposals(router) {
       const schedule = await workflow.transact(async (transaction) => {
         const proposal = await findOwnProposalEditable(
           req.user.id,
-          req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+          await resolveTeacherYear(req),
           transaction,
         );
         const data = sanitizeSchedule(req.body);
@@ -213,7 +195,7 @@ module.exports = function registerTeacherProposals(router) {
       const schedule = await workflow.transact(async (transaction) => {
         const proposal = await findOwnProposalEditable(
           req.user.id,
-          req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+          await resolveTeacherYear(req),
           transaction,
         );
         const schedule = await MonteOreSchedule.findOne({
@@ -235,7 +217,7 @@ module.exports = function registerTeacherProposals(router) {
       await workflow.transact(async (transaction) => {
         const proposal = await findOwnProposalEditable(
           req.user.id,
-          req.body.academicYear || req.query.year || currentAcademicYearLabel(),
+          await resolveTeacherYear(req),
           transaction,
         );
         const schedule = await MonteOreSchedule.findOne({
@@ -263,8 +245,9 @@ module.exports = function registerTeacherProposals(router) {
 
   router.post('/me/submit', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.body.academicYear || currentAcademicYearLabel();
-      if (!(await isWithinSubmissionWindow(year, req.user)))
+      const year = await resolveTeacherYear(req);
+      const yearCtx = await academicYearContext.getAcademicYearContext(year, req.user);
+      if (!yearCtx.canSubmit)
         workflow.fail(
           'Sei fuori dalla finestra di inserimento del monte ore',
           'OUTSIDE_SUBMISSION_WINDOW',

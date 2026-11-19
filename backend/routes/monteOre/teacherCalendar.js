@@ -7,11 +7,12 @@ const {
   MonteOreSlot,
 } = require('../../models');
 const { authenticate, requireApproved } = require('../../middleware/auth');
+const { resolveTeacherYear } = require('../../services/academicYearContext');
 const workflow = require('../../services/monteOreWorkflowService');
 const { randomUUID } = require('crypto');
 const slotService = require('../../services/monteOreSlotService');
 const calendarService = require('../../services/monteOreCalendarService');
-const { currentAcademicYearLabel, findOwnProposalEditable } = require('./shared');
+const { findOwnProposalEditable } = require('./shared');
 
 module.exports = function registerTeacherCalendar(router) {
   // ============================================================
@@ -25,7 +26,7 @@ module.exports = function registerTeacherCalendar(router) {
    */
   router.get('/me/calendar', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.query.year || currentAcademicYearLabel();
+      const year = await resolveTeacherYear(req);
       const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
       if (!settings) {
         return res.status(404).json({
@@ -53,10 +54,7 @@ module.exports = function registerTeacherCalendar(router) {
    */
   router.post('/me/regenerate-slots', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const proposal = await findOwnProposalEditable(
-        req.user.id,
-        req.body.academicYear || req.query.year || currentAcademicYearLabel(),
-      );
+      const proposal = await findOwnProposalEditable(req.user.id, await resolveTeacherYear(req));
       // Atomico: destroy + bulkCreate + recomputeTotals in una sola transazione.
       // Senza tx un crash a metà lasciava la proposta con metà degli slot persi.
       const result = await workflow.transact(async (transaction) => {
@@ -78,7 +76,7 @@ module.exports = function registerTeacherCalendar(router) {
    */
   router.get('/me/slots', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.query.year || currentAcademicYearLabel();
+      const year = await resolveTeacherYear(req);
       const proposal = await MonteOreProposal.findOne({
         where: { userId: req.user.id, academicYear: year },
       });

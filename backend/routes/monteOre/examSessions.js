@@ -1,9 +1,9 @@
 'use strict';
 
 const { MonteOreSettings, MonteOreSuspension } = require('../../models');
+const { resolveAdminYear } = require('../../services/academicYearContext');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const { updateCalendar } = require('../../services/monteOreCalendarUpdateService');
-const calendarService = require('../../services/monteOreCalendarService');
 
 const {
   sanitizeSuspension,
@@ -15,7 +15,7 @@ module.exports = function registerExamSessions(adminRouter) {
   // ---- Exam Sessions (sospensioni con category='exam_session') ----
   adminRouter.get('/exam-sessions', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.query.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
       const where = { academicYear: year, category: 'exam_session' };
       if (settings) where.instituteId = settings.instituteId;
@@ -31,7 +31,7 @@ module.exports = function registerExamSessions(adminRouter) {
 
   adminRouter.post('/exam-sessions', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const year = req.body.academicYear || calendarService.currentAcademicYear();
+      const year = resolveAdminYear(req);
       const data = sanitizeSuspension(req.body);
       if (!data.name || !data.dateFrom || !data.dateTo) {
         return res
