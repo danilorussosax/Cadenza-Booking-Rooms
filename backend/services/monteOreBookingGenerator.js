@@ -11,8 +11,14 @@
  * scritta; è letta solo da `releasePlan` (per prenotazioni create prima che
  * esistesse il legame sullo slot) e dalla migrazione di backfill dell'origine.
  *
- * Tutta la creazione/validazione delle prenotazioni passa da `checkSlot` e
- * `createBooking` (unico punto che chiama validateBooking / Booking.create).
+ * Creazione e annullo delle prenotazioni passano da `bookingLifecycle` (`book`,
+ * `cancel`, `cancelMany`) in modo silenzioso: nessuna mail per le lezioni
+ * generate/annullate dal piano. `checkSlot` resta una validazione read-only
+ * (anche per anteprime) e quindi chiama direttamente `validateBooking`.
+ *
+ * Lista d'attesa (comportamento storico, da non cambiare): annulli di istanza
+ * (`reconcile`, `cancelForSlots`) la promuovono dopo il commit; `releasePlan`
+ * (update di massa, senza hook) NON la promuove.
  */
 
 const dayjs = require('dayjs');
@@ -22,6 +28,7 @@ const { Op } = require('sequelize');
 const { Booking, MonteOreProposal, MonteOreSchedule, MonteOreSlot, User } = require('../models');
 const { validateBooking } = require('./bookingValidator');
 const { withTransaction } = require('../lib/withTransaction');
+const lifecycle = require('./bookingLifecycle');
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -30,6 +37,12 @@ const institutionTime = require('../lib/institutionTime');
 
 const INSTITUTE_TZ = institutionTime.getTimezone();
 const DEFAULT_ORIGIN = 'monte_ore';
+const DEFAULT_BYPASS = Object.freeze({
+  quotas: true,
+  advance: true,
+  duration: true,
+  pastDates: true,
+});
 
 function fail(message, code = 'VALIDATION_FAILED', status = 400) {
   const error = new Error(message);
@@ -84,10 +97,7 @@ function* iterateOccurrences(from, to, dayOfWeek, excludeDates = []) {
  * Ritorna { valid, reason, code, startTime, endTime }.
  */
 async function checkSlot(plan, slot, transaction, opts = {}) {
-  const {
-    bypass = { quotas: true, advance: true, duration: true, pastDates: true },
-    teacherOverlap = true,
-  } = opts;
+  const { bypass = DEFAULT_BYPASS, teacherOverlap = true } = opts;
   const { startTime, endTime } = slotInstants(slot);
   const result = await validateBooking({
     user: plan.user,
@@ -131,22 +141,34 @@ async function checkSlot(plan, slot, transaction, opts = {}) {
   return { valid: true, startTime, endTime };
 }
 
-/** Unico punto di creazione delle prenotazioni del monte ore. */
-async function createBooking(plan, slot, { startTime, endTime }, { origin, notes }, transaction) {
-  return Booking.create(
-    {
-      userId: plan.user.id,
-      roomId: slot.roomId,
-      startTime,
-      endTime,
-      type: slot.bookingType,
-      purpose: slot.purpose,
-      ...(notes ? { notes } : {}),
-      status: 'confirmed',
-      origin,
-    },
-    { transaction },
-  );
+/** Unico punto di creazione delle prenotazioni del monte ore (via lifecycle, silenzioso). */
+async function createBooking(
+  plan,
+  slot,
+  { startTime, endTime },
+  { origin, notes, bypass },
+  transaction,
+) {
+  const { booking } = await lifecycle.book({
+    actor: plan.user,
+    owner: plan.user,
+    roomId: slot.roomId,
+    startTime,
+    endTime,
+    type: slot.bookingType,
+    purpose: slot.purpose,
+    notes,
+    status: 'confirmed',
+    origin,
+    ignoreBookingId: slot.bookingId,
+    bypass: bypass ?? DEFAULT_BYPASS,
+    // Stato e aula non servono (status esplicito): evita la lettura dell'aula.
+    before: async () => ({ room: null }),
+    notifyOwner: false,
+    notifyAdmins: false,
+    transaction,
+  });
+  return booking;
 }
 
 /**
@@ -187,10 +209,8 @@ async function reconcile(plan, slots, transaction, opts = {}) {
       if (changedIds && (booking.checkedInAt || new Date(booking.startTime) < new Date()))
         fail('Una prenotazione svolta richiede rettifica amministrativa', 'PAST_SLOT');
       if (booking.status === 'confirmed' || booking.status === 'pending_approval') {
-        await booking.update(
-          { status: 'cancelled', cancelledAt: new Date(), cancelReason },
-          { transaction },
-        );
+        // Promuove la lista d'attesa come l'hook storico; nessuna mail.
+        await lifecycle.cancel({ booking, reason: cancelReason, transaction });
       }
     }
   }
@@ -220,7 +240,13 @@ async function reconcile(plan, slots, transaction, opts = {}) {
         continue;
       }
       const notes = scheduleById.get(slot.scheduleId)?.notes || null;
-      const booking = await createBooking(plan, slot, verdict, { origin, notes }, transaction);
+      const booking = await createBooking(
+        plan,
+        slot,
+        verdict,
+        { origin, notes, bypass: check.bypass },
+        transaction,
+      );
       await MonteOreSlot.update(
         { ...slot, bookingId: booking.id },
         { where: { id: slot.id }, transaction },
@@ -248,11 +274,7 @@ async function cancelForSlots(slots, transaction, { reason }) {
         `La modifica coinvolge una lezione già trascorsa (${slot.date}); limita il blocco alle date future`,
         'PAST_SLOT',
       );
-    if (booking?.status === 'confirmed')
-      await booking.update(
-        { status: 'cancelled', cancelledAt: new Date(), cancelReason: reason },
-        { transaction },
-      );
+    if (booking?.status === 'confirmed') await lifecycle.cancel({ booking, reason, transaction });
     await slot.update({ bookingId: null }, { transaction });
   }
 }
@@ -279,18 +301,23 @@ async function releasePlan(
   if (allIds.length === 0) return { cleared: 0 };
 
   const now = new Date();
-  const [cleared] = await Booking.update(
-    { status: 'cancelled', cancelledAt: now, cancelReason: reason },
-    {
-      where: {
-        id: { [Op.in]: allIds },
-        status: 'confirmed',
-        checkedInAt: { [Op.is]: null },
-        startTime: { [Op.gt]: now },
-      },
-      ...tx,
+  // Update di massa storico = niente hook = niente promozione lista d'attesa.
+  const toCancel = await Booking.findAll({
+    where: {
+      id: { [Op.in]: allIds },
+      status: 'confirmed',
+      checkedInAt: { [Op.is]: null },
+      startTime: { [Op.gt]: now },
     },
-  );
+    ...tx,
+  });
+  const cancelled = await lifecycle.cancelMany({
+    bookings: toCancel,
+    reason,
+    promote: false,
+    transaction,
+  });
+  const cleared = cancelled.length;
   const survivors = await Booking.findAll({
     where: { id: { [Op.in]: allIds }, status: 'confirmed' },
     attributes: ['id'],
@@ -310,7 +337,7 @@ async function releasePlan(
         { transaction },
       );
   }
-  return { cleared: cleared || 0 };
+  return { cleared };
 }
 
 /**
