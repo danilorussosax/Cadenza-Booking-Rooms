@@ -28,6 +28,7 @@ const { Op } = require('sequelize');
 const { ContractType, User, Institute, MonteOreProposal } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 
@@ -101,7 +102,7 @@ router.get('/', authenticate, async (req, res, next) => {
 router.get('/:id/impact', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ct = await ContractType.findByPk(req.params.id);
-    if (!ct) return res.status(404).json({ error: 'Tipologia non trovata', code: 'NOT_FOUND' });
+    if (!ct) throw domainError('NOT_FOUND', 'Tipologia non trovata', { status: 404 });
 
     // Utenti che usano questo code (e non hanno override individuale → quindi
     // verrebbero impattati dal cambio defaultHours).
@@ -167,26 +168,23 @@ router.post('/', authenticate, requireRole('admin'), async (req, res, next) => {
 
     const labelRaw = String(req.body?.label || '').trim();
     if (!labelRaw) {
-      return res.status(400).json({ error: 'Etichetta obbligatoria', code: 'LABEL_REQUIRED' });
+      throw domainError('LABEL_REQUIRED', 'Etichetta obbligatoria');
     }
     if (labelRaw.length > 80) {
-      return res.status(400).json({ error: 'Etichetta troppo lunga', code: 'LABEL_TOO_LONG' });
+      throw domainError('LABEL_TOO_LONG', 'Etichetta troppo lunga');
     }
 
     // Code: o fornito dal client (validato), o auto-slugificato dal label.
     let code = req.body?.code ? String(req.body.code).trim().toLowerCase() : slugifyCode(labelRaw);
     if (!/^[a-z0-9_]{1,40}$/.test(code)) {
-      return res
-        .status(400)
-        .json({ error: 'Codice non valido (solo a-z, 0-9, _; max 40 char)', code: 'CODE_INVALID' });
+      throw domainError('CODE_INVALID', 'Codice non valido (solo a-z, 0-9, _; max 40 char)');
     }
 
     // Code unico per istituto (compresi i soft-deleted? No: paranoid).
     const existing = await ContractType.findOne({ where: { instituteId, code } });
     if (existing) {
-      return res.status(409).json({
-        error: 'Codice già esistente per questo istituto',
-        code: 'CODE_DUPLICATE',
+      throw domainError('CODE_DUPLICATE', 'Codice già esistente per questo istituto', {
+        status: 409,
       });
     }
 
@@ -224,7 +222,7 @@ router.post('/', authenticate, requireRole('admin'), async (req, res, next) => {
 router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ct = await ContractType.findByPk(req.params.id);
-    if (!ct) return res.status(404).json({ error: 'Tipologia non trovata', code: 'NOT_FOUND' });
+    if (!ct) throw domainError('NOT_FOUND', 'Tipologia non trovata', { status: 404 });
 
     const fields = pickFields(req.body);
     const fixedRules = {
@@ -258,10 +256,9 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
         },
       });
       if (usersAffected > 0) {
-        return res.status(409).json({
-          error: 'Conferma impatto richiesta',
-          code: 'IMPACT_CONFIRM_REQUIRED',
-          usersAffectedCount: usersAffected,
+        throw domainError('IMPACT_CONFIRM_REQUIRED', 'Conferma impatto richiesta', {
+          status: 409,
+          extra: { usersAffectedCount: usersAffected },
         });
       }
     }
@@ -290,13 +287,13 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const ct = await ContractType.findByPk(req.params.id);
-    if (!ct) return res.status(404).json({ error: 'Tipologia non trovata', code: 'NOT_FOUND' });
+    if (!ct) throw domainError('NOT_FOUND', 'Tipologia non trovata', { status: 404 });
 
     if (ct.isSystem) {
-      return res.status(400).json({
-        error: 'Tipo di sistema: può essere solo disattivato, non cancellato',
-        code: 'IS_SYSTEM',
-      });
+      throw domainError(
+        'IS_SYSTEM',
+        'Tipo di sistema: può essere solo disattivato, non cancellato',
+      );
     }
 
     const usersUsingIt = await User.count({
@@ -304,11 +301,11 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
       paranoid: true,
     });
     if (usersUsingIt > 0) {
-      return res.status(409).json({
-        error: `Tipologia in uso da ${usersUsingIt} docente/i — riassegnali prima di cancellare`,
-        code: 'IN_USE',
-        usersAffectedCount: usersUsingIt,
-      });
+      throw domainError(
+        'IN_USE',
+        `Tipologia in uso da ${usersUsingIt} docente/i — riassegnali prima di cancellare`,
+        { status: 409, extra: { usersAffectedCount: usersUsingIt } },
+      );
     }
 
     await ct.destroy();

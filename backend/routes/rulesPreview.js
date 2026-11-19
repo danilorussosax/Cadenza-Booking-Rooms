@@ -25,6 +25,7 @@
 const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { validateBooking } = require('../services/bookingValidator');
+const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
 const VALID_ROLES = ['admin', 'docente', 'studente'];
@@ -34,15 +35,13 @@ router.post('/preview', authenticate, requireRole('admin'), async (req, res, nex
     const { role, courseId = null, roomId, startTime, endTime } = req.body || {};
 
     if (!VALID_ROLES.includes(role)) {
-      return res.status(400).json({ error: 'Ruolo non valido', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'Ruolo non valido');
     }
     if (!Number.isInteger(Number(roomId))) {
-      return res.status(400).json({ error: 'roomId obbligatorio', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'roomId obbligatorio');
     }
     if (!startTime || !endTime) {
-      return res
-        .status(400)
-        .json({ error: 'startTime e endTime obbligatori', code: 'VALIDATION_FAILED' });
+      throw domainError('VALIDATION_FAILED', 'startTime e endTime obbligatori');
     }
 
     // Fake user: id=-1 → nessuna prenotazione esistente match
