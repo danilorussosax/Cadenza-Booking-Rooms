@@ -561,6 +561,8 @@ export interface ApiError {
   error: string;
   details?: { field?: string; message: string }[];
   code?: string;
+  /** Parametri di interpolazione per la frase `errors.code.<CODE>` (es. `{ hours: 162 }`). */
+  params?: Record<string, string | number>;
   /** Lista strutturata di motivi (es. BOOKING_INVALID expone i vincoli falliti
    *  uno per uno: "Durata massima 120 minuti", "Fuori finestra oraria", ...). */
   issues?: string[];

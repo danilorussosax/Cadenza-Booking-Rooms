@@ -3,6 +3,7 @@ import { api, apiBlob, HttpError, httpErrorMessage, tokenStore, userCache } from
 // Side-effect import: inizializza i18n minimale per i test (httpErrorMessage
 // usa `i18n.t(...)`. Senza init il fallback è undefined).
 import '../test-utils';
+import i18n from 'i18next';
 
 describe('lib/api · tokenStore', () => {
   beforeEach(() => {
@@ -242,6 +243,31 @@ describe('lib/api · httpErrorMessage', () => {
     // In test i18n usa parseMissingKeyHandler → ritorna la chiave letterale,
     // quindi fallback all'error testuale del backend.
     expect(msg).toBe('Slot occupato');
+  });
+
+  it('interpola payload.params nella frase i18n del code', () => {
+    i18n.addResourceBundle(
+      'it',
+      'translation',
+      { errors: { code: { HOURS_ABOVE_LIMIT: 'Al massimo {{hours}} ore annuali.' } } },
+      true,
+      true,
+    );
+    const err = new HttpError(400, {
+      error: 'Il contratto consente al massimo 162 ore annuali',
+      code: 'HOURS_ABOVE_LIMIT',
+      params: { hours: 162 },
+    });
+    expect(httpErrorMessage(err)).toBe('Al massimo 162 ore annuali.');
+  });
+
+  it('code senza chiave i18n → fallback al messaggio del server (params ignorati)', () => {
+    const err = new HttpError(400, {
+      error: 'Messaggio server',
+      code: 'CODE_SENZA_TRADUZIONE',
+      params: { hours: 1 },
+    });
+    expect(httpErrorMessage(err)).toBe('Messaggio server');
   });
 
   it('HttpError con details[] → unisce i message', () => {

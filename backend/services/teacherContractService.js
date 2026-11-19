@@ -37,9 +37,9 @@ async function contractFields(body, user = null, transaction) {
   )
     fail('Ore contrattuali non valide', 'INVALID_HOURS');
   if (code === 'tempo_definito' && hours != null && hours > 162)
-    fail('Tempo definito: massimo 162 ore', 'HOURS_ABOVE_LIMIT');
+    fail('Tempo definito: massimo 162 ore', 'HOURS_ABOVE_LIMIT', 400, { hours: 162 });
   if (code === 'titolare' && hours != null && hours !== 324)
-    fail('Cattedra intera: 324 ore', 'HOURS_NOT_MATCHING_CONTRACT');
+    fail('Cattedra intera: 324 ore', 'HOURS_NOT_MATCHING_CONTRACT', 400, { hours: 324 });
   return {
     contractType: code,
     monteOreAnnualHoursOverride: hours,

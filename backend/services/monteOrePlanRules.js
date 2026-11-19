@@ -31,10 +31,11 @@ const isApprovable = (status) => APPROVABLE.includes(status);
 const isRevertible = (status) => REVERTIBLE.includes(status);
 const isImportReplaceable = (status) => IMPORT_REPLACEABLE.includes(status);
 
-function fail(message, code = 'VALIDATION_FAILED', status = 400) {
+function fail(message, code = 'VALIDATION_FAILED', status = 400, params) {
   const error = new Error(message);
   error.code = code;
   error.status = status;
+  if (params !== undefined) error.params = params;
   throw error;
 }
 

@@ -154,7 +154,19 @@ function safeJson(text: string): unknown {
  * Senza questa lista il dialog mostrava solo la traduzione "Prenotazione non
  * valida" — informazione zero per lo studente.
  */
-const GENERIC_CODES_WITH_DETAILS = new Set(['BOOKING_INVALID', 'VALIDATION_FAILED']);
+const GENERIC_CODES_WITH_DETAILS = new Set([
+  'BOOKING_INVALID',
+  'VALIDATION_FAILED',
+  // Codici il cui messaggio server porta il dettaglio essenziale (campo, motivo
+  // del canale/upload/invio): la frase i18n resta come fallback se manca `error`.
+  'INVALID_FIELD',
+  'INVALID_AUDIENCE_TARGET',
+  'INVALID_SETTINGS',
+  'SETTINGS_INCOMPLETE',
+  'UPLOAD_FAILED',
+  'SEND_FAILED',
+  'AUTO_CONFIGURE_FAILED',
+]);
 
 /**
  * Risolve un errore HTTP in una stringa localizzata.
@@ -163,8 +175,8 @@ const GENERIC_CODES_WITH_DETAILS = new Set(['BOOKING_INVALID', 'VALIDATION_FAILE
  *      tenta `issues[]` poi `payload.error` (entrambi specifici e già
  *      localizzati lato server);
  *   2) se il backend ha restituito un `code` univoco (es. 'BOOKING_CONFLICT'),
- *      lo si traduce via i18n (`errors.code.<CODE>`) — fallback sul testo backend
- *      se la chiave non esiste;
+ *      lo si traduce via i18n (`errors.code.<CODE>`), interpolando `payload.params`
+ *      ({{var}}) — fallback sul testo backend se la chiave non esiste;
  *   3) altrimenti usa i `details[].message` (validation errors) o `error`;
  *   4) se non è un HttpError, ricorre al `message` o a un fallback localizzato.
  */
@@ -179,7 +191,7 @@ export const httpErrorMessage = (err: unknown): string => {
     }
     if (code) {
       const key = `errors.code.${code}`;
-      const translated = i18n.t(key);
+      const translated = i18n.t(key, err.payload.params);
       if (translated && translated !== key) return translated;
     }
     if (err.payload.details?.length) {

@@ -62,18 +62,29 @@ function checkHours(totalMinutes, rule) {
   if (totalMinutes <= 0 && rule.mode === 'maximum')
     fail('Seleziona almeno una data di didattica', 'EMPTY_PLAN');
   if (rule.mode === 'maximum' && totalMinutes > required) {
-    fail(`Il contratto consente al massimo ${rule.minHours} ore annuali`, 'HOURS_ABOVE_LIMIT');
+    fail(
+      `Il contratto consente al massimo ${rule.minHours} ore annuali`,
+      'HOURS_ABOVE_LIMIT',
+      400,
+      {
+        hours: rule.minHours,
+      },
+    );
   }
   if (rule.mode === 'exact' && totalMinutes !== required) {
     fail(
       `Il piano deve contenere esattamente ${rule.minHours} ore annuali (attuali: ${(totalMinutes / 60).toFixed(2)})`,
       'HOURS_NOT_MATCHING_CONTRACT',
+      400,
+      { hours: rule.minHours, current: Number((totalMinutes / 60).toFixed(2)) },
     );
   }
   if ((!rule.mode || rule.mode === 'minimum') && totalMinutes < required) {
     fail(
       `Il piano deve contenere almeno ${rule.minHours} ore annuali${rule.source === 'user_override' ? ': soglia personalizzata' : ''}`,
       'HOURS_BELOW_THRESHOLD',
+      400,
+      { hours: rule.minHours },
     );
   }
 }
@@ -360,7 +371,9 @@ async function requestAmendment(id, userId, { operations, notes, requestKey }) {
       { where: { id, requestCount: { [Op.lt]: maximum } }, transaction },
     );
     if (!updated)
-      fail(`Limite di ${maximum} richieste annuali raggiunto`, 'AMENDMENT_LIMIT_REACHED');
+      fail(`Limite di ${maximum} richieste annuali raggiunto`, 'AMENDMENT_LIMIT_REACHED', 400, {
+        maximum,
+      });
     const first = operations[0];
     return MonteOreAmendment.create(
       {
