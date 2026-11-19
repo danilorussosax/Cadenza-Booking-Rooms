@@ -2,10 +2,6 @@
 
 const { Op, Transaction } = require('sequelize');
 const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
-dayjs.extend(utc);
-dayjs.extend(timezone);
 const {
   sequelize,
   MonteOreProposal,
@@ -15,13 +11,12 @@ const {
   MonteOreSettings,
   MonteOreSuspension,
   User,
-  Booking,
   MailOutbox,
   Room,
 } = require('../models');
 const { resolveAnnualThreshold } = require('./monteOreThresholdService');
 const { validateDailyConstraints } = require('./monteOreDailyValidator');
-const { validateBooking } = require('./bookingValidator');
+const generator = require('./monteOreBookingGenerator');
 const { withSerializableRetry } = require('../lib/serializableTx');
 
 function fail(message, code = 'VALIDATION_FAILED', status = 400) {
@@ -163,114 +158,12 @@ async function validatePlan(
   return { rule, totalMinutes };
 }
 
-function expandRooms(plan, slots) {
-  const schedules = new Map(plan.schedules.map((s) => [s.id, s]));
-  return slots.map((s) => {
-    const row = s.toJSON ? s.toJSON() : { ...s };
-    const schedule = schedules.get(s.scheduleId);
-    return {
-      ...row,
-      roomId: row.roomId ?? schedule?.roomId ?? null,
-      bookingType: row.bookingType ?? schedule?.bookingType ?? 'lezione',
-      purpose: row.purpose ?? schedule?.purpose ?? null,
-    };
-  });
-}
+const expandRooms = generator.resolveSlots;
 
 async function checkBooking(plan, slot, transaction) {
-  const startTime = dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate();
-  const endTime = dayjs.tz(`${slot.date} ${slot.endTime}`, 'Europe/Rome').toDate();
-  const result = await validateBooking({
-    user: plan.user,
-    roomId: slot.roomId,
-    startTime,
-    endTime,
-    type: slot.bookingType,
-    ignoreBookingId: slot.bookingId,
-    bypassQuotas: true,
-    bypassAdvance: true,
-    bypassDuration: true,
-    bypassPastDates: true,
-    transaction,
-  });
-  if (!result.valid)
-    fail(
-      `${slot.date} ${slot.startTime}: ${result.errors.join('; ')}`,
-      result.codes?.[0] || 'BOOKING_CONFLICT',
-    );
-  const overlap = await Booking.findOne({
-    where: {
-      userId: plan.user.id,
-      status: 'confirmed',
-      startTime: { [Op.lt]: endTime },
-      endTime: { [Op.gt]: startTime },
-      ...(slot.bookingId ? { id: { [Op.ne]: slot.bookingId } } : {}),
-    },
-    transaction,
-  });
-  if (overlap)
-    fail(`${slot.date}: il docente ha già una lezione in questa fascia`, 'BOOKING_CONFLICT');
-  return { startTime, endTime };
-}
-
-async function materialize(plan, slots, transaction, changedIds = null) {
-  const changed = slots.filter((s) => !changedIds || changedIds.has(s.id));
-  // Cancel all affected bookings first so compound swaps do not collide with themselves.
-  for (const slot of changed) {
-    if (!slot.bookingId) continue;
-    const booking = await Booking.findByPk(slot.bookingId, { transaction });
-    if (!booking || booking.userId !== plan.proposal.userId)
-      fail('Collegamento prenotazione non valido');
-    if (changedIds && (booking.checkedInAt || new Date(booking.startTime) < new Date()))
-      fail('Una prenotazione svolta richiede rettifica amministrativa', 'PAST_SLOT');
-    if (booking.status === 'confirmed' || booking.status === 'pending_approval') {
-      await booking.update(
-        { status: 'cancelled', cancelledAt: new Date(), cancelReason: 'Revisione monte ore' },
-        { transaction },
-      );
-    }
-  }
-  let created = 0;
-  for (const slot of changed) {
-    if (!slot.isActive) {
-      await MonteOreSlot.update(
-        { ...slot, isActive: false, bookingId: null },
-        { where: { id: slot.id }, transaction },
-      );
-      continue;
-    }
-    const times = await checkBooking(plan, slot, transaction);
-    const booking = await Booking.create(
-      {
-        userId: plan.user.id,
-        roomId: slot.roomId,
-        ...times,
-        type: slot.bookingType,
-        purpose: slot.purpose,
-        status: 'confirmed',
-        origin: 'monte_ore',
-      },
-      { transaction },
-    );
-    await MonteOreSlot.update(
-      { ...slot, bookingId: booking.id },
-      { where: { id: slot.id }, transaction },
-    );
-    created++;
-  }
-  // Keep legacy clear/unlock compatible with bookings created by this workflow.
-  for (const schedule of plan.schedules) {
-    const linked = await MonteOreSlot.findAll({
-      where: {
-        proposalId: plan.proposal.id,
-        scheduleId: schedule.id,
-        bookingId: { [Op.ne]: null },
-      },
-      transaction,
-    });
-    await schedule.update({ generatedBookingIds: linked.map((s) => s.bookingId) }, { transaction });
-  }
-  return created;
+  const verdict = await generator.checkSlot(plan, slot, transaction);
+  if (!verdict.valid) fail(verdict.message, verdict.code);
+  return verdict;
 }
 
 async function preview(id, assignments = []) {
@@ -334,7 +227,7 @@ async function approvePlan(id, actor, assignments = []) {
       transaction,
       requireRooms: true,
     });
-    const created = await materialize(plan, slots, transaction);
+    const { created } = await generator.reconcile(plan, slots, transaction);
     await MonteOreSlot.update(
       { originalActive: true },
       { where: { proposalId: id, isActive: true }, transaction, validate: false },
@@ -392,10 +285,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
         dayOfWeek: dayjs(op.payload?.date).day(),
       };
       validateCalendar(slot, plan);
-      if (
-        checkPast &&
-        dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate() <= new Date()
-      )
+      if (checkPast && generator.slotInstants(slot).startTime <= new Date())
         fail('Non puoi modificare date già trascorse', 'PAST_SLOT');
       if (slot.roomId != null && !Number.isInteger(slot.roomId)) fail('Aula non valida');
       slots.push(slot);
@@ -406,10 +296,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
     const slot = slots.find((s) => s.id === op.slotId);
     if (!slot) fail('Occorrenza non appartenente alla proposta', 'NOT_FOUND');
     validateCalendar(slot, plan);
-    if (
-      checkPast &&
-      dayjs.tz(`${slot.date} ${slot.startTime}`, 'Europe/Rome').toDate() <= new Date()
-    )
+    if (checkPast && generator.slotInstants(slot).startTime <= new Date())
       fail('Non puoi modificare date già trascorse', 'PAST_SLOT');
     if (op.kind === 'toggle_off') slot.isActive = false;
     else if (op.kind === 'toggle_on') slot.isActive = true;
@@ -423,10 +310,7 @@ function applyOperations(plan, original, operations, { checkPast = true } = {}) 
       const target = slots.find((s) => s.id === op.payload?.targetSlotId);
       if (!slot.isActive || !target || target.isActive) fail('Scegli una destinazione libera');
       validateCalendar(target, plan);
-      if (
-        checkPast &&
-        dayjs.tz(`${target.date} ${target.startTime}`, 'Europe/Rome').toDate() <= new Date()
-      )
+      if (checkPast && generator.slotInstants(target).startTime <= new Date())
         fail('Destinazione già trascorsa', 'PAST_SLOT');
       slot.isActive = false;
       target.isActive = true;
@@ -642,7 +526,8 @@ async function decideAmendment(
       slot.id = created.id;
       changed.add(slot.id);
     }
-    if (plan.proposal.status === 'generated') await materialize(plan, slots, transaction, changed);
+    if (plan.proposal.status === 'generated')
+      await generator.reconcile(plan, slots, transaction, { changedIds: changed });
     else
       for (const slot of slots.filter((s) => changed.has(s.id))) {
         if (slot.isActive) await checkBooking(plan, slot, transaction);

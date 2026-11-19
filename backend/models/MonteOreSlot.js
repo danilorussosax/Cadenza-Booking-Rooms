@@ -112,7 +112,7 @@ module.exports = (sequelize) => {
         { fields: ['date'] },
         { fields: ['proposalId', 'date'] },
         { fields: ['roomId'] },
-        // Composito hot-path: usato da generateBookingsForProposal e da
+        // Composito hot-path: usato dal generatore di prenotazioni e da
         // recomputeTotals che filtrano gli slot per proposta + stato.
         // Senza questo, su 15k+ slot la scansione è lineare.
         {
