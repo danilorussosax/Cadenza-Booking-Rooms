@@ -36,6 +36,7 @@ dayjs.extend(timezone);
 // VPS UTC il tick partirebbe alle 02:30 UTC = 04:30 CEST, un'ora prima
 // del previsto.
 const SCHEDULER_TZ = 'Europe/Rome';
+const { msUntilNextRun } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,
@@ -143,16 +144,7 @@ function getCachedConfig() {
 
 function nextRunDelayMs() {
   const cfg = getCachedConfig();
-  const now = dayjs();
-  // Calcoliamo il prossimo HH:MM in TZ istituzionale, poi torniamo al
-  // sistema in millisecondi UTC per setTimeout.
-  let next = now
-    .tz(SCHEDULER_TZ)
-    .startOf('day')
-    .hour(cfg.scheduledHour)
-    .minute(cfg.scheduledMinute);
-  if (!next.isAfter(now)) next = next.add(1, 'day');
-  return next.diff(now);
+  return msUntilNextRun({ hour: cfg.scheduledHour, minute: cfg.scheduledMinute, tz: SCHEDULER_TZ });
 }
 
 async function tick() {
