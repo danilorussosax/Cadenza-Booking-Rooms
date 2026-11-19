@@ -24,6 +24,7 @@ const { Op } = require('sequelize');
 const { MailOutbox, User, sequelize } = require('../models');
 const emailService = require('./emailService');
 const { LeaderLease } = require('../lib/leaderElection');
+const { createJob } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'mailOutboxScheduler' });
 
 const TICK_MS = 15 * 1000; // 15 secondi
@@ -67,7 +68,6 @@ function isHardBounce(err) {
   return code !== null && HARD_BOUNCE_CODES.has(code);
 }
 
-let timer = null;
 let running = false; // semaforo per evitare overlap se un tick dura > TICK_MS
 let verified = false; // verify() già fatto nella vita di questo processo?
 let lastTickAt = null;
@@ -255,21 +255,21 @@ async function tick() {
 function getStatus() {
   return {
     name: 'mailOutbox',
-    enabled: timer != null,
+    enabled: job.isActive(),
     running,
     intervalMs: TICK_MS,
     lastTickAt,
     lastError,
-    nextTickAt: timer ? new Date(Date.now() + TICK_MS) : null,
+    nextTickAt: job.isActive() ? new Date(Date.now() + TICK_MS) : null,
   };
 }
 
-// Leader-aware tick wrapper: prima di eseguire il vero tick, rinnova o
+// Gate leader-aware (guard del job, valutato a ogni esecuzione): rinnova o
 // acquisisce il lease. Se non siamo leader, skip (un'altra istanza sta
 // lavorando). Se l'attuale leader cade, dopo LEASE_TTL_MS qualsiasi
 // istanza al prossimo wake può rilevare il lease scaduto e prendere il
 // relay → mail outbox riparte automaticamente senza intervento manuale.
-async function leaderAwareTick() {
+async function acquireLeadership() {
   let acquired;
   if (lease.isLeader()) {
     acquired = await lease.renew();
@@ -277,32 +277,37 @@ async function leaderAwareTick() {
   } else {
     acquired = await lease.acquire();
   }
-  if (!acquired) return; // un'altra istanza è leader
-  await tick();
+  return acquired;
 }
 
+// In cluster mode tutte le istanze avviano il job (gate di avvio sempre
+// aperto): solo quella che vince il lease esegue il tick vero. Primo tick a
+// 5s dal boot (lascia tempo al sync DB e al primo claim del lease).
+const job = createJob({
+  name: 'mailOutbox',
+  run: () => tick(),
+  schedule: { type: 'interval', everyMs: TICK_MS, initialDelayMs: 5_000 },
+  gate: () => true,
+  guard: acquireLeadership,
+  onStop: () => {
+    // Reset verify per il prossimo start (utile nei test)
+    verified = false;
+    // Best-effort release del lease (no await: stop() è sync). Se la release
+    // fallisce, il lease scade naturalmente entro LEASE_TTL_MS.
+    lease.release('stop').catch(() => {});
+  },
+});
+
 function start() {
-  if (timer) return;
-  // primo tick a 5s dal boot (lascia tempo al sync DB e al primo claim
-  // del lease). In cluster mode tutte le istanze entrano qui: solo quella
-  // che vince il lease esegue il tick vero (vedi leaderAwareTick).
-  setTimeout(leaderAwareTick, 5_000);
-  timer = setInterval(leaderAwareTick, TICK_MS);
+  if (job.isActive()) return;
+  job.start();
   logger.info(
     `[mail-outbox] worker avviato (tick ogni ${TICK_MS / 1000}s, batch ${BATCH_SIZE}, lease ${LEASE_TTL_MS / 1000}s)`,
   );
 }
 
 function stop() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
-  // Reset verify per il prossimo start (utile nei test)
-  verified = false;
-  // Best-effort release del lease (no await: stop() è sync). Se la release
-  // fallisce, il lease scade naturalmente entro LEASE_TTL_MS.
-  lease.release('stop').catch(() => {});
+  job.stop();
 }
 
 module.exports = {

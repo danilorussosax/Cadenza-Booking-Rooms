@@ -35,8 +35,8 @@ dayjs.extend(timezone);
 // L'orario configurato (default 02:30) è inteso come ora italiana. Su un
 // VPS UTC il tick partirebbe alle 02:30 UTC = 04:30 CEST, un'ora prima
 // del previsto.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
-const { msUntilNextRun } = require('../lib/jobRunner');
+const { getTimezone } = require('../lib/institutionTime');
+const { createJob } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,
@@ -50,7 +50,6 @@ const {
 const DEFAULT_HOUR = 2;
 const DEFAULT_MIN = 30;
 
-let timer = null;
 let inProgress = false;
 let lastRun = null; // { status, file, sizeBytes, deleted, durationMs, finishedAt, error? }
 let cachedConfig = null; // ultima EffectiveConfig calcolata, per evitare round-trip DB ad ogni read
@@ -142,13 +141,25 @@ function getCachedConfig() {
   };
 }
 
+// Orario da config effettiva (DB > env > default), fuso istituzionale: entrambi
+// letti a ogni armamento, cosi' reschedule() e il cambio di fuso li rispettano.
+const job = createJob({
+  name: 'backup',
+  run: () => tick(),
+  schedule: () => {
+    const cfg = getCachedConfig();
+    return {
+      type: 'daily',
+      hour: cfg.scheduledHour,
+      minute: cfg.scheduledMinute,
+      tz: getTimezone(),
+    };
+  },
+  enabled: () => getCachedConfig().autoEnabled,
+});
+
 function nextRunDelayMs() {
-  const cfg = getCachedConfig();
-  return msUntilNextRun({
-    hour: cfg.scheduledHour,
-    minute: cfg.scheduledMinute,
-    tz: institutionTz(),
-  });
+  return job.msToNext();
 }
 
 async function tick() {
@@ -200,19 +211,13 @@ async function tick() {
 }
 
 function scheduleNext() {
-  if (timer) clearTimeout(timer);
-  const cfg = getCachedConfig();
-  if (!cfg.autoEnabled) {
-    timer = null;
-    return;
-  }
-  timer = setTimeout(tick, nextRunDelayMs());
+  job.reschedule();
 }
 
 async function start() {
-  if (timer) return; // già attivo (idempotente per HMR/hot reload)
+  if (job.isActive()) return; // già attivo (idempotente per HMR/hot reload)
   // PM2 cluster mode: solo l'istanza 0 esegue gli scheduler (vedi clusterRole.js).
-  if (!require('../lib/clusterRole').isSchedulerMaster()) {
+  if (!job.isGateOpen()) {
     logger.info('[backup] scheduler skipped — non-master cluster instance');
     return;
   }
@@ -233,10 +238,7 @@ async function start() {
 }
 
 function stop() {
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
+  job.stop();
 }
 
 /**
@@ -245,10 +247,7 @@ function stop() {
  */
 async function reschedule() {
   await loadEffectiveConfig();
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
+  job.stop();
   scheduleNext();
 }
 
@@ -258,9 +257,9 @@ async function reschedule() {
 function getStatus() {
   const cfg = getCachedConfig();
   return {
-    enabled: cfg.autoEnabled && timer != null,
+    enabled: cfg.autoEnabled && job.isActive(),
     autoEnabledEnv: cfg.autoEnabled,
-    nextRunAt: timer ? new Date(Date.now() + nextRunDelayMs()).toISOString() : null,
+    nextRunAt: job.isActive() ? new Date(Date.now() + nextRunDelayMs()).toISOString() : null,
     scheduledHour: cfg.scheduledHour,
     scheduledMinute: cfg.scheduledMinute,
     inProgress,
