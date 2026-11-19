@@ -10,6 +10,7 @@ const {
   MonteOreAmendment,
 } = require('../../models');
 const { authenticate, requireApproved } = require('../../middleware/auth');
+const { resolveTeacherYear } = require('../../services/academicYearContext');
 const workflow = require('../../services/monteOreWorkflowService');
 const { randomUUID } = require('crypto');
 const slotService = require('../../services/monteOreSlotService');
@@ -63,11 +64,7 @@ async function createAndApplyAmendment({ req, proposal, slot, kind, payload }) {
   });
 }
 
-const {
-  currentAcademicYearLabel,
-  findOwnProposalEditable,
-  serializeAmendments,
-} = require('./shared');
+const { findOwnProposalEditable, serializeAmendments } = require('./shared');
 
 module.exports = function registerTeacherAmendments(router) {
   /**
@@ -86,7 +83,7 @@ module.exports = function registerTeacherAmendments(router) {
     requireApproved,
     async (req, res, next) => {
       try {
-        const year = req.body.year || currentAcademicYearLabel();
+        const year = await resolveTeacherYear(req);
         const proposal = await MonteOreProposal.findOne({
           where: { userId: req.user.id, academicYear: year },
         });
@@ -279,7 +276,7 @@ module.exports = function registerTeacherAmendments(router) {
       const proposal = await MonteOreProposal.findOne({
         where: {
           userId: req.user.id,
-          academicYear: req.body.academicYear || currentAcademicYearLabel(),
+          academicYear: await resolveTeacherYear(req),
         },
       });
       if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
@@ -292,10 +289,7 @@ module.exports = function registerTeacherAmendments(router) {
 
   router.post('/me/slots/select', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const proposal = await findOwnProposalEditable(
-        req.user.id,
-        req.body.academicYear || currentAcademicYearLabel(),
-      );
+      const proposal = await findOwnProposalEditable(req.user.id, await resolveTeacherYear(req));
       const { dateFrom, dateTo, dayOfWeek, isActive } = req.body;
       if (
         !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') ||
@@ -327,7 +321,7 @@ module.exports = function registerTeacherAmendments(router) {
 
   router.get('/me/amendments', authenticate, requireApproved, async (req, res, next) => {
     try {
-      const year = req.query.year || currentAcademicYearLabel();
+      const year = await resolveTeacherYear(req);
       const proposal = await MonteOreProposal.findOne({
         where: { userId: req.user.id, academicYear: year },
       });

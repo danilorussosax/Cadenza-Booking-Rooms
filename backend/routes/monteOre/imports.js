@@ -11,10 +11,10 @@ const {
   MonteOreSuspension,
   MonteOreSlot,
 } = require('../../models');
+const { resolveAdminYear } = require('../../services/academicYearContext');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const workflow = require('../../services/monteOreWorkflowService');
 const slotService = require('../../services/monteOreSlotService');
-const calendarService = require('../../services/monteOreCalendarService');
 const { resolveAnnualThreshold } = require('../../services/monteOreThresholdService');
 
 // ---- Import Excel compilato dal docente (admin upload) ----
@@ -61,7 +61,7 @@ module.exports = function registerImports(adminRouter) {
     requireRole('admin'),
     async (req, res, next) => {
       try {
-        const year = req.query.academicYear || calendarService.currentAcademicYear();
+        const year = resolveAdminYear(req);
         const settings = await MonteOreSettings.findOne({ where: { academicYear: year } });
         const suspensions = await MonteOreSuspension.findAll({
           where: { academicYear: year },
