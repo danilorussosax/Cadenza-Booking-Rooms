@@ -1,7 +1,6 @@
 'use strict';
 
 const {
-  sequelize,
   MonteOreProposal,
   MonteOreSchedule,
   User,
@@ -20,7 +19,7 @@ const { parsePagination, setPaginationHeaders } = require('../../lib/pagination'
 async function editAdminSchedule(req, action) {
   return workflow.transact(async (transaction) => {
     const plan = await workflow.loadPlan(Number(req.params.id), transaction, true);
-    if (plan.proposal.status === 'generated')
+    if (plan.proposal.status === workflow.STATUS.GENERATED)
       workflow.fail(
         'Esegui prima "Annulla generazione" oppure usa la rivalidazione',
         'INVALID_STATE',
@@ -184,7 +183,10 @@ module.exports = function registerAdminProposals(adminRouter) {
       });
       if (!proposal)
         return res.status(404).json({ error: 'Proposta non trovata', code: 'NOT_FOUND' });
-      res.json({ proposal: serializeProposal(proposal) });
+      const plan = await workflow.loadPlan(proposal.id);
+      res.json({
+        proposal: { ...serializeProposal(proposal), workflow: await workflow.describePlan(plan) },
+      });
     } catch (err) {
       next(err);
     }
@@ -258,20 +260,7 @@ module.exports = function registerAdminProposals(adminRouter) {
 
   adminRouter.post('/:id/reject', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      const proposal = await MonteOreProposal.findByPk(req.params.id);
-      if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-      if (proposal.status !== 'submitted') {
-        return res
-          .status(400)
-          .json({ error: 'Solo submitted può essere rifiutata', code: 'INVALID_STATE' });
-      }
-      const reason = req.body.reason ? String(req.body.reason).slice(0, 1024) : null;
-      await proposal.update({
-        status: 'rejected',
-        rejectedAt: new Date(),
-        approverId: req.user.id,
-        rejectionReason: reason,
-      });
+      const proposal = await workflow.rejectPlan(Number(req.params.id), req.user, req.body.reason);
       res.json({ proposal: proposal.toJSON() });
     } catch (err) {
       next(err);
@@ -307,31 +296,8 @@ module.exports = function registerAdminProposals(adminRouter) {
 
   adminRouter.post('/:id/unlock', authenticate, requireRole('admin'), async (req, res, next) => {
     try {
-      // Atomico: clear booking + status update. Se crash a metà, lo stato resta
-      // 'generated' coerente. Senza tx, restavano booking cancellati ma
-      // proposta ancora in 'generated' → impossibile rigenerare.
-      const result = await sequelize.transaction(async (t) => {
-        const proposal = await MonteOreProposal.findByPk(req.params.id, { transaction: t });
-        if (!proposal) {
-          const e = new Error('Proposta non trovata');
-          e.status = 404;
-          throw e;
-        }
-        if (proposal.status !== 'generated') {
-          const e = new Error('Solo generated può essere unlocked');
-          e.status = 400;
-          e.code = 'INVALID_STATE';
-          throw e;
-        }
-        const cleared = await monteOreService.clearGeneratedBookings(Number(req.params.id), {
-          transaction: t,
-        });
-        await proposal.update(
-          { status: 'approved', generatedAt: null, generationSummary: null },
-          { transaction: t },
-        );
-        return { proposal, cleared };
-      });
+      // Atomico: clear booking + status update (vedi workflow.unlockPlan).
+      const result = await workflow.unlockPlan(Number(req.params.id));
       res.json({ proposal: result.proposal.toJSON(), cleared: result.cleared });
     } catch (err) {
       if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
@@ -354,34 +320,7 @@ module.exports = function registerAdminProposals(adminRouter) {
     requireRole('admin'),
     async (req, res, next) => {
       try {
-        const proposal = await MonteOreProposal.findByPk(req.params.id);
-        if (!proposal) return res.status(404).json({ error: 'Proposta non trovata' });
-        if (!['submitted', 'approved'].includes(proposal.status)) {
-          if (proposal.status === 'generated') {
-            return res.status(400).json({
-              error: 'Esegui prima "Annulla generazione" per riportare la proposta in draft',
-              code: 'INVALID_STATE',
-            });
-          }
-          return res.status(400).json({
-            error: 'Solo submitted o approved possono tornare in draft',
-            code: 'INVALID_STATE',
-          });
-        }
-        const reason = req.body?.reason
-          ? String(req.body.reason).trim().slice(0, 500)
-          : "Richiesta modifica dall'amministrazione";
-        await proposal.update({
-          status: 'draft',
-          submittedAt: null,
-          approvedAt: null,
-          rejectedAt: null,
-          approverId: null,
-          rejectionReason: null,
-          coordinatorNotes: null,
-          requiresRevalidation: true,
-          revalidationReason: reason,
-        });
+        const proposal = await workflow.revertToDraft(Number(req.params.id), req.body?.reason);
         res.json({ proposal: proposal.toJSON() });
       } catch (err) {
         next(err);

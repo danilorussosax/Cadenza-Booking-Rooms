@@ -11,6 +11,7 @@ const workflow = require('../../services/monteOreWorkflowService');
 const { randomUUID } = require('crypto');
 const slotService = require('../../services/monteOreSlotService');
 const calendarService = require('../../services/monteOreCalendarService');
+const { isTeacherEditable, isAmendable } = require('../../services/monteOrePlanRules');
 const { currentAcademicYearLabel, findOwnProposalEditable } = require('./shared');
 
 module.exports = function registerTeacherCalendar(router) {
@@ -116,7 +117,7 @@ module.exports = function registerTeacherCalendar(router) {
         });
       }
       // Stati editabili direttamente
-      if (['draft', 'rejected'].includes(proposal.status)) {
+      if (isTeacherEditable(proposal.status)) {
         const updated = await workflow.transact(async (transaction) => {
           await findOwnProposalEditable(req.user.id, proposal.academicYear, transaction);
           return slotService.toggleSlot(slot.id, { transaction });
@@ -124,7 +125,7 @@ module.exports = function registerTeacherCalendar(router) {
         return res.json({ slot: updated.toJSON() });
       }
       // Stati che richiedono amendment workflow
-      if (['approved', 'generated'].includes(proposal.status)) {
+      if (isAmendable(proposal.status)) {
         const amendment = await workflow.requestAmendment(proposal.id, req.user.id, {
           operations: [
             { kind: slot.isActive ? 'toggle_off' : 'toggle_on', slotId: slot.id, payload: {} },

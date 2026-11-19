@@ -1,12 +1,6 @@
 'use strict';
 
-const {
-  sequelize,
-  MonteOreProposal,
-  MonteOreSettings,
-  MonteOreSuspension,
-  Institute,
-} = require('../../models');
+const { sequelize, MonteOreSuspension, Institute } = require('../../models');
 const workflow = require('../../services/monteOreWorkflowService');
 const calendarService = require('../../services/monteOreCalendarService');
 
@@ -63,32 +57,8 @@ function serializeProposal(p) {
   };
 }
 
-async function findOwnProposalEditable(
-  userId,
-  year = currentAcademicYearLabel(),
-  transaction = null,
-) {
-  const settings = await MonteOreSettings.findOne({ where: { academicYear: year }, transaction });
-  if (settings && settings.status !== 'published')
-    workflow.fail('Anno non pubblicato per la compilazione', 'ACADEMIC_YEAR_NOT_PUBLISHED', 409);
-  const proposal = await MonteOreProposal.findOne({
-    where: { userId, academicYear: year },
-    transaction,
-    ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
-  });
-  if (!proposal) {
-    const e = new Error("Nessuna proposta per l'anno corrente");
-    e.status = 404;
-    e.code = 'NOT_FOUND';
-    throw e;
-  }
-  if (!['draft', 'rejected'].includes(proposal.status)) {
-    const e = new Error('Proposta non modificabile (stato: ' + proposal.status + ')');
-    e.status = 400;
-    e.code = 'INVALID_STATE';
-    throw e;
-  }
-  return proposal;
+function findOwnProposalEditable(userId, year = currentAcademicYearLabel(), transaction = null) {
+  return workflow.findOwnEditableProposal(userId, year, transaction);
 }
 
 async function resolveDefaultInstituteId() {

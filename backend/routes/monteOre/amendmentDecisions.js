@@ -56,9 +56,10 @@ module.exports = function registerAmendmentDecisions(adminRouter) {
             where: { id: req.params.aid, proposalId: req.params.id },
           });
           if (a)
-            operations = (
-              a.operations || [{ kind: a.kind, slotId: a.slotId, payload: a.payload }]
-            ).map((op) => ({ ...op, payload: { ...op.payload, roomId: Number(req.body.roomId) } }));
+            operations = workflow.amendmentOperations(a).map((op) => ({
+              ...op,
+              payload: { ...op.payload, roomId: Number(req.body.roomId) },
+            }));
         }
         const amendment = await workflow.decideAmendment(
           Number(req.params.id),
