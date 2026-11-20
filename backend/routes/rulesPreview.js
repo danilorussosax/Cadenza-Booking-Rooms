@@ -61,8 +61,8 @@ router.post('/preview', authenticate, requireRole('admin'), async (req, res, nex
 
     res.json({
       valid: result.valid,
-      errors: result.errors,
-      codes: result.codes,
+      errors: result.issues.map((i) => i.message),
+      codes: result.issues.map((i) => i.code),
     });
   } catch (err) {
     next(err);

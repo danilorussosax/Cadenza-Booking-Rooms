@@ -114,9 +114,9 @@ async function checkSlot(plan, slot, transaction, opts = {}) {
   if (!result.valid)
     return {
       valid: false,
-      code: result.codes?.[0] || 'BOOKING_CONFLICT',
-      reason: result.errors[0] || 'validation_failed',
-      message: `${slot.date} ${slot.startTime}: ${result.errors.join('; ')}`,
+      code: result.issues[0]?.code || 'BOOKING_CONFLICT',
+      reason: result.issues[0]?.message || 'validation_failed',
+      message: `${slot.date} ${slot.startTime}: ${result.issues.map((i) => i.message).join('; ')}`,
     };
   if (teacherOverlap) {
     const overlap = await Booking.findOne({

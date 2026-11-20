@@ -73,9 +73,7 @@ router.post('/', authenticate, requireApproved, requireCompleteProfile, async (r
       endTime: end,
       type: type || 'studio_individuale',
     });
-    const conflictMsg = (validation.errors || []).find(
-      (m) => typeof m === 'string' && /già prenotata/i.test(m),
-    );
+    const conflictMsg = (validation.issues || []).find((i) => /già prenotata/i.test(i.message));
     if (validation.valid || !conflictMsg) {
       return res.status(409).json({
         error: 'Lo slot è disponibile, prenota direttamente',

@@ -82,18 +82,19 @@ function toBookingError(err) {
 }
 
 // =====================================================
-// Validazione: adattatore errors[]/codes[] -> issues allineate
+// Validazione: adattatore del risultato di validateBooking
 // =====================================================
 
 /**
- * `validateBooking` restituisce `errors[]` e `codes[]` paralleli ma non sempre
- * allineati (early-return senza `codes`, push diretti su `errors`). Qui li
- * allineiamo in `issues: [{ message, code|null }]`.
+ * `validateBooking` restituisce già `issues: [{ message, code|null }]`. Per
+ * input legacy (solo `errors[]`/`codes[]` paralleli, anche senza `codes`) li
+ * allineiamo qui.
  */
 function normalizeValidation(v) {
-  const errors = v?.errors || [];
-  const codes = v?.codes || [];
-  const issues = errors.map((message, i) => ({ message, code: codes[i] || null }));
+  const issues = (
+    v?.issues || (v?.errors || []).map((message, i) => ({ message, code: v?.codes?.[i] }))
+  ).map(({ message, code }) => ({ message, code: code || null }));
+  const errors = issues.map((i) => i.message);
   const firstCode = issues.find((i) => i.code)?.code || null;
   return {
     valid: !!v?.valid,

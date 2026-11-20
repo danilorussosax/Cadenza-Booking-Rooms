@@ -3,8 +3,6 @@
 const dayjs = require('dayjs');
 const isSameOrAfter = require('dayjs/plugin/isSameOrAfter');
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 const { Op } = require('sequelize');
 const {
   Booking,
@@ -14,30 +12,14 @@ const {
   Equipment,
   Room,
 } = require('../models');
+const institutionTime = require('../lib/institutionTime');
+const rules = require('./bookingRules');
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
-// Timezone di default dell'istituzione. Le finestre orarie (rule.allowedStart/EndTime,
-// "08:00"–"22:00") sono espresse in ORA LOCALE ITALIANA, non UTC: senza questa
-// conversione, su server UTC una prenotazione delle 09:00 IT (= 07:00 UTC in DST)
-// veniva rifiutata con "fascia consentita 08:00–22:00" perché start.hour()=7.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
-
-/**
- * Valida una richiesta di prenotazione rispetto alle regole del ruolo,
- * disponibilità della stanza e permessi.
- *
- * Restituisce: { valid: boolean, errors: string[] }
- */
-// Durata minima specifica per le prenotazioni di tipo "studio individuale".
-// Si somma al min generico per ruolo (BookingRule.minBookingDurationMinutes):
-// per gli altri tipi (lezione, prova, concerto, altro) vale solo il minimo
-// per ruolo, lo studio individuale ha un floor aggiuntivo di 1 ora richiesto
-// dal direttivo per evitare frammentazione delle aule in slot troppo brevi.
-const STUDIO_MIN_DURATION_MINUTES = 60;
+const { STUDIO_MIN_DURATION_MINUTES, exceptionAppliesToDate, overlapsWindow, minutesInsideWindow } =
+  rules;
 
 /**
  * Crea un cache vuoto da passare a `validateBooking` quando si esegue la
@@ -77,6 +59,27 @@ function createValidationCache() {
   };
 }
 
+/**
+ * Valida una richiesta di prenotazione rispetto alle regole del ruolo,
+ * disponibilità della stanza e permessi.
+ *
+ * Restituisce `{ valid, issues }` con `issues: [{ message, code|null }]`
+ * (messaggio e codice strutturato viaggiano insieme). Per compatibilità sono
+ * presenti anche `errors` (= messaggi) e `codes` (= codici, null se assente),
+ * derivati da `issues` e quindi sempre allineati.
+ *
+ * Le regole pure (finestre, durate, anticipo) vivono in ./bookingRules; qui
+ * restano i lookup al DB (stanza, regole, conflitti, quote, eccezioni).
+ */
+function buildResult(issues) {
+  return {
+    valid: issues.length === 0,
+    issues,
+    errors: issues.map((i) => i.message),
+    codes: issues.map((i) => i.code),
+  };
+}
+
 async function validateBooking({
   user,
   roomId,
@@ -91,31 +94,21 @@ async function validateBooking({
   transaction = null,
   cache = null,
 }) {
-  const errors = [];
-  // Parallelo a `errors`: stesso indice → codice errore strutturato (o null
-  // se non specifico). Il route handler usa codes[0] per popolare err.code,
-  // così l'error middleware risponde con `{code: 'QUOTA_EXCEEDED_*', ...}`.
-  const codes = [];
+  const issues = [];
   const tx = transaction ? { transaction } : {};
-  const push = (msg, code = null) => {
-    errors.push(msg);
-    codes.push(code);
-  };
+  const push = (message, code = null) => issues.push({ message, code });
+  const pushAll = (list) => issues.push(...list);
 
   const start = dayjs(startTime);
   const end = dayjs(endTime);
-  const now = dayjs();
+  const now = institutionTime.now();
 
   // ---- Controlli base sulle date ----
   if (!start.isValid() || !end.isValid()) {
-    return { valid: false, errors: ['Date non valide'] };
+    return buildResult([{ message: 'Date non valide', code: null }]);
   }
-  if (end.isSameOrBefore(start)) {
-    errors.push("L'orario di fine deve essere successivo a quello di inizio");
-  }
-  if (start.isBefore(now) && !bypassPastDates) {
-    errors.push('Non puoi prenotare nel passato');
-  }
+  pushAll(rules.endAfterStartIssues(start, end));
+  pushAll(rules.notInPastIssues(start, now, { bypassPastDates }));
 
   // ---- Verifica esistenza stanza (cached) ----
   let room;
@@ -125,8 +118,8 @@ async function validateBooking({
     room = await Room.findByPk(roomId, tx);
     if (cache) cache.room.set(roomId, room);
   }
-  if (!room) return { valid: false, errors: ['Aula non trovata'] };
-  if (!room.isBookable) errors.push('Questa aula non è prenotabile');
+  if (!room) return buildResult([{ message: 'Aula non trovata', code: null }]);
+  if (!room.isBookable) push('Questa aula non è prenotabile');
 
   // ---- Verifica permessi sull'aula (ruolo) ----
   if (
@@ -134,7 +127,7 @@ async function validateBooking({
     room.allowedRoles.length > 0 &&
     !room.allowedRoles.includes(user.role)
   ) {
-    errors.push(`Il tuo ruolo (${user.role}) non può prenotare questa aula`);
+    push(`Il tuo ruolo (${user.role}) non può prenotare questa aula`);
   }
 
   // ---- Verifica permessi sull'aula (corso) ----
@@ -144,7 +137,7 @@ async function validateBooking({
     user.role !== 'admin' &&
     (!user.courseId || !room.allowedCourseIds.includes(user.courseId))
   ) {
-    errors.push('Il tuo corso non è abilitato a prenotare questa aula');
+    push('Il tuo corso non è abilitato a prenotare questa aula');
   }
 
   // ---- Recupera le regole del ruolo (cached) ----
@@ -156,66 +149,18 @@ async function validateBooking({
     if (cache) cache.rule.set(user.role, rule);
   }
   if (!rule) {
-    return { valid: false, errors: [`Nessuna regola configurata per il ruolo ${user.role}`] };
+    return buildResult([
+      { message: `Nessuna regola configurata per il ruolo ${user.role}`, code: null },
+    ]);
   }
 
-  // ---- Durata prenotazione ----
-  // `bypassDuration` salta i check min/max sulla durata: usato dal generator
-  // monte ore quando l'admin espande un pattern approvato. La rule
-  // maxBookingDurationMinutes è pensata per le prenotazioni manuali (es. uno
-  // studente non deve prenotare 6h consecutive), ma un docente ha
-  // legittimamente lezioni da 6h che il coordinatore ha già approvato.
+  // ---- Regole pure: durata, anticipo, fascia oraria ----
+  // `bypassDuration` / `bypassAdvance`: usati dal generator monte ore per
+  // espandere pattern già approvati (lezioni lunghe, intero AA in anticipo).
   const durationMin = end.diff(start, 'minute');
-  if (!bypassDuration) {
-    if (durationMin < rule.minBookingDurationMinutes) {
-      errors.push(`Durata minima prenotazione: ${rule.minBookingDurationMinutes} minuti`);
-    }
-    if (durationMin > rule.maxBookingDurationMinutes) {
-      errors.push(`Durata massima prenotazione: ${rule.maxBookingDurationMinutes} minuti`);
-    }
-    // Floor specifico per studio individuale (vedi STUDIO_MIN_DURATION_MINUTES).
-    if (type === 'studio_individuale' && durationMin < STUDIO_MIN_DURATION_MINUTES) {
-      errors.push(`Durata minima per lo studio individuale: ${STUDIO_MIN_DURATION_MINUTES} minuti`);
-    }
-  }
-
-  // ---- Anticipo massimo / minimo ----
-  // `bypassAdvance` salta entrambi i check: usato dal generator monte ore
-  // dove l'admin sta espandendo prenotazioni già approvate per l'intero AA
-  // (quindi naturalmente molte sono > maxAdvanceDays nel futuro).
-  if (!bypassAdvance) {
-    const daysAhead = start.startOf('day').diff(now.startOf('day'), 'day');
-    if (daysAhead > rule.maxAdvanceDays) {
-      errors.push(`Puoi prenotare al massimo con ${rule.maxAdvanceDays} giorni di anticipo`);
-    }
-    const hoursAhead = start.diff(now, 'hour', true);
-    if (hoursAhead < rule.minAdvanceHours) {
-      errors.push(`Devi prenotare almeno ${rule.minAdvanceHours} ore prima dell'inizio`);
-    }
-  }
-
-  // ---- Fascia oraria consentita ----
-  // Confronto in ORA LOCALE ISTITUZIONE (Europe/Rome): rule.allowedStartTime
-  // è "08:00" inteso come orario italiano, non UTC. Senza `.tz()` esplicito,
-  // dayjs(...).hour() restituirebbe l'ora del fuso del Node process (es. UTC
-  // su VPS standard), bocciando una prenotazione delle 09:00 IT in DST estiva
-  // (= 07:00 UTC, < 08:00). Vedi emailService.js / icalService.js per
-  // l'analogo pattern.
-  if (rule.allowedStartTime && rule.allowedEndTime) {
-    const startLocal = start.tz(institutionTz());
-    const endLocal = end.tz(institutionTz());
-    const startMins = startLocal.hour() * 60 + startLocal.minute();
-    const endMins = endLocal.hour() * 60 + endLocal.minute();
-    const [aH, aM] = rule.allowedStartTime.split(':').map(Number);
-    const [bH, bM] = rule.allowedEndTime.split(':').map(Number);
-    const allowedStart = aH * 60 + aM;
-    const allowedEnd = bH * 60 + bM;
-    if (startMins < allowedStart || (endMins > allowedEnd && endMins !== 0)) {
-      errors.push(
-        `Le prenotazioni sono consentite solo dalle ${rule.allowedStartTime} alle ${rule.allowedEndTime}`,
-      );
-    }
-  }
+  pushAll(rules.durationIssues({ durationMin, rule, type, bypassDuration }));
+  pushAll(rules.advanceIssues({ start, now, rule, bypassAdvance }));
+  pushAll(rules.allowedWindowIssues({ start, end, rule }));
 
   // ---- Conflitti con altre prenotazioni nella stessa aula ----
   const conflictWhere = {
@@ -270,26 +215,26 @@ async function validateBooking({
       userId: user.id,
       status: 'confirmed',
       ...COUNTS_TOWARD_QUOTAS,
-      endTime: { [Op.gt]: now.toDate() },
+      endTime: { [Op.gt]: now },
     };
     if (ignoreBookingId) activeWhere.id = { [Op.ne]: ignoreBookingId };
     const activeCount = await Booking.count({ where: activeWhere, ...tx });
     if (activeCount >= rule.maxActiveBookings) {
-      errors.push(`Hai raggiunto il limite di ${rule.maxActiveBookings} prenotazioni attive`);
+      push(`Hai raggiunto il limite di ${rule.maxActiveBookings} prenotazioni attive`);
     }
 
     // ---- Ore prenotate nella settimana (ISO: Lun-Dom) ----
     // Coerente con quote check (riga 413) e con /usage/me lato frontend,
     // che usano isoWeek. Senza questo allineamento, una prenotazione di
     // domenica veniva contata in settimane diverse dai due check.
-    const weekStart = start.startOf('isoWeek');
-    const weekEnd = start.endOf('isoWeek');
+    const weekStart = institutionTime.startOfIsoWeek(start);
+    const weekEnd = institutionTime.endOfIsoWeek(start);
     const weekBookings = await Booking.findAll({
       where: {
         userId: user.id,
         status: 'confirmed',
         ...COUNTS_TOWARD_QUOTAS,
-        startTime: { [Op.gte]: weekStart.toDate(), [Op.lte]: weekEnd.toDate() },
+        startTime: { [Op.gte]: weekStart, [Op.lte]: weekEnd },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
       // Riduciamo il payload: serve solo (start, end) per il calcolo minutes.
@@ -302,21 +247,21 @@ async function validateBooking({
     );
     const totalIfAdded = minutesThisWeek + durationMin;
     if (totalIfAdded > rule.maxHoursPerWeek * 60) {
-      errors.push(
+      push(
         `Limite settimanale superato: max ${rule.maxHoursPerWeek}h, ` +
           `già prenotate ${(minutesThisWeek / 60).toFixed(1)}h`,
       );
     }
 
     // ---- Ore prenotate nello stesso giorno ----
-    const dayStart = start.startOf('day');
-    const dayEnd = start.endOf('day');
+    const dayStart = institutionTime.startOfDay(start);
+    const dayEnd = institutionTime.endOfDay(start);
     const dayBookings = await Booking.findAll({
       where: {
         userId: user.id,
         status: 'confirmed',
         ...COUNTS_TOWARD_QUOTAS,
-        startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
+        startTime: { [Op.gte]: dayStart, [Op.lte]: dayEnd },
         ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
       },
       // Solo (start, end) servono per la somma dei minuti.
@@ -328,7 +273,7 @@ async function validateBooking({
       0,
     );
     if (minutesThisDay + durationMin > rule.maxHoursPerDay * 60) {
-      errors.push(`Limite giornaliero superato: max ${rule.maxHoursPerDay}h al giorno`);
+      push(`Limite giornaliero superato: max ${rule.maxHoursPerDay}h al giorno`);
     }
 
     // ---- Intervallo minimo tra prenotazioni (cooldown) ----
@@ -418,7 +363,7 @@ async function validateBooking({
 
       if (exc.kind === 'block') {
         if (overlapsWindow(start, end, exc.startTime, exc.endTime)) {
-          errors.push(`Prenotazione non consentita: ${exc.name}`);
+          push(`Prenotazione non consentita: ${exc.name}`);
         }
         continue;
       }
@@ -427,8 +372,8 @@ async function validateBooking({
         const newMinsInWindow = minutesInsideWindow(start, end, exc.startTime, exc.endTime);
         if (newMinsInWindow === 0) continue;
 
-        const dayStart = start.startOf('day');
-        const dayEnd = start.endOf('day');
+        const dayStart = institutionTime.startOfDay(start);
+        const dayEnd = institutionTime.endOfDay(start);
         // Se l'eccezione è scoped a un'aula, conteggia SOLO le ore già
         // prenotate in quell'aula (senso: "in aula X max 1h tra 14-16").
         // Globale → conteggio cross-aula (comportamento storico).
@@ -437,7 +382,7 @@ async function validateBooking({
             userId: user.id,
             status: 'confirmed',
             ...COUNTS_TOWARD_QUOTAS,
-            startTime: { [Op.gte]: dayStart.toDate(), [Op.lte]: dayEnd.toDate() },
+            startTime: { [Op.gte]: dayStart, [Op.lte]: dayEnd },
             ...(exc.roomId != null ? { roomId: exc.roomId } : {}),
             ...(ignoreBookingId ? { id: { [Op.ne]: ignoreBookingId } } : {}),
           },
@@ -455,7 +400,7 @@ async function validateBooking({
         const limitMins = Math.round((exc.maxHoursInWindow || 0) * 60);
         if (alreadyMinsInWindow + newMinsInWindow > limitMins) {
           const win = exc.startTime && exc.endTime ? ` (${exc.startTime}-${exc.endTime})` : '';
-          errors.push(
+          push(
             `${exc.name}${win}: max ${exc.maxHoursInWindow}h, ` +
               `già prenotate ${(alreadyMinsInWindow / 60).toFixed(1)}h`,
           );
@@ -464,70 +409,7 @@ async function validateBooking({
     }
   }
 
-  // Normalizza la lunghezza di `codes` a quella di `errors`: tutti gli
-  // errori "legacy" (push diretto su errors) ricevono code=null.
-  while (codes.length < errors.length) codes.push(null);
-  return { valid: errors.length === 0, errors, codes };
-}
-
-// =====================================================
-// Helper: l'eccezione si applica al giorno della prenotazione?
-// =====================================================
-function exceptionAppliesToDate(exception, dateLike) {
-  const d = dayjs(dateLike);
-  if (
-    exception.daysOfWeek &&
-    Array.isArray(exception.daysOfWeek) &&
-    exception.daysOfWeek.length > 0 &&
-    !exception.daysOfWeek.includes(d.day())
-  ) {
-    return false;
-  }
-  if (exception.dateFrom) {
-    if (d.format('YYYY-MM-DD') < exception.dateFrom) return false;
-  }
-  if (exception.dateTo) {
-    if (d.format('YYYY-MM-DD') > exception.dateTo) return false;
-  }
-  return true;
-}
-
-// =====================================================
-// Helper: la prenotazione [start,end] si sovrappone alla finestra HH:mm?
-// Se startTime/endTime mancano, la finestra copre l'intero giorno.
-// La finestra è in ora locale Europe/Rome (vedi institutionTz()); convertiamo
-// start/end per evitare l'off-by-2h su VPS UTC durante DST estiva.
-// =====================================================
-function overlapsWindow(start, end, winStart, winEnd) {
-  if (!winStart || !winEnd) return true;
-  const startLocal = start.tz(institutionTz());
-  const endLocal = end.tz(institutionTz());
-  const s = startLocal.hour() * 60 + startLocal.minute();
-  const e = endLocal.hour() * 60 + endLocal.minute();
-  const ws = parseHHmm(winStart);
-  const we = parseHHmm(winEnd);
-  return s < we && e > ws;
-}
-
-// =====================================================
-// Helper: minuti della prenotazione che cadono dentro la finestra HH:mm
-// (stessa logica timezone-aware di overlapsWindow).
-// =====================================================
-function minutesInsideWindow(start, end, winStart, winEnd) {
-  const startLocal = start.tz(institutionTz());
-  const endLocal = end.tz(institutionTz());
-  const sM = startLocal.hour() * 60 + startLocal.minute();
-  const eM = endLocal.hour() * 60 + endLocal.minute();
-  const ws = winStart ? parseHHmm(winStart) : 0;
-  const we = winEnd ? parseHHmm(winEnd) : 24 * 60;
-  const overlapStart = Math.max(sM, ws);
-  const overlapEnd = Math.min(eM, we);
-  return Math.max(0, overlapEnd - overlapStart);
-}
-
-function parseHHmm(s) {
-  const [h, m] = s.split(':').map(Number);
-  return h * 60 + m;
+  return buildResult(issues);
 }
 
 /**
@@ -575,7 +457,7 @@ async function checkResourceQuotas({
   tx,
   cache = null,
 }) {
-  const errors = [];
+  const issues = [];
 
   // Cache scope: BookingQuota per ruolo è invariante per tutta la request.
   let quotas;
@@ -588,7 +470,7 @@ async function checkResourceQuotas({
     });
     if (cache) cache.quotas.set(user.role, quotas);
   }
-  if (quotas.length === 0) return errors;
+  if (quotas.length === 0) return issues;
 
   // Set di equipment-type della stanza, cachato per roomId. Risolve N+1 quando
   // ci sono più quote scopeKind=equipmentType — finora era cachato solo
@@ -607,17 +489,17 @@ async function checkResourceQuotas({
     return set;
   };
 
-  const weekStart = start.startOf('isoWeek').toDate();
-  const weekEnd = start.endOf('isoWeek').toDate();
-  const dayStart = start.startOf('day').toDate();
-  const dayEnd = start.endOf('day').toDate();
+  const weekStart = institutionTime.startOfIsoWeek(start);
+  const weekEnd = institutionTime.endOfIsoWeek(start);
+  const dayStart = institutionTime.startOfDay(start);
+  const dayEnd = institutionTime.endOfDay(start);
 
   // Mese di calendario (per cap maxHoursPerMonth).
-  const monthStart = start.startOf('month').toDate();
-  const monthEnd = start.endOf('month').toDate();
+  const monthStart = institutionTime.startOfMonth(start);
+  const monthEnd = institutionTime.endOfMonth(start);
 
   // Giorno della settimana della booking (0=domenica .. 6=sabato).
-  const bookingDow = start.day();
+  const bookingDow = institutionTime.dayOfWeek(start);
 
   // Fine intervallo derivata da `durationMin` (il chiamante non passa `end`).
   const endTimeForOverlap = start.add(durationMin, 'minute');
@@ -717,7 +599,7 @@ async function checkResourceQuotas({
         0,
       );
       if (minsThisWeek + durationMin > quota.maxHoursPerWeek * 60) {
-        errors.push(formatQuotaIssue(quota, 'week', minsThisWeek));
+        issues.push(formatQuotaIssue(quota, 'week', minsThisWeek));
       }
     }
 
@@ -732,7 +614,7 @@ async function checkResourceQuotas({
         0,
       );
       if (minsThisDay + durationMin > quota.maxHoursPerDay * 60) {
-        errors.push(formatQuotaIssue(quota, 'day', minsThisDay));
+        issues.push(formatQuotaIssue(quota, 'day', minsThisDay));
       }
     }
 
@@ -747,7 +629,7 @@ async function checkResourceQuotas({
         0,
       );
       if (minsThisMonth + durationMin > quota.maxHoursPerMonth * 60) {
-        errors.push(formatQuotaIssue(quota, 'month', minsThisMonth));
+        issues.push(formatQuotaIssue(quota, 'month', minsThisMonth));
       }
     }
 
@@ -757,11 +639,11 @@ async function checkResourceQuotas({
         ...tx,
       });
       if (count + 1 > quota.maxBookings) {
-        errors.push(formatQuotaIssue(quota, 'count', count));
+        issues.push(formatQuotaIssue(quota, 'count', count));
       }
     }
   }
-  return errors;
+  return issues;
 }
 
 const SCOPE_TO_CODE = {
