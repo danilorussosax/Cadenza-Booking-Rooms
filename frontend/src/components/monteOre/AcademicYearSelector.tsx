@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarPlus, UserCheck, UserX } from 'lucide-react';
 import {
@@ -135,20 +135,26 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
   });
 
   // Risoluzione del primo valore quando i dati arrivano: storage > default.
+  // `onChange` letto da ref: l'effetto non deve rieseguirsi quando il caller
+  // ricrea la callback.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  const candidates = useMemo(
+    () => (yearsQuery.data?.items ?? []).map((i) => i.academicYear),
+    [yearsQuery.data],
+  );
   useEffect(() => {
     if (value !== undefined) return;
-    if (items.length === 0 && !defaultYear) return;
+    if (candidates.length === 0 && !defaultYear) return;
     const stored = readStoredYear();
-    const candidates = items.map((i) => i.academicYear);
     let resolved: string | undefined;
     if (stored && candidates.includes(stored)) resolved = stored;
     else if (defaultYear && candidates.includes(defaultYear)) resolved = defaultYear;
     else resolved = candidates[0];
-    if (resolved) onChange(resolved);
-    // `onChange` è considerato stabile: non rientrare quando viene ricreato
-    // (il componente caller userebbe useCallback se servisse).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, items.length, defaultYear]);
+    if (resolved) onChangeRef.current(resolved);
+  }, [value, candidates, defaultYear]);
 
   const selected: AcademicYearOption | undefined = items.find((i) => i.academicYear === value);
 
