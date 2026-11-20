@@ -43,7 +43,7 @@ dayjs.extend(timezone);
 // ora locale italiana, non UTC. Senza conversione, su un VPS con TZ=UTC
 // `dayjs(b.startTime).hour()` ritorna l'ora UTC e la finestra 14-17
 // confronta valori sbagliati. Allineato a bookingValidator.institutionTz().
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const institutionTime = require('../lib/institutionTime');
 
 function parseHHmm(s) {
   const [h, m] = s.split(':').map(Number);
@@ -69,10 +69,14 @@ async function findOverlappingBookings(excDef, { onlyFuture = true } = {}) {
   // funzioni date/time non portabili tra dialetti (Postgres EXTRACT vs
   // SQLite strftime).
   if (excDef.dateFrom) {
-    where.endTime = { [Op.gt]: dayjs(excDef.dateFrom).startOf('day').toDate() };
+    where.endTime = {
+      [Op.gt]: institutionTime.startOfDay(institutionTime.toInstant(excDef.dateFrom)),
+    };
   }
   if (excDef.dateTo) {
-    where.startTime = { [Op.lt]: dayjs(excDef.dateTo).endOf('day').toDate() };
+    where.startTime = {
+      [Op.lt]: institutionTime.endOfDay(institutionTime.toInstant(excDef.dateTo)),
+    };
   }
   if (onlyFuture) {
     const now = new Date();
@@ -121,8 +125,8 @@ async function findOverlappingBookings(excDef, { onlyFuture = true } = {}) {
     // Lettura day-of-week / ora locale in TZ istituzionale: l'eccezione è
     // espressa in Europe/Rome, il filtro deve allinearsi indipendentemente
     // dal TZ del processo Node (locale Mac vs CI/VPS UTC).
-    const startLocal = dayjs(b.startTime).tz(institutionTz());
-    const endLocal = dayjs(b.endTime).tz(institutionTz());
+    const startLocal = institutionTime.inInstitute(b.startTime);
+    const endLocal = institutionTime.inInstitute(b.endTime);
     if (dowSet && !dowSet.has(startLocal.day())) return false;
     if (winStart != null && winEnd != null) {
       const sM = startLocal.hour() * 60 + startLocal.minute();

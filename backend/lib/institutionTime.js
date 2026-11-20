@@ -154,6 +154,17 @@ function sqlTimezoneLiteral() {
   return `'${_tz.replace(/'/g, "''")}'`;
 }
 
+/**
+ * Input di API → istante. Una data pura 'YYYY-MM-DD' vale la mezzanotte
+ * istituzionale di quel giorno (non quella del processo); altrimenti è un
+ * normale istante. Assente → adesso. Non valido → Invalid Date.
+ */
+function toInstant(input) {
+  if (input === undefined || input === null || input === '') return now();
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) return atLocal(input);
+  return new Date(input);
+}
+
 /** Anno accademico ('YYYY/YYYY+1', 1 nov → 31 ott) di un istante (default adesso). */
 function academicYearOf(at) {
   const d = inInstitute(at);
@@ -184,5 +195,6 @@ module.exports = {
   dayOfWeek,
   calendarDaysBetween,
   sqlTimezoneLiteral,
+  toInstant,
   academicYearOf,
 };

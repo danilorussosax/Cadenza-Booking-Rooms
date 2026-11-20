@@ -23,7 +23,6 @@
 
 const express = require('express');
 const dayjs = require('dayjs');
-const isoWeek = require('dayjs/plugin/isoWeek');
 const { Op, fn, col, literal } = require('sequelize');
 const { stringify } = require('csv-stringify/sync');
 const PDFDocument = require('pdfkit');
@@ -31,7 +30,7 @@ const { sequelize, Booking, Room, Building, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { domainError } = require('../lib/domainError');
 
-dayjs.extend(isoWeek);
+const institutionTime = require('../lib/institutionTime');
 
 const router = express.Router();
 
@@ -40,8 +39,11 @@ const router = express.Router();
 // =====================================================
 
 function parseRange(req) {
-  const to = req.query.dateTo ? dayjs(req.query.dateTo) : dayjs();
-  const fromRaw = req.query.dateFrom ? dayjs(req.query.dateFrom) : to.subtract(30, 'day');
+  // Date pure 'YYYY-MM-DD' = giorno dell'istituto (non del processo).
+  const to = dayjs(institutionTime.toInstant(req.query.dateTo || undefined));
+  const fromRaw = req.query.dateFrom
+    ? dayjs(institutionTime.toInstant(req.query.dateFrom))
+    : to.subtract(30, 'day');
   // Cap a 1 anno per protezione
   const minFrom = to.subtract(366, 'day');
   const from = fromRaw.isBefore(minFrom) ? minFrom : fromRaw;
@@ -49,8 +51,8 @@ function parseRange(req) {
     return null;
   }
   return {
-    from: from.startOf('day').toDate(),
-    to: to.endOf('day').toDate(),
+    from: institutionTime.startOfDay(from),
+    to: institutionTime.endOfDay(to),
   };
 }
 
@@ -70,16 +72,18 @@ const ROOM_MINUTES_DIFF_LITERAL = literal(
 // Restituisce la stessa shape della response JSON.
 // =====================================================
 async function gatherAnalytics(range) {
+  // Fuso letto a ogni chiamata: può essere configurato dopo il caricamento.
+  const TZ_SQL = institutionTime.sqlTimezoneLiteral();
   // 1) Heatmap 7×24 — count di booking confermati / fascia (giorno settimana × ora di start).
   //    Postgres: EXTRACT(DOW) → 0=Sunday, 1=Monday, …, 6=Saturday
-  //    AT TIME ZONE 'Europe/Rome' fa l'extract in ora italiana: un concerto
+  //    AT TIME ZONE <fuso istituto> fa l'extract in ora locale dell'istituto: un concerto
   //    lunedì 00:30 (= dom 22:30 UTC) finisce sulla riga lunedì-00 invece
   //    che domenica-22. Senza questo, su VPS UTC la heatmap è sfasata di
   //    1-2h e occasionalmente sbaglia anche il giorno.
   const heatmapRows = await Booking.findAll({
     attributes: [
-      [literal(`EXTRACT(DOW FROM "startTime" AT TIME ZONE 'Europe/Rome')::int`), 'dow'],
-      [literal(`EXTRACT(HOUR FROM "startTime" AT TIME ZONE 'Europe/Rome')::int`), 'hour'],
+      [literal(`EXTRACT(DOW FROM "startTime" AT TIME ZONE ${TZ_SQL})::int`), 'dow'],
+      [literal(`EXTRACT(HOUR FROM "startTime" AT TIME ZONE ${TZ_SQL})::int`), 'hour'],
       [fn('COUNT', col('id')), 'count'],
       [fn('SUM', MINUTES_DIFF_LITERAL), 'minutes'],
     ],
@@ -199,13 +203,13 @@ async function gatherAnalytics(range) {
       : 0;
 
   // 5) Trend ultimi 8 settimane indipendentemente dal range (vista "memoria storica")
-  //    date_trunc('week') con AT TIME ZONE 'Europe/Rome': la "settimana"
+  //    date_trunc('week') con AT TIME ZONE <fuso istituto>: la "settimana"
   //    inizia il lunedì italiano. Senza la conversione, su VPS UTC i
   //    booking notturni di domenica italiana finiscono nella settimana
   //    precedente UTC, falsando il trend.
   const trendRows = await sequelize.query(
     `SELECT
-         date_trunc('week', "startTime" AT TIME ZONE 'Europe/Rome') AS week_start,
+         date_trunc('week', "startTime" AT TIME ZONE ${TZ_SQL}) AS week_start,
          COUNT(*)::int AS count,
          (SUM(EXTRACT(EPOCH FROM ("endTime" - "startTime")) / 60))::float AS minutes
        FROM bookings
@@ -215,7 +219,7 @@ async function gatherAnalytics(range) {
        GROUP BY week_start
        ORDER BY week_start ASC`,
     {
-      bind: [dayjs().subtract(8, 'week').startOf('isoWeek').toDate()],
+      bind: [institutionTime.startOfIsoWeek(dayjs(institutionTime.now()).subtract(8, 'week'))],
       type: sequelize.QueryTypes.SELECT,
     },
   );
@@ -288,8 +292,8 @@ router.get('/export.csv', authenticate, requireRole('admin'), async (req, res, n
 
     const records = rows.map((b) => ({
       id: b.id,
-      start: dayjs(b.startTime).format('YYYY-MM-DD HH:mm'),
-      end: dayjs(b.endTime).format('YYYY-MM-DD HH:mm'),
+      start: institutionTime.inInstitute(b.startTime).format('YYYY-MM-DD HH:mm'),
+      end: institutionTime.inInstitute(b.endTime).format('YYYY-MM-DD HH:mm'),
       durationHours: Math.round(dayjs(b.endTime).diff(dayjs(b.startTime), 'minute') / 6) / 10,
       status: b.status,
       ghosted: b.autoCancelledAt ? 'yes' : 'no',
@@ -478,10 +482,15 @@ function drawHeader(doc, range) {
     .font('Helvetica')
     .fontSize(8)
     .fillColor(PDF.textSubtle)
-    .text(`Generato il ${dayjs().format('DD/MM/YYYY HH:mm')}`, width - margin - 200, y + 22, {
-      width: 200,
-      align: 'right',
-    });
+    .text(
+      `Generato il ${institutionTime.inInstitute().format('DD/MM/YYYY HH:mm')}`,
+      width - margin - 200,
+      y + 22,
+      {
+        width: 200,
+        align: 'right',
+      },
+    );
 
   return y + 50;
 }

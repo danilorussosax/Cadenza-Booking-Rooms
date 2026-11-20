@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 // "giorno solare" e "settimana ISO" istituzionali (Europe/Rome). Su un
 // VPS UTC vicino a mezzanotte italiana il dayStart può cadere il giorno
 // prima/dopo, falsando i totali ora.
-const institutionTz = () => require('../../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const institutionTime = require('../../lib/institutionTime');
 
 const { Booking, Room, User } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
@@ -24,11 +24,11 @@ module.exports = function registerAvailability(router) {
   router.get('/usage/me', authenticate, async (req, res, next) => {
     try {
       const rule = await BookingRule.findOne({ where: { role: req.user.role } });
-      const nowLocal = dayjs().tz(institutionTz());
-      const weekStart = nowLocal.startOf('isoWeek').toDate();
-      const weekEnd = nowLocal.endOf('isoWeek').toDate();
-      const dayStart = nowLocal.startOf('day').toDate();
-      const dayEnd = nowLocal.endOf('day').toDate();
+      const nowInstant = institutionTime.now();
+      const weekStart = institutionTime.startOfIsoWeek(nowInstant);
+      const weekEnd = institutionTime.endOfIsoWeek(nowInstant);
+      const dayStart = institutionTime.startOfDay(nowInstant);
+      const dayEnd = institutionTime.endOfDay(nowInstant);
 
       // P1-3: caricamento booking con `attributes` selettivi (riduce payload
       // ~80% rispetto al fetch dei record completi) + `roomId` invece di
@@ -191,8 +191,8 @@ module.exports = function registerAvailability(router) {
             weekMax != null && !isAdmin
               ? Math.max(0, Math.round((weekMax - weekUsed) * 10) / 10)
               : null,
-          periodFrom: dayjs(weekStart).format('YYYY-MM-DD'),
-          periodTo: dayjs(weekEnd).format('YYYY-MM-DD'),
+          periodFrom: institutionTime.todayIso(weekStart),
+          periodTo: institutionTime.todayIso(weekEnd),
         },
         daily: {
           max: dayMax,
@@ -222,10 +222,10 @@ module.exports = function registerAvailability(router) {
     // un concerto delle 22:30 italiane = 20:30 UTC, su VPS UTC sarebbe
     // fuori da [00:00 UTC, 23:59 UTC] di "ieri".
     const dateStr = req.query.date ? String(req.query.date) : null;
-    const parsed = dateStr ? dayjs.tz(dateStr, institutionTz()) : dayjs().tz(institutionTz());
-    const date = parsed.isValid() ? parsed : dayjs().tz(institutionTz());
-    const dayStart = date.startOf('day').toDate();
-    const dayEnd = date.endOf('day').toDate();
+    const parsed = institutionTime.toInstant(dateStr || undefined);
+    const date = Number.isNaN(parsed.getTime()) ? institutionTime.now() : parsed;
+    const dayStart = institutionTime.startOfDay(date);
+    const dayEnd = institutionTime.endOfDay(date);
 
     const bookings = await Booking.findAll({
       where: {
@@ -237,6 +237,6 @@ module.exports = function registerAvailability(router) {
       order: [['startTime', 'ASC']],
     });
 
-    res.json({ date: date.format('YYYY-MM-DD'), bookings });
+    res.json({ date: institutionTime.todayIso(date), bookings });
   });
 };

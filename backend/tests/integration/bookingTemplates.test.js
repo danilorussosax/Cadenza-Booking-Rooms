@@ -10,6 +10,7 @@
  */
 
 const dayjs = require('dayjs');
+const institutionTime = require('../../lib/institutionTime');
 const request = require('supertest');
 const { buildApp } = require('../../app');
 const { createAuthedUser, createCourse, createRoom, createBookingRule } = require('../factories');
@@ -186,14 +187,14 @@ describe('Booking templates', () => {
     it('crea la booking sulla prossima occorrenza del dayOfWeek', async () => {
       const { authHeader } = await makeStudent();
       const room = await createRoom();
-      const tomorrow = dayjs().add(1, 'day');
+      const tomorrowDow = institutionTime.dayOfWeek(dayjs().add(1, 'day').toDate());
       const created = await request(app)
         .post('/api/bookings/templates')
         .set('Authorization', authHeader)
         .send(
           basePayload(room.id, {
-            dayOfWeek: tomorrow.day(),
-            startMinutes: 10 * 60, // 10:00 locale
+            dayOfWeek: tomorrowDow,
+            startMinutes: 10 * 60, // 10:00 ora dell'istituto
             durationMinutes: 60,
           }),
         );
@@ -203,10 +204,9 @@ describe('Booking templates', () => {
         .post(`/api/bookings/templates/${tplId}/quick-book`)
         .set('Authorization', authHeader);
       expect(res.status).toBe(201);
-      const start = dayjs(res.body.booking.startTime);
-      expect(start.day()).toBe(tomorrow.day());
-      expect(start.hour()).toBe(10);
-      expect(start.minute()).toBe(0);
+      const startAt = res.body.booking.startTime;
+      expect(institutionTime.dayOfWeek(startAt)).toBe(tomorrowDow);
+      expect(institutionTime.hhmmOf(startAt)).toBe('10:00');
       expect(res.body.booking.room.id).toBe(room.id);
       expect(res.body.booking.status).toBe('confirmed');
       expect(res.body.booking.purpose).toBe('Esercizi tecnici');
