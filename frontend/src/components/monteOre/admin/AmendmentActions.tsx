@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import { qk } from '@/lib/queryKeys';
+import { invalidateAdminMonteOre } from '@/lib/invalidation';
 
 /**
  * Bottoni di azione su un amendment pending (Approva / Rifiuta).
@@ -80,7 +81,7 @@ export function AmendmentActions({
           amendment={amendment}
           onClose={() => setReviewOpen(false)}
           onDecided={() => {
-            void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
+            void invalidateAdminMonteOre(qc);
           }}
         />
       )}

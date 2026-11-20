@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { NewAcademicYearDialog } from './NewAcademicYearDialog';
 import { qk } from '@/lib/queryKeys';
-import { invalidateMonteOre } from '@/lib/invalidation';
+import { invalidateMonteOre, invalidateMonteOreUser } from '@/lib/invalidation';
 
 const LS_KEY = 'monteOre.admin.selectedYear';
 
@@ -114,7 +114,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
       monteOreAdminApi.activateAcademicYearForTeachers(year, active),
     onSuccess: (res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: qk.monteOre.all() });
+      void invalidateMonteOreUser(queryClient);
       if (vars.active) {
         toast.success(`AA ${vars.year} avviato`);
       } else {

@@ -35,6 +35,7 @@ import type { Instrument, InstrumentFamily } from '@/types';
 import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMyLoans } from '@/lib/invalidation';
 
 const FAMILY_KEYS: InstrumentFamily[] = [
   'archi',
@@ -307,8 +308,7 @@ function LoanRequestDialog({
       }),
     onSuccess: () => {
       toast.success(t('instruments.request_dialog.submitted'));
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.loans.mine() });
+      void invalidateMyLoans(qc);
       onClose();
     },
     onError: (err) => {

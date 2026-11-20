@@ -53,6 +53,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { Role } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateLoanQuotas } from '@/lib/invalidation';
 
 const ROLES: Role[] = ['admin', 'docente', 'studente'];
 const SCOPE_KINDS: LoanQuotaScopeKind[] = ['family', 'instrument', 'global'];
@@ -104,7 +105,7 @@ export function LoanQuotasManager() {
     mutationFn: (id: number) => loanQuotasApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.loan_quotas.deleted'));
-      void qc.invalidateQueries({ queryKey: qk.loanQuotas.all() });
+      void invalidateLoanQuotas(qc);
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -415,7 +416,7 @@ function LoanQuotaFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.loan_quotas.updated') : t('admin.loan_quotas.created'));
-      void qc.invalidateQueries({ queryKey: qk.loanQuotas.all() });
+      void invalidateLoanQuotas(qc);
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

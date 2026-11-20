@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import type { Role, User } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateUsers } from '@/lib/invalidation';
 
 const baseSchema = z.object({
   firstName: z.string().min(1, 'Inserisci il nome'),
@@ -153,7 +154,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     },
     onSuccess: () => {
       toast.success('Indirizzo email riattivato');
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));
@@ -197,7 +198,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Utente aggiornato' : 'Utente creato');
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
       onOpenChange(false);
     },
     onError: (err) => {

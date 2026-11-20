@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { qk } from '@/lib/queryKeys';
+import { invalidateUsers } from '@/lib/invalidation';
 
 // Template CSV sintetico — è il minimo per partire (4 righe esempio +
 // header). I dati sensibili (password) non sono mai in CSV: un nuovo
@@ -56,7 +56,7 @@ export function UsersCsvImportDialog({
     },
     onSuccess: (data) => {
       setResult(data);
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
       toast.success(
         `Import completato · ${data.created} creati, ${data.updated} aggiornati${
           data.skipped > 0 ? `, ${data.skipped} saltati` : ''

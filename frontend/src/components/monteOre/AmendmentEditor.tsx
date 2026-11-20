@@ -24,6 +24,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMonteOreAmendmentEdited } from '@/lib/invalidation';
 
 const kinds: AmendmentKind[] = [
   'change_time',
@@ -210,8 +211,7 @@ export function AmendmentEditor({
         ? monteOreAdminApi.revalidate(adminPlanId, { operations, reason: notes })
         : monteOreApi.requestAmendment({ academicYear, operations, notes, requestKey }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
-      void qc.invalidateQueries({ queryKey: qk.monteOre.me() });
+      void invalidateMonteOreAmendmentEdited(qc);
       toast.success(t('monteWorkflow.sent'));
       onClose();
     },

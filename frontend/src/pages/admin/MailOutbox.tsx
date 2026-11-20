@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMailOutbox } from '@/lib/invalidation';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
@@ -169,7 +170,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
     mutationFn: () => mailOutboxApi.retry(item.id),
     onSuccess: () => {
       toast.success('Email rimessa in coda per il prossimo tick');
-      void qc.invalidateQueries({ queryKey: qk.admin.mailOutbox() });
+      void invalidateMailOutbox(qc);
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));
@@ -179,7 +180,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
     mutationFn: () => mailOutboxApi.remove(item.id),
     onSuccess: () => {
       toast.success('Email eliminata dalla coda');
-      void qc.invalidateQueries({ queryKey: qk.admin.mailOutbox() });
+      void invalidateMailOutbox(qc);
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));

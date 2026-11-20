@@ -37,6 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMessagingSettings } from '@/lib/invalidation';
 
 // =============================================================================
 // /admin/messaging — configurazione dei 4 canali bot.
@@ -228,7 +229,7 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
       setCreds(initialCreds(res));
       setSettings(initialSettings(res));
       setDirty(false);
-      void qc.invalidateQueries({ queryKey: qk.admin.messagingSettings() });
+      void invalidateMessagingSettings(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -266,7 +267,7 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
       setDirty(false);
       // Rinfresca lo stato webhook reale così il pannello passaggi si aggiorna.
       webhookInfoMutation.mutate();
-      void qc.invalidateQueries({ queryKey: qk.admin.messagingSettings() });
+      void invalidateMessagingSettings(qc);
       const warn = res.warnings?.length ? ` · ${res.warnings.length} warning` : '';
       toast.success(
         t('admin.messaging.telegram.auto.toast_ok', { username: res.bot?.username ?? '' }) + warn,

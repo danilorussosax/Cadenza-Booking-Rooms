@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { qk } from '@/lib/queryKeys';
+import { invalidateMailTemplates } from '@/lib/invalidation';
 
 interface Props {
   template: MailTemplate;
@@ -42,7 +42,7 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
     mutationFn: () => mailTemplatesApi.update(template.kind, { subject, bodyHtml, isEnabled }),
     onSuccess: () => {
       toast.success(`Template "${template.label}" salvato`);
-      void qc.invalidateQueries({ queryKey: qk.admin.mailTemplates() });
+      void invalidateMailTemplates(qc);
     },
     onError: (err) => {
       setError(httpErrorMessage(err));
@@ -56,7 +56,7 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
       setBodyHtml(t.bodyHtml);
       setIsEnabled(t.isEnabled);
       toast.success('Template ripristinato ai valori di default');
-      void qc.invalidateQueries({ queryKey: qk.admin.mailTemplates() });
+      void invalidateMailTemplates(qc);
     },
     onError: (err) => {
       setError(httpErrorMessage(err));

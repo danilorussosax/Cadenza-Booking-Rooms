@@ -51,6 +51,7 @@ import MonteOreGrid from '@/components/monteOre/MonteOreGrid';
 import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMonteOreYear, invalidateMonteOreYearAndSlots } from '@/lib/invalidation';
 
 const DAYS_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
 const TYPE_OPTIONS: { value: BookingType; label: string }[] = [
@@ -133,7 +134,7 @@ export default function MonteOre() {
     onSuccess: () => {
       // Aggiorno solo la proposal (campi notes/hours/range); threshold e
       // slots non sono toccati da questa mutation.
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
+      void invalidateMonteOreYear(qc, targetYear);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -145,8 +146,7 @@ export default function MonteOre() {
       // La rimozione di una schedule cambia proposal.schedules e rende stantii
       // gli slot legati a quella schedule (verranno rigenerati al prossimo
       // regenerate-slots o submit).
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
+      void invalidateMonteOreYearAndSlots(qc, targetYear);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -156,7 +156,7 @@ export default function MonteOre() {
     onSuccess: () => {
       toast.success('Proposta inviata al coordinatore');
       // Cambia solo proposal.status (e timestamp): basta proposal.
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
+      void invalidateMonteOreYear(qc, targetYear);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -635,8 +635,7 @@ function ScheduleDialog({
       // Add/update di una schedule cambia proposal.schedules; gli slot
       // legati vanno rigenerati (regenerate-slots è esplicito), ma comunque
       // invalidiamoli per coerenza UI quando già materializzati.
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
-      void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
+      void invalidateMonteOreYearAndSlots(qc, targetYear);
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

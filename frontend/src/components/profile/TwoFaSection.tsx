@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { User } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateTwoFaStatus } from '@/lib/invalidation';
 import { isAdminUser } from '@/lib/roles';
 
 // =============================================================================
@@ -98,7 +99,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSetupSent(null);
       setConfirmCode('');
       updateUser({ twoFaEnabled: true });
-      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
+      void invalidateTwoFaStatus(qc);
       toast.success(t('profile.twofa.toast.enabled'));
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -112,7 +113,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSecureCode('');
       setSecureSent(null);
       toast.success(t('profile.twofa.toast.recovery_regenerated'));
-      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
+      void invalidateTwoFaStatus(qc);
     },
     onError: (err) => {
       setSecureError(httpErrorMessage(err));
@@ -127,7 +128,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSecureSent(null);
       setRecoveryCodes(null);
       updateUser({ twoFaEnabled: false });
-      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
+      void invalidateTwoFaStatus(qc);
       toast.success(t('profile.twofa.toast.disabled'));
     },
     onError: (err) => {

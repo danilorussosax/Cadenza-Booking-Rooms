@@ -17,6 +17,7 @@ import type { InstrumentLoan, LoanStatus } from '@/types';
 import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
 import { qk } from '@/lib/queryKeys';
+import { invalidateMyLoans } from '@/lib/invalidation';
 
 type Tab = 'active' | 'requested' | 'history';
 
@@ -57,8 +58,7 @@ export default function MyLoans() {
     mutationFn: (id: number) => loansApi.returnLoan(id),
     onSuccess: () => {
       toast.success(t('my_loans.toast.returned'));
-      void qc.invalidateQueries({ queryKey: qk.loans.mine() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateMyLoans(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -67,8 +67,7 @@ export default function MyLoans() {
     mutationFn: (id: number) => loansApi.cancel(id),
     onSuccess: () => {
       toast.success(t('my_loans.toast.cancelled'));
-      void qc.invalidateQueries({ queryKey: qk.loans.mine() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateMyLoans(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

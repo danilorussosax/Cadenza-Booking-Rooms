@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import type { ConcertInfo, ConcertEventType } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateConcertDetail, invalidateConcertInfo } from '@/lib/invalidation';
 
 const EVENT_TYPES: ConcertEventType[] = [
   'concerto',
@@ -146,9 +147,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
       toast.success(t('concert.saved'));
       setHasInfo(true);
       setPosterUrl(concertInfo.posterUrl ?? null);
-      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
-      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
-      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
+      void invalidateConcertInfo(qc, bookingId);
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));
@@ -160,8 +159,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     onSuccess: ({ posterUrl: url }) => {
       setPosterUrl(url);
       toast.success(t('concert.poster_uploaded'));
-      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
-      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
+      void invalidateConcertDetail(qc, bookingId);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -171,8 +169,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     onSuccess: () => {
       setPosterUrl(null);
       toast.success(t('concert.poster_removed'));
-      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
-      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
+      void invalidateConcertDetail(qc, bookingId);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

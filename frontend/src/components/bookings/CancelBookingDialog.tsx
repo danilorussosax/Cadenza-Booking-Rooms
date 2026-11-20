@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Booking } from '@/types';
-import { qk } from '@/lib/queryKeys';
+import { invalidateBookings } from '@/lib/invalidation';
 
 interface Props {
   booking: Booking | null;
@@ -34,8 +34,7 @@ export function CancelBookingDialog({ booking, onClose }: Props) {
     mutationFn: () => bookingsApi.cancel(booking!.id, reason.trim() || undefined),
     onSuccess: () => {
       toast.success('Prenotazione annullata');
-      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
-      void qc.invalidateQueries({ queryKey: qk.availability.all() });
+      void invalidateBookings(qc);
       handleClose();
     },
     onError: (err) => {

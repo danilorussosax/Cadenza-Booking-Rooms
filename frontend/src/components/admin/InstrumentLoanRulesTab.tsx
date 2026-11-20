@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Course, Instrument, InstrumentFamily } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateInstruments } from '@/lib/invalidation';
 
 const FAMILY_LABELS: Record<InstrumentFamily, string> = {
   archi: 'instrument_families.archi',
@@ -368,8 +369,7 @@ function CoursesEditDialog({
     },
     onSuccess: () => {
       toast.success(t('admin.instrument_rules.saved'));
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateInstruments(qc);
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
