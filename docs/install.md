@@ -656,6 +656,10 @@ personalizzare al primo uso.
   `ConnectionAttempts`, `ConnectTimeout` e `ServerAlive*`. Se un passo fallisce
   comunque, lo script stampa lo stato esatto in cui è rimasto il VPS e i comandi
   per riprendere o tornare indietro.
+- **Tetto di tempo**: ogni tentativo di rete ha un limite (`NET_TIMEOUT`, default
+  300 s; `NET_TIMEOUT_LONG`, default 900 s, per i passi rsync/npm): allo scadere
+  l'intero albero di processi viene terminato e il tentativo viene ritentato
+  come errore di rete (`tempo scaduto dopo Ns`).
 - **Ordine dei passi** (per ridurre lo stato misto frontend/backend): snapshot
   del codice attuale → dist nuova in `frontend/.dist-new` (non live) → rsync del
   codice → permessi, `npm ci`, PgBouncer, chiave → un solo comando remoto che
