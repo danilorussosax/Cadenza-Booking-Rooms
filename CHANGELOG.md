@@ -24,20 +24,25 @@ Fuso orario dell’istituto ovunque, messaggi d’errore tradotti con i numeri e
 - Analytics: il tasso di no-show non conta più le prenotazioni cancellate (soft-delete).
 - Download autenticati (export, backup, PDF, CSV): con la sessione scaduta si torna al login e gli errori sono tradotti.
 - Le liste si aggiornano dopo modifiche a aule, edifici e attrezzature; l’eliminazione di un utente da admin rimuove anche la foto profilo; la prenotazione rapida da modello avvisa gli admin quando richiede approvazione.
+- Display: il grafico per fascia oraria non conta più un’ora in più per le prenotazioni che finiscono a un’ora piena (09:00-10:00 occupa solo la fascia delle 9); gli avvisi con audience malformata si comportano allo stesso modo sul feed utente e sul kiosk.
+- Strumenti: l’elenco segna «in prestito» anche gli strumenti con un prestito scaduto e non ancora restituito.
 
 **Note di operatività e compatibilità**
 
 - API (additive): `GET /api/bookings` aggiunge `checkInConfig`; le schede Monte Ore restituiscono `proposal.workflow`. **Cambia il formato** di `trend[].weekStart` in `/api/analytics`: ora `YYYY-MM-DD` invece di un timestamp ISO.
 - Configurazione: una variabile di tuning presente ma non valida ferma l’avvio con un messaggio chiaro, invece del ripiego silenzioso. `TWO_FA_GRACE_DAYS=0` e `CHECKIN_EARLY_MINUTES=0` valgono ora 0, non il default; `JWT_EXPIRES_IN` è validata (es. `2h`). I valori di default sono invariati.
 - Schema: solo aggiunte (colonna `bookings.origin`); le migrazioni duplicate delle pre-sync richiamano gli stessi passi. Nessun intervento manuale.
+- Configurazione degli scheduler: le chiavi `BACKUP_*`, `BACKUP_VERIFY_*`, `AUTO_RESTART_ENABLED` ed `EXCEL_EXPORT_*` passano da `lib/config.js` con gli stessi default. `EXCEL_EXPORT_ENABLED=1` ora abilita l’export (prima lo disabilitava in silenzio), un valore vuoto vale il default e un valore non valido ferma l’avvio. Il riavvio da pannello admin legge `AUTO_RESTART_ENABLED` come lo scheduler.
+- Paginazione: `limit` e `page` decimali sono arrotondati per difetto (prima `limit=2.7` dava errore 500 su SQLite) e `/verify-integrity` ha un tetto di 1.000.000 righe; senza `limit` la scansione resta completa.
 
 **Interno**
 
 - Un modulo unico per prenotare, spostare e annullare (`bookingLifecycle`), per le regole del piano Monte Ore, per il tempo istituzionale (`institutionTime`), per le autorizzazioni (`can()`), per check-in, rimozioni a cascata, contesto mail, sessione di login, prestiti strumento e immagini caricate.
 - Sei scheduler su un esecutore comune con registro unico; circa 295 errori delle route su `domainError`; registro delle chiavi di cache e oltre 40 eventi di invalidazione nel frontend; importazione Isidata, analytics e bot Telegram divisi in moduli testabili.
+- Calcolo delle statistiche del display in un modulo puro (`kioskStats`), parsing unico di `limit` e `page`, 145 chiavi di traduzione morte rimosse con un test che impedisce di aggiungerne altre.
 - CI: il job E2E usa `ubuntu-24.04` perché Playwright non supporta ancora Ubuntu 26.04.
 
-Verifiche: 2.518 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 647 test frontend; 26 test browser; job PostgreSQL della CI verde.
+Verifiche: 2.708 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 649 test frontend; 26 test browser; job PostgreSQL ed E2E della CI verdi.
 
 ### English
 
@@ -53,20 +58,25 @@ Institution time zone everywhere, translated error messages with their numbers, 
 - Analytics: the no-show rate no longer counts soft-deleted bookings.
 - Authenticated downloads (exports, backups, PDFs, CSVs): with an expired session you are sent back to login, and errors are translated.
 - Lists refresh after changes to rooms, buildings and equipment; deleting a user as an admin also removes their profile photo; quick booking from a template notifies admins when approval is required.
+- Display: the hourly chart no longer counts an extra hour for bookings that end on the hour (09:00-10:00 occupies only the 9 o’clock slot); announcements with a malformed audience behave the same on the user feed and on the kiosk.
+- Instruments: the list shows an instrument as on loan also when its loan is overdue and not yet returned.
 
 **Operations and compatibility notes**
 
 - API (additive): `GET /api/bookings` adds `checkInConfig`; Monte Ore plan endpoints return `proposal.workflow`. **The format changes** for `trend[].weekStart` in `/api/analytics`: now `YYYY-MM-DD` instead of an ISO timestamp.
 - Configuration: a tuning variable that is set but invalid now stops startup with a clear message, instead of silently falling back. `TWO_FA_GRACE_DAYS=0` and `CHECKIN_EARLY_MINUTES=0` now mean 0, not the default; `JWT_EXPIRES_IN` is validated (e.g. `2h`). Default values are unchanged.
 - Schema: additions only (`bookings.origin` column); the duplicated pre-sync migrations now call the same steps. No manual action required.
+- Scheduler configuration: the `BACKUP_*`, `BACKUP_VERIFY_*`, `AUTO_RESTART_ENABLED` and `EXCEL_EXPORT_*` keys now go through `lib/config.js` with the same defaults. `EXCEL_EXPORT_ENABLED=1` now enables the export (it used to disable it silently), an empty value means the default and an invalid value stops startup. The admin restart button reads `AUTO_RESTART_ENABLED` the same way the scheduler does.
+- Pagination: decimal `limit` and `page` values are rounded down (`limit=2.7` used to return a 500 on SQLite) and `/verify-integrity` is capped at 1,000,000 rows; without `limit` the scan stays complete.
 
 **Internal**
 
 - One module each for booking, moving and cancelling (`bookingLifecycle`), Monte Ore plan rules, institution time (`institutionTime`), authorization (`can()`), check-in, cascading removals, mail context, login session, instrument loans and uploaded images.
 - Six schedulers on a shared runner with a single registry; about 295 route errors moved to `domainError`; a cache-key registry and over 40 invalidation events in the frontend; the Isidata import, analytics and the Telegram bot split into testable modules.
+- Display statistics computed in a pure module (`kioskStats`), a single parser for `limit` and `page`, and 145 dead translation keys removed together with a test that prevents adding more.
 - CI: the E2E job uses `ubuntu-24.04` because Playwright does not yet support Ubuntu 26.04.
 
-Verification: 2,518 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 647 frontend tests; 26 browser tests; PostgreSQL CI job green.
+Verification: 2,708 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 649 frontend tests; 26 browser tests; PostgreSQL and E2E CI jobs green.
 
 ## [1.21.0] — 11 ottobre 2026
 
