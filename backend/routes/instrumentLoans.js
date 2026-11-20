@@ -13,7 +13,7 @@ const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const { utils: instrumentsUtils } = require('./instruments');
 const { domainError } = require('../lib/domainError');
-const { isAdmin, assertOwnerOrAdmin } = require('../lib/access');
+const { isAdmin, can, assertCan } = require('../lib/access');
 const { annotateStatus } = instrumentsUtils;
 
 const router = express.Router();
@@ -291,7 +291,7 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
 router.post('/:id/return', authenticate, async (req, res) => {
   const loan = await findLoanFull(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-  assertOwnerOrAdmin(req.user, loan.userId);
+  assertCan(req.user, 'loan:return', loan);
   // UPDATE atomico con WHERE status IN (active, overdue): se due richieste
   // concorrenti tentano il return, una sola restituisce affectedRows=1.
   // L'altra vede affectedRows=0 → "già restituito" senza dover ricaricare.
@@ -323,10 +323,10 @@ router.post('/:id/return', authenticate, async (req, res) => {
 router.delete('/:id', authenticate, async (req, res) => {
   const loan = await InstrumentLoan.findByPk(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-  assertOwnerOrAdmin(req.user, loan.userId);
+  assertCan(req.user, 'loan:cancel', loan);
   // Solo admin può cancellare un prestito già attivo/restituito (per pulizia inventario);
   // l'utente può solo cancellare la propria richiesta in attesa.
-  if (!isAdmin(req.user) && loan.status !== 'requested') {
+  if (!can(req.user, 'loan:cancel-processed') && loan.status !== 'requested') {
     throw domainError('LOAN_INVALID_STATE', 'Puoi cancellare solo richieste ancora in attesa');
   }
   const removed = await InstrumentLoan.destroy({
@@ -348,7 +348,7 @@ router.get('/:id/pdf', authenticate, async (req, res, next) => {
   try {
     const loan = await findLoanFull(req.params.id);
     if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-    assertOwnerOrAdmin(req.user, loan.userId);
+    assertCan(req.user, 'loan:view', loan);
     const kind = req.query.kind === 'return' ? 'return' : 'delivery';
 
     const { Institute } = require('../models');

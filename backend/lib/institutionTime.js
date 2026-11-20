@@ -155,13 +155,28 @@ function sqlTimezoneLiteral() {
 }
 
 /**
- * Input di API → istante. Una data pura 'YYYY-MM-DD' vale la mezzanotte
- * istituzionale di quel giorno (non quella del processo); altrimenti è un
- * normale istante. Assente → adesso. Non valido → Invalid Date.
+ * Input di API → istante, indipendente dal fuso del processo.
+ * - Assente → adesso.
+ * - 'YYYY-MM-DD' → mezzanotte istituzionale di quel giorno.
+ * - 'YYYY-MM-DDTHH:mm[:ss[.SSS]]' (o con spazio) SENZA offset → ora locale istituto.
+ * - Stringa con 'Z' o offset (+02:00, +0200) → istante assoluto.
+ * - Date / numero (epoch ms) → istante invariato.
+ * - Altre stringhe → Date nativo (rischio TZ-processo solo per formati non ISO);
+ *   non valido → Invalid Date.
  */
+const LOCAL_DATETIME_RE = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2})(?:\.\d{1,3})?)?$/;
 function toInstant(input) {
   if (input === undefined || input === null || input === '') return now();
-  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) return atLocal(input);
+  if (typeof input === 'string') {
+    const s = input.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return atLocal(s);
+    const m = LOCAL_DATETIME_RE.exec(s);
+    if (m) {
+      const [, date, hhmm, sec] = m;
+      const d = dayjs.tz(`${date} ${hhmm}:${sec ?? '00'}`, _tz);
+      return d.isValid() ? d.toDate() : new Date(NaN);
+    }
+  }
   return new Date(input);
 }
 

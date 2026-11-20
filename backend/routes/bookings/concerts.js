@@ -6,7 +6,7 @@ const multer = require('multer');
 const sharp = require('sharp');
 const { Booking, ConcertInfo } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
-const { isOwnerOrAdmin } = require('../../lib/access');
+const { can } = require('../../lib/access');
 
 // =====================================================
 // Scheda concerto (1:1 con Booking di tipo 'concerto')
@@ -52,7 +52,7 @@ async function loadConcertContext(bookingId, user) {
   });
   if (!booking)
     return { error: { status: 404, code: 'NOT_FOUND', message: 'Prenotazione non trovata' } };
-  if (!isOwnerOrAdmin(user, booking.userId)) {
+  if (!can(user, 'concert:modify', booking)) {
     return { error: { status: 403, code: 'FORBIDDEN', message: 'Non autorizzato' } };
   }
   if (booking.type !== 'concerto') {

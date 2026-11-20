@@ -21,7 +21,7 @@ const { authenticate, requireRole } = require('../../middleware/auth');
 const { buildIcs } = require('../../services/icalService');
 const { isCheckInRequired } = require('../../lib/checkInPolicy');
 const { dayjs, CHECKIN_EARLY_MINUTES, GHOST_GRACE_MINUTES } = require('./shared');
-const { isAdmin, isOwnerOrAdmin } = require('../../lib/access');
+const { isAdmin, can } = require('../../lib/access');
 
 module.exports = function registerRead(router) {
   // =====================================================
@@ -252,7 +252,7 @@ module.exports = function registerRead(router) {
       });
       if (!booking)
         return res.status(404).json({ error: 'Prenotazione non trovata', code: 'NOT_FOUND' });
-      if (!isOwnerOrAdmin(req.user, booking.userId)) {
+      if (!can(req.user, 'booking:view', booking)) {
         return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
       }
       res.json({ booking });
