@@ -189,7 +189,8 @@ jobs:
 
   e2e:
     name: E2E · Playwright
-    runs-on: ubuntu-latest
+    # Fisso a 24.04: Playwright non supporta ancora Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     needs: [backend, frontend]
     # E2E è il job più costoso: lo eseguiamo solo su push a main/develop e
     # sulle PR esplicitamente labellate `e2e` per non rallentare le PR rapide.
