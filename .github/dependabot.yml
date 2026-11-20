@@ -3,6 +3,7 @@
 # Cadenza ha 4 workspace npm indipendenti (ognuno con il proprio lockfile) più
 # le GitHub Actions. Policy:
 #   - ogni lunedì (Europe/Rome), una PR per directory con tutti i minor+patch;
+#   - cooldown: nessuna PR per versioni pubblicate da meno di 14 giorni (30 per i major);
 #   - i major arrivano sempre in PR separate (vanno valutati a mano);
 #   - le PR di sicurezza di Dependabot restano separate e immediate.
 #
@@ -24,6 +25,11 @@ updates:
       time: "06:00"
       timezone: Europe/Rome
     open-pull-requests-limit: 5
+    # Non proporre versioni appena pubblicate: attende prima che emergano
+    # regressioni o pacchetti ritirati (le correzioni di sicurezza ignorano la pausa).
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
     labels: [dependencies]
     commit-message:
       prefix: chore
@@ -40,6 +46,11 @@ updates:
       time: "06:00"
       timezone: Europe/Rome
     open-pull-requests-limit: 5
+    # Non proporre versioni appena pubblicate: attende prima che emergano
+    # regressioni o pacchetti ritirati (le correzioni di sicurezza ignorano la pausa).
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
     labels: [dependencies]
     commit-message:
       prefix: chore
@@ -56,6 +67,11 @@ updates:
       time: "06:00"
       timezone: Europe/Rome
     open-pull-requests-limit: 5
+    # Non proporre versioni appena pubblicate: attende prima che emergano
+    # regressioni o pacchetti ritirati (le correzioni di sicurezza ignorano la pausa).
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
     labels: [dependencies]
     commit-message:
       prefix: chore
@@ -72,6 +88,11 @@ updates:
       time: "06:00"
       timezone: Europe/Rome
     open-pull-requests-limit: 5
+    # Non proporre versioni appena pubblicate: attende prima che emergano
+    # regressioni o pacchetti ritirati (le correzioni di sicurezza ignorano la pausa).
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
     labels: [dependencies]
     commit-message:
       prefix: chore
@@ -88,6 +109,11 @@ updates:
       time: "06:00"
       timezone: Europe/Rome
     open-pull-requests-limit: 5
+    # Non proporre versioni appena pubblicate: attende prima che emergano
+    # regressioni o pacchetti ritirati (le correzioni di sicurezza ignorano la pausa).
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
     labels: [dependencies]
     commit-message:
       prefix: ci
