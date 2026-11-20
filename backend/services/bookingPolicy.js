@@ -1,9 +1,10 @@
 'use strict';
 const { User } = require('../models');
 const { sendBookingEmail } = require('./emailService');
+const { isAdmin } = require('../lib/access');
 
 function bookingStatus(room, actor) {
-  return room?.requiresApproval && actor.role !== 'admin' ? 'pending_approval' : 'confirmed';
+  return room?.requiresApproval && !isAdmin(actor) ? 'pending_approval' : 'confirmed';
 }
 
 async function notifyAdminsOfPendingBooking(booking) {

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AuthContext } from '@/contexts/AuthContext';
 import { gdprApi } from '@/api/gdpr';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
+import { isAdminUser } from '@/lib/roles';
 
 /**
  * Stato del ConsentGate (Dialog "Aggiornamento documenti legali").
@@ -28,13 +29,13 @@ export function useConsentGate(): { needsConsent: boolean; isLoading: boolean } 
   const consentsQuery = useQuery({
     queryKey: ['gdpr', 'consents'],
     queryFn: () => gdprApi.getConsents(),
-    enabled: !!user && user.role !== 'admin',
+    enabled: !!user && !isAdminUser(user),
     staleTime: 60 * 1000,
   });
 
   const needsConsent = useMemo(() => {
     if (!user) return false;
-    if (user.role === 'admin') return false;
+    if (isAdminUser(user)) return false;
     // Mentre la query carica, NON mostriamo il gate (false) per evitare
     // flash del Dialog all'arrivo dei dati. Stesso comportamento del
     // ConsentGate originale.

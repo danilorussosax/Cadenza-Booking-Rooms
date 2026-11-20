@@ -17,6 +17,7 @@ const dayjs = require('dayjs');
 const institutionTime = require('../lib/institutionTime');
 const { Op } = require('sequelize');
 const { InstrumentLoanQuota, InstrumentLoan, Instrument } = require('../models');
+const { isAdmin } = require('../lib/access');
 
 const ACTIVE_LOAN_STATUSES = ['requested', 'active', 'overdue'];
 
@@ -84,7 +85,7 @@ async function checkLoanQuotas({
   transaction = null,
 }) {
   const issues = [];
-  if (user.role === 'admin') return issues;
+  if (isAdmin(user)) return issues;
 
   const tx = transaction ? { transaction } : {};
 

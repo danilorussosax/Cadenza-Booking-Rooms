@@ -45,6 +45,7 @@ import { WeeklyExportPrintView } from '@/components/bookings/WeeklyExportPrintVi
 import { WaitlistDashboardCard } from '@/components/bookings/WaitlistDashboardCard';
 import { QuickBookCard } from '@/components/bookings/QuickBookCard';
 import type { Booking, InstrumentLoan, LoanStatus, Room } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 const LOAN_STATUS_VARIANT: Record<LoanStatus, 'success' | 'secondary' | 'muted' | 'default'> = {
   requested: 'secondary',
@@ -160,7 +161,7 @@ export default function Dashboard() {
   // Solo per admin: conteggio code di approvazione (prenotazioni standard +
   // variazioni monte ore) per le card della dashboard. Polling 60s coerente
   // col badge della sidebar.
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = isAdminUser(user);
   const isDocente = user?.role === 'docente';
 
   // Per docenti con override Monte Ore individuale (contratto orario,
@@ -410,7 +411,7 @@ export default function Dashboard() {
     // Admin: clic apre il dialog di modifica (può cambiare qualsiasi prenotazione,
     // anche di altri, e riassegnare l'owner). La cancellazione resta accessibile
     // dalle azioni della tabella admin (bulk-cancel) o tramite la pagina dell'utente.
-    if (user?.role === 'admin') {
+    if (isAdminUser(user)) {
       setEditTarget(b);
       return;
     }

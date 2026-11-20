@@ -14,6 +14,7 @@ const { authenticate } = require('../../middleware/auth');
 const { BookingRule } = require('../../models');
 const { dayjs } = require('./shared');
 const { COUNTS_TOWARD_QUOTAS } = require('../../services/bookingValidator');
+const { isAdmin: isAdminUser } = require('../../lib/access');
 
 module.exports = function registerAvailability(router) {
   // =====================================================
@@ -61,7 +62,7 @@ module.exports = function registerAvailability(router) {
 
       const weekUsed = round1(weekBookings.reduce((a, b) => a + minutesOf(b), 0));
       const dayUsed = round1(dayBookings.reduce((a, b) => a + minutesOf(b), 0));
-      const isAdmin = req.user.role === 'admin';
+      const isAdmin = isAdminUser(req.user);
       const weekMax = rule?.maxHoursPerWeek ?? null;
       const dayMax = rule?.maxHoursPerDay ?? null;
 

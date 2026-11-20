@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Button } from '@/components/ui/button';
+import { isAdminUser } from '@/lib/roles';
 
 export default function PendingApproval() {
   const { user, refreshUser, logout, loading } = useAuth();
@@ -18,7 +19,7 @@ export default function PendingApproval() {
 
   const handleRefresh = async () => {
     const u = await refreshUser();
-    if (u && (u.role === 'admin' || u.status === 'approved')) {
+    if (u && (isAdminUser(u) || u.status === 'approved')) {
       void navigate('/dashboard', { replace: true });
     }
   };

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LoaderCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Role } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 interface Props {
   roles?: Role[];
@@ -45,7 +46,7 @@ export function ProtectedRoute({ roles, requireProfile = true, requireApproved =
   }
 
   // Account rifiutato dall'admin
-  if (requireApproved && !isApproved && !isPendingApproval && user?.role !== 'admin') {
+  if (requireApproved && !isApproved && !isPendingApproval && !isAdminUser(user)) {
     return <Navigate to="/pending-approval" replace />;
   }
 
@@ -78,8 +79,7 @@ export function PublicOnlyRoute() {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
     let dest = from && /^\/(?![/\\])/.test(from) ? from : '/dashboard';
     if (!isProfileComplete) dest = '/complete-profile';
-    else if (user?.role !== 'admin' && (isPendingApproval || !isApproved))
-      dest = '/pending-approval';
+    else if (!isAdminUser(user) && (isPendingApproval || !isApproved)) dest = '/pending-approval';
     return <Navigate to={dest} replace />;
   }
   return <Outlet />;

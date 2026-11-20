@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const { InstrumentLoanRule, Course } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { domainError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 const router = express.Router();
 
@@ -109,7 +110,7 @@ module.exports = router;
 // =========================================================
 async function isUserAllowedForFamily({ user, family }) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
+  if (isAdmin(user)) return true;
 
   const rule = await InstrumentLoanRule.findByPk(family);
   if (!rule) return true; // nessuna regola → permissivo

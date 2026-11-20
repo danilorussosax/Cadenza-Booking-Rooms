@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { isAdminUser } from '@/lib/roles';
 
 export default function OAuthCallback() {
   // Il token arriva nel fragment (#token=...) per non finire in log/Referer/history.
@@ -37,9 +38,9 @@ export default function OAuthCallback() {
       .then((user) => {
         if (cancelled) return;
         const profileComplete =
-          user.role === 'admin' ||
+          isAdminUser(user) ||
           (Boolean(user.courseId) && (user.role !== 'studente' || Boolean(user.matricola)));
-        const approved = user.role === 'admin' || user.status === 'approved';
+        const approved = isAdminUser(user) || user.status === 'approved';
         const returnTo = sessionStorage.getItem('oauthReturnTo');
         sessionStorage.removeItem('oauthReturnTo');
         let dest = returnTo && /^\/(?![/\\])/.test(returnTo) ? returnTo : '/dashboard';

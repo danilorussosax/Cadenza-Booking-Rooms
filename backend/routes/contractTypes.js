@@ -29,6 +29,7 @@ const { ContractType, User, Institute, MonteOreProposal } = require('../models')
 const { authenticate, requireRole } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
 const { domainError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ function slugifyCode(label) {
 // ────────────────────────────────────────────────────────────────────────
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const includeInactive = req.query.includeInactive === 'true' && req.user.role === 'admin';
+    const includeInactive = req.query.includeInactive === 'true' && isAdmin(req.user);
     const where = includeInactive ? {} : { isActive: true };
     const types = await ContractType.findAll({
       where,

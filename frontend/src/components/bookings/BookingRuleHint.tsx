@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import { rulesApi } from '@/api/rules';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Role } from '@/types';
+import { isAdminRole } from '@/lib/roles';
 
 /**
  * Hint compatto che mostra all'utente i vincoli di prenotazione del proprio
@@ -21,10 +22,10 @@ export function BookingRuleHint({ role }: { role: Role }) {
     // Le BookingRule cambiano raramente (solo l'admin le edita): cache
     // generosa così non rifaccio la fetch ogni volta che si riapre il dialog.
     staleTime: 5 * 60 * 1000,
-    enabled: role !== 'admin',
+    enabled: !isAdminRole(role),
   });
 
-  if (role === 'admin') return null;
+  if (isAdminRole(role)) return null;
   if (!query.data?.rule) return null;
   const r = query.data.rule;
 

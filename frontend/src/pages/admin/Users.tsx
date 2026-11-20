@@ -70,6 +70,7 @@ import { IsidataLogo } from '@/components/icons/IsidataLogo';
 import { Esse3Logo } from '@/components/icons/Esse3Logo';
 import type { Role, User, UserStatus } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { isAdminUser } from '@/lib/roles';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
 const ROLE_LABEL_KEY: Record<Role, string> = {
@@ -544,7 +545,7 @@ export default function AdminUsers() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={ROLE_VARIANT[u.role]}>
-                          {u.role === 'admin' && <ShieldCheck className="mr-1 h-3 w-3" />}
+                          {isAdminUser(u) && <ShieldCheck className="mr-1 h-3 w-3" />}
                           {t(ROLE_LABEL_KEY[u.role])}
                         </Badge>
                       </td>
@@ -555,7 +556,7 @@ export default function AdminUsers() {
                         {u.course ? `${u.course.code} — ${u.course.name}` : '—'}
                       </td>
                       <td className="px-4 py-3">
-                        {u.role === 'admin' ? (
+                        {isAdminUser(u) ? (
                           <Badge variant="success">
                             <ShieldCheck className="mr-1 h-3 w-3" />
                             {t(STATUS_LABEL_KEY.approved)}
@@ -584,7 +585,7 @@ export default function AdminUsers() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
-                          {u.role !== 'admin' && u.status === 'pending' && (
+                          {!isAdminUser(u) && u.status === 'pending' && (
                             <>
                               <Button
                                 variant="ghost"

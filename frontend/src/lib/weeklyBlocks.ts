@@ -1,6 +1,7 @@
 import type { PublicBooking } from '@/api/public';
 import type { Booking } from '@/types';
 import type { WeeklyBlock } from '@/components/bookings/WeeklyRoomTimetable';
+import { isAdminRole } from '@/lib/roles';
 
 // ============================================================================
 // Helpers per derivare i blocchi della WeeklyRoomTimetable da:
@@ -106,7 +107,7 @@ function labelFromRole(
 ): string {
   // Admin: sempre "Direzione" (anche per type=lezione). L'admin che prenota
   // un'aula non è un docente individuale ma un atto istituzionale.
-  if (role === 'admin') return 'Direzione';
+  if (isAdminRole(role)) return 'Direzione';
   // Lezione (non-admin): "Prof. {cognome}" o "Prof. M. {cognome}" se ambiguo.
   if (type === 'lezione') {
     return buildTeacherLabel(firstName, lastName, disambiguation);
@@ -148,7 +149,7 @@ function shortLabelFor(
   if (type === 'lezione') return null;
   // Admin "Direzione" = etichetta canonica corta, ma sempre informativa →
   // non sostituiamo con un singolo carattere.
-  if (role === 'admin') return null;
+  if (isAdminRole(role)) return null;
   // Larghezza sufficiente → label completa.
   if (durMin >= SHORT_LABEL_MIN_MINUTES) return null;
   if (type === 'studio_individuale') return 'S';

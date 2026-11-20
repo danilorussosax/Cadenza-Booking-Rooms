@@ -6,6 +6,7 @@ const { Booking, User } = require('../../models');
 const { authenticate, requireCompleteProfile, requireApproved } = require('../../middleware/auth');
 const { findAlternativesWithTimeout } = require('../../services/bookingSuggestions');
 const { book, BookingError } = require('../../services/bookingLifecycle');
+const { isAdmin } = require('../../lib/access');
 
 // =====================================================
 // Helper: arricchisce la response di conflitto con `suggestions` e
@@ -98,7 +99,7 @@ module.exports = function registerCreate(router) {
         // Per gli utenti non-admin il campo viene ignorato silenziosamente.
         const targetId = Number(onBehalfOfUserId);
         const isOnBehalf =
-          req.user.role === 'admin' && Number.isInteger(targetId) && targetId !== req.user.id;
+          isAdmin(req.user) && Number.isInteger(targetId) && targetId !== req.user.id;
         if (isOnBehalf) {
           owner = await User.findByPk(targetId);
           if (!owner) {

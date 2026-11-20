@@ -6,6 +6,7 @@ const { Op } = require('sequelize');
 const { sequelize, BookingWaitlist, Room, Building } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
 const { validateBooking } = require('../services/bookingValidator');
+const { isOwnerOrAdmin } = require('../lib/access');
 
 const router = express.Router();
 
@@ -237,7 +238,7 @@ router.delete('/:id', authenticate, async (req, res, next) => {
   try {
     const entry = await BookingWaitlist.findByPk(req.params.id);
     if (!entry) return res.status(404).json({ error: 'Coda non trovata', code: 'NOT_FOUND' });
-    if (entry.userId !== req.user.id && req.user.role !== 'admin') {
+    if (!isOwnerOrAdmin(req.user, entry.userId)) {
       return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
     }
     await require('../services/waitlistService').closeEntry(entry.id, 'manual cancel');

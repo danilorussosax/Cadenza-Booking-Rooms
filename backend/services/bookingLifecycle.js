@@ -32,6 +32,7 @@ const bookingPolicy = require('./bookingPolicy');
 const emailService = require('./emailService');
 const { withSerializableRetry } = require('../lib/serializableTx');
 const logger = require('../lib/logger');
+const { isAdmin, isOwnerOrAdmin } = require('../lib/access');
 
 // SERIALIZABLE: valutazione conflitti + insert come una sola unita' logica.
 // (Duplicato di routes/bookings/shared.js#WRITE_ISOLATION: un servizio non
@@ -403,8 +404,7 @@ async function move({ bookingId, actor, changes = {} }) {
         const booking = await Booking.findByPk(bookingId, { transaction: t });
         if (!booking)
           throw new BookingError('Prenotazione non trovata', { status: 404, code: null });
-        const isAdmin = actor.role === 'admin';
-        if (booking.userId !== actor.id && !isAdmin) {
+        if (!isOwnerOrAdmin(actor, booking.userId)) {
           throw new BookingError('Non autorizzato', { status: 403, code: null });
         }
         if (booking.status !== 'confirmed') {
@@ -423,7 +423,7 @@ async function move({ bookingId, actor, changes = {} }) {
         let newOwner = await User.findByPk(booking.userId, { transaction: t });
         const targetUserId = changes.userId !== undefined ? Number(changes.userId) : null;
         const isReassign =
-          isAdmin && Number.isInteger(targetUserId) && targetUserId !== booking.userId;
+          isAdmin(actor) && Number.isInteger(targetUserId) && targetUserId !== booking.userId;
         if (isReassign) {
           const candidate = await User.findByPk(targetUserId, { transaction: t });
           if (!candidate) {
@@ -441,7 +441,7 @@ async function move({ bookingId, actor, changes = {} }) {
           newOwner = candidate;
         }
         // Admin su prenotazione altrui: bypassa le quote del proprietario.
-        const adminActingOnOther = isAdmin && newOwner.id !== actor.id;
+        const adminActingOnOther = isAdmin(actor) && newOwner.id !== actor.id;
 
         const validation = normalizeValidation(
           await validateBooking({

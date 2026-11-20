@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const sentry = require('../lib/sentry');
 const { getJwtSecret } = require('../lib/secrets');
+const { isAdmin } = require('../lib/access');
 
 const JWT_SECRET = getJwtSecret();
 
@@ -47,7 +48,7 @@ async function authenticate(req, res, next) {
     // che l'admin DEVE avere 2FA attivo, blocchiamo qui tutte le request
     // tranne quelle del flusso 2FA stesso (/api/auth/2fa/*) e operazioni di
     // sessione (/api/auth/me, /api/auth/logout) che servono al setup.
-    if (user.role === 'admin' && !user.twoFaEnabled) {
+    if (isAdmin(user) && !user.twoFaEnabled) {
       const path = req.path || '';
       const isAuthBypass =
         path.startsWith('/2fa/') ||
@@ -87,7 +88,7 @@ function requireRole(...roles) {
  */
 function requireCompleteProfile(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non autenticato' });
-  if (req.user.role === 'admin') return next();
+  if (isAdmin(req.user)) return next();
   if (req.user.role === 'studente' && !req.user.matricola) {
     return res.status(403).json({
       error: 'Profilo incompleto: imposta la matricola prima di proseguire',
@@ -109,7 +110,7 @@ function requireCompleteProfile(req, res, next) {
  */
 function requireApproved(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non autenticato' });
-  if (req.user.role === 'admin') return next();
+  if (isAdmin(req.user)) return next();
   if (req.user.status !== 'approved') {
     return res.status(403).json({
       error:
@@ -184,7 +185,7 @@ function enforceAdminTwoFa(user, res) {
 /** Middleware standalone (uso esplicito in route admin specifiche). */
 function require2FAForAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non autenticato' });
-  if (req.user.role !== 'admin') return next();
+  if (!isAdmin(req.user)) return next();
   if (enforceAdminTwoFa(req.user, res)) return;
   next();
 }

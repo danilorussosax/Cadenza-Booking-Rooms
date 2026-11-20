@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { User } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 // =============================================================================
 // Sezione "Sicurezza · Verifica in due passaggi (codice via email)" del profilo.
@@ -216,7 +217,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
           {t('profile.twofa.subtitle_email', { email: userEmail || user.email })}
         </p>
 
-        {user.role === 'admin' && !enabled && (
+        {isAdminUser(user) && !enabled && (
           <Alert variant="warning">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>{t('profile.twofa.admin_required')}</AlertDescription>

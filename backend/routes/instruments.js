@@ -105,7 +105,7 @@ router.get('/', authenticate, async (req, res) => {
 
   // Pre-calcolo dell'abilitazione PER STRUMENTO in base a Instrument.allowedCourseIds.
   // Convenzione: array vuoto = permissivo (chiunque non admin con corso/profilo).
-  const userIsAdmin = req.user.role === 'admin';
+  const userIsAdmin = isAdmin(req.user);
   const userCourseId = req.user.courseId ?? null;
   const isAllowedFor = (allowedCourseIds) => {
     if (userIsAdmin) return true;
@@ -135,6 +135,7 @@ router.get('/', authenticate, async (req, res) => {
 // =========================================================
 const { importInstruments, exportInstruments } = require('../services/instrumentImporter');
 const { domainError, httpError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 // GET /api/instruments/export → text/csv (Excel-compatibile)
 router.get('/export', authenticate, requireRole('admin'), async (req, res, next) => {

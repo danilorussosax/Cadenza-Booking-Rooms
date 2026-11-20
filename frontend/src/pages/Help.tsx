@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Role } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: typeof BookOpen }> =
   {
@@ -146,7 +147,7 @@ export default function HelpPage() {
 
   // L'utente vede UN solo manuale alla volta, ma se è admin diamo un toggle
   // discreto per saltare tra tutti i manuali senza tornare alla sidebar.
-  const showSwitch = user?.role === 'admin';
+  const showSwitch = isAdminUser(user);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

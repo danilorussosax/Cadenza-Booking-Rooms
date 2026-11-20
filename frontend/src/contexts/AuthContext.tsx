@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/api/auth';
 import { tokenStore, userCache } from '@/lib/api';
 import type { Role, User } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 interface AuthState {
   user: User | null;
@@ -55,7 +56,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 
 function profileComplete(user: User | null) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
+  if (isAdminUser(user)) return true;
   if (!user.courseId) return false;
   if (user.role === 'studente' && !user.matricola) return false;
   return true;
@@ -63,7 +64,7 @@ function profileComplete(user: User | null) {
 
 function isUserApproved(user: User | null) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
+  if (isAdminUser(user)) return true;
   return user.status === 'approved';
 }
 

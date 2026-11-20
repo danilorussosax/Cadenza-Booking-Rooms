@@ -41,6 +41,7 @@ const { gdprLimiter } = require('../middleware/rateLimit');
 const logger = require('../lib/logger');
 const { cancelMany } = require('../services/bookingLifecycle');
 const { domainError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 const router = express.Router();
 
@@ -189,7 +190,7 @@ router.get('/export', authenticate, requireApproved, gdprLimiter, async (req, re
 router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    if (req.user.role === 'admin') {
+    if (isAdmin(req.user)) {
       // Un admin non può cancellarsi via self-service: deve essere fatto da
       // un altro admin per evitare lock-out e per garantire una catena
       // di responsabilità.
