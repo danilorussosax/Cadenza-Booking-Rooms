@@ -135,7 +135,7 @@ export default function AdminBackups() {
       const blob = await backupsApi.download(file);
       saveBlob(blob, file);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download fallito');
+      toast.error(err instanceof Error ? err.message : t('toasts.export.backup_download_failed'));
     }
   };
 

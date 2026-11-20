@@ -27,6 +27,7 @@ import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import type { BookingType } from '@/types';
 import { DAYS_IT, TYPE_OPTIONS } from './shared';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 export function ScheduleEditDialog({
   open,
@@ -41,6 +42,7 @@ export function ScheduleEditDialog({
   existing: MonteOreSchedule | null;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const isEdit = existing !== null;
   const roomsQuery = useQuery({
     queryKey: qk.rooms.bookable(),
@@ -75,7 +77,9 @@ export function ScheduleEditDialog({
         ? monteOreAdminApi.updateSchedule(proposalId, existing.id, form)
         : monteOreAdminApi.addSchedule(proposalId, form),
     onSuccess: () => {
-      toast.success(isEdit ? 'Fascia aggiornata' : 'Fascia aggiunta');
+      toast.success(
+        isEdit ? t('toasts.monte_ore.schedule_updated') : t('toasts.monte_ore.schedule_added'),
+      );
       onSaved();
       onClose();
     },

@@ -2284,5 +2284,169 @@
     "empty_subtitle": "Es gibt keine Mitteilungen anzuzeigen.",
     "pinned": "Angeheftet",
     "expires": "Gültig bis"
+  },
+  "toasts": {
+    "csv": {
+      "created_updated": "Import abgeschlossen · {{created}} erstellt, {{updated}} aktualisiert",
+      "created_updated_skipped": "Import abgeschlossen · {{created}} erstellt, {{updated}} aktualisiert, {{skipped}} übersprungen",
+      "rooms_equipment": "Import abgeschlossen · {{rooms}} Räume, {{equipment}} Instrumente",
+      "created_existing": "Import abgeschlossen · {{created}} erstellt, {{skipped}} bereits vorhanden",
+      "instruments": "{{total}} Instrumente · {{created}} erstellt · {{updated}} aktualisiert"
+    },
+    "structure": {
+      "building_updated": "Gebäude aktualisiert",
+      "building_created": "Gebäude erstellt",
+      "room_updated": "Raum aktualisiert",
+      "room_created": "Raum erstellt",
+      "institute_updated": "Institut aktualisiert",
+      "institute_created": "Institut erstellt",
+      "logo_updated": "Logo aktualisiert",
+      "logo_removed": "Logo entfernt",
+      "equipment_updated": "Instrument aktualisiert",
+      "equipment_added": "Instrument hinzugefügt",
+      "template_updated": "Ausstattung aktualisiert",
+      "template_created": "Ausstattung erstellt",
+      "template_deleted": "Ausstattung gelöscht",
+      "templates_deleted_one": "{{count}} Ausstattung gelöscht",
+      "templates_deleted_other": "{{count}} Ausstattungen gelöscht",
+      "level_updated": "Stufe aktualisiert",
+      "level_created": "Stufe erstellt",
+      "level_deleted": "Stufe gelöscht",
+      "levels_deleted_one": "{{count}} Stufe gelöscht",
+      "levels_deleted_other": "{{count}} Stufen gelöscht"
+    },
+    "courses": {
+      "course_updated": "Studiengang aktualisiert",
+      "course_created": "Studiengang erstellt",
+      "course_deleted": "Studiengang gelöscht",
+      "courses_deleted_one": "{{count}} Studiengang gelöscht",
+      "courses_deleted_other": "{{count}} Studiengänge gelöscht"
+    },
+    "contract_types": {
+      "created": "Typ erstellt",
+      "updated": "Typ aktualisiert",
+      "removed": "Typ entfernt",
+      "remove_confirm": "\"{{label}}\" entfernen? Der Vorgang wird blockiert, wenn Lehrkräfte diesen Typ verwenden."
+    },
+    "users": {
+      "email_reactivated": "E-Mail-Adresse reaktiviert",
+      "user_updated": "Benutzer aktualisiert",
+      "user_created": "Benutzer erstellt"
+    },
+    "mail": {
+      "template_reset": "Vorlage auf Standardwerte zurückgesetzt",
+      "placeholder_added": "{{placeholder}} hinzugefügt",
+      "smtp_saved": "SMTP-Konfiguration gespeichert",
+      "test_sent": "Test-E-Mail an {{to}} gesendet",
+      "test_failed": "Fehler beim Testversand",
+      "outbox_requeued": "E-Mail für den nächsten Durchlauf erneut eingereiht",
+      "outbox_deleted": "E-Mail aus der Warteschlange gelöscht",
+      "outbox_delete_confirm": "Die E-Mail an {{to}} endgültig löschen?"
+    },
+    "oauth": {
+      "gate_load_error": "Fehler beim Laden der Gate-Einstellungen",
+      "mapping_load_error": "Fehler beim Laden des Mappings",
+      "users_load_error": "Fehler beim Laden der Benutzer",
+      "gate_saved_restart": "Gespeichert. Ein Neustart ist erforderlich, um den OAuth-Scope anzuwenden.",
+      "gate_saved": "Gate-Einstellungen gespeichert.",
+      "gate_save_error": "Fehler beim Speichern des Gates",
+      "mapping_group_required": "Jede Zeile muss eine Gruppe haben",
+      "mapping_saved": "Mapping gespeichert — aktiv ab der nächsten Anmeldung",
+      "mapping_save_error": "Fehler beim Speichern des Mappings",
+      "role_realigned": "Rolle für {{email}} neu abgeglichen",
+      "realign_error": "Fehler beim Neuabgleich",
+      "settings_saved": "OAuth-Einstellungen gespeichert"
+    },
+    "bookings": {
+      "cancelled": "Buchung storniert",
+      "swapped": "Buchungen getauscht",
+      "swap_confirm": "Raum und Uhrzeit zwischen den beiden ausgewählten Buchungen tauschen?"
+    },
+    "consent": {
+      "thanks": "Danke, die Einwilligungen wurden gespeichert."
+    },
+    "monte_ore": {
+      "year_started": "Studienjahr {{year}} gestartet",
+      "start_removed": "Start entfernt: automatische Logik wiederhergestellt",
+      "year_status_updated": "Jahresstatus aktualisiert",
+      "exam_session_deleted": "Prüfungstermin gelöscht",
+      "exam_session_delete_confirm": "Den Prüfungstermin \"{{name}}\" löschen?",
+      "exam_session_updated": "Prüfungstermin aktualisiert",
+      "exam_session_created": "Prüfungstermin erstellt",
+      "excel_imported": "Import abgeschlossen für {{name}} ({{count}} Zeitfenster)",
+      "year_published": "Studienjahr {{year}} veröffentlicht",
+      "year_saved_draft": "Studienjahr {{year}} als Entwurf gespeichert",
+      "amendment_approved": "Änderung genehmigt",
+      "amendment_rejected": "Änderung abgelehnt",
+      "proposal_rejected": "Vorschlag abgelehnt",
+      "bookings_created": "Buchungen erstellt: {{count}}",
+      "bookings_created_skipped": "Buchungen erstellt: {{count}} ({{skipped}} übersprungen)",
+      "bookings_cleared": "Buchungen storniert: {{count}}",
+      "proposal_reverted": "Vorschlag in den Entwurf zurückgesetzt: Die Lehrkraft wurde benachrichtigt",
+      "schedule_updated": "Zeitfenster aktualisiert",
+      "schedule_added": "Zeitfenster hinzugefügt",
+      "grid_confirm": "Diese Änderung entfernt {{count}} ausgewählte Termine. Bestätigen?",
+      "grid_regenerated": "Raster neu erzeugt: {{count}} Zellen",
+      "amendment_auto_applied": "Änderung automatisch angewendet",
+      "request_sent": "Anfrage an den Koordinator gesendet",
+      "time_updated": "Uhrzeit aktualisiert",
+      "time_request_sent": "Anfrage zur Zeitänderung an den Koordinator gesendet",
+      "room_request_sent": "Anfrage zum Raumwechsel an den Koordinator gesendet",
+      "lesson_moved": "Unterricht verschoben",
+      "move_request_sent": "Verschiebungsanfrage an den Koordinator gesendet",
+      "row_deleted": "Zeile gelöscht",
+      "proposal_sent": "Vorschlag an den Koordinator gesendet",
+      "settings_saved": "Einstellungen gespeichert",
+      "template_downloaded": "Excel-Vorlage heruntergeladen",
+      "suspension_deleted": "Unterbrechung gelöscht",
+      "suspension_delete_confirm": "\"{{name}}\" löschen?",
+      "suspension_created": "Unterbrechung erstellt",
+      "suspension_updated": "Unterbrechung aktualisiert"
+    },
+    "pwa": {
+      "update_available": "Aktualisierung verfügbar",
+      "update_description": "Neu laden, um die neue Version anzuwenden.",
+      "update_reload": "Neu laden"
+    },
+    "booking_types": {
+      "type_updated": "Typ \"{{label}}\" aktualisiert"
+    },
+    "export": {
+      "excel_ok": "Export OK — {{rows}} Zeilen in {{ms}} ms",
+      "excel_failed": "Export fehlgeschlagen",
+      "analytics_error": "Exportfehler",
+      "backup_download_failed": "Download fehlgeschlagen"
+    },
+    "qr": {
+      "regenerated": "QR-Code neu erzeugt. Drucken Sie die neue Version aus und ersetzen Sie die Kopie im Raum.",
+      "all_regenerated": "{{count}} QR-Codes neu erzeugt",
+      "regenerate_all_confirm": "QR-Codes ALLER Räume neu erzeugen?\nSie müssen jeden physischen QR-Code neu drucken und ersetzen.",
+      "regenerate_one_confirm": "QR-Code von \"{{name}}\" neu erzeugen?\nDer vorhandene physische QR-Code funktioniert dann nicht mehr.",
+      "checkin_enabled": "Check-in für {{name}} aktiviert",
+      "checkin_disabled": "Check-in für {{name}} deaktiviert",
+      "checkin_settings_saved": "Check-in-Einstellungen gespeichert",
+      "cidr_exists": "CIDR bereits vorhanden",
+      "own_ip_exists": "Ihre IP-Adresse ist bereits in der Liste"
+    },
+    "rules": {
+      "exception_updated": "Ausnahme aktualisiert",
+      "exception_created": "Ausnahme erstellt",
+      "exception_deleted": "Ausnahme gelöscht",
+      "exception_delete_confirm": "Die Ausnahme \"{{name}}\" löschen?",
+      "overlap_cancelled_one": "{{count}} Buchung storniert",
+      "overlap_cancelled_other": "{{count}} Buchungen storniert",
+      "overlap_cancelled_monte_ore_one": "{{count}} Buchung storniert ({{slots}} Stundenkontingent-Slots deaktiviert)",
+      "overlap_cancelled_monte_ore_other": "{{count}} Buchungen storniert ({{slots}} Stundenkontingent-Slots deaktiviert)",
+      "rules_updated": "Regeln aktualisiert"
+    },
+    "profile": {
+      "password_updated": "Passwort aktualisiert",
+      "export_downloaded": "Export heruntergeladen: {{filename}}",
+      "marketing_on": "Marketing-Einwilligung aktiviert",
+      "marketing_off": "Marketing-Einwilligung widerrufen",
+      "account_deleted": "Konto gelöscht. Bis bald.",
+      "photo_updated": "Profilfoto aktualisiert",
+      "photo_removed": "Profilfoto entfernt"
+    }
   }
 }

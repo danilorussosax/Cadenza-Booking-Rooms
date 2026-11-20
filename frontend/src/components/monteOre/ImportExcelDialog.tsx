@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { invalidateMonteOreImport } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 /** Limite hard-coded sul backend: 5 MB. Mostriamo errore client prima di
  * spedire payload inutilmente grandi. */
@@ -64,6 +65,7 @@ function formatBytes(bytes: number): string {
  *   3d. Altri errori → alert generico.
  */
 export function ImportExcelDialog({ open, onClose, academicYear }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
 
   // File scelto (drag-drop o input). Null finché l'utente non seleziona.
@@ -135,7 +137,10 @@ export function ImportExcelDialog({ open, onClose, academicYear }: Props) {
       // Mostra anche un toast: il pannello in-dialog cattura i dettagli, il
       // toast resta visibile dopo eventuale chiusura immediata.
       toast.success(
-        `Import completato per ${data.user.fullName} (${data.summary.schedulesCreated} fasce)`,
+        t('toasts.monte_ore.excel_imported', {
+          name: data.user.fullName,
+          count: data.summary.schedulesCreated,
+        }),
       );
       void invalidateMonteOreImport(qc);
     },

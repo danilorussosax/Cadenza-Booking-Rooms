@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import type { Institute, SubProcessor } from '@/types';
 import { invalidateInstituteProfile } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome dell’istituto'),
@@ -85,6 +86,7 @@ interface Props {
 }
 
 export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!institute;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -163,7 +165,9 @@ export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
         : structureApi.createInstitute(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Istituto aggiornato' : 'Istituto creato');
+      toast.success(
+        isEdit ? t('toasts.structure.institute_updated') : t('toasts.structure.institute_created'),
+      );
       void invalidateInstituteProfile(qc);
       onOpenChange(false);
     },
@@ -336,6 +340,7 @@ export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
 // Sub-component: upload del logo dell'istituto su file system
 // =====================================================
 function LogoUploader({ institute }: { institute: Institute }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -343,7 +348,7 @@ function LogoUploader({ institute }: { institute: Institute }) {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => structureApi.uploadInstituteLogo(institute.id, file),
     onSuccess: () => {
-      toast.success('Logo aggiornato');
+      toast.success(t('toasts.structure.logo_updated'));
       void invalidateInstituteProfile(qc);
     },
     onError: (err) => {
@@ -354,7 +359,7 @@ function LogoUploader({ institute }: { institute: Institute }) {
   const deleteMutation = useMutation({
     mutationFn: () => structureApi.deleteInstituteLogo(institute.id),
     onSuccess: () => {
-      toast.success('Logo rimosso');
+      toast.success(t('toasts.structure.logo_removed'));
       void invalidateInstituteProfile(qc);
     },
     onError: (err) => {

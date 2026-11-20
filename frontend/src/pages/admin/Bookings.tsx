@@ -104,7 +104,7 @@ export function AdminBookingsContent() {
       return bookingsApi.swap(ids[0], ids[1]);
     },
     onSuccess: () => {
-      toast.success('Prenotazioni scambiate');
+      toast.success(t('toasts.bookings.swapped'));
       void invalidateBookings(qc);
       setSelected(new Set());
     },
@@ -154,11 +154,7 @@ export function AdminBookingsContent() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          'Scambiare aula e orario tra le due prenotazioni selezionate?',
-                        )
-                      ) {
+                      if (window.confirm(t('toasts.bookings.swap_confirm'))) {
                         swapMutation.mutate();
                       }
                     }}

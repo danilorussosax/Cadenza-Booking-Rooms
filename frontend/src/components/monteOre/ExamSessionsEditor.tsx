@@ -20,6 +20,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { qk } from '@/lib/queryKeys';
 import { invalidateExamSessions } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   academicYear: string;
@@ -33,6 +34,7 @@ type EditorMode = { kind: 'add' } | { kind: 'edit'; session: MonteOreSuspension 
  * Tutte le mutazioni invalidano `['examSessions', academicYear]`.
  */
 export function ExamSessionsEditor({ academicYear }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [editor, setEditor] = useState<EditorMode>(null);
 
@@ -45,7 +47,7 @@ export function ExamSessionsEditor({ academicYear }: Props) {
   const removeMutation = useMutation({
     mutationFn: (id: number) => monteOreAdminApi.deleteExamSession(id),
     onSuccess: () => {
-      toast.success('Sessione eliminata');
+      toast.success(t('toasts.monte_ore.exam_session_deleted'));
       void invalidateExamSessions(qc, academicYear);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -111,7 +113,11 @@ export function ExamSessionsEditor({ academicYear }: Props) {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          if (confirm(`Eliminare la sessione "${s.name}"?`)) {
+                          if (
+                            confirm(
+                              t('toasts.monte_ore.exam_session_delete_confirm', { name: s.name }),
+                            )
+                          ) {
                             removeMutation.mutate(s.id);
                           }
                         }}
@@ -146,6 +152,7 @@ interface DialogProps {
 }
 
 function ExamSessionDialog({ academicYear, mode, onClose }: DialogProps) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = mode.kind === 'edit';
   const existing = isEdit ? mode.session : null;
@@ -171,7 +178,11 @@ function ExamSessionDialog({ academicYear, mode, onClose }: DialogProps) {
       return monteOreAdminApi.createExamSession(form);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Sessione aggiornata' : 'Sessione creata');
+      toast.success(
+        isEdit
+          ? t('toasts.monte_ore.exam_session_updated')
+          : t('toasts.monte_ore.exam_session_created'),
+      );
       void invalidateExamSessions(qc, academicYear);
       onClose();
     },

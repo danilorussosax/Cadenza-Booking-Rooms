@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { invalidateMailTemplates } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   template: MailTemplate;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function MailTemplateEditor({ template, availableVariables }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [subject, setSubject] = useState(template.subject);
   const [bodyHtml, setBodyHtml] = useState(template.bodyHtml);
@@ -41,7 +43,7 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
   const saveMutation = useMutation({
     mutationFn: () => mailTemplatesApi.update(template.kind, { subject, bodyHtml, isEnabled }),
     onSuccess: () => {
-      toast.success(`Template "${template.label}" salvato`);
+      toast.success(t('booking.template.saved_toast', { name: template.label }));
       void invalidateMailTemplates(qc);
     },
     onError: (err) => {
@@ -51,11 +53,11 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
 
   const resetMutation = useMutation({
     mutationFn: () => mailTemplatesApi.reset(template.kind),
-    onSuccess: ({ template: t }) => {
-      setSubject(t.subject);
-      setBodyHtml(t.bodyHtml);
-      setIsEnabled(t.isEnabled);
-      toast.success('Template ripristinato ai valori di default');
+    onSuccess: ({ template: restored }) => {
+      setSubject(restored.subject);
+      setBodyHtml(restored.bodyHtml);
+      setIsEnabled(restored.isEnabled);
+      toast.success(t('toasts.mail.template_reset'));
       void invalidateMailTemplates(qc);
     },
     onError: (err) => {
@@ -77,7 +79,7 @@ export function MailTemplateEditor({ template, availableVariables }: Props) {
   const insertVar = (varName: string) => {
     const placeholder = `{{${varName}}}`;
     setBodyHtml((b) => b + placeholder);
-    toast.success(`Aggiunto ${placeholder}`);
+    toast.success(t('toasts.mail.placeholder_added', { placeholder }));
   };
 
   const variablesUsed = useMemo(

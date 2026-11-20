@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 function formatRelative(iso: string | null): string {
   if (!iso) return 'mai';
@@ -45,6 +46,7 @@ function formatBytes(b: number): string {
  *   - bottoni "Rigenera ora" e "Scarica ora"
  */
 export default function AdminExcelExport() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const statusQuery = useQuery({
     queryKey: qk.admin.excelExportStatus(),
@@ -56,10 +58,10 @@ export default function AdminExcelExport() {
     mutationFn: () => excelExportApi.exportNow(),
     onSuccess: (r) => {
       if (r.ok) {
-        toast.success(`Export OK — ${r.rowCount} righe in ${r.durationMs} ms`);
+        toast.success(t('toasts.export.excel_ok', { rows: r.rowCount, ms: r.durationMs }));
         void qc.invalidateQueries({ queryKey: qk.admin.excelExportStatus() });
       } else {
-        toast.error('Export fallito', { description: r.reason });
+        toast.error(t('toasts.export.excel_failed'), { description: r.reason });
       }
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

@@ -14,7 +14,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { initSentry } from '@/lib/sentry';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { bumpVisitCount, setupPwa } from '@/lib/pwa';
-import '@/i18n';
+import i18n from '@/i18n';
 import './index.css';
 
 // Sentry: init prima del render così cattura errori di mount. No-op senza
@@ -24,10 +24,10 @@ initSentry();
 // PWA: registra service worker + listener install prompt. In dev è no-op.
 // La toast "Nuova versione disponibile" usa Sonner (già montato sotto).
 setupPwa((reload) => {
-  toast.message('Aggiornamento disponibile', {
-    description: 'Ricarica per applicare la nuova versione.',
+  toast.message(i18n.t('toasts.pwa.update_available'), {
+    description: i18n.t('toasts.pwa.update_description'),
     duration: Infinity,
-    action: { label: 'Ricarica', onClick: reload },
+    action: { label: i18n.t('toasts.pwa.update_reload'), onClick: reload },
   });
 });
 

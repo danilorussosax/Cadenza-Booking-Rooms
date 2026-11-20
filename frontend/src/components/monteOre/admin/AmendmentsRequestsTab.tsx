@@ -12,8 +12,10 @@ import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
 import { qk } from '@/lib/queryKeys';
 import { invalidateAdminAmendments } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 export function AmendmentsRequestsTab() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
   const listQuery = useQuery({
@@ -26,7 +28,7 @@ export function AmendmentsRequestsTab() {
     mutationFn: ({ pid, aid, roomId }: { pid: number; aid: number; roomId?: number }) =>
       monteOreAdminApi.approveAmendment(pid, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
-      toast.success('Variazione approvata');
+      toast.success(t('toasts.monte_ore.amendment_approved'));
       void invalidateAdminAmendments(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -36,7 +38,7 @@ export function AmendmentsRequestsTab() {
     mutationFn: ({ pid, aid, reason }: { pid: number; aid: number; reason: string }) =>
       monteOreAdminApi.rejectAmendment(pid, aid, reason),
     onSuccess: () => {
-      toast.success('Variazione rifiutata');
+      toast.success(t('toasts.monte_ore.amendment_rejected'));
       void invalidateAdminAmendments(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

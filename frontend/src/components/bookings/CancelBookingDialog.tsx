@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import type { Booking } from '@/types';
 import { invalidateBookings } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   booking: Booking | null;
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function CancelBookingDialog({ booking, onClose }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export function CancelBookingDialog({ booking, onClose }: Props) {
       return bookingsApi.cancel(booking.id, reason.trim() || undefined);
     },
     onSuccess: () => {
-      toast.success('Prenotazione annullata');
+      toast.success(t('toasts.bookings.cancelled'));
       void invalidateBookings(qc);
       handleClose();
     },

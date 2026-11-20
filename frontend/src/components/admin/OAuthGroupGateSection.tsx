@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import i18n from 'i18next';
 import {
   LoaderCircle,
   Save,
@@ -25,6 +26,7 @@ import {
   type UserOverviewRow,
   type CadenzaRole,
 } from '@/api/groupRoleMap';
+import { useTranslation } from 'react-i18next';
 
 const ROLES: CadenzaRole[] = ['admin', 'docente', 'studente'];
 const SELECT_CLS =
@@ -45,6 +47,7 @@ interface GateForm {
 }
 
 export function OAuthGroupGateSection() {
+  const { t } = useTranslation();
   const [gate, setGate] = useState<GateForm | null>(null);
   const [savingGate, setSavingGate] = useState(false);
 
@@ -68,7 +71,7 @@ export function OAuthGroupGateSection() {
           groupDirezione: s.groupDirezione,
         }),
       )
-      .catch(() => toast.error('Errore nel caricamento delle impostazioni gate'));
+      .catch(() => toast.error(i18n.t('toasts.oauth.gate_load_error')));
   }, []);
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export function OAuthGroupGateSection() {
         setRules(d.rules);
         setTenantGroups(d.tenantGroups);
       })
-      .catch(() => toast.error('Errore nel caricamento del mapping'))
+      .catch(() => toast.error(i18n.t('toasts.oauth.mapping_load_error')))
       .finally(() => setLoadingMap(false));
   }, []);
 
@@ -87,7 +90,7 @@ export function OAuthGroupGateSection() {
     usersOverviewApi
       .list()
       .then((d) => setUsers(d.users))
-      .catch(() => toast.error('Errore nel caricamento utenti'))
+      .catch(() => toast.error(i18n.t('toasts.oauth.users_load_error')))
       .finally(() => setLoadingUsers(false));
   }, []);
 
@@ -102,12 +105,10 @@ export function OAuthGroupGateSection() {
     try {
       const { restartRequired } = await oauthSettingsApi.update(gate);
       toast.success(
-        restartRequired
-          ? 'Salvato. Riavvio richiesto per applicare lo scope OAuth.'
-          : 'Impostazioni gate salvate.',
+        restartRequired ? t('toasts.oauth.gate_saved_restart') : t('toasts.oauth.gate_saved'),
       );
     } catch {
-      toast.error('Errore nel salvataggio del gate');
+      toast.error(t('toasts.oauth.gate_save_error'));
     } finally {
       setSavingGate(false);
     }
@@ -124,16 +125,16 @@ export function OAuthGroupGateSection() {
 
   const saveMap = async () => {
     if (rules.some((r) => !r.groupDisplayName.trim())) {
-      toast.error('Ogni riga deve avere un gruppo');
+      toast.error(t('toasts.oauth.mapping_group_required'));
       return;
     }
     setSavingMap(true);
     try {
       await groupRoleMapApi.update(rules);
-      toast.success('Mapping salvato — attivo al prossimo login');
+      toast.success(t('toasts.oauth.mapping_saved'));
       loadUsers();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Errore nel salvataggio del mapping');
+      toast.error(e instanceof Error ? e.message : t('toasts.oauth.mapping_save_error'));
     } finally {
       setSavingMap(false);
     }
@@ -142,10 +143,10 @@ export function OAuthGroupGateSection() {
   const realign = async (email: string) => {
     try {
       await usersOverviewApi.realign(email);
-      toast.success(`Ruolo riallineato per ${email}`);
+      toast.success(t('toasts.oauth.role_realigned', { email }));
       loadUsers();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Errore nel riallineamento');
+      toast.error(e instanceof Error ? e.message : t('toasts.oauth.realign_error'));
     }
   };
 

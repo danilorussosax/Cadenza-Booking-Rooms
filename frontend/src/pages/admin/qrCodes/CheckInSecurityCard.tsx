@@ -13,11 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // 1) Sicurezza check-in: toggle + CIDR allowlist
 // =====================================================
 export function CheckInSecurityCard() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: qk.admin.checkinSettings(),
@@ -44,7 +46,7 @@ export function CheckInSecurityCard() {
         instituteNetworkCidrs: cidrs,
       }),
     onSuccess: (data) => {
-      toast.success('Impostazioni check-in salvate');
+      toast.success(t('toasts.qr.checkin_settings_saved'));
       void qc.invalidateQueries({ queryKey: qk.admin.checkinSettings() });
       if (data.warnings.length > 0) {
         for (const w of data.warnings) toast.warning(w);
@@ -68,7 +70,7 @@ export function CheckInSecurityCard() {
     const v = draft.trim();
     if (!v) return;
     if (cidrs.includes(v)) {
-      toast.warning('CIDR già presente');
+      toast.warning(t('toasts.qr.cidr_exists'));
       return;
     }
     setCidrs((prev) => [...prev, v]);
@@ -81,7 +83,7 @@ export function CheckInSecurityCard() {
     const isV6 = callerIp.includes(':');
     const candidate = `${callerIp}/${isV6 ? 128 : 32}`;
     if (cidrs.includes(candidate)) {
-      toast.warning('Il tuo IP è già nella lista');
+      toast.warning(t('toasts.qr.own_ip_exists'));
       return;
     }
     setCidrs((prev) => [...prev, candidate]);

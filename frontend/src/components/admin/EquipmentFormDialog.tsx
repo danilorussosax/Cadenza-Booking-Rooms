@@ -31,6 +31,7 @@ import {
 import type { Equipment, EquipmentType } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateEquipment } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
@@ -65,6 +66,7 @@ interface Props {
 }
 
 export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!equipment;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -128,7 +130,9 @@ export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: P
         : structureApi.createEquipment(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Strumento aggiornato' : 'Strumento aggiunto');
+      toast.success(
+        isEdit ? t('toasts.structure.equipment_updated') : t('toasts.structure.equipment_added'),
+      );
       void invalidateEquipment(qc);
       onOpenChange(false);
     },

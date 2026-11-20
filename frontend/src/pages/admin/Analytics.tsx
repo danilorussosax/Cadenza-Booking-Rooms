@@ -73,7 +73,7 @@ export default function AdminAnalytics() {
           : await analyticsApi.downloadPdf(appliedRange.from, appliedRange.to);
       saveBlob(blob, `analytics-${appliedRange.from}-${appliedRange.to}.${kind}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Errore export');
+      toast.error(err instanceof Error ? err.message : t('toasts.export.analytics_error'));
     }
   };
 

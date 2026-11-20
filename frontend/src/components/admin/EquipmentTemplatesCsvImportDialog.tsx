@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { invalidateEquipmentTemplates } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 const SAMPLE_CSV = `Dotazione
 Pianoforte verticale
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [csv, setCsv] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -68,7 +70,9 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
     onSuccess: ({ result }) => {
       setResult(result);
       void invalidateEquipmentTemplates(qc);
-      toast.success(`Import completato · ${result.created} create, ${result.skipped} esistenti`);
+      toast.success(
+        t('toasts.csv.created_existing', { created: result.created, skipped: result.skipped }),
+      );
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));

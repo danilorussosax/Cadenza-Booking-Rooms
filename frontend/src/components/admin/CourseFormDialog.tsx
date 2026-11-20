@@ -27,6 +27,7 @@ import {
 import type { Course, CourseLevel } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateCourses } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   code: z.string().min(1, 'Inserisci il codice').max(20, 'Massimo 20 caratteri'),
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export function CourseFormDialog({ open, onOpenChange, course }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!course;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -114,7 +116,9 @@ export function CourseFormDialog({ open, onOpenChange, course }: Props) {
       return isEdit ? coursesApi.update(course.id, payload) : coursesApi.create(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Corso aggiornato' : 'Corso creato');
+      toast.success(
+        isEdit ? t('toasts.courses.course_updated') : t('toasts.courses.course_created'),
+      );
       void invalidateCourses(qc);
       onOpenChange(false);
     },

@@ -13,11 +13,13 @@ import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { passwordSchema, type PasswordValues } from './schemas';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Password section
 // =====================================================
 export function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
+  const { t } = useTranslation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -40,7 +42,7 @@ export function PasswordSection({ isOAuthUser }: { isOAuthUser: boolean }) {
       // nuovo JWT: senza salvarlo, la prossima richiesta riceverebbe
       // TOKEN_REVOKED e l'utente verrebbe sloggato spuriamente.
       if (token) tokenStore.set(token);
-      toast.success('Password aggiornata');
+      toast.success(t('toasts.profile.password_updated'));
       reset({ currentPassword: '', newPassword: '', confirmPassword: '' });
     },
     onError: (err) => {

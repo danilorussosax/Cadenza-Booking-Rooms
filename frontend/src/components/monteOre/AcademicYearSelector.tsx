@@ -31,6 +31,7 @@ import {
 import { NewAcademicYearDialog } from './NewAcademicYearDialog';
 import { qk } from '@/lib/queryKeys';
 import { invalidateMonteOre, invalidateMonteOreUser } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const LS_KEY = 'monteOre.admin.selectedYear';
 
@@ -96,6 +97,7 @@ interface Props {
  *   primo render (value undefined) viene usato lo storage o il `default`.
  */
 export function AdminAcademicYearSelector({ value, onChange }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const yearsQuery = useQuery({
     queryKey: qk.monteOre.academicYearsAdmin(),
@@ -116,9 +118,9 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     onSuccess: (res, vars) => {
       void invalidateMonteOreUser(queryClient);
       if (vars.active) {
-        toast.success(`AA ${vars.year} avviato`);
+        toast.success(t('toasts.monte_ore.year_started', { year: vars.year }));
       } else {
-        toast.success('Avvio rimosso: ripristinata logica automatica');
+        toast.success(t('toasts.monte_ore.start_removed'));
       }
     },
     onError: (err: Error) => toast.error(err.message),
@@ -129,7 +131,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
       monteOreAdminApi.setAcademicYearStatus(year, status),
     onSuccess: () => {
       void invalidateMonteOre(queryClient);
-      toast.success('Stato anno aggiornato');
+      toast.success(t('toasts.monte_ore.year_status_updated'));
     },
     onError: (err: Error) => toast.error(err.message),
   });

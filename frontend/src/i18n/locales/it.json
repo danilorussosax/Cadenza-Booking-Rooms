@@ -2284,5 +2284,169 @@
     "empty_subtitle": "Non ci sono comunicazioni da mostrare.",
     "pinned": "In evidenza",
     "expires": "Scade il"
+  },
+  "toasts": {
+    "csv": {
+      "created_updated": "Import completato · {{created}} creati, {{updated}} aggiornati",
+      "created_updated_skipped": "Import completato · {{created}} creati, {{updated}} aggiornati, {{skipped}} saltati",
+      "rooms_equipment": "Import completato · {{rooms}} aule, {{equipment}} strumenti",
+      "created_existing": "Import completato · {{created}} create, {{skipped}} esistenti",
+      "instruments": "{{total}} strumenti · {{created}} creati · {{updated}} aggiornati"
+    },
+    "structure": {
+      "building_updated": "Edificio aggiornato",
+      "building_created": "Edificio creato",
+      "room_updated": "Aula aggiornata",
+      "room_created": "Aula creata",
+      "institute_updated": "Istituto aggiornato",
+      "institute_created": "Istituto creato",
+      "logo_updated": "Logo aggiornato",
+      "logo_removed": "Logo rimosso",
+      "equipment_updated": "Strumento aggiornato",
+      "equipment_added": "Strumento aggiunto",
+      "template_updated": "Dotazione aggiornata",
+      "template_created": "Dotazione creata",
+      "template_deleted": "Dotazione eliminata",
+      "templates_deleted_one": "{{count}} dotazione eliminata",
+      "templates_deleted_other": "{{count}} dotazioni eliminate",
+      "level_updated": "Livello aggiornato",
+      "level_created": "Livello creato",
+      "level_deleted": "Livello eliminato",
+      "levels_deleted_one": "{{count}} livello eliminato",
+      "levels_deleted_other": "{{count}} livelli eliminati"
+    },
+    "courses": {
+      "course_updated": "Corso aggiornato",
+      "course_created": "Corso creato",
+      "course_deleted": "Corso eliminato",
+      "courses_deleted_one": "{{count}} corso eliminato",
+      "courses_deleted_other": "{{count}} corsi eliminati"
+    },
+    "contract_types": {
+      "created": "Tipologia creata",
+      "updated": "Tipologia aggiornata",
+      "removed": "Tipologia rimossa",
+      "remove_confirm": "Rimuovere \"{{label}}\"? L'operazione è bloccata se ci sono docenti che usano questo tipo."
+    },
+    "users": {
+      "email_reactivated": "Indirizzo email riattivato",
+      "user_updated": "Utente aggiornato",
+      "user_created": "Utente creato"
+    },
+    "mail": {
+      "template_reset": "Template ripristinato ai valori di default",
+      "placeholder_added": "Aggiunto {{placeholder}}",
+      "smtp_saved": "Configurazione SMTP salvata",
+      "test_sent": "Email di test inviata a {{to}}",
+      "test_failed": "Errore invio test",
+      "outbox_requeued": "Email rimessa in coda per il prossimo tick",
+      "outbox_deleted": "Email eliminata dalla coda",
+      "outbox_delete_confirm": "Eliminare definitivamente l'email a {{to}}?"
+    },
+    "oauth": {
+      "gate_load_error": "Errore nel caricamento delle impostazioni gate",
+      "mapping_load_error": "Errore nel caricamento del mapping",
+      "users_load_error": "Errore nel caricamento utenti",
+      "gate_saved_restart": "Salvato. Riavvio richiesto per applicare lo scope OAuth.",
+      "gate_saved": "Impostazioni gate salvate.",
+      "gate_save_error": "Errore nel salvataggio del gate",
+      "mapping_group_required": "Ogni riga deve avere un gruppo",
+      "mapping_saved": "Mapping salvato — attivo al prossimo login",
+      "mapping_save_error": "Errore nel salvataggio del mapping",
+      "role_realigned": "Ruolo riallineato per {{email}}",
+      "realign_error": "Errore nel riallineamento",
+      "settings_saved": "Impostazioni OAuth salvate"
+    },
+    "bookings": {
+      "cancelled": "Prenotazione annullata",
+      "swapped": "Prenotazioni scambiate",
+      "swap_confirm": "Scambiare aula e orario tra le due prenotazioni selezionate?"
+    },
+    "consent": {
+      "thanks": "Grazie, consensi registrati."
+    },
+    "monte_ore": {
+      "year_started": "AA {{year}} avviato",
+      "start_removed": "Avvio rimosso: ripristinata logica automatica",
+      "year_status_updated": "Stato anno aggiornato",
+      "exam_session_deleted": "Sessione eliminata",
+      "exam_session_delete_confirm": "Eliminare la sessione \"{{name}}\"?",
+      "exam_session_updated": "Sessione aggiornata",
+      "exam_session_created": "Sessione creata",
+      "excel_imported": "Import completato per {{name}} ({{count}} fasce)",
+      "year_published": "AA {{year}} pubblicato",
+      "year_saved_draft": "AA {{year}} salvato in bozza",
+      "amendment_approved": "Variazione approvata",
+      "amendment_rejected": "Variazione rifiutata",
+      "proposal_rejected": "Proposta rifiutata",
+      "bookings_created": "Prenotazioni create: {{count}}",
+      "bookings_created_skipped": "Prenotazioni create: {{count}} ({{skipped}} saltate)",
+      "bookings_cleared": "Prenotazioni cancellate: {{count}}",
+      "proposal_reverted": "Proposta riportata in bozza: il docente è stato avvisato",
+      "schedule_updated": "Fascia aggiornata",
+      "schedule_added": "Fascia aggiunta",
+      "grid_confirm": "La modifica rimuove {{count}} date selezionate. Confermi?",
+      "grid_regenerated": "Griglia rigenerata: {{count}} celle",
+      "amendment_auto_applied": "Variazione applicata automaticamente",
+      "request_sent": "Richiesta inviata al coordinatore",
+      "time_updated": "Orario aggiornato",
+      "time_request_sent": "Richiesta orario inviata al coordinatore",
+      "room_request_sent": "Richiesta cambio aula inviata al coordinatore",
+      "lesson_moved": "Lezione spostata",
+      "move_request_sent": "Richiesta di spostamento inviata al coordinatore",
+      "row_deleted": "Riga eliminata",
+      "proposal_sent": "Proposta inviata al coordinatore",
+      "settings_saved": "Impostazioni salvate",
+      "template_downloaded": "Template Excel scaricato",
+      "suspension_deleted": "Sospensione eliminata",
+      "suspension_delete_confirm": "Eliminare \"{{name}}\"?",
+      "suspension_created": "Sospensione creata",
+      "suspension_updated": "Sospensione aggiornata"
+    },
+    "pwa": {
+      "update_available": "Aggiornamento disponibile",
+      "update_description": "Ricarica per applicare la nuova versione.",
+      "update_reload": "Ricarica"
+    },
+    "booking_types": {
+      "type_updated": "Tipo \"{{label}}\" aggiornato"
+    },
+    "export": {
+      "excel_ok": "Export OK — {{rows}} righe in {{ms}} ms",
+      "excel_failed": "Export fallito",
+      "analytics_error": "Errore export",
+      "backup_download_failed": "Download fallito"
+    },
+    "qr": {
+      "regenerated": "QR-code rigenerato. Stampa la nuova versione e sostituisci la copia in aula.",
+      "all_regenerated": "Rigenerati {{count}} QR-code",
+      "regenerate_all_confirm": "Rigenerare i QR-code di TUTTE le aule?\nDovrai ristampare e sostituire ogni QR fisico.",
+      "regenerate_one_confirm": "Rigenerare il QR di \"{{name}}\"?\nIl QR fisico esistente smetterà di funzionare.",
+      "checkin_enabled": "Check-in attivato per {{name}}",
+      "checkin_disabled": "Check-in disattivato per {{name}}",
+      "checkin_settings_saved": "Impostazioni check-in salvate",
+      "cidr_exists": "CIDR già presente",
+      "own_ip_exists": "Il tuo IP è già nella lista"
+    },
+    "rules": {
+      "exception_updated": "Eccezione aggiornata",
+      "exception_created": "Eccezione creata",
+      "exception_deleted": "Eccezione eliminata",
+      "exception_delete_confirm": "Eliminare l'eccezione \"{{name}}\"?",
+      "overlap_cancelled_one": "{{count}} prenotazioni cancellate",
+      "overlap_cancelled_other": "{{count}} prenotazioni cancellate",
+      "overlap_cancelled_monte_ore_one": "{{count}} prenotazioni cancellate ({{slots}} slot Monte Ore disattivati)",
+      "overlap_cancelled_monte_ore_other": "{{count}} prenotazioni cancellate ({{slots}} slot Monte Ore disattivati)",
+      "rules_updated": "Regole aggiornate"
+    },
+    "profile": {
+      "password_updated": "Password aggiornata",
+      "export_downloaded": "Export scaricato: {{filename}}",
+      "marketing_on": "Consenso marketing attivato",
+      "marketing_off": "Consenso marketing revocato",
+      "account_deleted": "Account eliminato. A presto.",
+      "photo_updated": "Foto profilo aggiornata",
+      "photo_removed": "Foto profilo rimossa"
+    }
   }
 }

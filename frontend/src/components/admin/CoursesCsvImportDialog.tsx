@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { invalidateCourses } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 const SAMPLE_CSV = `SAD;Denominazione
 DCPL34;Pianoforte
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function CoursesCsvImportDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [csv, setCsv] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -68,7 +70,9 @@ export function CoursesCsvImportDialog({ open, onOpenChange }: Props) {
     onSuccess: ({ result }) => {
       setResult(result);
       void invalidateCourses(qc);
-      toast.success(`Import completato · ${result.created} creati, ${result.updated} aggiornati`);
+      toast.success(
+        t('toasts.csv.created_updated', { created: result.created, updated: result.updated }),
+      );
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { monteOreApi, type MonteOreSlot } from '@/api/monteOre';
 import { httpErrorMessage } from '@/lib/api';
 import { invalidateMonteOreMyPlan } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 interface MoveForm {
   newStart: string;
@@ -18,6 +19,7 @@ interface MoveForm {
  * threshold o calendar.
  */
 export function useSlotMoveMutations(slot: MonteOreSlot, form: MoveForm, onClose: () => void) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { newStart, newEnd, newRoomId, targetSlotId, notes } = form;
 
@@ -35,8 +37,8 @@ export function useSlotMoveMutations(slot: MonteOreSlot, form: MoveForm, onClose
     onSuccess: (data) => {
       toast.success(
         data.amendment.status === 'auto_approved'
-          ? 'Orario aggiornato'
-          : 'Richiesta orario inviata al coordinatore',
+          ? t('toasts.monte_ore.time_updated')
+          : t('toasts.monte_ore.time_request_sent'),
       );
       refresh();
       onClose();
@@ -53,7 +55,7 @@ export function useSlotMoveMutations(slot: MonteOreSlot, form: MoveForm, onClose
       });
     },
     onSuccess: () => {
-      toast.success('Richiesta cambio aula inviata al coordinatore');
+      toast.success(t('toasts.monte_ore.room_request_sent'));
       refresh();
       onClose();
     },
@@ -71,8 +73,8 @@ export function useSlotMoveMutations(slot: MonteOreSlot, form: MoveForm, onClose
     onSuccess: (data) => {
       toast.success(
         data.amendment.status === 'auto_approved'
-          ? 'Lezione spostata'
-          : 'Richiesta di spostamento inviata al coordinatore',
+          ? t('toasts.monte_ore.lesson_moved')
+          : t('toasts.monte_ore.move_request_sent'),
       );
       refresh();
       onClose();

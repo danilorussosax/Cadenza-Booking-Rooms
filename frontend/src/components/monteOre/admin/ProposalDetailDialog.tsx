@@ -41,6 +41,7 @@ import {
   resolveProposalThreshold,
 } from './shared';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 const NO_ADMIN_ACTIONS: MonteOreAdminActions = {
   approve: false,
@@ -61,6 +62,7 @@ export function DetailDialog({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [planApprovalOpen, setPlanApprovalOpen] = useState(false);
   const [revalidateOpen, setRevalidateOpen] = useState(false);
@@ -80,7 +82,7 @@ export function DetailDialog({
   const rejectMutation = useMutation({
     mutationFn: (reason: string) => monteOreAdminApi.reject(id, reason),
     onSuccess: () => {
-      toast.success('Proposta rifiutata');
+      toast.success(t('toasts.monte_ore.proposal_rejected'));
       refresh();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -89,8 +91,12 @@ export function DetailDialog({
     mutationFn: (includePast: boolean) => monteOreAdminApi.generate(id, { includePast }),
     onSuccess: (data) => {
       toast.success(
-        `Prenotazioni create: ${data.result.created}` +
-          (data.result.skipped.length ? ` (${data.result.skipped.length} saltate)` : ''),
+        data.result.skipped.length
+          ? t('toasts.monte_ore.bookings_created_skipped', {
+              count: data.result.created,
+              skipped: data.result.skipped.length,
+            })
+          : t('toasts.monte_ore.bookings_created', { count: data.result.created }),
       );
       refresh();
     },
@@ -99,7 +105,7 @@ export function DetailDialog({
   const unlockMutation = useMutation({
     mutationFn: () => monteOreAdminApi.unlock(id),
     onSuccess: (data) => {
-      toast.success(`Prenotazioni cancellate: ${data.cleared.cleared}`);
+      toast.success(t('toasts.monte_ore.bookings_cleared', { count: data.cleared.cleared }));
       refresh();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -109,7 +115,7 @@ export function DetailDialog({
   const revertMutation = useMutation({
     mutationFn: (reason: string) => monteOreAdminApi.revertToDraft(id, reason),
     onSuccess: () => {
-      toast.success('Proposta riportata in bozza: il docente è stato avvisato');
+      toast.success(t('toasts.monte_ore.proposal_reverted'));
       refresh();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

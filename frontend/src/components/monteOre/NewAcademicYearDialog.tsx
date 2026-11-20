@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { invalidateMonteOre } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -52,6 +53,7 @@ export function NewAcademicYearDialog(props: Props) {
 }
 
 function YearForm({ existingYears, suggestedYear, onClose, onCreated }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [payload, setPayload] = useState<BootstrapAcademicYearPayload>({
     academicYear: suggestedYear ?? '',
@@ -84,8 +86,8 @@ function YearForm({ existingYears, suggestedYear, onClose, onCreated }: Props) {
       void invalidateMonteOre(qc);
       toast.success(
         data.settings.status === 'published'
-          ? `AA ${year} pubblicato`
-          : `AA ${year} salvato in bozza`,
+          ? t('toasts.monte_ore.year_published', { year })
+          : t('toasts.monte_ore.year_saved_draft', { year }),
       );
       onCreated?.(year);
       onClose();

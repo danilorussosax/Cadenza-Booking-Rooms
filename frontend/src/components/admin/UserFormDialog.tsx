@@ -36,6 +36,7 @@ import {
 import type { Role, User } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateUsers } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const baseSchema = z.object({
   firstName: z.string().min(1, 'Inserisci il nome'),
@@ -63,6 +64,7 @@ interface Props {
 }
 
 export function UserFormDialog({ open, onOpenChange, user }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!user;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
       return usersApi.resetBounce(user.id);
     },
     onSuccess: () => {
-      toast.success('Indirizzo email riattivato');
+      toast.success(t('toasts.users.email_reactivated'));
       void invalidateUsers(qc);
     },
     onError: (err) => {
@@ -197,7 +199,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
       return result;
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Utente aggiornato' : 'Utente creato');
+      toast.success(isEdit ? t('toasts.users.user_updated') : t('toasts.users.user_created'));
       void invalidateUsers(qc);
       onOpenChange(false);
     },
