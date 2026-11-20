@@ -46,6 +46,19 @@ function audienceMatchesUser(audience, user) {
 }
 
 /**
+ * Determina se un'audience è visibile su un kiosk pubblico (nessun utente).
+ * Normalizza come il feed utente (audience malformata → 'all'): 'all' sempre;
+ * 'building' se `buildingId` è nullo (kiosk generico) o coincide; 'role' e
+ * 'course' non sono pertinenti per il display → mai.
+ */
+function audienceMatchesKiosk(audience, { buildingId = null } = {}) {
+  const a = normalizeAudience(audience);
+  if (a.kind === 'all') return true;
+  if (a.kind === 'building') return buildingId == null || a.value === buildingId;
+  return false;
+}
+
+/**
  * Costruisce un WHERE Sequelize che seleziona gli utenti destinatari di
  * un'audience (per il broadcast email).
  *
@@ -65,5 +78,6 @@ module.exports = {
   VALID_KINDS,
   normalizeAudience,
   audienceMatchesUser,
+  audienceMatchesKiosk,
   audienceMatchesUserWhere,
 };

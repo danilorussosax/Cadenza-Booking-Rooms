@@ -31,12 +31,10 @@ function bookedByLabel(user) {
 // fuso del processo Node.
 const institutionTime = require('../lib/institutionTime');
 const { httpError } = require('../lib/domainError');
+const { computeKioskStats } = require('../services/kioskStats');
+const { audienceMatchesKiosk } = require('../services/audienceMatcher');
 
 const router = express.Router();
-
-// Helper: minutes between two date-like values
-const minutesBetween = (start, end) =>
-  Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / 60000);
 
 // =====================================================
 // GET /api/public/institute
@@ -344,105 +342,7 @@ router.get('/stats', async (req, res) => {
     }),
   ]);
 
-  const inUseRoomIds = new Set(
-    todayBookings
-      .filter(
-        (b) =>
-          new Date(b.startTime).getTime() <= nowDate.getTime() &&
-          new Date(b.endTime).getTime() > nowDate.getTime(),
-      )
-      .map((b) => b.roomId),
-  );
-
-  const todayHours = todayBookings.reduce(
-    (sum, b) => sum + minutesBetween(b.startTime, b.endTime),
-    0,
-  );
-  const weekHours = weekBookings.reduce(
-    (sum, b) => sum + minutesBetween(b.startTime, b.endTime),
-    0,
-  );
-
-  // Top rooms by booked minutes this week
-  const roomMap = new Map();
-  for (const bk of weekBookings) {
-    const r = bk.room;
-    if (!r) continue;
-    const key = r.id;
-    if (!roomMap.has(key)) {
-      roomMap.set(key, {
-        id: r.id,
-        name: r.name,
-        building: r.building?.name ?? '',
-        minutes: 0,
-        count: 0,
-      });
-    }
-    const entry = roomMap.get(key);
-    entry.minutes += minutesBetween(bk.startTime, bk.endTime);
-    entry.count += 1;
-  }
-  const topRooms = Array.from(roomMap.values())
-    .sort((a, b) => b.minutes - a.minutes)
-    .slice(0, 5);
-
-  // Booking types breakdown today
-  const typeMap = new Map();
-  for (const bk of todayBookings) {
-    typeMap.set(bk.type, (typeMap.get(bk.type) || 0) + 1);
-  }
-  const byType = Array.from(typeMap.entries())
-    .map(([type, count]) => ({ type, count }))
-    .sort((a, b) => b.count - a.count);
-
-  // Hour-by-hour booking count today (07-23) — fasce orarie in ora italiana
-  // anche se il processo Node gira in UTC (container/CI/VPS managed).
-  const buckets = new Array(24).fill(0);
-  for (const bk of todayBookings) {
-    const sh = Math.max(0, institutionTime.hourOf(bk.startTime));
-    const eh = Math.min(24, institutionTime.hourOf(bk.endTime) + 1);
-    for (let h = sh; h < eh; h++) buckets[h] += 1;
-  }
-  const bookingsByHour = buckets
-    .map((count, hour) => ({ hour, count }))
-    .filter((b) => b.hour >= 7 && b.hour <= 23);
-
-  // Next concerto today (special event highlight)
-  const nextConcert =
-    todayBookings
-      .filter((b) => b.type === 'concerto' && new Date(b.startTime).getTime() > nowDate.getTime())
-      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0] || null;
-
-  res.json({
-    timestamp: nowDate.toISOString(),
-    today: {
-      bookings: todayBookings.length,
-      inUse: inUseRoomIds.size,
-      roomsTotal,
-      hours: Math.round((todayHours / 60) * 10) / 10,
-      occupancyPct: roomsTotal > 0 ? Math.round((inUseRoomIds.size / roomsTotal) * 100) : 0,
-    },
-    week: {
-      bookings: weekBookings.length,
-      hours: Math.round((weekHours / 60) * 10) / 10,
-    },
-    topRooms,
-    byType,
-    bookingsByHour,
-    nextConcert: nextConcert
-      ? {
-          startTime: nextConcert.startTime,
-          endTime: nextConcert.endTime,
-          purpose: nextConcert.purpose || null,
-          room: nextConcert.room
-            ? {
-                name: nextConcert.room.name,
-                building: nextConcert.room.building?.name ?? '',
-              }
-            : null,
-        }
-      : null,
-  });
+  res.json(computeKioskStats({ todayBookings, weekBookings, now: nowDate, roomsTotal }));
 });
 
 // =====================================================
@@ -477,19 +377,9 @@ router.get('/announcements', async (req, res, next) => {
       limit: limit * 2, // overfetch per filtro audience.building
     });
 
-    // Filtro audience compatibile col kiosk: 'all' sempre; 'building' solo
-    // se buildingId match (o se non specificato → tutti i building);
-    // 'role'/'course' NON sono pertinenti per il display pubblico → escluse.
+    // Filtro audience del kiosk (vedi audienceMatchesKiosk).
     const visible = all
-      .filter((a) => {
-        const aud = a.audience || { kind: 'all' };
-        if (aud.kind === 'all') return true;
-        if (aud.kind === 'building') {
-          if (buildingId == null) return true; // kiosk generico → mostra
-          return Number(aud.value) === buildingId;
-        }
-        return false;
-      })
+      .filter((a) => audienceMatchesKiosk(a.audience, { buildingId }))
       .slice(0, limit)
       .map((a) => ({
         id: a.id,
