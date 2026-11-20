@@ -35,6 +35,7 @@ const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('.
 const emailService = require('./emailService');
 const instrumentLoanEmail = require('./instrumentLoanEmail');
 const { cancel } = require('./bookingLifecycle');
+const { STATUS: LOAN_STATUS } = require('./loanLifecycle');
 const { isGhost, ghostCutoff } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger').child({ scope: 'reminderScheduler' });
 const { createJob } = require('../lib/jobRunner');
@@ -104,7 +105,7 @@ async function tickLoans() {
     // ---- Reminder 2gg prima ----
     const due = await InstrumentLoan.findAll({
       where: {
-        status: 'active',
+        status: LOAN_STATUS.ACTIVE,
         reminderSentAt: null,
         toDate: { [Op.between]: [minRemind, maxRemind] },
       },
@@ -132,7 +133,7 @@ async function tickLoans() {
     // ---- Overdue (toDate < oggi, ancora active, mai notificato) ----
     const overdue = await InstrumentLoan.findAll({
       where: {
-        status: 'active',
+        status: LOAN_STATUS.ACTIVE,
         overdueNotifiedAt: null,
         toDate: { [Op.lt]: todayStr },
       },
@@ -142,7 +143,7 @@ async function tickLoans() {
       ],
     });
     for (const loan of overdue) {
-      await loan.update({ status: 'overdue', overdueNotifiedAt: new Date() });
+      await loan.update({ status: LOAN_STATUS.OVERDUE, overdueNotifiedAt: new Date() });
       if (!loan.user) continue;
       await instrumentLoanEmail.sendInstrumentLoanEmail({
         user: loan.user,

@@ -19,7 +19,7 @@ const { Op } = require('sequelize');
 const { InstrumentLoanQuota, InstrumentLoan, Instrument } = require('../models');
 const { isAdmin } = require('../lib/access');
 
-const ACTIVE_LOAN_STATUSES = ['requested', 'active', 'overdue'];
+const { OCCUPYING_STATUSES } = require('./loanLifecycle');
 
 const SCOPE_CODE = {
   global: 'LOAN_QUOTA_EXCEEDED_GLOBAL',
@@ -115,7 +115,7 @@ async function checkLoanQuotas({
       const concurrent = await InstrumentLoan.count({
         where: {
           ...baseWhere,
-          status: { [Op.in]: ACTIVE_LOAN_STATUSES },
+          status: { [Op.in]: OCCUPYING_STATUSES },
         },
         ...tx,
       });
