@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { annotateStatus, isOverdue } = require('../services/loanLifecycle');
+const { annotateStatus, isOverdue, OCCUPYING_STATUSES } = require('../services/loanLifecycle');
 const storage = require('../services/storage');
 
 const router = express.Router();
@@ -72,7 +72,7 @@ router.get('/', authenticate, async (req, res) => {
   let activeByInstrument = new Map();
   if (ids.length) {
     const active = await InstrumentLoan.findAll({
-      where: { instrumentId: { [Op.in]: ids }, status: { [Op.in]: ['active', 'requested'] } },
+      where: { instrumentId: { [Op.in]: ids }, status: { [Op.in]: OCCUPYING_STATUSES } },
       attributes: ['instrumentId', 'status', 'toDate'],
     });
     activeByInstrument = new Map(active.map((l) => [l.instrumentId, l]));
