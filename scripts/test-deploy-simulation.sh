@@ -60,6 +60,16 @@ if [[ -n "${SIM_SSH_FAIL_MATCH:-}" && "$cmd" == *"$SIM_SSH_FAIL_MATCH"* ]]; then
     exit 255
   fi
 fi
+if [[ -n "${SIM_SSH_HANG_MATCH:-}" && "$cmd" == *"$SIM_SSH_HANG_MATCH"* ]]; then
+  n=$(cat "$SIM/ssh_hang_budget" 2>/dev/null || echo 0)
+  if [[ "$n" -gt 0 ]]; then
+    echo $((n - 1)) > "$SIM/ssh_hang_budget"
+    echo "hang" >> "$SIM/ssh_hangs.log"
+    bash -c 'sleep 7311; true'      # si blocca (albero: shim → bash → sleep)
+    exit 0
+  fi
+fi
+if [[ -n "${SIM_SSH_SLOW_MATCH:-}" && "$cmd" == *"$SIM_SSH_SLOW_MATCH"* ]]; then sleep "${SIM_SSH_SLOW_SECS:-1}"; fi
 exec bash -c "$cmd"
 SH
 cat > "$BIN/rsync" <<'SH'
@@ -200,7 +210,7 @@ run_deploy() {
 nsnap() { ls -1 "$REL" | grep -cE '^[0-9]{8}-[0-9]{6}-'; }
 lastsnap() { cat "$REL/LAST"; }
 sha_of() { ( cd "$REPO" && git rev-parse --short HEAD ); }
-reset_budgets() { echo 0 > "$SIM/rsync_budget"; echo 0 > "$SIM/ssh_budget"; export SIM_SSH_FAIL_MATCH=""; : > "$SIM/rsync_attempts.log"; }
+reset_budgets() { echo 0 > "$SIM/rsync_budget"; echo 0 > "$SIM/ssh_budget"; echo 0 > "$SIM/ssh_hang_budget"; export SIM_SSH_FAIL_MATCH="" SIM_SSH_HANG_MATCH="" SIM_SSH_SLOW_MATCH=""; unset NET_TIMEOUT NET_TIMEOUT_LONG; : > "$SIM/ssh_hangs.log"; : > "$SIM/rsync_attempts.log"; }
 reset_budgets
 
 # =============================================================== (a) ====
@@ -347,6 +357,92 @@ section "(f) --help e argomenti"
 check "--help exit 0 e cita --rollback"          test "$RC" -eq 0 -a -n "$(grep -- '--rollback' "$OUT")"
 ( cd "$REPO" && ./deploy.sh --bogus ) > "$OUT" 2>&1; RC=$?
 check "argomento sconosciuto: exit 2"            test "$RC" -eq 2
+
+section "(g2) ssh si BLOCCA al 1o tentativo: il tetto di tempo lo uccide, il 2o riesce"
+commit_version v9
+reset_budgets; export SIM_SSH_HANG_MATCH="cat "; echo 1 > "$SIM/ssh_hang_budget"; export NET_TIMEOUT=3
+run_deploy --yes
+check "exit 0 (il deploy si completa)"           test "$RC" -eq 0
+check "compare 'tempo scaduto dopo 3s'"          has "$OUT" "tempo scaduto dopo 3s"
+check "retry annunciato dopo il timeout"         has "$OUT" "tentativo 1/3 fallito"
+check "un solo blocco simulato"                  test "$(grep -c hang "$SIM/ssh_hangs.log")" -eq 1
+check "codice nuovo sul VPS (v9)"                test "$(cat "$VPS/backend/routes/api.js")" = v9
+check "PM2 sul codice v9"                        test "$(cat "$SIM/running_version")" = v9
+check "nessun processo residuo"                  bash -c "! pgrep -f 'sleep 7311'"
+
+section "(h) ssh si blocca SEMPRE: dopo i tentativi massimi il deploy fallisce, VPS invariato"
+commit_version v10
+reset_budgets; export SIM_SSH_HANG_MATCH="cat "; echo 99 > "$SIM/ssh_hang_budget"; export NET_TIMEOUT=2
+run_deploy --yes
+check "exit != 0"                                test "$RC" -ne 0
+check "3 blocchi (3 tentativi)"                  test "$(grep -c hang "$SIM/ssh_hangs.log")" -eq 3
+check "3 messaggi 'tempo scaduto'"               test "$(grep -c 'tempo scaduto dopo 2s' "$OUT")" -eq 3
+check "resa dopo 3 tentativi"                    has "$OUT" "dopo 3 tentativi"
+check "report 'DEPLOY INTERROTTO'"               has "$OUT" "DEPLOY INTERROTTO"
+check "stato VPS: NON modificato"                has "$OUT" "VPS NON modificato"
+check "invita a rilanciare"                      has "$OUT" "Puoi rilanciare tranquillamente"
+check "VPS davvero invariato (api.js = v9)"      test "$(cat "$VPS/backend/routes/api.js")" = v9
+check "nessun processo residuo (sleep/shim ssh)" bash -c "! pgrep -f 'sleep 7311' && ! pgrep -f '$BIN/ssh'"
+
+section "(i) comando lento ma entro il limite: NON ucciso"
+reset_budgets; export SIM_SSH_SLOW_MATCH="cat "; export SIM_SSH_SLOW_SECS=1; export NET_TIMEOUT=6
+run_deploy --yes
+check "exit 0"                                   test "$RC" -eq 0
+check "nessun 'tempo scaduto'"                   hasnt "$OUT" "tempo scaduto"
+check "nessun retry"                             hasnt "$OUT" "riprovo tra"
+check "codice nuovo sul VPS (v10)"               test "$(cat "$VPS/backend/routes/api.js")" = v10
+
+section "(j) net_retry: output, exit code, stdin e timeout su funzioni (unit)"
+awk '/^NET_ATTEMPT_PID=/{f=1} /^# Script remoto/{f=0} f' "$DEPLOY_SH" > "$SIM/netretry.sh"
+cat > "$SIM/unit.sh" <<'UNIT'
+set -euo pipefail
+yellow() { printf '%s\n' "$*"; }; red() { printf '%s\n' "$*"; }
+RETRY_MAX=3; RETRY_BASE_SLEEP=0
+source "$1"
+f_out() { printf 'riga1\nriga2 con $x e "virgolette"\n'; printf 'senza-newline'; }
+f_rc7() { echo out7; return 7; }
+f_stdin() { cat; }
+f_slow() { sleep 1; echo slow-ok; }
+f_hang() { bash -c 'sleep 7311; true'; }
+o1="$(net_retry etichetta f_out)"
+[[ "$o1" == "$(f_out)" ]] && echo "OUT_IDENTICO"
+rc=0; o2="$(net_retry etichetta f_rc7)" || rc=$?
+[[ "$rc" -eq 7 && "$o2" == out7 ]] && echo "RC_REALE_7"
+o3="$(printf 'dallo stdin' | net_retry etichetta f_stdin)"
+[[ "$o3" == "dallo stdin" ]] && echo "STDIN_OK"
+o4="$(NET_TIMEOUT=5 net_retry etichetta f_slow)"
+[[ "$o4" == slow-ok ]] && echo "LENTO_NON_UCCISO"
+rc=0; NET_TIMEOUT=1 net_retry etichetta f_hang 2>/dev/null >&2 || rc=$?
+[[ "$rc" -eq 124 ]] && echo "TIMEOUT_RC_124"
+rc=0; NET_TIMEOUT=1 NET_TIMEOUT_LONG=100 net_retry "x rsync" f_slow >/dev/null || rc=$?
+[[ "$rc" -eq 0 ]] && echo "ETICHETTA_RSYNC_USA_LONG"
+UNIT
+bash "$SIM/unit.sh" "$SIM/netretry.sh" > "$OUT" 2>&1; RC=$?
+check "unit: exit 0"                             test "$RC" -eq 0
+check "stdout catturato identico (anche senza newline finale)" has "$OUT" OUT_IDENTICO
+check "exit code reale del comando (7) e output" has "$OUT" RC_REALE_7
+check "stdin passa al comando"                   has "$OUT" STDIN_OK
+check "comando lento entro limite non ucciso"    has "$OUT" LENTO_NON_UCCISO
+check "funzione bloccata: exit 124 dopo i tentativi" has "$OUT" TIMEOUT_RC_124
+check "etichetta con 'rsync' usa NET_TIMEOUT_LONG" has "$OUT" ETICHETTA_RSYNC_USA_LONG
+check "nessun processo residuo dopo i test"      bash -c "! pgrep -f 'sleep 7311'"
+
+section "(k) SIGTERM durante un tentativo: albero ucciso, EXIT trap con stato VPS"
+commit_version v11
+reset_budgets; export SIM_SSH_HANG_MATCH="cat "; echo 99 > "$SIM/ssh_hang_budget"; export NET_TIMEOUT=60
+next_ts
+cd "$REPO" || exit 2
+./deploy.sh --yes > "$OUT" 2>&1 < /dev/null &
+DPID=$!
+cd "$HERE" || exit 2
+for _ in $(seq 1 40); do [[ -s "$SIM/ssh_hangs.log" ]] && break; sleep 0.5; done
+sleep 1
+check "il tentativo è davvero bloccato"          pgrep -f 'sleep 7311'
+kill -TERM "$DPID"; wait "$DPID"; RC=$?
+check "exit 143 (SIGTERM)"                       test "$RC" -eq 143
+check "EXIT trap: 'Stato del VPS: ... VPS NON modificato'" has "$OUT" "VPS NON modificato"
+check "nessun processo residuo"                  bash -c "! pgrep -f 'sleep 7311' && ! pgrep -f '$BIN/ssh'"
+reset_budgets
 
 printf '\n\033[1mRisultato: %d PASS, %d FAIL\033[0m\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

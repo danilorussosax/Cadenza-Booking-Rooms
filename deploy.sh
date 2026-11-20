@@ -58,6 +58,9 @@ set -euo pipefail
 # ConnectionAttempts e ServerAlive*. Se un passo fallisce comunque, lo script
 # stampa in che stato è rimasto il VPS e i comandi per riprendere o tornare
 # indietro.
+# Tetto di tempo: ogni tentativo ha un limite (NET_TIMEOUT, default 300s;
+# NET_TIMEOUT_LONG, default 900s, per i passi rsync/npm). Allo scadere l'albero
+# di processi viene terminato e il tentativo conta come errore di rete (retry).
 #
 # Uso:
 #   ./deploy.sh                 # deploy interattivo con conferma
@@ -149,10 +152,13 @@ STATE_TOUCHED=0     # 1 = almeno un file sul VPS è stato scritto
 SNAP_NAME=""        # snapshot creato da QUESTO deploy (vuoto = nessuno)
 DEPLOY_SRC=""
 DEPLOY_SHA=""
+exec 9>&1           # stdout originale: l'EXIT trap può scattare dentro un `net_retry … > file`
 
 on_exit() {
   local rc=$?
   trap - EXIT
+  exec >&9          # il report finale non deve finire nel file di un redirect in corso
+  net_cleanup 2>/dev/null || true   # uccide l'albero del tentativo di rete in corso
   if [[ -n "$DEPLOY_SRC" && -d "$DEPLOY_SRC" ]]; then rm -rf "$DEPLOY_SRC"; fi
   if [[ "$rc" -ne 0 ]]; then
     printf '\n'
@@ -182,20 +188,84 @@ trap 'exit 143' TERM
 # net_retry <etichetta> <comando…>
 # Esegue il comando fino a RETRY_MAX volte con backoff (base, base*3) SOLO se
 # fallisce per un errore di rete/connessione: ssh 255, rsync 10 (socket),
-# 12 (stream), 30/35 (timeout). Altri exit code (comando remoto fallito,
-# rsync 23 ecc.) sono deterministici → nessun retry, ritorna subito.
+# 12 (stream), 30/35 (timeout), 124 (tetto di tempo scaduto, vedi sotto).
+# Altri exit code (comando remoto fallito, rsync 23 ecc.) sono deterministici
+# → nessun retry, ritorna subito.
+# TETTO DI TEMPO per tentativo: NET_TIMEOUT (default 300s); NET_TIMEOUT_LONG
+# (default 900s) se l'etichetta contiene "rsync" o "npm". Allo scadere si
+# termina l'INTERO albero di processi del tentativo (TERM, poi KILL dopo 2s) e
+# il tentativo conta come errore di rete ritentabile (124). Serve perché
+# ServerAlive* non ha impedito a un ssh di restare appeso 20 minuti. Il comando
+# può essere una funzione di shell (niente `timeout`): gira in un subshell in
+# background controllato da un watchdog in bash (compatibile con bash 3.2).
 # I messaggi vanno su stderr così $(…) cattura solo l'output del comando.
 # Tutti i comandi passati devono essere idempotenti.
 # ------------------------------------------------------------
+NET_ATTEMPT_PID=""
+NET_WATCHDOG_PID=""
+
+# pid + tutti i discendenti (ricorsivo con pgrep -P; ordine: padre prima)
+net_tree_pids() {
+  local c
+  echo "$1"
+  for c in $(pgrep -P "$1" 2>/dev/null || true); do net_tree_pids "$c"; done
+}
+# net_kill_tree <pid> — TERM a tutto l'albero, poi KILL dopo 2s ai sopravvissuti.
+# La lista è raccolta PRIMA di uccidere: i figli orfani cambiano padre.
+net_kill_tree() {
+  local pids p
+  pids="$(net_tree_pids "$1")"
+  for p in $pids; do kill -TERM "$p" 2>/dev/null || true; done
+  sleep 2
+  for p in $pids; do kill -KILL "$p" 2>/dev/null || true; done
+}
+# ferma tentativo e watchdog in corso (usata anche dall'EXIT trap)
+net_cleanup() {
+  local p
+  if [[ -n "$NET_WATCHDOG_PID" ]]; then
+    for p in $(net_tree_pids "$NET_WATCHDOG_PID"); do kill -KILL "$p" 2>/dev/null || true; done
+    wait "$NET_WATCHDOG_PID" 2>/dev/null || true
+    NET_WATCHDOG_PID=""
+  fi
+  if [[ -n "$NET_ATTEMPT_PID" ]]; then
+    if kill -0 "$NET_ATTEMPT_PID" 2>/dev/null; then net_kill_tree "$NET_ATTEMPT_PID"; fi
+    wait "$NET_ATTEMPT_PID" 2>/dev/null || true
+    NET_ATTEMPT_PID=""
+  fi
+}
+
 net_retry() {
   local label="$1"; shift
-  local i rc=0 wait
+  local i rc=0 wait tmo flag
+  tmo="${NET_TIMEOUT:-300}"
+  case "$label" in *rsync*|*npm*) tmo="${NET_TIMEOUT_LONG:-900}" ;; esac
   for ((i = 1; i <= RETRY_MAX; i++)); do
     rc=0
-    "$@" || rc=$?
+    flag="$(mktemp)"; rm -f "$flag"
+    # comando in background (stdin ereditato esplicitamente: un async lo
+    # avrebbe altrimenti rimappato su /dev/null); EXIT/TERM azzerati nel subshell
+    ( trap - EXIT TERM; "$@" ) <&0 &
+    NET_ATTEMPT_PID=$!
+    # watchdog: allo scadere segna il flag e uccide l'albero del tentativo
+    (
+      sleep "$tmo"
+      : > "$flag"
+      net_kill_tree "$NET_ATTEMPT_PID"
+    ) >/dev/null 2>&1 &
+    NET_WATCHDOG_PID=$!
+    wait "$NET_ATTEMPT_PID" || rc=$?
+    NET_ATTEMPT_PID=""
+    # scaduto: lascia finire il watchdog (TERM → 2s → KILL su tutto l'albero)
+    if [[ -e "$flag" ]]; then wait "$NET_WATCHDOG_PID" 2>/dev/null || true; fi
+    net_cleanup
+    if [[ -e "$flag" ]]; then
+      rm -f "$flag"
+      rc=124
+      yellow "    ⚠ ${label}: tempo scaduto dopo ${tmo}s (tentativo ${i}/${RETRY_MAX} terminato)" >&2
+    fi
     if [[ "$rc" -eq 0 ]]; then return 0; fi
     case "$rc" in
-      255|10|12|30|35) ;;
+      255|10|12|30|35|124) ;;
       *) return "$rc" ;;
     esac
     if [[ "$i" -lt "$RETRY_MAX" ]]; then
@@ -618,7 +688,7 @@ for sub in backend frontend; do
     continue
   fi
   REMOTE_LOCK="$(mktemp)"
-  net_retry "lettura lockfile remoto" ssh ${SSH_OPTS} "$SSH_TARGET" "cat ${VPS_PATH}/${sub}/package-lock.json 2>/dev/null || true" > "$REMOTE_LOCK"
+  net_retry "lettura lockfile remoto" ssh -n ${SSH_OPTS} "$SSH_TARGET" "cat ${VPS_PATH}/${sub}/package-lock.json 2>/dev/null || true" > "$REMOTE_LOCK"
   if [[ ! -s "$REMOTE_LOCK" ]]; then
     yellow "    ${sub}/package-lock.json non presente sul server, salto controllo"
     rm -f "$REMOTE_LOCK"
@@ -737,7 +807,7 @@ fi
 #    quello locale e gli hash matcherebbero sempre → npm ci mai eseguito.
 # ------------------------------------------------------------
 LOCAL_HASH="$(shasum -a 256 "$DEPLOY_SRC/backend/package-lock.json" | awk '{print $1}')"
-PRE_RSYNC_REMOTE_HASH="$(net_retry "hash lockfile remoto" ssh ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH}/backend/package-lock.json 2>/dev/null | awk '{print \$1}'; true")"
+PRE_RSYNC_REMOTE_HASH="$(net_retry "hash lockfile remoto" ssh -n ${SSH_OPTS} "$SSH_TARGET" "shasum -a 256 ${VPS_PATH}/backend/package-lock.json 2>/dev/null | awk '{print \$1}'; true")"
 
 # ------------------------------------------------------------
 # 6. Trasferimento. Ordine pensato per ridurre lo stato misto:
@@ -853,7 +923,7 @@ blue "[7/9] PgBouncer su VPS (transaction pooling)…"
 if [[ "$SKIP_PGBOUNCER" -eq 1 ]]; then
   yellow "    saltato (--skip-pgbouncer)"
 else
-  PGB_ACTIVE="$(net_retry "stato pgbouncer" ssh ${SSH_OPTS} "$SSH_TARGET" "systemctl is-active pgbouncer 2>/dev/null || true")"
+  PGB_ACTIVE="$(net_retry "stato pgbouncer" ssh -n ${SSH_OPTS} "$SSH_TARGET" "systemctl is-active pgbouncer 2>/dev/null || true")"
   if [[ "$PGB_ACTIVE" == "active" && "$SETUP_PGBOUNCER" -eq 0 ]]; then
     green "    ✓ PgBouncer già attivo sul VPS (nessuna azione · usa --setup-pgbouncer per riconfigurare)"
   else
@@ -886,7 +956,7 @@ fi
 # ------------------------------------------------------------
 blue "[7b/9] Chiave cifratura credenziali + re-encrypt (VPS)…"
 STATE_MSG="ensure-encryption-key interrotto (idempotente, rilanciabile). ${PRE_RESTART_STATE}"
-net_retry "ensure-encryption-key" ssh ${SSH_OPTS} "$SSH_TARGET" "cd ${VPS_PATH}/backend && bash scripts/ensure-encryption-key.sh"
+net_retry "ensure-encryption-key" ssh -n ${SSH_OPTS} "$SSH_TARGET" "cd ${VPS_PATH}/backend && bash scripts/ensure-encryption-key.sh"
 green "    ✓ chiave garantita e dati migrati"
 STATE_MSG="$PRE_RESTART_STATE"
 
