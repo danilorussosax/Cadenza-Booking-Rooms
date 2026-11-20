@@ -204,12 +204,14 @@ async function gatherAnalytics(range) {
   const [{ ghosted }] = await sequelize.query(
     `SELECT COUNT(*)::int AS ghosted FROM bookings
        WHERE "autoCancelledAt" IS NOT NULL
+         AND "deletedAt" IS NULL
          AND "startTime" BETWEEN $1 AND $2`,
     { bind: [range.from, range.to], type: sequelize.QueryTypes.SELECT },
   );
   const [{ totalCreated }] = await sequelize.query(
     `SELECT COUNT(*)::int AS "totalCreated" FROM bookings
-       WHERE "startTime" BETWEEN $1 AND $2`,
+       WHERE "deletedAt" IS NULL
+         AND "startTime" BETWEEN $1 AND $2`,
     { bind: [range.from, range.to], type: sequelize.QueryTypes.SELECT },
   );
   const noShowRate = noShowRatePct(ghosted, totalCreated);
