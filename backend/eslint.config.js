@@ -16,9 +16,11 @@
 // si concentra su correttezza, non formattazione.
 
 const js = require('@eslint/js');
-// `eslint-plugin-n` v18 espone solo l'ESM default export. In CommonJS lo
-// otteniamo via `.default`.
-const nodePlugin = require('eslint-plugin-n').default;
+// `eslint-plugin-n` v18.0 espone solo l'ESM default export (in CommonJS lo
+// si legge via `.default`); dalla 18.5 l'export CommonJS è diretto. Accettiamo
+// entrambe le forme per non dipendere dalla versione minore installata.
+const nodePluginModule = require('eslint-plugin-n');
+const nodePlugin = nodePluginModule.default ?? nodePluginModule;
 const securityPlugin = require('eslint-plugin-security');
 const globals = require('globals');
 

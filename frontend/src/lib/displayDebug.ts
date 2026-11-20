@@ -32,7 +32,7 @@ export function snapshotDebugInfo(): DebugInfo {
   else if (w >= 1200) category = 'HD';
   const stored = localStorage.getItem('conservatory_theme') ?? 'system';
   const themeResolved: 'light' | 'dark' = html.classList.contains('dark') ? 'dark' : 'light';
-  const mq = window.matchMedia;
+  const mq = (query: string) => window.matchMedia(query);
   const prefersDark = mq('(prefers-color-scheme: dark)').matches;
   const prefersLight = mq('(prefers-color-scheme: light)').matches;
   const prefersContrastMore = mq('(prefers-contrast: more)').matches;
