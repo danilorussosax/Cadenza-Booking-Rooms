@@ -305,7 +305,7 @@ export function BookingFormDialog({
                   <SelectContent>
                     <SelectItem value="self">{t('booking.form.on_behalf_self')}</SelectItem>
                     {(usersQuery.data?.users ?? [])
-                      .filter((u) => u.id !== currentUser.id)
+                      .filter((u) => u.id !== currentUser?.id)
                       .map((u) => (
                         <SelectItem key={u.id} value={String(u.id)}>
                           {u.lastName} {u.firstName}

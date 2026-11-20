@@ -80,7 +80,7 @@ export function useBookingSubmission({ open, booking, onOpenChange, onCreated }:
       }
       // Create on-behalf-of: solo admin; il backend ignora il campo se non lo è.
       const onBehalf =
-        isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser.id
+        isAdmin && onBehalfOfUserId && onBehalfOfUserId !== currentUser?.id
           ? { onBehalfOfUserId }
           : {};
       if (recurrence.enabled) {
