@@ -349,29 +349,9 @@
       "pending_amendments": "Variaciones monte ore",
       "pending_amendments_hint": "Solicitudes de docentes pendientes"
     },
-    "kpi": {
-      "next_booking": "Próxima reserva",
-      "next_booking_none": "Sin reservas próximas",
-      "weekly_used": "Horas reservadas (semana)",
-      "weekly_remaining": "Horas restantes esta semana",
-      "daily_remaining": "Horas restantes hoy",
-      "unlimited": "Ilimitadas"
-    },
-    "next_bookings": {
-      "title": "Próximas reservas",
-      "see_all": "Ver todas",
-      "empty": "No tienes reservas próximas. ¡Empieza ya!",
-      "create": "Reservar un aula"
-    },
     "loans": {
       "title": "Mis préstamos",
       "see_all": "Ver todos"
-    },
-    "quick_actions": {
-      "title": "Acciones rápidas",
-      "new_booking": "Nueva reserva",
-      "view_rooms": "Explorar aulas",
-      "my_bookings": "Mis reservas"
     },
     "pending_approvals": {
       "title": "Reservas en espera de aprobación",
@@ -570,28 +550,6 @@
       "cancelled": "Cancelada",
       "completed": "Completada",
       "no_show": "No asistió"
-    },
-    "cancel": {
-      "title": "¿Cancelar reserva?",
-      "description": "El aula quedará liberada y otros usuarios podrán reservarla.",
-      "reason": "Motivo (opcional)",
-      "reason_placeholder": "Ej. Cambio de programa",
-      "confirm": "Cancelar reserva",
-      "deadline_warning": "La cancelación requiere {{hours}} horas de antelación."
-    },
-    "actions": {
-      "edit": "Editar",
-      "cancel": "Cancelar",
-      "view": "Ver"
-    },
-    "list_item": {
-      "duration": "Duración",
-      "starts_in": "Empieza en {{when}}"
-    },
-    "toast": {
-      "created": "Reserva creada",
-      "updated": "Reserva actualizada",
-      "cancelled": "Reserva cancelada"
     }
   },
   "rooms": {
@@ -675,24 +633,6 @@
       "saved_on": "Notificación activada",
       "saved_off": "Notificación desactivada"
     },
-    "password": {
-      "title": "Contraseña",
-      "current": "Contraseña actual",
-      "new": "Nueva contraseña",
-      "confirm": "Confirmar contraseña",
-      "submit": "Actualizar contraseña",
-      "updated": "Contraseña actualizada",
-      "oauth_only": "Esta cuenta está vinculada solo mediante OAuth: la contraseña no se establece aquí."
-    },
-    "photo": {
-      "title": "Foto de perfil",
-      "upload": "Subir foto",
-      "remove": "Quitar foto",
-      "remove_confirm": "¿Quitar la foto de perfil?",
-      "uploaded": "Foto actualizada",
-      "removed": "Foto eliminada",
-      "format_hint": "PNG, JPG o WEBP — máx 2 MB"
-    },
     "account": {
       "title": "Cuenta",
       "email": "Email",
@@ -702,12 +642,6 @@
       "last_login": "Último acceso",
       "registered": "Registrado",
       "providers": "Proveedores vinculados"
-    },
-    "copyright": {
-      "title": "Copyright del instituto",
-      "description": "Texto de copyright mostrado en el pie de página.",
-      "field": "Texto de copyright",
-      "saved": "Copyright actualizado"
     },
     "bot_bindings": {
       "title": "Bot messaging",
@@ -803,10 +737,6 @@
       "modules": {
         "title": "Módulos opcionales",
         "subtitle": "Activa o desactiva los módulos funcionales. Cuando un módulo está desactivado, el enlace de la barra lateral desaparece y las rutas responden \"no activo\" (los datos permanecen en BD).",
-        "monte_ore_label": "Horas del profesorado (Monte Ore)",
-        "monte_ore_description": "Elementos \"Monte Ore\" (lado profesor) y \"Gestión Monte Ore\" (lado admin). Al apagarlo los enlaces desaparecen, pero las rutas y APIs siguen funcionando.",
-        "instrument_loans_label": "Préstamo de instrumentos",
-        "instrument_loans_description": "Elementos \"Instrumentos\" (catálogo) y \"Mis préstamos\" más la sección admin \"Inventario de instrumentos\". Al apagarlo los enlaces desaparecen, pero las rutas y APIs siguen funcionando.",
         "saved": "Módulo actualizado",
         "save_failed": "No se pudo actualizar el módulo",
         "backend_note": "Los datos existentes nunca se eliminan. Al reactivar el módulo, los enlaces vuelven a estar visibles inmediatamente."
@@ -969,19 +899,6 @@
         "setup_guide": "1) Crea un buzón dedicado (p.ej. book@conservatorio.it).\n2) Configura host/puerto/credenciales aquí.\n3) El poller IMAP aún no está activo: este canal es un stub que no recibe mensajes (ver roadmap)."
       }
     },
-    "oauth": {
-      "google_title": "Google OAuth",
-      "microsoft_title": "Microsoft OAuth",
-      "client_id": "Client ID",
-      "client_secret": "Client Secret",
-      "callback_url": "Callback URL",
-      "tenant": "Tenant",
-      "enable": "Habilitar {{provider}} OAuth",
-      "saved": "Configuración OAuth guardada",
-      "restart_hint": "Reinicia el backend para aplicar la nueva configuración OAuth.",
-      "secret_configured": "•••••••• (configurado — déjalo vacío para no cambiarlo)",
-      "secret_placeholder": "Introduce el Client Secret"
-    },
     "backups": {
       "title": "Copias de seguridad y restauración",
       "subtitle": "Snapshots automáticos diarios de la base de datos y de las fotos. La restauración requiere confirmación explícita y crea un snapshot de seguridad pre-restauración.",
@@ -1125,36 +1042,6 @@
       "requires_approval": "Requiere aprobación",
       "requires_approval_help": "Las reservas de esta aula por parte de no-admin nacen pendientes de aprobación. Típico para salas de conciertos, auditorios, salas oficiales."
     },
-    "courses": {
-      "title": "Cursos",
-      "subtitle": "Gestiona el catálogo de cursos.",
-      "new_course": "Nuevo curso",
-      "import_csv": "Importar CSV",
-      "search_placeholder": "Buscar por código o nombre…",
-      "table": {
-        "code": "Código",
-        "name": "Nombre",
-        "department": "Departamento",
-        "levels": "Niveles",
-        "active": "Activo",
-        "actions": "Acciones"
-      },
-      "no_courses": "No se han encontrado cursos",
-      "form": {
-        "title_new": "Nuevo curso",
-        "title_edit": "Editar curso",
-        "code": "Código",
-        "name": "Nombre",
-        "department": "Departamento",
-        "description": "Descripción",
-        "levels": "Niveles",
-        "active": "Curso activo"
-      },
-      "saved": "Curso guardado",
-      "deleted": "Curso eliminado",
-      "delete_title": "¿Eliminar el curso \"{{name}}\"?",
-      "delete_description": "Los usuarios vinculados serán desasignados del curso (matrícula conservada). La operación es irreversible."
-    },
     "rules": {
       "tabs": {
         "by_role": "Por rol",
@@ -1181,61 +1068,6 @@
         "result_ko": "La reserva sería rechazada",
         "disclaimer": "Las cuotas horarias individuales (p. ej. \"ya has usado 8h esta semana\") no se evalúan: usa un usuario real para esa prueba."
       }
-    },
-    "mail": {
-      "title": "Servicio de correo",
-      "subtitle": "Configuración SMTP y plantillas de correo transaccional.",
-      "tab_settings": "Configuración",
-      "tab_templates": "Plantillas",
-      "settings": {
-        "host": "Host SMTP",
-        "port": "Puerto",
-        "secure": "TLS",
-        "username": "Usuario",
-        "password": "Contraseña",
-        "from_address": "Remitente",
-        "from_name": "Nombre remitente",
-        "reply_to": "Reply-To",
-        "test_address": "Dirección de prueba",
-        "send_test": "Enviar email de prueba",
-        "test_sent": "Email de prueba enviado",
-        "saved": "Configuración guardada",
-        "enable": "Habilitar envío de correo"
-      },
-      "templates": {
-        "subject": "Asunto",
-        "body": "Cuerpo",
-        "preview": "Vista previa",
-        "reset": "Restablecer predeterminado",
-        "saved": "Plantilla actualizada",
-        "type": "Plantilla",
-        "variables": "Variables disponibles"
-      }
-    },
-    "csv_import": {
-      "title": "Importar desde CSV",
-      "description": "Sube un archivo CSV con la estructura indicada.",
-      "drag_drop": "Arrastra el archivo aquí o haz clic para seleccionarlo",
-      "submit": "Importar",
-      "imported": "{{count}} elementos importados",
-      "errors_count": "{{count}} filas con errores",
-      "download_template": "Descargar plantilla"
-    },
-    "equipment_templates": {
-      "title": "Plantillas de equipamiento",
-      "subtitle": "Catálogo reutilizable para el equipamiento de las aulas.",
-      "new": "Nueva plantilla",
-      "type": "Tipo",
-      "delete_title": "¿Eliminar la plantilla \"{{name}}\"?"
-    },
-    "course_levels": {
-      "title": "Niveles de estudio",
-      "subtitle": "Categorías de itinerario (ej. Grado, Máster).",
-      "new": "Nuevo nivel",
-      "code": "Código",
-      "name": "Nombre",
-      "sort_order": "Orden",
-      "saved": "Niveles guardados"
     },
     "display": {
       "title": "Infopoint",
@@ -1397,26 +1229,6 @@
       "errors": {
         "cap_required": "Al menos uno entre máx. simultáneos y máx. días/año debe ser mayor que 0"
       }
-    },
-    "loan_rules": {
-      "title": "Reglas de préstamo de instrumentos",
-      "subtitle": "Para cada familia de instrumentos elige qué cursos (códigos SAD) están autorizados a solicitar un préstamo. La regla se aplica a estudiantes y docentes; los admin siempre están autorizados.",
-      "default_help": "Si no se configura ningún curso para una familia, la regla es permisiva (por defecto): cualquiera puede solicitar el préstamo.",
-      "configured_badge": "Configurada",
-      "default_badge": "Por defecto (permisiva)",
-      "courses_count_one": "{{count}} curso habilitado",
-      "courses_count_other": "{{count}} cursos habilitados",
-      "no_courses_warning": "Ningún curso habilitado → todos los usuarios no admin estarán bloqueados.",
-      "search_courses": "Buscar cursos…",
-      "select_all": "Seleccionar todos",
-      "deselect_all": "Deseleccionar todos",
-      "save": "Guardar regla",
-      "reset": "Restablecer por defecto",
-      "reset_confirm": "¿Restablecer esta familia al valor por defecto permisivo (cualquiera puede solicitar el préstamo)?",
-      "saved": "Regla guardada",
-      "reset_done": "Regla restablecida al valor por defecto",
-      "notes": "Notas (opcional)",
-      "notes_placeholder": "Ej. Solo estudiantes del curso de Piano"
     },
     "instruments": {
       "title": "Inventario de instrumentos",
@@ -2291,11 +2103,6 @@
       "subtitle_ios": "Abre el menú Compartir de Safari y toca \"Añadir a la pantalla de inicio\".",
       "cta": "Instalar",
       "dismiss": "Ahora no"
-    },
-    "update": {
-      "title": "Actualización disponible",
-      "subtitle": "Recarga para aplicar la nueva versión.",
-      "reload": "Recargar"
     }
   },
   "integrations": {

@@ -349,29 +349,9 @@
       "pending_amendments": "Monte ore amendments",
       "pending_amendments_hint": "Pending teacher requests"
     },
-    "kpi": {
-      "next_booking": "Next booking",
-      "next_booking_none": "No upcoming bookings",
-      "weekly_used": "Hours booked (week)",
-      "weekly_remaining": "Hours left this week",
-      "daily_remaining": "Hours left today",
-      "unlimited": "Unlimited"
-    },
-    "next_bookings": {
-      "title": "Upcoming bookings",
-      "see_all": "See all",
-      "empty": "You have no upcoming bookings. Get started!",
-      "create": "Book a room"
-    },
     "loans": {
       "title": "My loans",
       "see_all": "See all"
-    },
-    "quick_actions": {
-      "title": "Quick actions",
-      "new_booking": "New booking",
-      "view_rooms": "Browse rooms",
-      "my_bookings": "My bookings"
     },
     "pending_approvals": {
       "title": "Bookings awaiting approval",
@@ -570,28 +550,6 @@
       "cancelled": "Cancelled",
       "completed": "Completed",
       "no_show": "No-show"
-    },
-    "cancel": {
-      "title": "Cancel booking?",
-      "description": "The room will be freed and other users can book it.",
-      "reason": "Reason (optional)",
-      "reason_placeholder": "E.g. Schedule change",
-      "confirm": "Cancel booking",
-      "deadline_warning": "Cancellation requires {{hours}} hours' notice."
-    },
-    "actions": {
-      "edit": "Edit",
-      "cancel": "Cancel",
-      "view": "View"
-    },
-    "list_item": {
-      "duration": "Duration",
-      "starts_in": "Starts in {{when}}"
-    },
-    "toast": {
-      "created": "Booking created",
-      "updated": "Booking updated",
-      "cancelled": "Booking cancelled"
     }
   },
   "rooms": {
@@ -675,24 +633,6 @@
       "saved_on": "Notification enabled",
       "saved_off": "Notification disabled"
     },
-    "password": {
-      "title": "Password",
-      "current": "Current password",
-      "new": "New password",
-      "confirm": "Confirm password",
-      "submit": "Update password",
-      "updated": "Password updated",
-      "oauth_only": "This account is linked through OAuth only: password cannot be set here."
-    },
-    "photo": {
-      "title": "Profile photo",
-      "upload": "Upload photo",
-      "remove": "Remove photo",
-      "remove_confirm": "Remove the profile photo?",
-      "uploaded": "Photo updated",
-      "removed": "Photo removed",
-      "format_hint": "PNG, JPG or WEBP — max 2 MB"
-    },
     "account": {
       "title": "Account",
       "email": "Email",
@@ -702,12 +642,6 @@
       "last_login": "Last login",
       "registered": "Registered",
       "providers": "Linked providers"
-    },
-    "copyright": {
-      "title": "Institute copyright",
-      "description": "Copyright string shown in the application footer.",
-      "field": "Copyright text",
-      "saved": "Copyright updated"
     },
     "bot_bindings": {
       "title": "Bot messaging",
@@ -871,10 +805,6 @@
       "modules": {
         "title": "Optional modules",
         "subtitle": "Activate or deactivate functional modules. When a module is disabled the sidebar link disappears and its routes return \"not active\" (data stays in DB).",
-        "monte_ore_label": "Teacher hours plan (Monte Ore)",
-        "monte_ore_description": "Sidebar items \"Monte Ore\" (teacher view) and \"Monte Ore management\" (admin view). Turning the toggle off hides the links but the routes and APIs keep working.",
-        "instrument_loans_label": "Instrument loans",
-        "instrument_loans_description": "Sidebar items \"Instruments\" (catalogue) and \"My loans\" plus the admin \"Instrument inventory\" section. Turning the toggle off hides the links but the routes and APIs keep working.",
         "saved": "Module updated",
         "save_failed": "Could not update the module",
         "backend_note": "Existing data is never deleted. Re-enabling the module brings the links back instantly."
@@ -1109,19 +1039,6 @@
         "setup_guide": "1) Create a dedicated mailbox (e.g. book@conservatorio.it).\n2) Configure host/port/credentials here.\n3) IMAP poller is not yet active: this channel remains a stub that does not receive messages (see roadmap)."
       }
     },
-    "oauth": {
-      "google_title": "Google OAuth",
-      "microsoft_title": "Microsoft OAuth",
-      "client_id": "Client ID",
-      "client_secret": "Client Secret",
-      "callback_url": "Callback URL",
-      "tenant": "Tenant",
-      "enable": "Enable {{provider}} OAuth",
-      "saved": "OAuth settings saved",
-      "restart_hint": "Restart the backend to apply the new OAuth settings.",
-      "secret_configured": "•••••••• (set — leave empty to keep)",
-      "secret_placeholder": "Enter the Client Secret"
-    },
     "structure": {
       "title": "Conservatory structure",
       "subtitle": "Manage institutes, buildings, rooms and the equipment catalog.",
@@ -1193,36 +1110,6 @@
       "requires_approval": "Requires approval",
       "requires_approval_help": "Bookings on this room by non-admin users start as pending approval. Typical for concert halls, auditoriums, official rooms."
     },
-    "courses": {
-      "title": "Courses",
-      "subtitle": "Manage the catalog of courses of study.",
-      "new_course": "New course",
-      "import_csv": "Import CSV",
-      "search_placeholder": "Search by code or name…",
-      "table": {
-        "code": "Code",
-        "name": "Name",
-        "department": "Department",
-        "levels": "Levels",
-        "active": "Active",
-        "actions": "Actions"
-      },
-      "no_courses": "No courses found",
-      "form": {
-        "title_new": "New course",
-        "title_edit": "Edit course",
-        "code": "Code",
-        "name": "Name",
-        "department": "Department",
-        "description": "Description",
-        "levels": "Levels",
-        "active": "Course active"
-      },
-      "saved": "Course saved",
-      "deleted": "Course deleted",
-      "delete_title": "Delete course \"{{name}}\"?",
-      "delete_description": "Linked users will be detached from the course (student ID kept). This action cannot be undone."
-    },
     "rules": {
       "tabs": {
         "by_role": "By role",
@@ -1249,61 +1136,6 @@
         "result_ko": "Booking would be rejected",
         "disclaimer": "Per-user hour quotas (e.g. \"you already used 8h this week\") are not evaluated: use a real user for that test."
       }
-    },
-    "mail": {
-      "title": "Mail service",
-      "subtitle": "SMTP settings and transactional email templates.",
-      "tab_settings": "Settings",
-      "tab_templates": "Templates",
-      "settings": {
-        "host": "SMTP host",
-        "port": "Port",
-        "secure": "TLS",
-        "username": "Username",
-        "password": "Password",
-        "from_address": "Sender address",
-        "from_name": "Sender name",
-        "reply_to": "Reply-To",
-        "test_address": "Test address",
-        "send_test": "Send test email",
-        "test_sent": "Test email sent",
-        "saved": "Settings saved",
-        "enable": "Enable email sending"
-      },
-      "templates": {
-        "subject": "Subject",
-        "body": "Body",
-        "preview": "Preview",
-        "reset": "Reset to default",
-        "saved": "Template updated",
-        "type": "Template",
-        "variables": "Available variables"
-      }
-    },
-    "csv_import": {
-      "title": "Import from CSV",
-      "description": "Upload a CSV file with the indicated structure.",
-      "drag_drop": "Drag the file here or click to select it",
-      "submit": "Import",
-      "imported": "{{count}} items imported",
-      "errors_count": "{{count}} rows with errors",
-      "download_template": "Download template"
-    },
-    "equipment_templates": {
-      "title": "Equipment templates",
-      "subtitle": "Reusable catalog for room equipment.",
-      "new": "New template",
-      "type": "Type",
-      "delete_title": "Delete template \"{{name}}\"?"
-    },
-    "course_levels": {
-      "title": "Study levels",
-      "subtitle": "Course levels (e.g. Bachelor, Master).",
-      "new": "New level",
-      "code": "Code",
-      "name": "Name",
-      "sort_order": "Order",
-      "saved": "Levels saved"
     },
     "display": {
       "title": "Infopoint",
@@ -1465,26 +1297,6 @@
       "errors": {
         "cap_required": "At least one of max concurrent or max days/year must be greater than 0"
       }
-    },
-    "loan_rules": {
-      "title": "Instrument loan rules",
-      "subtitle": "For each instrument family choose which courses (SAD codes) are allowed to request a loan. The rule applies to students and teachers; admins are always authorized.",
-      "default_help": "If no course is configured for a family, the rule is permissive (default): anyone can request a loan.",
-      "configured_badge": "Configured",
-      "default_badge": "Permissive default",
-      "courses_count_one": "{{count}} course allowed",
-      "courses_count_other": "{{count}} courses allowed",
-      "no_courses_warning": "No course allowed → all non-admin users will be blocked.",
-      "search_courses": "Search courses…",
-      "select_all": "Select all",
-      "deselect_all": "Deselect all",
-      "save": "Save rule",
-      "reset": "Reset to default",
-      "reset_confirm": "Reset this family to the permissive default (anyone can request a loan)?",
-      "saved": "Rule saved",
-      "reset_done": "Rule reset to default",
-      "notes": "Notes (optional)",
-      "notes_placeholder": "E.g. Only Piano course students"
     },
     "instruments": {
       "title": "Instruments inventory",
@@ -2291,11 +2103,6 @@
       "subtitle_ios": "Open Safari's Share menu and tap \"Add to Home Screen\".",
       "cta": "Install",
       "dismiss": "Not now"
-    },
-    "update": {
-      "title": "Update available",
-      "subtitle": "Reload to apply the new version.",
-      "reload": "Reload"
     }
   },
   "integrations": {

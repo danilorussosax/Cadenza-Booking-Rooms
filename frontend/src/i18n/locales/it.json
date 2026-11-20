@@ -349,29 +349,9 @@
       "pending_amendments": "Variazioni monte ore",
       "pending_amendments_hint": "Richieste docenti in attesa"
     },
-    "kpi": {
-      "next_booking": "Prossima prenotazione",
-      "next_booking_none": "Nessuna prenotazione futura",
-      "weekly_used": "Ore prenotate (settimana)",
-      "weekly_remaining": "Ore residue questa settimana",
-      "daily_remaining": "Ore residue oggi",
-      "unlimited": "Illimitate"
-    },
-    "next_bookings": {
-      "title": "Prossime prenotazioni",
-      "see_all": "Vedi tutte",
-      "empty": "Non hai prenotazioni in arrivo. Inizia subito!",
-      "create": "Prenota un'aula"
-    },
     "loans": {
       "title": "I miei prestiti",
       "see_all": "Vedi tutti"
-    },
-    "quick_actions": {
-      "title": "Azioni rapide",
-      "new_booking": "Nuova prenotazione",
-      "view_rooms": "Esplora le aule",
-      "my_bookings": "Le mie prenotazioni"
     },
     "pending_approvals": {
       "title": "Prenotazioni in attesa di approvazione",
@@ -570,28 +550,6 @@
       "cancelled": "Annullata",
       "completed": "Completata",
       "no_show": "Assente"
-    },
-    "cancel": {
-      "title": "Annullare la prenotazione?",
-      "description": "L'aula verrà liberata e altri utenti potranno prenotarla.",
-      "reason": "Motivo (opzionale)",
-      "reason_placeholder": "Es. Cambio di programma",
-      "confirm": "Annulla prenotazione",
-      "deadline_warning": "L'annullamento richiede {{hours}} ore di preavviso minimo."
-    },
-    "actions": {
-      "edit": "Modifica",
-      "cancel": "Annulla",
-      "view": "Vedi"
-    },
-    "list_item": {
-      "duration": "Durata",
-      "starts_in": "Inizia tra {{when}}"
-    },
-    "toast": {
-      "created": "Prenotazione creata",
-      "updated": "Prenotazione aggiornata",
-      "cancelled": "Prenotazione annullata"
     }
   },
   "rooms": {
@@ -675,24 +633,6 @@
       "saved_on": "Notifica attivata",
       "saved_off": "Notifica disattivata"
     },
-    "password": {
-      "title": "Password",
-      "current": "Password attuale",
-      "new": "Nuova password",
-      "confirm": "Conferma password",
-      "submit": "Aggiorna password",
-      "updated": "Password aggiornata",
-      "oauth_only": "Questo account è collegato solo tramite OAuth: la password non si imposta da qui."
-    },
-    "photo": {
-      "title": "Foto profilo",
-      "upload": "Carica foto",
-      "remove": "Rimuovi foto",
-      "remove_confirm": "Rimuovere la foto profilo?",
-      "uploaded": "Foto aggiornata",
-      "removed": "Foto rimossa",
-      "format_hint": "PNG, JPG o WEBP — max 2 MB"
-    },
     "account": {
       "title": "Account",
       "email": "Email",
@@ -702,12 +642,6 @@
       "last_login": "Ultimo accesso",
       "registered": "Registrato",
       "providers": "Provider collegati"
-    },
-    "copyright": {
-      "title": "Copyright istituto",
-      "description": "Stringa di copyright mostrata nel piè di pagina dell'applicazione.",
-      "field": "Testo copyright",
-      "saved": "Copyright aggiornato"
     },
     "bot_bindings": {
       "title": "Bot messaging",
@@ -947,19 +881,6 @@
         "submit_update": "Salva modifiche"
       }
     },
-    "oauth": {
-      "google_title": "Google OAuth",
-      "microsoft_title": "Microsoft OAuth",
-      "client_id": "Client ID",
-      "client_secret": "Client Secret",
-      "callback_url": "Callback URL",
-      "tenant": "Tenant",
-      "enable": "Abilita {{provider}} OAuth",
-      "saved": "Impostazioni OAuth salvate",
-      "restart_hint": "Riavvia il backend per applicare le nuove impostazioni OAuth.",
-      "secret_configured": "•••••••• (configurato — lascia vuoto per non modificare)",
-      "secret_placeholder": "Inserisci il Client Secret"
-    },
     "backups": {
       "title": "Backup e ripristino",
       "subtitle": "Snapshot automatici quotidiani di database e foto. Ripristino con conferma esplicita e snapshot di sicurezza pre-restore.",
@@ -1189,36 +1110,6 @@
       "requires_approval": "Richiede approvazione",
       "requires_approval_help": "Le prenotazioni di questa aula da parte di non-admin nascono in attesa di approvazione. Tipico per sale concerti, auditorium, sale di rappresentanza."
     },
-    "courses": {
-      "title": "Corsi",
-      "subtitle": "Gestisci il catalogo dei corsi di studio.",
-      "new_course": "Nuovo corso",
-      "import_csv": "Importa CSV",
-      "search_placeholder": "Cerca per codice o nome…",
-      "table": {
-        "code": "Codice",
-        "name": "Nome",
-        "department": "Dipartimento",
-        "levels": "Livelli",
-        "active": "Attivo",
-        "actions": "Azioni"
-      },
-      "no_courses": "Nessun corso trovato",
-      "form": {
-        "title_new": "Nuovo corso",
-        "title_edit": "Modifica corso",
-        "code": "Codice",
-        "name": "Nome",
-        "department": "Dipartimento",
-        "description": "Descrizione",
-        "levels": "Livelli",
-        "active": "Corso attivo"
-      },
-      "saved": "Corso salvato",
-      "deleted": "Corso eliminato",
-      "delete_title": "Eliminare il corso \"{{name}}\"?",
-      "delete_description": "Gli utenti associati verranno scollegati dal corso (matricola conservata). L'operazione è irreversibile."
-    },
     "rules": {
       "tabs": {
         "by_role": "Per ruolo",
@@ -1245,61 +1136,6 @@
         "result_ko": "La prenotazione sarebbe rifiutata",
         "disclaimer": "Le quote orarie individuali (es. \"hai già usato 8h questa settimana\") non sono valutate: usa un utente reale per quel test."
       }
-    },
-    "mail": {
-      "title": "Servizio posta",
-      "subtitle": "Configurazione SMTP e modelli email transazionali.",
-      "tab_settings": "Impostazioni",
-      "tab_templates": "Modelli",
-      "settings": {
-        "host": "Host SMTP",
-        "port": "Porta",
-        "secure": "TLS",
-        "username": "Username",
-        "password": "Password",
-        "from_address": "Mittente",
-        "from_name": "Nome mittente",
-        "reply_to": "Reply-To",
-        "test_address": "Indirizzo di test",
-        "send_test": "Invia email di test",
-        "test_sent": "Email di test inviata",
-        "saved": "Impostazioni salvate",
-        "enable": "Abilita invio email"
-      },
-      "templates": {
-        "subject": "Oggetto",
-        "body": "Corpo",
-        "preview": "Anteprima",
-        "reset": "Ripristina default",
-        "saved": "Modello aggiornato",
-        "type": "Modello",
-        "variables": "Variabili disponibili"
-      }
-    },
-    "csv_import": {
-      "title": "Importa da CSV",
-      "description": "Carica un file CSV con la struttura indicata.",
-      "drag_drop": "Trascina qui il file o clicca per selezionarlo",
-      "submit": "Importa",
-      "imported": "{{count}} elementi importati",
-      "errors_count": "{{count}} righe con errori",
-      "download_template": "Scarica modello"
-    },
-    "equipment_templates": {
-      "title": "Modelli di strumentazione",
-      "subtitle": "Catalogo riutilizzabile per le dotazioni delle aule.",
-      "new": "Nuovo modello",
-      "type": "Tipo",
-      "delete_title": "Eliminare il modello \"{{name}}\"?"
-    },
-    "course_levels": {
-      "title": "Livelli di studio",
-      "subtitle": "Categorie di percorso (es. Triennio, Biennio, Master).",
-      "new": "Nuovo livello",
-      "code": "Codice",
-      "name": "Nome",
-      "sort_order": "Ordine",
-      "saved": "Livelli salvati"
     },
     "display": {
       "title": "Infopoint",
@@ -1461,26 +1297,6 @@
       "errors": {
         "cap_required": "Almeno uno tra max contemporanei e max giorni/anno deve essere maggiore di 0"
       }
-    },
-    "loan_rules": {
-      "title": "Regole prestito strumenti",
-      "subtitle": "Per ciascuna famiglia strumentale specifica i corsi (codici SAD) abilitati a richiedere il prestito. La regola si applica a studenti e docenti: gli admin sono sempre autorizzati.",
-      "default_help": "Se non viene impostato alcun corso per una famiglia, la regola è permissiva (default): chiunque può richiedere il prestito.",
-      "configured_badge": "Configurata",
-      "default_badge": "Default permissivo",
-      "courses_count_one": "{{count}} corso abilitato",
-      "courses_count_other": "{{count}} corsi abilitati",
-      "no_courses_warning": "Nessun corso abilitato → tutti gli utenti non admin saranno bloccati.",
-      "search_courses": "Cerca tra i corsi…",
-      "select_all": "Seleziona tutti",
-      "deselect_all": "Deseleziona tutti",
-      "save": "Salva regola",
-      "reset": "Ripristina default",
-      "reset_confirm": "Ripristinare questa famiglia al default permissivo (chiunque può richiedere il prestito)?",
-      "saved": "Regola salvata",
-      "reset_done": "Regola ripristinata al default",
-      "notes": "Note (opzionale)",
-      "notes_placeholder": "Es. Solo studenti del corso di Pianoforte"
     },
     "instruments": {
       "title": "Inventario strumenti",
@@ -2287,11 +2103,6 @@
       "subtitle_ios": "Apri il menu Condividi di Safari e tocca \"Aggiungi alla schermata Home\".",
       "cta": "Installa",
       "dismiss": "Non ora"
-    },
-    "update": {
-      "title": "Aggiornamento disponibile",
-      "subtitle": "Ricarica per applicare la nuova versione.",
-      "reload": "Ricarica"
     }
   },
   "integrations": {

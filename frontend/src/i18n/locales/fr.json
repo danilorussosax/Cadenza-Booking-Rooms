@@ -349,29 +349,9 @@
       "pending_amendments": "Modifications quota horaire",
       "pending_amendments_hint": "Demandes enseignants en attente"
     },
-    "kpi": {
-      "next_booking": "Prochaine réservation",
-      "next_booking_none": "Aucune réservation à venir",
-      "weekly_used": "Heures réservées (semaine)",
-      "weekly_remaining": "Heures restantes cette semaine",
-      "daily_remaining": "Heures restantes aujourd'hui",
-      "unlimited": "Illimitées"
-    },
-    "next_bookings": {
-      "title": "Prochaines réservations",
-      "see_all": "Voir tout",
-      "empty": "Vous n'avez aucune réservation à venir. Commencez tout de suite !",
-      "create": "Réserver une salle"
-    },
     "loans": {
       "title": "Mes emprunts",
       "see_all": "Voir tout"
-    },
-    "quick_actions": {
-      "title": "Actions rapides",
-      "new_booking": "Nouvelle réservation",
-      "view_rooms": "Explorer les salles",
-      "my_bookings": "Mes réservations"
     },
     "pending_approvals": {
       "title": "Réservations en attente d'approbation",
@@ -570,28 +550,6 @@
       "cancelled": "Annulée",
       "completed": "Terminée",
       "no_show": "Absent"
-    },
-    "cancel": {
-      "title": "Annuler la réservation ?",
-      "description": "La salle sera libérée et d'autres utilisateurs pourront la réserver.",
-      "reason": "Motif (facultatif)",
-      "reason_placeholder": "Ex. Changement de programme",
-      "confirm": "Annuler la réservation",
-      "deadline_warning": "L'annulation requiert un préavis minimum de {{hours}} heures."
-    },
-    "actions": {
-      "edit": "Modifier",
-      "cancel": "Annuler",
-      "view": "Voir"
-    },
-    "list_item": {
-      "duration": "Durée",
-      "starts_in": "Commence dans {{when}}"
-    },
-    "toast": {
-      "created": "Réservation créée",
-      "updated": "Réservation mise à jour",
-      "cancelled": "Réservation annulée"
     }
   },
   "rooms": {
@@ -675,24 +633,6 @@
       "saved_on": "Notification activée",
       "saved_off": "Notification désactivée"
     },
-    "password": {
-      "title": "Mot de passe",
-      "current": "Mot de passe actuel",
-      "new": "Nouveau mot de passe",
-      "confirm": "Confirmer le mot de passe",
-      "submit": "Mettre à jour le mot de passe",
-      "updated": "Mot de passe mis à jour",
-      "oauth_only": "Ce compte est connecté uniquement via OAuth : le mot de passe ne se définit pas ici."
-    },
-    "photo": {
-      "title": "Photo de profil",
-      "upload": "Téléverser une photo",
-      "remove": "Supprimer la photo",
-      "remove_confirm": "Supprimer la photo de profil ?",
-      "uploaded": "Photo mise à jour",
-      "removed": "Photo supprimée",
-      "format_hint": "PNG, JPG ou WEBP — max 2 Mo"
-    },
     "account": {
       "title": "Compte",
       "email": "E-mail",
@@ -702,12 +642,6 @@
       "last_login": "Dernière connexion",
       "registered": "Inscrit le",
       "providers": "Fournisseurs liés"
-    },
-    "copyright": {
-      "title": "Copyright de l'institut",
-      "description": "Chaîne de copyright affichée dans le pied de page de l'application.",
-      "field": "Texte du copyright",
-      "saved": "Copyright mis à jour"
     },
     "bot_bindings": {
       "title": "Bot messagerie",
@@ -803,10 +737,6 @@
       "modules": {
         "title": "Modules activables",
         "subtitle": "Activez ou désactivez les modules fonctionnels. Quand un module est désactivé, le lien de la sidebar disparaît et ses routes répondent \"non actif\" (les données restent en BDD).",
-        "monte_ore_label": "Quota horaire enseignants",
-        "monte_ore_description": "Entrées de sidebar « Quota horaire » (côté enseignant) et « Gestion quota horaire » (côté admin). En désactivant le toggle, les liens disparaissent mais les routes et les API restent fonctionnelles.",
-        "instrument_loans_label": "Emprunt d'instruments",
-        "instrument_loans_description": "Entrées de sidebar « Instruments » (catalogue) et « Mes emprunts » + section admin « Inventaire des instruments ». En désactivant le toggle, les liens disparaissent mais les routes et les API restent fonctionnelles.",
         "saved": "Module mis à jour",
         "save_failed": "Impossible de mettre à jour le module",
         "backend_note": "Les données existantes ne sont jamais supprimées. En réactivant le module, les liens redeviennent immédiatement visibles."
@@ -882,19 +812,6 @@
         "submit_create": "Créer l'utilisateur",
         "submit_update": "Enregistrer les modifications"
       }
-    },
-    "oauth": {
-      "google_title": "Google OAuth",
-      "microsoft_title": "Microsoft OAuth",
-      "client_id": "Client ID",
-      "client_secret": "Client Secret",
-      "callback_url": "URL de callback",
-      "tenant": "Tenant",
-      "enable": "Activer {{provider}} OAuth",
-      "saved": "Paramètres OAuth enregistrés",
-      "restart_hint": "Redémarrez le backend pour appliquer les nouveaux paramètres OAuth.",
-      "secret_configured": "•••••••• (configuré — laissez vide pour ne pas modifier)",
-      "secret_placeholder": "Saisissez le Client Secret"
     },
     "backups": {
       "title": "Sauvegardes et restauration",
@@ -1125,36 +1042,6 @@
       "requires_approval": "Nécessite une approbation",
       "requires_approval_help": "Les réservations de cette salle par des non-admins sont créées en attente d'approbation. Typique pour les salles de concert, auditoriums, salles de représentation."
     },
-    "courses": {
-      "title": "Cursus",
-      "subtitle": "Gérez le catalogue des cursus.",
-      "new_course": "Nouveau cursus",
-      "import_csv": "Importer CSV",
-      "search_placeholder": "Rechercher par code ou nom…",
-      "table": {
-        "code": "Code",
-        "name": "Nom",
-        "department": "Département",
-        "levels": "Niveaux",
-        "active": "Actif",
-        "actions": "Actions"
-      },
-      "no_courses": "Aucun cursus trouvé",
-      "form": {
-        "title_new": "Nouveau cursus",
-        "title_edit": "Modifier le cursus",
-        "code": "Code",
-        "name": "Nom",
-        "department": "Département",
-        "description": "Description",
-        "levels": "Niveaux",
-        "active": "Cursus actif"
-      },
-      "saved": "Cursus enregistré",
-      "deleted": "Cursus supprimé",
-      "delete_title": "Supprimer le cursus « {{name}} » ?",
-      "delete_description": "Les utilisateurs associés seront détachés du cursus (numéro d'étudiant conservé). L'opération est irréversible."
-    },
     "rules": {
       "tabs": {
         "by_role": "Par rôle",
@@ -1181,61 +1068,6 @@
         "result_ko": "La réservation serait refusée",
         "disclaimer": "Les quotas horaires individuels (ex. « vous avez déjà utilisé 8 h cette semaine ») ne sont pas évalués : utilisez un utilisateur réel pour ce test."
       }
-    },
-    "mail": {
-      "title": "Service courrier",
-      "subtitle": "Configuration SMTP et modèles d'e-mails transactionnels.",
-      "tab_settings": "Paramètres",
-      "tab_templates": "Modèles",
-      "settings": {
-        "host": "Hôte SMTP",
-        "port": "Port",
-        "secure": "TLS",
-        "username": "Nom d'utilisateur",
-        "password": "Mot de passe",
-        "from_address": "Expéditeur",
-        "from_name": "Nom de l'expéditeur",
-        "reply_to": "Reply-To",
-        "test_address": "Adresse de test",
-        "send_test": "Envoyer un e-mail de test",
-        "test_sent": "E-mail de test envoyé",
-        "saved": "Paramètres enregistrés",
-        "enable": "Activer l'envoi d'e-mails"
-      },
-      "templates": {
-        "subject": "Objet",
-        "body": "Corps",
-        "preview": "Aperçu",
-        "reset": "Réinitialiser par défaut",
-        "saved": "Modèle mis à jour",
-        "type": "Modèle",
-        "variables": "Variables disponibles"
-      }
-    },
-    "csv_import": {
-      "title": "Importer depuis un CSV",
-      "description": "Téléversez un fichier CSV avec la structure indiquée.",
-      "drag_drop": "Glissez le fichier ici ou cliquez pour le sélectionner",
-      "submit": "Importer",
-      "imported": "{{count}} éléments importés",
-      "errors_count": "{{count}} lignes avec erreurs",
-      "download_template": "Télécharger le modèle"
-    },
-    "equipment_templates": {
-      "title": "Modèles d'équipement",
-      "subtitle": "Catalogue réutilisable pour les équipements des salles.",
-      "new": "Nouveau modèle",
-      "type": "Type",
-      "delete_title": "Supprimer le modèle « {{name}} » ?"
-    },
-    "course_levels": {
-      "title": "Niveaux d'études",
-      "subtitle": "Catégories de parcours (ex. Licence, Master, Doctorat).",
-      "new": "Nouveau niveau",
-      "code": "Code",
-      "name": "Nom",
-      "sort_order": "Ordre",
-      "saved": "Niveaux enregistrés"
     },
     "display": {
       "title": "Infopoint",
@@ -1397,26 +1229,6 @@
       "errors": {
         "cap_required": "Au moins un parmi max simultanés et max jours/an doit être supérieur à 0"
       }
-    },
-    "loan_rules": {
-      "title": "Règles d'emprunt d'instruments",
-      "subtitle": "Pour chaque famille instrumentale, précisez les cursus (codes SAD) autorisés à demander l'emprunt. La règle s'applique aux étudiants et aux enseignants : les admins sont toujours autorisés.",
-      "default_help": "Si aucun cursus n'est défini pour une famille, la règle est permissive (par défaut) : tout le monde peut demander l'emprunt.",
-      "configured_badge": "Configurée",
-      "default_badge": "Par défaut permissive",
-      "courses_count_one": "{{count}} cursus autorisé",
-      "courses_count_other": "{{count}} cursus autorisés",
-      "no_courses_warning": "Aucun cursus autorisé → tous les utilisateurs non admins seront bloqués.",
-      "search_courses": "Rechercher parmi les cursus…",
-      "select_all": "Tout sélectionner",
-      "deselect_all": "Tout désélectionner",
-      "save": "Enregistrer la règle",
-      "reset": "Réinitialiser par défaut",
-      "reset_confirm": "Réinitialiser cette famille à la valeur par défaut permissive (tout le monde peut demander l'emprunt) ?",
-      "saved": "Règle enregistrée",
-      "reset_done": "Règle réinitialisée par défaut",
-      "notes": "Notes (facultatif)",
-      "notes_placeholder": "Ex. Uniquement étudiants du cursus de piano"
     },
     "instruments": {
       "title": "Inventaire des instruments",
@@ -2291,11 +2103,6 @@
       "subtitle_ios": "Ouvrez le menu Partager de Safari et touchez « Sur l'écran d'accueil ».",
       "cta": "Installer",
       "dismiss": "Pas maintenant"
-    },
-    "update": {
-      "title": "Mise à jour disponible",
-      "subtitle": "Rechargez pour appliquer la nouvelle version.",
-      "reload": "Recharger"
     }
   },
   "integrations": {
