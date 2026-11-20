@@ -24,17 +24,19 @@ npm run build             # frontend build → frontend/dist/ (typecheck + vite 
 npm run start             # production: node backend/server.js (serves API + dist)
 
 npm run test              # vitest backend → vitest frontend (sequential)
+npm --prefix frontend run typecheck       # tsc -b --noEmit
 npm --prefix backend test                 # backend only
 npm --prefix backend test -- tests/integration/auth.test.js   # single file
+npm --prefix backend run test:coverage    # coverage with blocking thresholds (same for frontend)
 npm --prefix frontend test                # frontend only
-npm run e2e               # Playwright frontend workflows
+npm run e2e               # Playwright frontend workflows (frontend/tests/e2e)
 npm --prefix e2e test     # Separate business E2E suite
 npm run lint              # eslint backend → eslint frontend
 npm run format            # prettier over entire monorepo
 npm run format:check      # prettier --check (CI gate)
 
-cd backend && npm run seed               # re-seed admin + default rules
-DB_SYNC_MODE=alter cd backend && npm start   # apply model schema changes (development)
+npm --prefix backend run seed             # re-seed admin + default rules
+npm --prefix backend run db:migrate       # DB_SYNC_MODE=alter node server.js: apply model schema changes (development)
 ```
 
 ## Commit convention
@@ -68,26 +70,38 @@ The pre-commit hook runs `lint-staged` (prettier + eslint fix on staged) and `gi
 - `force`: DROP + CREATE all tables (destroys data)
 - `none`: skip sync entirely
 
+### Config, time, errors
+
+- **Config** (`lib/config.js`): read once at startup. Tuning keys follow one policy: variable absent or empty → default; present but invalid (non-numeric, out of bounds, malformed duration) → `ConfigError`, startup fails. Never add a silent fallback. Secrets, SMTP/OAuth and DB/pool settings live outside this module.
+- **Institutional time** (`lib/institutionTime.js`): day/hour/week calculations use `INSTITUTION_TZ` (default `Europe/Rome`), not the process timezone. `lib/institutionTimeBoot.js` aligns it to `Institute.timezone` at boot.
+- **Errors** (`lib/domainError.js`): `throw domainError(code, message, { status, ... })`; the central handler in `app.js` renders `{ error, code, details, fields }`. Every new `code` needs an `errors.code.<CODE>` key in the locale files (or an entry in `lib/errorCodes.js`); `tests/unit/errorCodesCatalog.test.js` enforces it.
+- **Deep modules** (booking/loan lifecycle, Monte Ore workflow, job runner, check-in policy, access): see `docs/ARCHITECTURE.md` § «Moduli profondi». Routes stay thin HTTP adapters: put domain logic in those modules, not in routes.
+
 ### Database
 
 - **Production**: PostgreSQL 16 with `EXCLUDE` constraint (`bookings_no_overlap`) as anti-overlap safety net at DB level
 - **Development default**: SQLite (zero-config, file `backend/data/conservatory.sqlite`)
-- Sequelize `paranoid: true` (soft-delete) on 10 models: do `findAll({ paranoid: false })` to include deleted rows
+- Sequelize `paranoid: true` (soft-delete) on 17 models: do `findAll({ paranoid: false })` to include deleted rows
 - **PgBouncer** is required in PM2 cluster mode (3 instances × Sequelize pool = 60 connections, Postgres max_connections = 50). `ecosystem.config.js` forces `DB_PORT=6432` and `DB_PGBOUNCER=true` via PM2 env
 
 ### Test quirks
 
 - Backend tests use **SQLite in-memory** by default (no Postgres needed). File parallelism is **disabled** (`fileParallelism: false`, `maxWorkers: 1`) because integration tests share the DB.
 - The EXCLUDE constraint test (`tests/integration/excludeConstraint.test.js`) requires a dedicated Postgres database. Set `DB_DIALECT=postgres DB_NAME=cadenza_test` to run it.
-- Analytics tests are Postgres-only (SQL queries use `EXTRACT`/`date_trunc`). Covered by the CI "Backend · Postgres-only tests" job.
+- Analytics tests are Postgres-only (SQL queries use `EXTRACT`/`date_trunc`). Covered by the CI "Backend · Postgres-only tests" job (`analyticsAggregations.postgres.test.js`).
 - Global test helpers from `tests/setup.js`: `resetDatabase()` is available in test scope.
-- Coverage thresholds: statements ≥72 / lines ≥73 / functions ≥78 / branches ≥60. CI blocks on regressions.
+- Coverage thresholds (CI blocks on regressions): backend statements ≥72 / lines ≥73 / functions ≥78 / branches ≥60; frontend statements ≥60 / lines ≥60 / functions ≥50 / branches ≥50.
 
 ## Frontend
 
 ### Import alias
 
 `@` → `frontend/src/` (configured in `vite.config.ts` and `tsconfig`).
+
+### Data layer
+
+- react-query keys live only in `frontend/src/lib/queryKeys.ts` (`qk`). Mutations do not list keys by hand: call the event functions in `frontend/src/lib/invalidation.ts` (`invalidateStructure`, `invalidateBookings`, `invalidateMonteOre`, …).
+- Monte Ore: the server computes `workflow` (`ready`, `blockers`, `actions.teacher` / `actions.admin`); the UI enables buttons from it and does not re-implement the rules.
 
 ### Build details
 
@@ -122,15 +136,15 @@ Frontend component coverage scope excludes page-level components and admin dialo
 
 ## CI (GitHub Actions)
 
-5 jobs (the first four run in parallel) in `.github/workflows/ci.yml`:
+`.github/workflows/ci.yml` runs 6 job instances (5 job definitions; the first four run in parallel):
 
 1. **gitleaks** — full history secrets scan
-2. **Backend · lint + test + coverage** — matrix: TZ=Europe/Rome and TZ=UTC (timezone-sensitive tests)
+2. **Backend · lint + test + coverage** — matrix: TZ=Europe/Rome and TZ=UTC (timezone-sensitive tests), 2 instances
 3. **Backend · Postgres-only tests** — EXCLUDE constraint + analytics queries
-4. **Frontend · lint + test + coverage + typecheck + build** — also runs `format:check`
-5. **E2E · Playwright** — after backend/frontend; push or PR with `e2e` label
+4. **Frontend · typecheck + test + build** — also runs `format:check`, lint and coverage thresholds
+5. **E2E · Playwright** — pinned to `ubuntu-24.04` (Playwright does not support the newer `ubuntu-latest` image yet); needs backend + frontend; runs only on push or on PRs labelled `e2e`; runs the `e2e/` suite plus `monte-ore.spec.ts` and `qr-codes.spec.ts` from `frontend/`
 
-CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels redundant runs.
+CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels redundant runs. Also present: `.github/workflows/audit.yml` (weekly and on dependency changes: audit of production deps, fails on high/critical) and `.github/dependabot.yml` (weekly minor/patch PRs per workspace, majors separate).
 
 ## Deploy
 
@@ -141,7 +155,9 @@ CI runs on push to `main`/`develop` and on all PRs. Concurrency group cancels re
 - `--no-build` skips frontend build only when dist source fingerprint matches the archived ref
 - `--update-deps` runs `npm outdated` per workspace and asks to `npm update` before deploy
 - Compares lockfile versions with the server — **aborts if the server has newer modules** (prevents regression)
-- Healthchecks `/api/ready` (5 retries × 3s) after PM2 restart, verifying DB connectivity
+- Healthchecks `/api/ready` (5 retries × 3s) after PM2 restart, verifying DB connectivity; on failure it **rolls back automatically** to the pre-deploy snapshot (disable with `--no-rollback`)
+- Before touching live code it takes a hardlink snapshot on the VPS (`<releases>/<timestamp>-<sha>/`, last 3 kept); `./deploy.sh --rollback [--snapshot=<name>]` restores manually. The DB is never rolled back
+- Every ssh/rsync step is retried 3 times with backoff on connection errors; local simulation without the VPS: `scripts/test-deploy-simulation.sh`. Details: `docs/install.md` § «Retry, snapshot e rollback»
 - Requires SSH alias `cadenza-vps` in `~/.ssh/config`
 
 ## i18n

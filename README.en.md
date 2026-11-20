@@ -50,20 +50,33 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - Per-role rules and quotas (min/max duration, lead time, allowed hours, weekly quota)
 - **Exceptions scoped by role + room** (`block` or `time_window`): temporary overrides for renovations, exam sessions, masterclasses, with historical overlap preview and transactional batch-cancel
 - **Approval workflow** for special rooms (concert hall, auditorium)
-- **Anti-ghost booking**: check-in via QR code printed in the room, auto-cancellation with a grace period (skipped when `Room.requireCheckIn=false`)
+- **Anti-ghost booking**: check-in via QR code printed in the room, auto-cancellation with a grace period (skipped when `Room.requireCheckIn=false`). Room QR sheets (PNG) can be downloaded one by one or all together in a single ZIP, with one folder per site (`GET /api/structure/rooms/qr/download-all`)
+- **Alternative slots on conflict**: when a booking fails because of an overlap, the response includes up to 5 alternatives (same room shifted by ±30/60/120 minutes, a compatible room in the same building, same time on the following days), already filtered by permissions and rules (`backend/services/bookingSuggestions.js`)
 - **Waitlist** with claim window and auto-promote
 - **Dashboard** with a "1 day · 3 days" toggle (preference persisted per browser, navigation arrows aligned to the mode)
 - Weekly view of rooms × days with PDF export (A4 landscape, per building)
-- iCal export per user via personal token
+- iCal export per user via personal token (emits a precise RRULE for recurring series, so Outlook/Google recognise the native cadence)
+- **Recurring bookings (MRBS-style)**: `daily`/`weekly` rules with `interval`, `byWeekday`, `endDate` and `excludeDates` (holidays). A single call creates up to 52 individually validated occurrences, with a `skipConflicts` option to skip conflicting dates and create only the valid ones. Cancel a single occurrence or the whole series (past occurrences are preserved for audit)
 
 ### 🎻 Musical instrument inventory _(unique)_
 
 - Full catalogue with families (strings, woodwinds/brass, keyboards, percussion…)
-- Complete loan workflow: `requested → active → returned`, with auto-overdue
+- Complete loan workflow: `requested → active → returned`, with the `overdue` (automatic at the due date) and `rejected` states; atomic transitions in `backend/services/loanLifecycle.js`. Can be enabled or disabled by the admin ("Instrument loans" module)
 - Signed PDF for delivery and return
 - T-2 day reminders and automatic overdue notifications
 - Rules and quotas by family, course and role
 - Idempotent CSV import/export
+
+### ⏱️ Teacher Monte Ore and academic years
+
+The Monte Ore is the teacher's annual teaching plan: recurring weekly slots expanded into a date grid (week × day) that, once approved, becomes a set of real room bookings.
+
+- **Teacher plan**: weekly slots (day, time, preferred room, activity type) and an annual grid where the teacher switches individual dates on or off. The plan is checked against the contract: `titolare` and `collaborazione` require an exact number of hours (324 h for the tenured chair holder, individual hours for collaboration), `tempo_definito` has a ceiling (162 h), and the other contract types are configurable (`hoursMode`, default hours, individual override). Unless bypassed, 2 to 4 days per week are required; the daily constraints (maximum hours per day, break after N hours) are optional and configurable per year
+- **Draft → approved → generated workflow**: `draft` → `submitted` (submission within the entry window, also with an individual override) → `approved` / `rejected` → `generated`. The admin sees a preview (conflicts, missing rooms), assigns the final room to each occurrence and, with **Approve**, re-validates contract, calendar and availability and creates the bookings in a single transaction (origin `monte_ore`, which does not consume the quotas of free bookings). The admin can also reject, send the plan back to draft with a reason, or cancel the generation (the bookings are released). The Excel import creates plans already submitted on behalf of the teacher
+- **Amendments after approval**: time change, room change, move to another date, deactivation, reactivation and new day, also grouped into a single request. Each request waits for the admin's decision, who can approve, reject or edit and approve (with a reason); the outcome is sent as an email through the existing queue. The yearly request limit (`maxAmendmentsPerYear`, default 3, zero allowed) is per academic year and also counts rejected requests; administrative corrections do not consume it
+- **Teaching calendar**: lesson period, submission window, suspensions (six standard holidays recalculated, plus custom closures with a preview of the impact on existing plans) and exam sessions
+- **Academic years**: each year has a `draft` / `published` / `archived` status. A new year is prepared with a preview, starting from the standard configuration or copying from a previous year (rules, lesson period and window, custom suspensions, exam sessions); it is saved as a draft or published. The admin can "start" a year to make it the one shown to teachers; only concluded years can be archived (and republished). See [`docs/ANNI_ACCADEMICI.md`](docs/ANNI_ACCADEMICI.md) (Italian)
+- **Switchable module**: from Server Settings → Modules (`moduleMonteOreEnabled` flag on the institute). With the module off, the `/api/monte-ore/*` and `/api/admin/monte-ore/*` routes answer 404 with code `MODULE_DISABLED` and the menu entries disappear
 
 ### 📺 Public kiosk display
 
@@ -77,7 +90,7 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 ### 📢 Announcements board & communications
 
 - Audience-filtered announcements: everyone / by role / by course / by building
-- 11 editable email templates (booking, loan, waitlist, approval, announcement)
+- 17 editable email templates (booking, loan, waitlist, approval, announcements, password reset and first access)
 - Mail server settings with AES-256-GCM encryption at rest
 
 ### ✉️ Robust email system _(outbox pattern)_
@@ -117,14 +130,15 @@ In production the backend serves both `/api/*` endpoints and the compiled React 
 - **Strict CSP** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — public scanners: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
 - **Origin guard middleware** (v1.11.0): defense-in-depth against CSRF for Cadenza's JWT+Bearer model. All mutating requests (`POST/PUT/PATCH/DELETE`) must originate from a whitelisted `Origin/Referer` (`FRONTEND_URL` + same-origin), otherwise `403 ORIGIN_FORBIDDEN`
 - **Sentry** v10 with recursive PII scrubbing + SHA-256 anonymised user
-- **Italian PA GDPR package** (Garante 06/2021): cookie banner, append-only `UserConsent`, art. 20 export, art. 17 delete, re-consent on policy version change
+- **Italian PA GDPR package** (Garante 06/2021): cookie banner, append-only `UserConsent`, art. 20 export on your own from the Profile (JSON file, max 3 requests every 24 h), art. 17 delete, re-consent on policy version change
 - **PostgreSQL EXCLUDE constraint** (`bookings_no_overlap`) as a DB-level anti-overlap safety net
-- **`paranoid: true`** (soft-delete) on 10 sensitive models
+- **`paranoid: true`** (soft-delete) on 17 models
 
 ### 🔐 Authentication
 
 - Local email + password
 - **Google OAuth** and **Microsoft 365 / Entra ID OAuth** (configurable in the UI with encrypted secrets)
+- **Self-service password reset via email**: signed link (SHA-256 hex), valid for 1h, single use. Anti-enumeration (generic 200 even for a non-existent email), double rate limit (3/30min per IP + 3/h per user). The reset invalidates all existing JWT sessions (`tokenVersion++`) and clears any account lockout
 - Profile completion with `matricola` and `courseId` for students
 - Roadmap: SPID/CIE (Sprint 6), LDAP/AD (enterprise sprint)
 - Step-by-step SSO setup configurable from the admin UI (Server Settings → OAuth) with links to official Microsoft Learn / Google Cloud documentation
@@ -156,7 +170,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 
 ### 💾 Business continuity
 
-- **Periodic Excel mirror** of bookings on disk (default `/var/cadenza/sync/`), one tab per building with cells colour-coded by type — a faithful copy of the public kiosk display
+- **Periodic Excel mirror** of bookings on disk (default `/var/cadenza/sync/`), one tab per building with cells colour-coded by type (`studio_individuale` green, `lezione` light blue, `prova` amber, `concerto` pink, `altro` purple) and multi-slot blocks merged horizontally — a faithful copy of the public kiosk display
 - Folder sync to a personal cloud (OneDrive / Dropbox / pCloud / iCloud / Google Drive) via `rclone` + OS cron — fully decoupled from the backend: if Cadenza is down the last copy stays in the cloud and the front desk opens it from a phone. Deliberately one-way (Cadenza → file): edits on the sheet do NOT flow back into the DB, so there's no obscure conflict resolution at restore time. Interactive setup via `scripts/setup-rclone-sync.sh`
 - Automatic DB + uploads backups (`.tar.gz` snapshot with daily/weekly/monthly retention)
 - **Automated backup integrity check** (v1.9.0): weekly scheduler running 7 checks on the latest `.tar.gz` (age, tarball safety, manifest, non-empty dump, critical tables, data section, schema vs prod). Admin email only on failure (silent-on-success), idempotent per day+reason. Dedicated widget in `/admin/ops`
@@ -228,7 +242,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 | Deploy        | VPS Ubuntu 24.04 — idempotent `install.sh` script                                                                                                    |
 | Operations    | `pg-tune-4gb.sh` (idempotent, reversible Postgres tuning for small VPS) · `KIOSK_IP_ALLOWLIST.md` (nginx kiosk restriction) · `/admin/ops` dashboard |
 | Monitoring    | Sentry v10 (opt-in) + in-app ops dashboard                                                                                                           |
-| Testing       | Vitest 1,730 backend tests + 258 component/lib + 12 Playwright E2E specs (golden + RBAC + GDPR + audit chains closed)                                |
+| Testing       | Vitest (backend and frontend) + Playwright E2E                                                                                                       |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                       |
 
 ---
@@ -449,7 +463,7 @@ Commercial and positioning documents are kept **outside the public repo** (prici
 
 | Document                              | Contents                                                                                                                                      | Status                           |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| [`develop.md`](develop.md)            | Development roadmap: event-management plan (5 phases · ~11 dev-days vs ASIMUT) + **post-1.6.0 backlog** (7 security/ops/perf items, ~12 days) | ✅ Versioned                     |
+| [`develop.md`](develop.md)            | Development roadmap: event-management plan (5 phases · ~11 dev-days vs ASIMUT) + **post-1.6.0 backlog** (security/ops/perf items with status) | ✅ Versioned                     |
 | `Proposta.md`                         | Technical-commercial proposal + competitive benchmark (ASIMUT, EasyStaff/EasyRoom Zucchetti) + 10-year TCO + migration plan · v2.2 (IT)       | 📄 Out of repo                   |
 | `Cadenza_Presentazione_Direzione.pdf` | 18-slide deck for Directors / Presidents / DSGA — feature parity, costs, PA compliance                                                        | 📄 Out of repo                   |
 | `develop-enterprise.md`               | Enterprise roadmap (LDAP/AD, SAML 2.0 IDEM-GARR, Esse3 sync, RFID badge)                                                                      | 🚧 In progress, not yet released |
@@ -480,7 +494,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Current coverage (v1.11.0)**: **1,730** backend tests (98 integration + unit files, 16 skipped with rationale) + **258** frontend component tests (26 files, ~10 of which a11y via `vitest-axe`, 2 skipped) + **12 Playwright specs** (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocking + loans pagination contract + 6 pre-existing on loans/waitlist/a11y) — **2,000 total tests**. Enforced thresholds: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — all 8 axes above 60% measured coverage (aggregate). GitHub Actions CI with 4 parallel jobs (backend / postgres / frontend / E2E).
+**Current coverage (v1.22.2)**: **164** backend test files (integration + unit + security/property/stress), **67** frontend test files (component and lib, including `vitest-axe` a11y checks) and the Playwright specs in `frontend/tests/e2e/` and in the `e2e/` workspace. Blocking backend thresholds: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60; frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 (CI blocks regressions). GitHub Actions CI with parallel jobs (gitleaks / backend / postgres / frontend) and a subsequent E2E job.
 
 **Stability suites (v1.5.1)** — beyond the classic unit/integration scope:
 
@@ -499,7 +513,7 @@ The following areas are complete and running in production:
 
 - Core booking + waitlist + approval workflow + anti-ghost QR check-in
 - Full musical-instrument loan module (5 states, scheduler, PDF, rules/quotas)
-- Audience-based announcements board + 11 editable mail templates
+- Audience-based announcements board + 17 editable mail templates
 - Kiosk display (3 configurable cards, soft-offline, audience filter, **optional nginx IP restriction**)
 - Email 2FA + admin Activity Hub
 - Installable PWA (Service Worker, A2HS, kiosk offline)
@@ -517,15 +531,23 @@ The following areas are complete and running in production:
 - **Operational hardening toolkit** (v1.7.0): idempotent `pg-tune-4gb.sh` for Postgres + nginx IP allowlist guide for the kiosk
 - **Smartphone UX overhaul** (v1.8.0): compact hero, 2×2 KPI grid, hidden decorative subtitles, full-line page title; **new "Rooms and bookings" section** mobile-only with hierarchical `<details>` disclosure building→room; Booking/MyBookings/Profile tightened
 - **Automated backup integrity check** (v1.9.0): weekly scheduler running 7 checks, "Integrity check" widget in `/admin/ops`, admin alert email only on FAIL with idempotency per day+reason
+- **Teacher Monte Ore and academic years**: annual plan with a `draft → submitted → approved → generated` workflow, transactional booking generation, amendments always subject to the admin's decision with a yearly limit, teaching calendar with suspensions and exam sessions, `draft` / `published` / `archived` academic years with copy from the previous year, module switchable from Server Settings
+- **Self-service GDPR export** (`GET /api/users/me/gdpr/export`, "Download my data" button in the Profile) and **suggested alternative slots** on booking conflict (up to 5 alternatives, `backend/services/bookingSuggestions.js`)
+- **Backend deep modules** (booking and loan lifecycle, institutional time, errors with stable codes, job runner): see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) "Moduli profondi" (Italian)
 - **High Availability Level 1+2, opt-in** (v1.10.0): PM2 cluster mode with scheduler lock (`backend/lib/clusterRole.js`), multi-cloud off-site backup (`scripts/setup-rclone-backups.sh`), PITR via WAL archiving (`scripts/setup-wal-archiving.sh`)
 - **Security & quality hardening** (v1.11.0): originGuard middleware (cross-origin anti-CSRF), integrity hash-chain on `audit_log` (PA tamper-evidence, `verify-integrity` endpoint), `/api/ready` extended to DB/SMTP/disk, admin pagination on `/api/loans`, +5 Playwright specs (RBAC denial, booking cancel, GDPR export, pending-user, loans pagination contract)
 
 ### 🚧 Current sprints
 
 - **Telegram bot MVP** complete, WhatsApp Cloud / Signal / Email scaffolding
+- **Post-1.6.0 backlog** (security/ops/perf): items consolidated in [`develop.md`](develop.md) §2, where each item carries its own status. Already implemented: ops dashboard, backup verification, PWA, off-site backup, PITR, PM2 cluster with PgBouncer, GDPR self-service export (§2.9), alternative slots on conflict (§2.11). Open items: mobile-kiosk device token, mail-rotated PIN, external monitor with alerts, weekly slow query digest (only the in-memory ring buffer exists, `GET /api/admin/ops/slow-queries`), dynamic QR code on the display, conflict-aware bulk booking for teachers
+
+### ⏸️ Not started
+
+Items discussed but with no code in the repository and no open sprint (detail and status in [`develop.md`](develop.md) §3):
+
 - Web Push API notifications
 - Iframe embed for public concerts
-- **Post-1.6.0 backlog** (security/ops/perf): items consolidated in [`develop.md`](develop.md) §2. Quick-win candidates: §2.9 GDPR self-service export (~1d), §2.11 Suggested alternative slots on conflict (~2d). Open items: mobile-kiosk device token, mail-rotated PIN, external monitor with alerts, PgBouncer, slow query digest, dynamic QR code on the display, conflict-aware bulk booking for teachers
 
 ### 🔵 Italian PA roadmap
 
