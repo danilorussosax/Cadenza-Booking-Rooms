@@ -40,26 +40,39 @@ export interface MonteOreSchedule {
   updatedAt: string;
 }
 
+/** Cosa può fare ora il docente: unica fonte per il gating della UI. */
+export interface MonteOreTeacherActions {
+  editPattern: boolean;
+  selectDates: boolean;
+  submit: boolean;
+  /** Spostamenti, toggle e nuovi giorni via variazione (negato se serve rivalidazione). */
+  requestAmendment: boolean;
+  /** Storico variazioni consultabile. */
+  viewAmendments: boolean;
+}
+
+/** Cosa può fare ora l'amministratore sul piano. */
+export interface MonteOreAdminActions {
+  approve: boolean;
+  reject: boolean;
+  revertToDraft: boolean;
+  unlock: boolean;
+  editSchedules: boolean;
+  reviewAmendments: boolean;
+  revalidate: boolean;
+}
+
+export interface MonteOreWorkflowActions {
+  teacher: MonteOreTeacherActions;
+  admin: MonteOreAdminActions;
+}
+
 /** Risposta calcolata dal server: pronto? cosa blocca? cosa si può fare ora. */
 export interface MonteOreWorkflowState {
   status: MonteOreStatus;
   ready: boolean;
   blockers: { code: string; message: string; violations?: unknown[] }[];
-  actions: {
-    teacher: {
-      editPattern: boolean;
-      selectDates: boolean;
-      submit: boolean;
-      requestAmendment: boolean;
-    };
-    admin: {
-      approve: boolean;
-      reject: boolean;
-      revertToDraft: boolean;
-      unlock: boolean;
-      editSchedules: boolean;
-    };
-  };
+  actions: MonteOreWorkflowActions;
 }
 
 export interface MonteOreProposal {

@@ -20,6 +20,7 @@ import {
   type CalendarWeek,
   type MonteOreSlot,
   type MonteOreAmendment,
+  type MonteOreTeacherActions,
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { httpErrorMessage } from '@/lib/api';
@@ -63,7 +64,8 @@ const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 interface Props {
   requestCount?: number;
   proposalId?: number;
-  proposalStatus: 'draft' | 'submitted' | 'approved' | 'rejected' | 'generated';
+  /** Azioni consentite al docente, calcolate dal server (`proposal.workflow`). */
+  actions: MonteOreTeacherActions;
   isPatternEmpty: boolean;
   /**
    * Soglia ore annue applicabile al docente. Se valorizzata, sostituisce
@@ -93,7 +95,7 @@ interface Props {
 export default function MonteOreGrid({
   hoursMode = 'minimum',
   requestCount = 0,
-  proposalStatus,
+  actions,
   isPatternEmpty,
   minHoursOverride,
   isOverriddenThreshold,
@@ -110,7 +112,7 @@ export default function MonteOreGrid({
   const [movingSlot, setMovingSlot] = useState<MonteOreSlot | null>(null);
   // Spostamenti consentiti solo dopo approvazione (in draft il docente
   // edita direttamente il pattern, senza amendment workflow).
-  const allowMove = ['approved', 'generated'].includes(proposalStatus);
+  const allowMove = actions.requestAmendment;
 
   const calendarQuery = useQuery({
     queryKey: qk.monteOre.meCalendarYear(academicYear),
@@ -127,7 +129,7 @@ export default function MonteOreGrid({
   const amendmentsQuery = useQuery({
     queryKey: qk.monteOre.meAmendmentsYear(academicYear),
     queryFn: () => monteOreApi.getMyAmendments(academicYear),
-    enabled: !calendarQuery.isError && ['approved', 'generated'].includes(proposalStatus),
+    enabled: !calendarQuery.isError && actions.viewAmendments,
   });
 
   const regenerateMutation = useMutation({
@@ -220,16 +222,18 @@ export default function MonteOreGrid({
   // queste, React.memo su WeekRow/DayCell sarebbe un no-op perché la prop
   // funzione cambierebbe ad ogni render del parent. Devono essere
   // dichiarati PRIMA dei return condizionali (Rules of Hooks).
-  const editable = ['draft', 'rejected', 'approved', 'generated'].includes(proposalStatus);
+  const canToggleDirectly = actions.selectDates;
+  const canRequestAmendment = actions.requestAmendment;
+  const editable = canToggleDirectly || canRequestAmendment;
   const handleToggle = useCallback(
     (slotId: number) => {
-      if (['approved', 'generated'].includes(proposalStatus)) {
-        setRequestOpen(true);
+      if (canToggleDirectly) {
+        toggleMutation.mutate(slotId);
         return;
       }
-      if (editable) toggleMutation.mutate(slotId);
+      if (canRequestAmendment) setRequestOpen(true);
     },
-    [editable, toggleMutation, proposalStatus],
+    [canToggleDirectly, canRequestAmendment, toggleMutation],
   );
   const handleRequestMove = useCallback((s: MonteOreSlot) => {
     setMovingSlot(s);
@@ -313,7 +317,7 @@ export default function MonteOreGrid({
               </p>
             )}
           </div>
-          {['draft', 'rejected'].includes(proposalStatus) && !hasPendingPattern && (
+          {actions.editPattern && !hasPendingPattern && (
             <Button
               size="sm"
               variant="outline"
@@ -324,7 +328,7 @@ export default function MonteOreGrid({
               Rigenera dalla Sezione A
             </Button>
           )}
-          {['approved', 'generated'].includes(proposalStatus) && (
+          {actions.requestAmendment && (
             <Button size="sm" variant="outline" onClick={() => setRequestOpen(true)}>
               <CalendarPlus className="h-4 w-4" />
               Richiedi nuovo giorno
@@ -351,7 +355,7 @@ export default function MonteOreGrid({
             </Button>
           </div>
         )}
-        {['draft', 'rejected'].includes(proposalStatus) && (
+        {actions.selectDates && (
           <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
             <label className="text-sm">
               {t('monteWorkflow.start')}
@@ -418,18 +422,16 @@ export default function MonteOreGrid({
             </AlertDescription>
           </Alert>
         )}
-        {!hasPendingPattern &&
-          slotsCount === 0 &&
-          ['draft', 'rejected'].includes(proposalStatus) && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Hai modificato il pattern: clicca "Rigenera dalla Sezione A" per applicare le
-                modifiche alla griglia.
-              </AlertDescription>
-            </Alert>
-          )}
-        {['approved', 'generated'].includes(proposalStatus) && (
+        {!hasPendingPattern && slotsCount === 0 && actions.editPattern && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Hai modificato il pattern: clicca "Rigenera dalla Sezione A" per applicare le
+              modifiche alla griglia.
+            </AlertDescription>
+          </Alert>
+        )}
+        {actions.requestAmendment && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2">
             <p className="text-xs text-muted-foreground">
               Per <strong>sostituire</strong> un giorno con un altro dello stesso pattern

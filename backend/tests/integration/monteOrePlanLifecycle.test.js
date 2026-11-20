@@ -138,6 +138,7 @@ describe('Monte Ore — ciclo di vita del piano (stato x azione x attore)', () =
         selectDates: editable,
         submit: editable,
         requestAmendment: false, // requiresRevalidation = true
+        viewAmendments: ['approved', 'generated'].includes(status),
       });
       expect(described.actions.admin).toEqual({
         approve: ['submitted', 'approved'].includes(status),
@@ -145,7 +146,22 @@ describe('Monte Ore — ciclo di vita del piano (stato x azione x attore)', () =
         revertToDraft: ['submitted', 'approved'].includes(status),
         unlock: status === 'generated',
         editSchedules: status !== 'generated',
+        reviewAmendments: ['approved', 'generated'].includes(status),
+        revalidate: status === 'generated', // requiresRevalidation = true
       });
+    });
+  });
+
+  describe.each(STATES)('azioni di variazione in stato %s', (status) => {
+    it.each([false, true])('requiresRevalidation=%s', async (requiresRevalidation) => {
+      const { proposal } = await setup(status);
+      await proposal.update({ requiresRevalidation });
+      const { actions } = await workflow.describePlan(await workflow.loadPlan(proposal.id));
+      const amendable = ['approved', 'generated'].includes(status);
+      expect(actions.teacher.requestAmendment).toBe(amendable && !requiresRevalidation);
+      expect(actions.teacher.viewAmendments).toBe(amendable);
+      expect(actions.admin.reviewAmendments).toBe(amendable);
+      expect(actions.admin.revalidate).toBe(status === 'generated' && requiresRevalidation);
     });
   });
 

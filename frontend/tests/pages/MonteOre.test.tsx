@@ -25,13 +25,21 @@ const workflow = (over: Partial<MonteOreWorkflowState> = {}): MonteOreWorkflowSt
   ready: false,
   blockers: [],
   actions: {
-    teacher: { editPattern: true, selectDates: true, submit: false, requestAmendment: false },
+    teacher: {
+      editPattern: true,
+      selectDates: true,
+      submit: false,
+      requestAmendment: false,
+      viewAmendments: false,
+    },
     admin: {
       approve: false,
       reject: false,
       revertToDraft: false,
       unlock: false,
       editSchedules: true,
+      reviewAmendments: false,
+      revalidate: false,
     },
   },
   ...over,
