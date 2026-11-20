@@ -10,7 +10,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const removal = require('../services/removal');
 const storage = require('../services/storage');
 const { importStructure } = require('../services/structureImporter');
-const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { pickAllowed } = require('../lib/sanitize');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
 
 // Whitelist dei campi assegnabili da admin via REST (anti mass-assignment).
@@ -750,17 +750,8 @@ router.post(
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
-    try {
-      const building = await Building.create(pickAllowed(req.body, BUILDING_ALLOWED));
-      res.status(201).json({ building });
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        return res
-          .status(err.status)
-          .json({ error: err.message, code: err.code, field: err.field });
-      }
-      res.status(500).json({ error: 'Errore creazione edificio', details: err.message });
-    }
+    const building = await Building.create(pickAllowed(req.body, BUILDING_ALLOWED));
+    res.status(201).json({ building });
   },
 );
 
@@ -774,18 +765,11 @@ router.post('/buildings/bulk-delete', authenticate, requireRole('admin'), async 
   res.json({ deleted, removedRooms, removedBookings });
 });
 
-router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const b = await Building.findByPk(req.params.id);
-    if (!b) throw httpError(404, 'Edificio non trovato');
-    await b.update(pickAllowed(req.body, BUILDING_ALLOWED));
-    res.json({ building: b });
-  } catch (err) {
-    if (err instanceof ValidationError) {
-      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
-    }
-    next(err);
-  }
+router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const b = await Building.findByPk(req.params.id);
+  if (!b) throw httpError(404, 'Edificio non trovato');
+  await b.update(pickAllowed(req.body, BUILDING_ALLOWED));
+  res.json({ building: b });
 });
 
 router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, res) => {
@@ -1001,35 +985,19 @@ router.post(
   authenticate,
   requireRole('admin'),
   [body('buildingId').isInt(), body('name').notEmpty().trim(), body('floor').notEmpty().trim()],
-  async (req, res, next) => {
-    try {
-      const errs = validationResult(req);
-      if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
-      const room = await Room.create(pickAllowed(req.body, ROOM_ALLOWED));
-      res.status(201).json({ room });
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        return res
-          .status(err.status)
-          .json({ error: err.message, code: err.code, field: err.field });
-      }
-      next(err);
-    }
+  async (req, res) => {
+    const errs = validationResult(req);
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
+    const room = await Room.create(pickAllowed(req.body, ROOM_ALLOWED));
+    res.status(201).json({ room });
   },
 );
 
-router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const r = await Room.findByPk(req.params.id);
-    if (!r) throw httpError(404, 'Aula non trovata');
-    await r.update(pickAllowed(req.body, ROOM_ALLOWED));
-    res.json({ room: r });
-  } catch (err) {
-    if (err instanceof ValidationError) {
-      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
-    }
-    next(err);
-  }
+router.put('/rooms/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const r = await Room.findByPk(req.params.id);
+  if (!r) throw httpError(404, 'Aula non trovata');
+  await r.update(pickAllowed(req.body, ROOM_ALLOWED));
+  res.json({ room: r });
 });
 
 // =========================================================
@@ -1282,35 +1250,19 @@ router.post(
   authenticate,
   requireRole('admin'),
   [body('roomId').isInt(), body('name').notEmpty().trim()],
-  async (req, res, next) => {
-    try {
-      const errs = validationResult(req);
-      if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
-      const eq = await Equipment.create(pickAllowed(req.body, EQUIPMENT_ALLOWED));
-      res.status(201).json({ equipment: eq });
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        return res
-          .status(err.status)
-          .json({ error: err.message, code: err.code, field: err.field });
-      }
-      next(err);
-    }
+  async (req, res) => {
+    const errs = validationResult(req);
+    if (!errs.isEmpty()) throw httpError(400, 'Validazione fallita', { details: errs.array() });
+    const eq = await Equipment.create(pickAllowed(req.body, EQUIPMENT_ALLOWED));
+    res.status(201).json({ equipment: eq });
   },
 );
 
-router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const e = await Equipment.findByPk(req.params.id);
-    if (!e) throw httpError(404, 'Attrezzatura non trovata');
-    await e.update(pickAllowed(req.body, EQUIPMENT_ALLOWED));
-    res.json({ equipment: e });
-  } catch (err) {
-    if (err instanceof ValidationError) {
-      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
-    }
-    next(err);
-  }
+router.put('/equipment/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const e = await Equipment.findByPk(req.params.id);
+  if (!e) throw httpError(404, 'Attrezzatura non trovata');
+  await e.update(pickAllowed(req.body, EQUIPMENT_ALLOWED));
+  res.json({ equipment: e });
 });
 
 router.delete('/equipment/:id', authenticate, requireRole('admin'), async (req, res) => {

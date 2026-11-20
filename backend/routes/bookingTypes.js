@@ -18,7 +18,7 @@
 const express = require('express');
 const { BookingTypeCatalog } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { pickAllowed } = require('../lib/sanitize');
 const { domainError } = require('../lib/domainError');
 
 const router = express.Router();
@@ -87,39 +87,32 @@ adminRouter.get('/', authenticate, requireRole('admin'), async (req, res, next) 
 // =========================================================
 // Lookup per `code` (NON per id) così l'admin può fare URL bookmark stabili
 // e gli script di provisioning sono leggibili.
-adminRouter.put('/:code', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const code = String(req.params.code || '').toLowerCase();
-    if (!code || !/^[a-z][a-z0-9_]{1,39}$/.test(code)) {
-      throw domainError('INVALID_CODE', 'code non valido');
-    }
-    const target = await BookingTypeCatalog.findOne({ where: { code } });
-    if (!target) {
-      throw domainError('TYPE_NOT_FOUND', 'Tipo prenotazione non trovato', { status: 404 });
-    }
-    const updates = pickAllowed(req.body, EDITABLE_FIELDS);
-    // Safety: i tipi system devono restare con almeno una entry attiva
-    // visibile nella dropdown — altrimenti la UI non offre alcuna scelta.
-    if (target.isSystem && updates.isActive === false) {
-      const otherActive = await BookingTypeCatalog.count({
-        where: { isActive: true },
-      });
-      if (otherActive <= 1) {
-        throw domainError(
-          'LAST_ACTIVE_TYPE',
-          "Impossibile disattivare l'ultimo tipo prenotazione attivo. Attivane un altro prima.",
-          { status: 409 },
-        );
-      }
-    }
-    await target.update(updates);
-    res.json({ type: target.toJSON() });
-  } catch (err) {
-    if (err instanceof ValidationError) {
-      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
-    }
-    next(err);
+adminRouter.put('/:code', authenticate, requireRole('admin'), async (req, res) => {
+  const code = String(req.params.code || '').toLowerCase();
+  if (!code || !/^[a-z][a-z0-9_]{1,39}$/.test(code)) {
+    throw domainError('INVALID_CODE', 'code non valido');
   }
+  const target = await BookingTypeCatalog.findOne({ where: { code } });
+  if (!target) {
+    throw domainError('TYPE_NOT_FOUND', 'Tipo prenotazione non trovato', { status: 404 });
+  }
+  const updates = pickAllowed(req.body, EDITABLE_FIELDS);
+  // Safety: i tipi system devono restare con almeno una entry attiva
+  // visibile nella dropdown — altrimenti la UI non offre alcuna scelta.
+  if (target.isSystem && updates.isActive === false) {
+    const otherActive = await BookingTypeCatalog.count({
+      where: { isActive: true },
+    });
+    if (otherActive <= 1) {
+      throw domainError(
+        'LAST_ACTIVE_TYPE',
+        "Impossibile disattivare l'ultimo tipo prenotazione attivo. Attivane un altro prima.",
+        { status: 409 },
+      );
+    }
+  }
+  await target.update(updates);
+  res.json({ type: target.toJSON() });
 });
 
 module.exports = { router, adminRouter };

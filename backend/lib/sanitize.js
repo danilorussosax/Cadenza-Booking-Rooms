@@ -1,5 +1,7 @@
 'use strict';
 
+const { DomainError } = require('./domainError');
+
 /**
  * Helper di sanitizzazione input — anti mass-assignment.
  *
@@ -27,11 +29,12 @@
  *   - null su nullable   → consentito; null su non-nullable → scartato
  */
 
-class ValidationError extends Error {
+// Estende DomainError: il gestore centrale in app.js rende `{ error, code, field }`
+// (`field` viaggia in `extra`), quindi i chiamanti la lasciano propagare con next(err).
+class ValidationError extends DomainError {
   constructor(message, code = 'VALIDATION_FAILED', field = null) {
-    super(message);
-    this.status = 400;
-    this.code = code;
+    super(code, message, { status: 400, extra: { field } });
+    this.name = 'ValidationError';
     this.field = field;
   }
 }
