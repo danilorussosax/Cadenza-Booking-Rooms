@@ -49,30 +49,16 @@ import {
 import { cn } from '@/lib/utils';
 import { qk } from '@/lib/queryKeys';
 import { invalidateUsersImported } from '@/lib/invalidation';
-
-/**
- * Target field canonici esposti dal backend (TARGET_FIELDS lato fieldMapping.js).
- * Mantenuti in sync manualmente: una stringa estranea qui produce solo righe
- * "non risolte" (fallback null), niente crash.
- */
-const TARGET_FIELDS = [
-  'matricola',
-  'externalId',
-  'email',
-  'firstName',
-  'lastName',
-  'role',
-  'courseCode',
-  'courseName',
-  'status',
-  'contractType',
-] as const;
-type TargetField = (typeof TARGET_FIELDS)[number];
-
-// Target obbligatori per applicare l'import: il backend richiede matricola
-// OPPURE email per matchare/creare. Replichiamo il check qui per disabilitare
-// il bottone "Ricarica anteprima" prima di sprecare una request.
-const REQUIRED_FIELDS: TargetField[] = ['matricola', 'email'];
+import {
+  TARGET_FIELDS,
+  REQUIRED_FIELDS,
+  computeDelta,
+  computeRowStatus,
+  emptyMapping,
+  savedMappingApplicable,
+  type MappingRowStatus,
+  type TargetField,
+} from '@/lib/isidataMapping';
 
 // Chiave localStorage per la persistenza opzionale dell'ultimo mapping admin.
 // Salva un Record<TargetField,string|null> — al reopen, se TUTTI gli header
@@ -97,53 +83,6 @@ function saveMappingToLs(map: EffectiveMapping) {
   } catch {
     /* quota / disabled — silently ignore */
   }
-}
-
-/**
- * Restituisce true se TUTTI gli header non-null in `saved` sono presenti in
- * `available`. Usato per decidere se prepopolare la UI da localStorage.
- */
-function savedMappingApplicable(
-  saved: EffectiveMapping | null,
-  available: string[] | undefined,
-): boolean {
-  if (!saved || !Array.isArray(available)) return false;
-  const set = new Set(available);
-  for (const v of Object.values(saved)) {
-    if (v && !set.has(v)) return false;
-  }
-  return true;
-}
-
-/**
- * Calcola gli `mappingOverrides` da spedire al backend: per ogni target dove
- * la UI differisce da `autoDetected`, includiamo l'header scelto (o stringa
- * vuota se l'admin ha esplicitamente disattivato il mapping su un target che
- * l'auto-detect aveva risolto — il backend filtra stringhe vuote, quindi
- * sostanzialmente "demappiamo" rimuovendo dal payload).
- *
- * Restituisce `undefined` se non ci sono delta (così il caller può evitare di
- * spedire il campo del tutto).
- */
-function computeDelta(
-  current: EffectiveMapping,
-  auto: EffectiveMapping,
-): Record<string, string> | undefined {
-  const out: Record<string, string> = {};
-  for (const target of TARGET_FIELDS) {
-    const cur = current[target] ?? null;
-    const a = auto[target] ?? null;
-    if (cur !== a && cur) {
-      out[target] = cur;
-    }
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function emptyMapping(): EffectiveMapping {
-  const out: EffectiveMapping = {};
-  for (const t of TARGET_FIELDS) out[t] = null;
-  return out;
 }
 
 type Step = 'upload' | 'preview' | 'done';
@@ -1175,23 +1114,6 @@ function MappingCard({
       </CardContent>
     </Card>
   );
-}
-
-type MappingRowStatus = 'auto' | 'manual' | 'missing' | 'optional';
-
-function computeRowStatus({
-  value,
-  autoVal,
-  isRequired,
-}: {
-  value: string | null;
-  autoVal: string | null;
-  isRequired: boolean;
-}): MappingRowStatus {
-  if (!value) {
-    return isRequired ? 'missing' : 'optional';
-  }
-  return value === autoVal ? 'auto' : 'manual';
 }
 
 function MappingStatusBadge({ status }: { status: MappingRowStatus }) {
