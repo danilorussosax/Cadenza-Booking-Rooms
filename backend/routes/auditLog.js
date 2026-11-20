@@ -4,6 +4,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { AuditLog, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { parseLimit, parsePageParams, MAX_VERIFY_LIMIT } = require('../lib/pagination');
 
 const router = express.Router();
 
@@ -24,8 +25,10 @@ const VALID_ACTIONS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 // =====================================================
 router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const pageSize = Math.max(1, Math.min(200, Number(req.query.pageSize) || 50));
+    const { page, pageSize } = parsePageParams(req.query, {
+      defaultPageSize: 50,
+      maxPageSize: 200,
+    });
     const where = {};
 
     if (req.query.actorId) {
@@ -94,12 +97,13 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
 //
 // Costo: O(N). Su tabelle grandi (>50k righe) la verify può richiedere
 // secondi; il default è scansione completa, ma `?limit=N` permette uno
-// spot-check più rapido (utile per smoke test).
+// spot-check più rapido (utile per smoke test). Tetto di `?limit=`:
+// MAX_VERIFY_LIMIT (1.000.000 righe); senza limit la scansione resta completa.
 // =====================================================
 router.get('/verify-integrity', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const { verifyAuditIntegrity } = require('../services/auditIntegrity');
-    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const limit = parseLimit(req.query.limit, { def: undefined, max: MAX_VERIFY_LIMIT });
     const result = await verifyAuditIntegrity({ AuditLog }, { limit });
     res.json(result);
   } catch (err) {

@@ -17,6 +17,7 @@ const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { getSnapshot } = require('../services/opsSnapshot');
 const slowQueryRecorder = require('../lib/slowQueryRecorder');
+const { parseLimit } = require('../lib/pagination');
 const logger = require('../lib/logger').child({ scope: 'ops.route' });
 
 const router = express.Router();
@@ -39,7 +40,7 @@ router.get('/snapshot', authenticate, requireRole('admin'), async (req, res) => 
 // Espone il ring buffer in-memory di slowQueryRecorder. Read-only: nessun
 // dato dei job/code esposto, solo SQL già normalizzato (params → ?).
 router.get('/slow-queries', authenticate, requireRole('admin'), (req, res) => {
-  const limit = Math.max(1, Math.min(500, Number(req.query.limit) || 50));
+  const limit = parseLimit(req.query.limit, { def: 50, max: 500 });
   const since = typeof req.query.since === 'string' ? req.query.since : null;
   const route = typeof req.query.route === 'string' ? req.query.route : null;
   const items = slowQueryRecorder.getRecent({ limit, since, route });
@@ -49,7 +50,7 @@ router.get('/slow-queries', authenticate, requireRole('admin'), (req, res) => {
 router.get('/slow-queries/aggregate', authenticate, requireRole('admin'), (req, res) => {
   const by = ['route', 'model', 'pattern'].includes(req.query.by) ? req.query.by : 'route';
   const since = typeof req.query.since === 'string' ? req.query.since : null;
-  const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+  const limit = parseLimit(req.query.limit, { def: 20, max: 100 });
   const aggregate = slowQueryRecorder.getAggregate({ by, since, limit });
   res.json({ aggregate, by, stats: slowQueryRecorder.getStats() });
 });
