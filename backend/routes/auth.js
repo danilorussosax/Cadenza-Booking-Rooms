@@ -23,7 +23,8 @@ const twoFa = require('../services/twoFa');
 const authSecurity = require('../services/authSecurity');
 const emailService = require('../services/emailService');
 const { sendSecurityEmail } = emailService;
-const { PasswordResetToken, Institute } = require('../models');
+const { PasswordResetToken } = require('../models');
+const { sendPasswordResetEmail } = require('../services/auth/sendPasswordReset');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { domainError, httpError } = require('../lib/domainError');
@@ -837,44 +838,6 @@ const PASSWORD_RESET_MAX_PER_HOUR = 3; // max 3 token attivi per utente/ora
 
 function hashResetToken(plain) {
   return crypto.createHash('sha256').update(plain).digest('hex');
-}
-
-/**
- * Render del template `password_reset` + send sincrono via sendSecurityEmail.
- * Variabili nel context:
- *   user.firstName, user.email
- *   reset.url, reset.expiresAtLong
- *   institute.name, institute.copyright, now.dateTime
- */
-async function sendPasswordResetEmail(user, tokenPlain, expiresAt) {
-  const tpl = await emailService.getTemplate('password_reset');
-  if (!tpl) {
-    logger.warn({ scope: 'auth.password_reset' }, 'password_reset template missing');
-    return { ok: false, error: 'template missing' };
-  }
-  const institute = await Institute.findOne().catch(() => null);
-  const resetUrl = `${FRONTEND_URL}/reset-password/${tokenPlain}`;
-  const ctx = {
-    user: {
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      email: user.email,
-    },
-    reset: {
-      url: resetUrl,
-      expiresAtLong: dayjs(expiresAt).format('DD/MM/YYYY HH:mm'),
-    },
-    institute: {
-      name: institute?.name || 'Cadenza',
-      copyright: `© ${new Date().getFullYear()} ${institute?.name || 'Cadenza'}`,
-    },
-    now: { dateTime: dayjs().format('DD/MM/YYYY HH:mm') },
-  };
-  return sendSecurityEmail({
-    to: user.email,
-    subject: emailService.renderText(tpl.subject, ctx),
-    html: emailService.render(tpl.bodyHtml, ctx),
-  });
 }
 
 /**

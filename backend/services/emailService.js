@@ -21,6 +21,7 @@ const { render, renderText } = require('./templateRenderer');
 const { DEFAULTS: TEMPLATE_DEFAULTS } = require('./mailTemplateDefaults');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger');
+const mailContext = require('./mailContext');
 
 let cache = null; // { transporter, from, replyTo, expiresAt }
 const CACHE_TTL_MS = 60_000;
@@ -195,12 +196,7 @@ async function buildBookingContext({ user, booking, extra }) {
       capacity: room.capacity || '',
     },
     building: { name: building.name || '' },
-    institute: {
-      name: inst?.name || 'Cadenza',
-      copyright:
-        inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
-    },
-    now: { dateTime: dayjs().tz(tz).format('DD MMM YYYY · HH:mm') },
+    ...(await mailContext.buildTemplateContext({ institute: inst, timezone: tz })),
     // Campo libero per dati specifici del kind (es. claim_waitlist passa
     // claimUrl + expiresAt). Reso assoluto per i link cliccabili dalle
     // email: prependiamo FRONTEND_URL se i path arrivano relativi.
@@ -274,7 +270,16 @@ const KIND_PREF_FIELD = {
  * Restituisce { ok, queued, deduped, id? } per consentire ai chiamanti
  * di sapere se è stata davvero accodata o saltata per dedup.
  */
-async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempotencyKey }) {
+async function enqueueMail({
+  kind,
+  to,
+  subject,
+  html,
+  replyTo,
+  priority,
+  idempotencyKey,
+  transaction,
+}) {
   if (!to) return { ok: false, queued: false, error: 'missing recipient' };
   if (!subject || !html) return { ok: false, queued: false, error: 'missing subject/html' };
 
@@ -287,7 +292,9 @@ async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempot
   // Bounce gate: se il destinatario è un utente con hard-bounce permanente
   // registrato, skippiamo. Le email security (priority=0) bypassano: in caso
   // di typo persistente l'admin vedrà comunque il dead nella coda.
-  if (finalPriority > 0) {
+  // Con `transaction` (scrittura atomica col chiamante) i gate sono saltati e
+  // gli errori propagano: la mail è parte della transazione di dominio.
+  if (finalPriority > 0 && !transaction) {
     try {
       const bounced = await User.findOne({
         where: { email: to, emailBouncedAt: { [Op.ne]: null } },
@@ -306,7 +313,7 @@ async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempot
   // 'pending' in coda (per evitare di accodarne 50 mentre l'invio reale
   // è ancora a 0). Email security/2FA (priority=0) bypassano sempre.
   const throttle = cfg?.throttlePerRecipientPerHour || 0;
-  if (throttle > 0 && finalPriority >= 5) {
+  if (throttle > 0 && finalPriority >= 5 && !transaction) {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const count = await MailOutbox.count({
       where: {
@@ -324,17 +331,21 @@ async function enqueueMail({ kind, to, subject, html, replyTo, priority, idempot
   }
 
   try {
-    const row = await MailOutbox.create({
-      kind,
-      to,
-      subject,
-      bodyHtml: html,
-      replyTo: finalReplyTo,
-      priority: finalPriority,
-      idempotencyKey: idempotencyKey || null,
-    });
+    const row = await MailOutbox.create(
+      {
+        kind,
+        to,
+        subject,
+        bodyHtml: html,
+        replyTo: finalReplyTo,
+        priority: finalPriority,
+        idempotencyKey: idempotencyKey || null,
+      },
+      transaction ? { transaction } : undefined,
+    );
     return { ok: true, queued: true, deduped: false, id: row.id };
   } catch (err) {
+    if (transaction) throw err;
     // SequelizeUniqueConstraintError → idempotencyKey già presente: dedup.
     if (err?.name === 'SequelizeUniqueConstraintError') {
       return { ok: true, queued: false, deduped: true };
@@ -355,17 +366,15 @@ async function sendBookingEmail({ user, booking, kind, extra }) {
   // o eredita da building.checkInDefault=false), anche se un caller la
   // invocasse per errore.
   if (kind === 'ghost_cancellation' && booking?.room && !isCheckInRequired(booking.room)) return;
-  const tpl = await getTemplate(kind);
-  if (!tpl) return;
-  const ctx = await buildBookingContext({ user, booking, extra });
   // Idempotency key naturale: stesso booking + stesso kind = stessa email.
   // Per gli announcement bulk il caller passa idempotencyKey custom.
   const idempotencyKey = booking?.id ? `booking:${booking.id}:${kind}` : null;
-  await enqueueMail({
-    kind,
+  // buildBookingContext porta già institute/now (nel fuso dell'istituto);
+  // institute:null evita di rileggerlo in renderAndQueue.
+  const vars = await buildBookingContext({ user, booking, extra });
+  await mailContext.renderAndQueue(kind, vars, {
     to: user.email,
-    subject: renderText(tpl.subject, ctx),
-    html: render(tpl.bodyHtml, ctx),
+    institute: null,
     priority: 5,
     idempotencyKey,
   });

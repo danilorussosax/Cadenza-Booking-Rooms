@@ -14,6 +14,7 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 const isoWeek = require('dayjs/plugin/isoWeek');
+require('dayjs/locale/it');
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -78,6 +79,18 @@ function now() {
 /** Istante (Date|string|dayjs, default adesso) come dayjs nel fuso istituzionale. */
 function inInstitute(at) {
   return dayjs(at === undefined || at === null ? now() : at).tz(_tz);
+}
+
+/**
+ * Formatta un istante nel fuso istituzionale (o `tz` esplicito) con locale
+ * italiano ('MMM', 'dddd' in italiano), indipendente da dayjs.locale globale.
+ */
+function format(at, pattern, { tz } = {}) {
+  const base = dayjs(at === undefined || at === null ? now() : at);
+  return base
+    .tz(tz || _tz)
+    .locale('it')
+    .format(pattern);
 }
 
 /** Data ISO 'YYYY-MM-DD' istituzionale di un istante (default: oggi). */
@@ -196,6 +209,7 @@ module.exports = {
   resetClock,
   now,
   inInstitute,
+  format,
   todayIso,
   atLocal,
   hhmmOf,

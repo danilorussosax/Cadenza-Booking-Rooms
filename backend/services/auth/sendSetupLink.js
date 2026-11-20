@@ -31,7 +31,7 @@ const { Op } = require('sequelize');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const institutionTz = () => require('../../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const mailContext = require('../mailContext');
 
 const PURPOSE_RESET = 'reset';
 const PURPOSE_INITIAL_SETUP = 'initial_setup';
@@ -103,8 +103,7 @@ async function sendSetupLink({
     return { ok: false, error: `purpose sconosciuto: ${purpose}`, code: 'PURPOSE_INVALID' };
   }
 
-  const { PasswordResetToken, Institute } = require('../../models');
-  const emailService = require('../emailService');
+  const { PasswordResetToken } = require('../../models');
 
   // 1) Invalida i token precedenti dello stesso purpose ancora attivi
   //    (non usati, non scaduti). usedAt = now li rende inutilizzabili.
@@ -134,39 +133,27 @@ async function sendSetupLink({
     requestUserAgent: requestUserAgent?.slice(0, 512) ?? null,
   });
 
-  // 3) Render email via template configurabile
+  // 3) Render + invio via mailContext (security: priority 0, bypassa throttle/bounce gate)
   const tplKind = purpose === PURPOSE_INITIAL_SETUP ? 'initial_setup' : 'password_reset';
-  const tpl = await emailService.getTemplate(tplKind);
-  if (!tpl) {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const r = await mailContext.renderAndQueue(
+    tplKind,
+    {
+      user: {
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+      },
+      reset: {
+        url: `${FRONTEND_URL}/reset-password/${tokenPlain}`,
+        expiresAtLong: mailContext.formatAt(expiresAt, 'DD/MM/YYYY HH:mm'),
+      },
+    },
+    { to: user.email, deliver: 'security' },
+  );
+  if (r.code === 'TEMPLATE_MISSING') {
     return { ok: false, error: `template ${tplKind} mancante`, code: 'TEMPLATE_MISSING' };
   }
-
-  const institute = await Institute.findOne({ order: [['id', 'ASC']] }).catch(() => null);
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const resetUrl = `${FRONTEND_URL}/reset-password/${tokenPlain}`;
-  const ctx = {
-    user: {
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      email: user.email,
-    },
-    reset: {
-      url: resetUrl,
-      expiresAtLong: dayjs(expiresAt).tz(institutionTz()).format('DD/MM/YYYY HH:mm'),
-    },
-    institute: {
-      name: institute?.name || 'Cadenza',
-      copyright: `© ${new Date().getFullYear()} ${institute?.name || 'Cadenza'}`,
-    },
-    now: { dateTime: dayjs().tz(institutionTz()).format('DD/MM/YYYY HH:mm') },
-  };
-
-  // 4) Send via sendSecurityEmail (priority 0, bypassa throttle/bounce gate)
-  const r = await emailService.sendSecurityEmail({
-    to: user.email,
-    subject: emailService.renderText(tpl.subject, ctx),
-    html: emailService.render(tpl.bodyHtml, ctx),
-  });
 
   if (!r?.ok) {
     return { ok: false, error: r?.error || 'send failed', code: 'SEND_FAILED' };

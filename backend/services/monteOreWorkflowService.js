@@ -11,7 +11,6 @@ const {
   MonteOreSettings,
   MonteOreSuspension,
   User,
-  MailOutbox,
   Room,
 } = require('../models');
 const { resolveAnnualThreshold } = require('./monteOreThresholdService');
@@ -19,6 +18,7 @@ const { validateDailyConstraints } = require('./monteOreDailyValidator');
 const generator = require('./monteOreBookingGenerator');
 const { withSerializableRetry } = require('../lib/serializableTx');
 const institutionTime = require('../lib/institutionTime');
+const mailContext = require('./mailContext');
 const rules = require('./monteOrePlanRules');
 
 const { STATUS, fail, minuteOf, activeMinutes, amendmentOperations } = rules;
@@ -395,7 +395,6 @@ async function requestAmendment(id, userId, { operations, notes, requestKey }) {
 }
 
 async function enqueueDecision(plan, amendment, before, after, transaction) {
-  const { getTemplate, render, renderText } = require('./emailService');
   const modified =
     amendment.finalOperations &&
     JSON.stringify(amendment.finalOperations) !== JSON.stringify(amendment.operations);
@@ -421,31 +420,26 @@ async function enqueueDecision(plan, amendment, before, after, transaction) {
       : modified
         ? 'monte_ore_modified'
         : 'monte_ore_approved';
-  const template = await getTemplate(kind);
   const maximum = plan.settings?.maxAmendmentsPerYear ?? 3;
-  const context = {
-    firstName: plan.user.firstName,
-    academicYear: plan.proposal.academicYear,
-    outcome,
-    reason: amendment.decisionNotes || amendment.rejectionReason || '—',
-    before: describe(before),
-    after: describe(after),
-    hours: Number(plan.proposal.totalHoursPlanned).toFixed(2),
-    remaining: Math.max(0, maximum - plan.proposal.requestCount),
-    url: `${process.env.FRONTEND_URL || ''}/monte-ore?request=${amendment.id}`,
-  };
-  const subject = renderText(template.subject, context);
-  const html = render(template.bodyHtml, context);
-  await MailOutbox.create(
+  await mailContext.renderAndQueue(
+    kind,
     {
-      kind,
-      to: plan.user.email,
-      subject,
-      bodyHtml: html,
-      idempotencyKey: `monte-ore:${amendment.id}:decision`,
-      priority: 4,
+      firstName: plan.user.firstName,
+      academicYear: plan.proposal.academicYear,
+      outcome,
+      reason: amendment.decisionNotes || amendment.rejectionReason || '—',
+      before: describe(before),
+      after: describe(after),
+      hours: Number(plan.proposal.totalHoursPlanned).toFixed(2),
+      remaining: Math.max(0, maximum - plan.proposal.requestCount),
+      url: `${process.env.FRONTEND_URL || ''}/monte-ore?request=${amendment.id}`,
     },
-    { transaction },
+    {
+      to: plan.user.email,
+      transaction,
+      priority: 4,
+      idempotencyKey: `monte-ore:${amendment.id}:decision`,
+    },
   );
 }
 
