@@ -21,6 +21,7 @@ const {
 } = require('../middleware/rateLimit');
 const twoFa = require('../services/twoFa');
 const authSecurity = require('../services/authSecurity');
+const authSession = require('../services/authSession');
 const emailService = require('../services/emailService');
 const { sendSecurityEmail } = emailService;
 const { PasswordResetToken, Institute } = require('../models');
@@ -242,98 +243,37 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-// Account lockout — difesa contro brute force distribuito (botnet su molti IP
-// vs lo stesso account, che il rate-limit per IP non ferma).
-// Configurabile via env:
-//   LOCKOUT_MAX_FAILED   = 10  (tentativi consecutivi prima del lockout)
-//   LOCKOUT_DURATION_MIN = 30  (durata lockout in minuti)
-const LOCKOUT_MAX_FAILED = Math.max(1, Number(process.env.LOCKOUT_MAX_FAILED) || 10);
-const LOCKOUT_DURATION_MIN = Math.max(1, Number(process.env.LOCKOUT_DURATION_MIN) || 30);
-
 router.post('/login', loginLimiter, (req, res, next) => {
   // Pre-check lockout PRIMA di passport.authenticate per non sprecare bcrypt
   // su account lockati (DoS amplification). Lookup per email (case-insensitive).
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : null;
 
   (async () => {
-    if (email) {
-      const candidate = await User.findOne({
-        where: { email },
-        attributes: ['id', 'lockedUntil', 'failedLoginAttempts'],
-      });
-      if (candidate?.lockedUntil && candidate.lockedUntil > new Date()) {
-        return next(
-          domainError(
-            'ACCOUNT_LOCKED',
-            'Account temporaneamente bloccato per troppi tentativi falliti',
-            {
-              status: 423,
-              extra: { retryAfterMinutes: Math.ceil((candidate.lockedUntil - new Date()) / 60000) },
-            },
-          ),
-        );
-      }
+    const locked = await authSession.checkLockout(email);
+    if (locked) {
+      return next(
+        domainError(
+          'ACCOUNT_LOCKED',
+          'Account temporaneamente bloccato per troppi tentativi falliti',
+          { status: 423, extra: { retryAfterMinutes: locked.retryAfterMinutes } },
+        ),
+      );
     }
 
     passport.authenticate('local', { session: false }, async (err, user, info) => {
       if (err) return res.status(500).json({ error: 'Errore interno' });
-      if (!user) {
-        // Risposta uniforme per tutti i casi di failure (password sbagliata,
-        // email non registrata, account disabilitato): codici/messaggi
-        // distinti permettevano di enumerare email registrate.
-        //
-        // Eccezione deliberata: i due code PASSWORD_NOT_SET (utente importato
-        // da Isidata che non ha ancora completato il setup tramite magic-link)
-        // e OAUTH_ONLY (account che usa solo Google/Microsoft) vengono
-        // propagati al frontend per mostrare il CTA giusto. Rilassano
-        // l'anti-enumeration ma per il target Conservatorio (perimetro
-        // chiuso, ~500 utenti noti) il rischio è basso e il guadagno UX
-        // elevato (gli studenti capiscono perché non possono entrare).
-        //
-        // Account lockout: incrementa il contatore SOLO se l'email matcha un
-        // utente esistente (con password locale). Altrimenti chiunque potrebbe
-        // lockare arbitrariamente: sapendo l'email + ripetendo password sbagliata.
-        if (email) {
-          const target = await User.findOne({
-            where: { email },
-            attributes: ['id', 'passwordHash', 'failedLoginAttempts'],
-          });
-          if (target?.passwordHash) {
-            const next = (target.failedLoginAttempts ?? 0) + 1;
-            const update = { failedLoginAttempts: next };
-            if (next >= LOCKOUT_MAX_FAILED) {
-              update.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MIN * 60_000);
-              logger.warn(
-                { userId: target.id, attempts: next, lockedUntil: update.lockedUntil },
-                'account locked: max failed login attempts reached',
-              );
-            }
-            await User.update(update, { where: { id: target.id } });
-          }
-        }
-        if (info?.code === 'PASSWORD_NOT_SET' || info?.code === 'OAUTH_ONLY') {
-          return next(
-            domainError(info.code, info.message || 'Email o password non validi', { status: 401 }),
-          );
-        }
-        return next(
-          domainError('INVALID_CREDENTIALS', 'Email o password non validi', { status: 401 }),
-        );
-      }
-
-      // Login OK — reset contatori lockout
-      if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-        await User.update(
-          { failedLoginAttempts: 0, lockedUntil: null },
-          { where: { id: user.id } },
-        );
+      // Risposta uniforme per i failure (anti-enumerazione): vedi
+      // authSession.resolveLogin per l'eccezione PASSWORD_NOT_SET / OAUTH_ONLY.
+      const result = await authSession.resolveLogin({ email, user, info });
+      if (result.outcome === 'invalid') {
+        return next(domainError(result.code, result.message, { status: 401 }));
       }
 
       // 2FA — se l'utente ha attivato la verifica in due passaggi via email,
       // generiamo subito una challenge e mandiamo il codice via email.
       // Restituiamo tempToken (5min) + maschera email + scadenza.
-      if (user.twoFaEnabled) {
-        const send = await issueAndSendTwoFaCode(user, 'login');
+      if (result.outcome === 'needs2fa') {
+        const send = await issueAndSendTwoFaCode(result.user, 'login');
         if (!send.ok) {
           // SMTP down: NON emettiamo tempToken. Senza di esso l'attaccante
           // non ha materiale di sessione su cui iterare /verify o /resend.
@@ -341,10 +281,10 @@ router.post('/login', loginLimiter, (req, res, next) => {
           return res.status(503).json({
             error: 'Impossibile inviare il codice 2FA. Riprova tra qualche istante.',
             code: 'TWO_FA_SEND_FAILED',
-            sentTo: twoFa.maskEmail(user.email),
+            sentTo: twoFa.maskEmail(result.user.email),
           });
         }
-        const tempToken = twoFa.signPre2faToken(user.id, user.tokenVersion);
+        const tempToken = twoFa.signPre2faToken(result.user.id, result.user.tokenVersion);
         return res.json({
           needsTwoFa: true,
           tempToken,
@@ -353,11 +293,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
         });
       }
 
-      user.lastLogin = new Date();
-      await user.save();
-
-      const token = signToken(user);
-      res.json({ token, user: user.toSafeJSON() });
+      res.json({ token: result.token, user: result.user.toSafeJSON() });
     })(req, res, next);
   })().catch(next);
 });
@@ -788,15 +724,7 @@ function oauthCallbackHandler(strategy) {
 }
 
 router.get('/google/callback', oauthCallbackHandler('google'), async (req, res) => {
-  req.user.lastLogin = new Date();
-  await req.user.save();
-  const token = signToken(req.user);
-  // Profilo da completare se: nuovo utente social (status='pending'),
-  // mai associato a un corso, o studente senza matricola.
-  const needsProfile =
-    req.user.status === 'pending' ||
-    !req.user.courseId ||
-    (req.user.role === 'studente' && !req.user.matricola);
+  const { token, needsProfile } = await authSession.startSession(req.user, { via: 'google' });
   // Token nel fragment (#) invece che in query string (?): i fragment NON
   // vengono inviati al server, NON appaiono negli access log, NON sono
   // inclusi nel header Referer di richieste successive.
@@ -815,13 +743,7 @@ router.get('/microsoft', (req, res, next) => {
 });
 
 router.get('/microsoft/callback', oauthCallbackHandler('microsoft'), async (req, res) => {
-  req.user.lastLogin = new Date();
-  await req.user.save();
-  const token = signToken(req.user);
-  const needsProfile =
-    req.user.status === 'pending' ||
-    !req.user.courseId ||
-    (req.user.role === 'studente' && !req.user.matricola);
+  const { token, needsProfile } = await authSession.startSession(req.user, { via: 'microsoft' });
   // Token nel fragment (#) invece che in query string (?): i fragment NON
   // vengono inviati al server, NON appaiono negli access log, NON sono
   // inclusi nel header Referer di richieste successive.

@@ -4,7 +4,7 @@ const { Transaction } = require('sequelize');
 const { sequelize, User, PasswordResetToken } = require('../models');
 const { withSerializableRetry } = require('../lib/serializableTx');
 const twoFa = require('./twoFa');
-const { signToken } = require('../middleware/auth');
+const authSession = require('./authSession');
 
 const error = (status, code, message) => ({ status, body: { error: message, code } });
 const transact = (work) =>
@@ -58,9 +58,8 @@ async function verifyLogin(payload, factor) {
     if (!user.twoFaEnabled) return error(400, 'TWO_FA_INVALID_STATE', 'Stato 2FA inconsistente');
     const failure = await verifyFactor(user, factor, transaction);
     if (failure) return failure;
-    user.lastLogin = new Date();
-    await user.save({ transaction });
-    return { status: 200, body: { token: signToken(user), user: user.toSafeJSON() } };
+    const { token } = await authSession.startSession(user, { via: '2fa', transaction });
+    return { status: 200, body: { token, user: user.toSafeJSON() } };
   });
 }
 
