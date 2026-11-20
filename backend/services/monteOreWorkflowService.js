@@ -919,5 +919,6 @@ module.exports = {
   unlockPlan,
   describePlan,
   amendmentOperations,
+  applyOperations,
   fail,
 };

@@ -49,7 +49,10 @@ describe('projectMonteOreHours', () => {
     const slots = [slot(1)];
     expect(
       projectMonteOreHours(slots, [
-        op({ kind: 'add_new_day', payload: { startTime: '09:00', endTime: '10:00' } }),
+        op({
+          kind: 'add_new_day',
+          payload: { date: '2099-03-05', startTime: '09:00', endTime: '10:00' },
+        }),
       ]),
     ).toBe(3);
     expect(projectMonteOreHours(slots, [op({ kind: 'add_new_day', payload: {} })])).toBeNull();

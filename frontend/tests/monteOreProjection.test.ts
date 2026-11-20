@@ -18,7 +18,10 @@ describe('compound Monte Ore projection', () => {
     expect(
       projectMonteOreHours(slots, [
         { kind: 'change_time', slotId: 1, payload: { endTime: '10:00' } },
-        { kind: 'add_new_day', payload: { startTime: '12:00', endTime: '12:30' } },
+        {
+          kind: 'add_new_day',
+          payload: { date: '2099-03-05', startTime: '12:00', endTime: '12:30' },
+        },
       ]),
     ).toBe(1.5);
   });
