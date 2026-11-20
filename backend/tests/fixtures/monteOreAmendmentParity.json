@@ -1,0 +1,2059 @@
+[
+  {
+    "name": "toggle_off",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 1,
+        "payload": {}
+      }
+    ],
+    "expectedHours": 3.5
+  },
+  {
+    "name": "toggle_off e toggle_on",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 1,
+        "payload": {}
+      },
+      {
+        "kind": "toggle_on",
+        "slotId": 1,
+        "payload": {}
+      }
+    ],
+    "expectedHours": 5.5
+  },
+  {
+    "name": "toggle su slot passato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 5,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "toggle su slot bloccato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 4,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "toggle su slot inesistente",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 99,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "toggle su domenica",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_on",
+        "slotId": 7,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "change_time valido",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_time",
+        "slotId": 1,
+        "payload": {
+          "endTime": "13:00"
+        }
+      }
+    ],
+    "expectedHours": 6.5
+  },
+  {
+    "name": "change_time fine prima inizio",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_time",
+        "slotId": 1,
+        "payload": {
+          "endTime": "09:00"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "change_time orario malformato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_time",
+        "slotId": 1,
+        "payload": {
+          "startTime": "25:00"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "change_room valida",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_room",
+        "slotId": 1,
+        "payload": {
+          "roomId": 3
+        }
+      }
+    ],
+    "expectedHours": 5.5
+  },
+  {
+    "name": "change_room non valida",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_room",
+        "slotId": 1,
+        "payload": {
+          "roomId": 0
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "change_room mancante",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_room",
+        "slotId": 1,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "change_room su slot passato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "change_room",
+        "slotId": 5,
+        "payload": {
+          "roomId": 3
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to valido",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 2
+        }
+      }
+    ],
+    "expectedHours": 5.5
+  },
+  {
+    "name": "move_to da slot inattivo",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 2,
+        "payload": {
+          "targetSlotId": 1
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to verso slot attivo",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 3
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to target inesistente",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 99
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to target passato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 6
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to target domenica",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 7
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to da slot passato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 5,
+        "payload": {
+          "targetSlotId": 2
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "move_to concatenati",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "move_to",
+        "slotId": 1,
+        "payload": {
+          "targetSlotId": 2
+        }
+      },
+      {
+        "kind": "move_to",
+        "slotId": 2,
+        "payload": {
+          "targetSlotId": 1
+        }
+      }
+    ],
+    "expectedHours": 5.5
+  },
+  {
+    "name": "add_new_day valido",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "date": "2099-03-05",
+          "startTime": "09:00",
+          "endTime": "10:00"
+        }
+      }
+    ],
+    "expectedHours": 6.5
+  },
+  {
+    "name": "add_new_day senza orari",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "date": "2099-03-05"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "add_new_day senza data",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "startTime": "09:00",
+          "endTime": "10:00"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "add_new_day nel passato",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "date": "2000-03-02",
+          "startTime": "09:00",
+          "endTime": "10:00"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "add_new_day di domenica",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "date": "2099-03-08",
+          "startTime": "09:00",
+          "endTime": "10:00"
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "add_new_day aula non valida",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "add_new_day",
+        "payload": {
+          "date": "2099-03-05",
+          "startTime": "09:00",
+          "endTime": "10:00",
+          "roomId": 1.5
+        }
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "tipo di variazione sconosciuto",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "explode",
+        "slotId": 1,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  },
+  {
+    "name": "slotId non intero",
+    "slots": [
+      {
+        "id": 1,
+        "date": "2099-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 2,
+        "date": "2099-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 3,
+        "date": "2099-03-04",
+        "startTime": "14:00",
+        "endTime": "15:30",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 4,
+        "date": "2099-03-02",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "isActive": true,
+        "isLocked": true
+      },
+      {
+        "id": 5,
+        "date": "2000-03-02",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": true,
+        "isLocked": false
+      },
+      {
+        "id": 6,
+        "date": "2000-03-03",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      },
+      {
+        "id": 7,
+        "date": "2099-03-08",
+        "startTime": "10:00",
+        "endTime": "12:00",
+        "isActive": false,
+        "isLocked": false
+      }
+    ],
+    "operations": [
+      {
+        "kind": "toggle_off",
+        "slotId": 0,
+        "payload": {}
+      }
+    ],
+    "expectedHours": null
+  }
+]
