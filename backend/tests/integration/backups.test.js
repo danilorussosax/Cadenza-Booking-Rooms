@@ -182,7 +182,9 @@ describe('Backup endpoints', () => {
       .set('Authorization', authHeader);
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('AUTO_RESTART_DISABLED');
-    process.env.AUTO_RESTART_ENABLED = prev;
+    // Assegnare undefined a process.env produce la stringa "undefined".
+    if (prev === undefined) delete process.env.AUTO_RESTART_ENABLED;
+    else process.env.AUTO_RESTART_ENABLED = prev;
   });
 
   it('endpoint admin richiedono auth', async () => {

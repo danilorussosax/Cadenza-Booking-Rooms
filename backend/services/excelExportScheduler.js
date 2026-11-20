@@ -11,6 +11,7 @@
  */
 
 const exporter = require('./excelExporter');
+const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger').child({ scope: 'excelExportScheduler' });
 const { createJob } = require('../lib/jobRunner');
 
@@ -19,9 +20,7 @@ let lastTickAt = null;
 let lastError = null;
 
 function getTickMs() {
-  const n = Number(process.env.EXCEL_EXPORT_TICK_MIN);
-  const minutes = Number.isFinite(n) && n >= 1 && n <= 60 ? n : 10;
-  return minutes * 60 * 1000;
+  return getConfig().EXCEL_EXPORT_TICK_MIN * 60 * 1000;
 }
 
 async function tick() {

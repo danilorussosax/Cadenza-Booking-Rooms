@@ -33,6 +33,7 @@ const path = require('path');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
+const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger').child({ scope: 'excelExport' });
 
 dayjs.extend(utc);
@@ -69,7 +70,7 @@ let lastExportDurationMs = 0;
 let lastExportSizeBytes = 0;
 
 function isEnabled() {
-  return String(process.env.EXCEL_EXPORT_ENABLED || '').toLowerCase() === 'true';
+  return getConfig().EXCEL_EXPORT_ENABLED;
 }
 
 function getExportPath() {
@@ -78,8 +79,7 @@ function getExportPath() {
 }
 
 function getLookaheadDays() {
-  const n = Number(process.env.EXCEL_EXPORT_LOOKAHEAD_DAYS);
-  return Number.isFinite(n) && n > 0 && n <= 365 ? n : 30;
+  return getConfig().EXCEL_EXPORT_LOOKAHEAD_DAYS;
 }
 
 /**

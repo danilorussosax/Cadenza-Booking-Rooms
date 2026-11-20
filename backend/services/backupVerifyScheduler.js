@@ -53,6 +53,7 @@ dayjs.extend(timezone);
 
 const { getTimezone } = require('../lib/institutionTime');
 const { createJob } = require('../lib/jobRunner');
+const { getConfig: loadAppConfig } = require('../lib/config');
 const logger = require('../lib/logger').child({ scope: 'backupVerify' });
 const { listBackups, BACKUP_DIR } = require('../scripts/backup');
 const { validateTarball } = require('./backupRestore');
@@ -66,29 +67,16 @@ let lastRun = null;
 // ─────────────────────────────────────────────────────────────────────────────
 // Config
 
-function envBool(name, def) {
-  const v = process.env[name];
-  if (v === undefined || v === '') return def;
-  return v === '1' || v.toLowerCase() === 'true';
-}
-
-function envInt(name, def, min, max) {
-  const v = parseInt(process.env[name] ?? '', 10);
-  if (Number.isNaN(v)) return def;
-  if (typeof min === 'number' && v < min) return def;
-  if (typeof max === 'number' && v > max) return def;
-  return v;
-}
-
 function getConfig() {
+  const c = loadAppConfig();
   return {
-    enabled: envBool('BACKUP_VERIFY_ENABLED', true),
-    dayOfWeek: envInt('BACKUP_VERIFY_DAY', 0, 0, 6),
-    hour: envInt('BACKUP_VERIFY_HOUR', 3, 0, 23),
-    minute: envInt('BACKUP_VERIFY_MINUTE', 0, 0, 59),
-    maxAgeHours: envInt('BACKUP_VERIFY_MAX_AGE_HOURS', 36, 1, 24 * 30),
-    minSqlBytes: envInt('BACKUP_VERIFY_MIN_SQL_BYTES', 1024, 1, 10 * 1024 * 1024),
-    tableTolerance: envInt('BACKUP_VERIFY_TABLE_TOLERANCE', 2, 0, 100),
+    enabled: c.BACKUP_VERIFY_ENABLED,
+    dayOfWeek: c.BACKUP_VERIFY_DAY,
+    hour: c.BACKUP_VERIFY_HOUR,
+    minute: c.BACKUP_VERIFY_MINUTE,
+    maxAgeHours: c.BACKUP_VERIFY_MAX_AGE_HOURS,
+    minSqlBytes: c.BACKUP_VERIFY_MIN_SQL_BYTES,
+    tableTolerance: c.BACKUP_VERIFY_TABLE_TOLERANCE,
   };
 }
 
