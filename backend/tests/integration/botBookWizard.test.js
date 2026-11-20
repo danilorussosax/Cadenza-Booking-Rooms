@@ -25,6 +25,15 @@ const {
 } = require('../../models');
 const { encrypt } = require('../../lib/crypto');
 const rateLimit = require('../../services/messaging/rateLimit');
+const institutionTime = require('../../lib/institutionTime');
+
+// Fixture: gli orari delle prenotazioni sono in ora istituzionale (non del TZ del processo)
+const nextIsoWeekday = (target) => {
+  const dayjs = require('dayjs');
+  let d = dayjs(institutionTime.todayIso());
+  while (d.day() !== target) d = d.add(1, 'day');
+  return d.format('YYYY-MM-DD');
+};
 
 const app = buildApp({ serveFrontend: false });
 
@@ -421,10 +430,8 @@ describe('Bot /aule e /agenda — vista d’insieme', () => {
     const room = await createRoom({ name: 'Sala Prove', code: 'SP', building: sede });
 
     // Crea una prenotazione confermata per oggi 10:00-11:00
-    const today = new Date();
-    today.setHours(10, 0, 0, 0);
-    const end = new Date(today);
-    end.setHours(11, 0, 0, 0);
+    const today = institutionTime.atLocal(institutionTime.todayIso(), '10:00');
+    const end = institutionTime.atLocal(institutionTime.todayIso(), '11:00');
     await Booking.create({
       userId: user.id,
       roomId: room.id,
@@ -471,12 +478,14 @@ describe('Bot /aule e /agenda — vista d’insieme', () => {
 
     // Prenotazione domani 14-15
     const dayjs = require('dayjs');
-    const tomorrow = dayjs().add(1, 'day').hour(14).minute(0).second(0).millisecond(0);
+    const tomorrowIso = dayjs(institutionTime.todayIso()).add(1, 'day').format('YYYY-MM-DD');
+    const tomorrowStart = institutionTime.atLocal(tomorrowIso, '14:00');
+    const tomorrowEnd = institutionTime.atLocal(tomorrowIso, '15:00');
     await Booking.create({
       userId: user.id,
       roomId: room.id,
-      startTime: tomorrow.toDate(),
-      endTime: tomorrow.add(1, 'hour').toDate(),
+      startTime: tomorrowStart,
+      endTime: tomorrowEnd,
       type: 'studio_individuale',
       status: 'confirmed',
       purpose: 'test',
@@ -532,16 +541,15 @@ describe('Bot /libere — ricerca aule libere mirata', () => {
     require('dayjs/plugin/isoWeek');
     require('dayjs/locale/it');
     dayjs.locale('it');
-    // Prossimo venerdì 14-15
-    let venerdi = dayjs().startOf('day');
-    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
-    const start = venerdi.hour(14).minute(0).second(0).millisecond(0);
-    const end = venerdi.hour(15).minute(0).second(0).millisecond(0);
+    // Prossimo venerdì 14-15 (ora istituzionale)
+    const venerdi = nextIsoWeekday(5);
+    const start = institutionTime.atLocal(venerdi, '14:00');
+    const end = institutionTime.atLocal(venerdi, '15:00');
     await Booking.create({
       userId: user.id,
       roomId: occupata.id,
-      startTime: start.toDate(),
-      endTime: end.toDate(),
+      startTime: start,
+      endTime: end,
       type: 'lezione',
       status: 'confirmed',
       purpose: 'test',
@@ -620,14 +628,12 @@ describe('Bot /libere — ricerca aule libere mirata', () => {
     const sede = await createBuilding({ name: 'S' });
     const room = await createRoom({ name: 'Unica', code: 'U1', building: sede });
 
-    const dayjs = require('dayjs');
-    let venerdi = dayjs().startOf('day');
-    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
+    const venerdi = nextIsoWeekday(5);
     await Booking.create({
       userId: user.id,
       roomId: room.id,
-      startTime: venerdi.hour(14).toDate(),
-      endTime: venerdi.hour(15).toDate(),
+      startTime: institutionTime.atLocal(venerdi, '14:00'),
+      endTime: institutionTime.atLocal(venerdi, '15:00'),
       type: 'lezione',
       status: 'confirmed',
       purpose: 'test',
@@ -662,14 +668,12 @@ describe('Bot /check — sintassi aula@sede per disambiguare', () => {
     const aulaVerdi = await createRoom({ name: 'Aula 5', code: 'A5-V', building: sede2 });
 
     // Prenoto solo la "Aula 5" della sede Verdi
-    const dayjs = require('dayjs');
-    let venerdi = dayjs().startOf('day');
-    while (venerdi.day() !== 5) venerdi = venerdi.add(1, 'day');
+    const venerdi = nextIsoWeekday(5);
     await Booking.create({
       userId: user.id,
       roomId: aulaVerdi.id,
-      startTime: venerdi.hour(10).toDate(),
-      endTime: venerdi.hour(11).toDate(),
+      startTime: institutionTime.atLocal(venerdi, '10:00'),
+      endTime: institutionTime.atLocal(venerdi, '11:00'),
       type: 'lezione',
       status: 'confirmed',
       purpose: 'test',
