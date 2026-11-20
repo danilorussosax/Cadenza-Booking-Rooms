@@ -200,7 +200,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 
 | Tecnologia        | Ruolo                                              |
 | ----------------- | -------------------------------------------------- |
-| Node.js ≥ 18      | Runtime                                            |
+| Node.js ≥ 20.19   | Runtime (`^20.19.0 \|\| ^22.13.0 \|\| >=24.0.0`)   |
 | Express 5         | Framework HTTP                                     |
 | Sequelize 6       | ORM (PostgreSQL · supporta SQLite e MySQL)         |
 | Passport          | Strategie auth (local · Google OAuth2 · Microsoft) |
@@ -300,7 +300,7 @@ Cadenza/
 
 ### Prerequisiti
 
-- Node.js ≥ 18 (consigliato 20)
+- Node.js `^20.19.0 || ^22.13.0 || >=24.0.0` (consigliato 22)
 - PostgreSQL 16 (consigliato in produzione) **oppure** SQLite (default in sviluppo, zero-config)
 - npm ≥ 9
 
@@ -487,11 +487,10 @@ cd frontend
 npm test
 
 # E2E Playwright
-cd frontend
-npm run test:e2e
+npm run e2e
 ```
 
-**Copertura attuale (v1.22.2)**: **163** file di test backend (integration + unit), **49** file di test frontend (component e lib, inclusi controlli a11y `vitest-axe`) e le spec Playwright in `frontend/tests/e2e/` e nel workspace `e2e/`. Soglie bloccanti backend: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60 (CI blocca le regressioni). CI GitHub Actions con job paralleli (gitleaks / backend / postgres / frontend) e job E2E successivo.
+**Copertura attuale (v1.22.2)**: **164** file di test backend (integration + unit), **68** file di test frontend (component e lib, inclusi controlli a11y `vitest-axe`) e le spec Playwright in `frontend/tests/e2e/` e nel workspace `e2e/`. Soglie bloccanti backend: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60 (CI blocca le regressioni). CI GitHub Actions con job paralleli (gitleaks / backend / postgres / frontend) e job E2E successivo.
 
 **Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico:
 

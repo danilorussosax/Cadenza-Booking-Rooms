@@ -203,7 +203,7 @@ UI fully translated into **Italian** (default), **English**, **Spanish**, **Germ
 
 | Technology        | Role                                                |
 | ----------------- | --------------------------------------------------- |
-| Node.js ≥ 18      | Runtime                                             |
+| Node.js ≥ 20.19   | Runtime (`^20.19.0 \|\| ^22.13.0 \|\| >=24.0.0`)    |
 | Express 5         | HTTP framework                                      |
 | Sequelize 6       | ORM (PostgreSQL · SQLite and MySQL supported)       |
 | Passport          | Auth strategies (local · Google OAuth2 · Microsoft) |
@@ -303,7 +303,7 @@ Cadenza/
 
 ### Prerequisites
 
-- Node.js ≥ 18 (20 recommended)
+- Node.js `^20.19.0 || ^22.13.0 || >=24.0.0` (22 recommended)
 - PostgreSQL 16 (recommended in production) **or** SQLite (zero-config default in development)
 - npm ≥ 9
 
@@ -491,10 +491,10 @@ npm test
 
 # Playwright E2E
 cd frontend
-npm run test:e2e
+npm run e2e
 ```
 
-**Current coverage (v1.22.2)**: **164** backend test files (integration + unit + security/property/stress), **67** frontend test files (component and lib, including `vitest-axe` a11y checks) and the Playwright specs in `frontend/tests/e2e/` and in the `e2e/` workspace. Blocking backend thresholds: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60; frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 (CI blocks regressions). GitHub Actions CI with parallel jobs (gitleaks / backend / postgres / frontend) and a subsequent E2E job.
+**Current coverage (v1.22.2)**: **164** backend test files (integration + unit + security/property/stress), **68** frontend test files (component and lib, including `vitest-axe` a11y checks) and the Playwright specs in `frontend/tests/e2e/` and in the `e2e/` workspace. Blocking backend thresholds: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60; frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 (CI blocks regressions). GitHub Actions CI with parallel jobs (gitleaks / backend / postgres / frontend) and a subsequent E2E job.
 
 **Stability suites (v1.5.1)** — beyond the classic unit/integration scope:
 
