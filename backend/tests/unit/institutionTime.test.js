@@ -115,3 +115,39 @@ describe('regressione finestre su server UTC', () => {
     expect(isSubmissionWindowOpen(settings)).toBe(true);
   });
 });
+
+describe('institutionTime — helper di ora/giorno/mese', () => {
+  it('hourOf / minutesOfDay / dayOfWeek in ora di Roma', () => {
+    const at = new Date('2026-07-10T22:30:00Z'); // sab 11/07 00:30 CEST
+    expect(it_.hourOf(at)).toBe(0);
+    expect(it_.minutesOfDay(at)).toBe(30);
+    expect(it_.dayOfWeek(at)).toBe(6);
+    expect(it_.minutesOfDay(new Date('2026-07-10T07:00:00Z'))).toBe(9 * 60);
+  });
+
+  it('startOfMonth / endOfMonth sono i confini del mese di Roma', () => {
+    const at = new Date('2026-10-31T23:30:00Z'); // 1/11 00:30 CET
+    expect(it_.startOfMonth(at).toISOString()).toBe('2026-10-31T23:00:00.000Z');
+    expect(it_.endOfMonth(at).toISOString()).toBe('2026-11-30T22:59:59.999Z');
+  });
+
+  it('calendarDaysBetween conta giorni di calendario, non ore', () => {
+    const a = new Date('2026-11-20T22:30:00Z'); // 20/11 23:30
+    const b = new Date('2026-11-20T23:30:00Z'); // 21/11 00:30
+    expect(it_.calendarDaysBetween(b, a)).toBe(1);
+    expect(it_.calendarDaysBetween(a, a)).toBe(0);
+    expect(
+      it_.calendarDaysBetween(new Date('2026-03-30T10:00:00Z'), new Date('2026-03-28T10:00:00Z')),
+    ).toBe(2);
+  });
+
+  it('sqlTimezoneLiteral quota il fuso configurato', () => {
+    expect(it_.sqlTimezoneLiteral()).toBe("'Europe/Rome'");
+  });
+
+  it('setClock con fixedClock governa now() e gli helper senza argomento', () => {
+    it_.setClock(it_.fixedClock('2026-11-20T23:30:00Z'));
+    expect(it_.todayIso()).toBe('2026-11-21');
+    expect(it_.dayOfWeek()).toBe(6);
+  });
+});

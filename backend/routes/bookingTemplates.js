@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
-const dayjs = require('dayjs');
+const institutionTime = require('../lib/institutionTime');
 const { Op } = require('sequelize');
 const { BookingTemplate, Room, Building } = require('../models');
 const { authenticate, requireApproved, requireCompleteProfile } = require('../middleware/auth');
@@ -59,18 +59,23 @@ function serialize(t) {
  *  - se è oggi e l'orario è già passato, salta a +7 giorni;
  *  - applica startMinutes e durationMinutes.
  *
- * Lavora in local time perché startMinutes è espresso in fuso del server
+ * Lavora in ora istituzionale perché startMinutes è espresso nel fuso dell'istituto
  * (è ciò che l'utente vede nel form e ciò che validateBooking confronta).
  */
-function nextOccurrence(template, from = dayjs()) {
-  const todayDow = from.day();
-  let daysAhead = (template.dayOfWeek - todayDow + 7) % 7;
-  let candidate = from.startOf('day').add(daysAhead, 'day').add(template.startMinutes, 'minute');
-  if (daysAhead === 0 && !candidate.isAfter(from)) {
-    candidate = candidate.add(7, 'day');
+function nextOccurrence(template, from = institutionTime.now()) {
+  const todayDow = institutionTime.dayOfWeek(from);
+  const daysAhead = (template.dayOfWeek - todayDow + 7) % 7;
+  const atMinutes = (dayIso) =>
+    institutionTime.atLocal(
+      dayIso,
+      `${String(Math.floor(template.startMinutes / 60)).padStart(2, '0')}:${String(template.startMinutes % 60).padStart(2, '0')}`,
+    );
+  const localDay = institutionTime.inInstitute(from).add(daysAhead, 'day');
+  let start = atMinutes(localDay.format('YYYY-MM-DD'));
+  if (daysAhead === 0 && start.getTime() <= from.getTime()) {
+    start = atMinutes(localDay.add(7, 'day').format('YYYY-MM-DD'));
   }
-  const start = candidate.toDate();
-  const end = candidate.add(template.durationMinutes, 'minute').toDate();
+  const end = new Date(start.getTime() + template.durationMinutes * 60000);
   return { start, end };
 }
 

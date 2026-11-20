@@ -23,7 +23,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // Email user-facing: ora italiana indipendente dal TZ del processo.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const institutionTime = require('../lib/institutionTime');
 dayjs.locale('it');
 const { render, renderText } = require('./templateRenderer');
 const { getTemplate, buildBookingContext: _unused } = require('./emailService');
@@ -62,7 +62,7 @@ async function buildLoanContext({ user, loan }) {
   // "Oggi" calcolato in Europe/Rome: vicino a mezzanotte italiana su VPS
   // UTC il daysToReturn potrebbe essere off-by-one per i prestiti che
   // scadono oggi.
-  const daysToReturn = Math.max(0, end.diff(dayjs().tz(institutionTz()).startOf('day'), 'day'));
+  const daysToReturn = Math.max(0, end.diff(institutionTime.inInstitute().startOf('day'), 'day'));
 
   return {
     user: {
@@ -93,7 +93,7 @@ async function buildLoanContext({ user, loan }) {
       copyright:
         inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
     },
-    now: { dateTime: dayjs().tz(institutionTz()).format('DD MMM YYYY · HH:mm') },
+    now: { dateTime: institutionTime.inInstitute().format('DD MMM YYYY · HH:mm') },
   };
 }
 

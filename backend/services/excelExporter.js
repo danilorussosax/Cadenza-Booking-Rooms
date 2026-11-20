@@ -41,7 +41,7 @@ dayjs.extend(timezone);
 // L'export Excel filtra per "giorno solare" italiano e indicizza
 // gli slot 30-min su ora locale. Senza .tz() su VPS UTC il "today"
 // è sfasato vicino a mezzanotte e gli indici slot vanno fuori riga.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const institutionTime = require('../lib/institutionTime');
 
 // Lazy-load di exceljs: la libreria pesa ~20 MB unpacked. Se manca sul VPS
 // (npm ci non eseguito), il backend deve partire lo stesso finché il modulo
@@ -234,7 +234,7 @@ function softBorder(argb) {
 function buildPerBuildingGrids(workbook, buildings) {
   // "Oggi" istituzionale: vicino a mezzanotte su VPS UTC il filtro
   // del foglio "Giornata" prenderebbe ieri/domani.
-  const today = dayjs().tz(institutionTz()).startOf('day');
+  const today = institutionTime.inInstitute().startOf('day');
   const slots = buildDaySlots();
   const FIRST_SLOT_COL = 3; // A=Piano, B=Aula, C=primo slot
   const usedNames = new Set();
@@ -301,12 +301,12 @@ function buildPerBuildingGrids(workbook, buildings) {
         // "Stesso giorno" letto in ora italiana: un concerto delle 23:00
         // CEST = 21:00 UTC, su VPS UTC `isSame(today, 'day')` confronta
         // 21:00 UTC con 00:00 UTC del giorno scelto → mismatch.
-        .filter((b) => dayjs(b.startTime).tz(institutionTz()).isSame(today, 'day'))
+        .filter((b) => institutionTime.inInstitute(b.startTime).isSame(today, 'day'))
         .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
       for (const b of bookings) {
-        const start = dayjs(b.startTime).tz(institutionTz());
-        const end = dayjs(b.endTime).tz(institutionTz());
+        const start = institutionTime.inInstitute(b.startTime);
+        const end = institutionTime.inInstitute(b.endTime);
         let startSlot = (start.hour() - DAY_HOUR_START) * 2 + (start.minute() >= 30 ? 1 : 0);
         let endSlot = (end.hour() - DAY_HOUR_START) * 2 + (end.minute() > 0 ? 1 : 0);
         // Clamp dentro la finestra visibile
@@ -398,10 +398,10 @@ async function buildWorkbook() {
   const lookaheadDays = getLookaheadDays();
   // Finestra "oggi → +N giorni" calcolata in Europe/Rome così l'export
   // notturno italiano non scivola al giorno precedente UTC.
-  const todayStart = dayjs().tz(institutionTz()).startOf('day').toDate();
-  const todayEnd = dayjs().tz(institutionTz()).endOf('day').toDate();
+  const todayStart = institutionTime.inInstitute().startOf('day').toDate();
+  const todayEnd = institutionTime.inInstitute().endOf('day').toDate();
   const fromAll = todayStart;
-  const toAll = dayjs().tz(institutionTz()).add(lookaheadDays, 'day').endOf('day').toDate();
+  const toAll = institutionTime.inInstitute().add(lookaheadDays, 'day').endOf('day').toDate();
 
   // Foglio "Prenotazioni": lista flat finestra lookahead
   const bookings = await Booking.findAll({

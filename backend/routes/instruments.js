@@ -8,6 +8,7 @@ const sharp = require('sharp');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
+const institutionTime = require('../lib/institutionTime');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -48,8 +49,11 @@ function tryDeletePhotos(rows) {
 // =========================================================
 // Helpers di stato prestito
 // =========================================================
-function isOverdue(loan, now = dayjs()) {
-  return loan.status === 'active' && now.isAfter(dayjs(loan.toDate).endOf('day'));
+function isOverdue(loan, now = institutionTime.now()) {
+  return (
+    loan.status === 'active' &&
+    dayjs(now).isAfter(institutionTime.endOfDay(institutionTime.toInstant(loan.toDate)))
+  );
 }
 
 // Status "calcolato" da restituire al client: se lo stato in DB è "active" ma

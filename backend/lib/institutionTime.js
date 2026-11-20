@@ -112,6 +112,59 @@ function endOfIsoWeek(at) {
   return inInstitute(at).endOf('isoWeek').toDate();
 }
 
+/** Inizio/fine del mese di calendario istituzionale che contiene `at`. */
+function startOfMonth(at) {
+  return inInstitute(at).startOf('month').toDate();
+}
+
+function endOfMonth(at) {
+  return inInstitute(at).endOf('month').toDate();
+}
+
+/** Ora locale istituzionale (0-23) di un istante. */
+function hourOf(at) {
+  return inInstitute(at).hour();
+}
+
+/** Minuti dalla mezzanotte istituzionale (0-1439) di un istante. */
+function minutesOfDay(at) {
+  const d = inInstitute(at);
+  return d.hour() * 60 + d.minute();
+}
+
+/** Giorno della settimana istituzionale (0=domenica .. 6=sabato) di un istante. */
+function dayOfWeek(at) {
+  return inInstitute(at).day();
+}
+
+/**
+ * Differenza in giorni di calendario istituzionali (dateOf(a) - dateOf(b)),
+ * insensibile a DST e all'ora del giorno.
+ */
+function calendarDaysBetween(a, b) {
+  return dayjs.utc(todayIso(a)).diff(dayjs.utc(todayIso(b)), 'day');
+}
+
+/**
+ * Nome del fuso già quotato come literal SQL ('Europe/Rome'), da usare in
+ * `AT TIME ZONE ${sqlTimezoneLiteral()}`. Il nome è validato da Intl; gli
+ * apici vengono comunque raddoppiati per sicurezza.
+ */
+function sqlTimezoneLiteral() {
+  return `'${_tz.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Input di API → istante. Una data pura 'YYYY-MM-DD' vale la mezzanotte
+ * istituzionale di quel giorno (non quella del processo); altrimenti è un
+ * normale istante. Assente → adesso. Non valido → Invalid Date.
+ */
+function toInstant(input) {
+  if (input === undefined || input === null || input === '') return now();
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) return atLocal(input);
+  return new Date(input);
+}
+
 /** Anno accademico ('YYYY/YYYY+1', 1 nov → 31 ott) di un istante (default adesso). */
 function academicYearOf(at) {
   const d = inInstitute(at);
@@ -135,5 +188,13 @@ module.exports = {
   endOfDay,
   startOfIsoWeek,
   endOfIsoWeek,
+  startOfMonth,
+  endOfMonth,
+  hourOf,
+  minutesOfDay,
+  dayOfWeek,
+  calendarDaysBetween,
+  sqlTimezoneLiteral,
+  toInstant,
   academicYearOf,
 };

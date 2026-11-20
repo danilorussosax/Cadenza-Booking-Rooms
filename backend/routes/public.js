@@ -3,9 +3,6 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const dayjs = require('dayjs');
-const isoWeek = require('dayjs/plugin/isoWeek');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 const {
   Booking,
   Room,
@@ -29,14 +26,10 @@ function bookedByLabel(user) {
   return 'Stud.';
 }
 
-dayjs.extend(isoWeek);
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-// Widget pubblici (display kiosk + landing istituto): le fasce orarie
-// del giorno e l'identificazione del "prossimo concerto oggi" devono
-// essere in ora italiana, non nel TZ del processo Node.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+// Widget pubblici (display kiosk + landing istituto): giorno, settimana e
+// fasce orarie sono quelli dell'istituto (lib/institutionTime), non del
+// fuso del processo Node.
+const institutionTime = require('../lib/institutionTime');
 const { httpError } = require('../lib/domainError');
 
 const router = express.Router();
@@ -117,14 +110,14 @@ router.get('/concerts', async (req, res) => {
   const days = Math.max(0, Math.min(365, Number.isFinite(raw) ? raw : 30));
   if (days === 0) return res.json({ concerts: [] });
 
-  const now = dayjs();
-  const horizon = now.add(days, 'day').endOf('day').toDate();
+  const now = institutionTime.now();
+  const horizon = institutionTime.endOfDay(now, days);
 
   const concerts = await Booking.findAll({
     where: {
       type: 'concerto',
       status: 'confirmed',
-      endTime: { [Op.gt]: now.toDate() },
+      endTime: { [Op.gt]: now },
       startTime: { [Op.lte]: horizon },
     },
     include: [
@@ -180,23 +173,23 @@ router.get('/agenda', async (req, res) => {
   let rangeEnd;
   let responseDate; // mantenuto per backward compat (legacy daily clients)
   if (req.query.from || req.query.to) {
-    const from = dayjs(req.query.from);
-    const to = dayjs(req.query.to);
-    if (!from.isValid() || !to.isValid()) {
+    const from = institutionTime.toInstant(req.query.from);
+    const to = institutionTime.toInstant(req.query.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       throw httpError(400, 'Range non valido');
     }
-    if (to.diff(from, 'day') > 14) {
+    if (dayjs(to).diff(from, 'day') > 14) {
       throw httpError(400, 'Range troppo ampio (max 14 giorni)');
     }
-    rangeStart = from.startOf('day').toDate();
-    rangeEnd = to.endOf('day').toDate();
-    responseDate = from.format('YYYY-MM-DD');
+    rangeStart = institutionTime.startOfDay(from);
+    rangeEnd = institutionTime.endOfDay(to);
+    responseDate = institutionTime.todayIso(from);
   } else {
-    const date = req.query.date ? dayjs(req.query.date) : dayjs();
-    if (!date.isValid()) throw httpError(400, 'Data non valida');
-    rangeStart = date.startOf('day').toDate();
-    rangeEnd = date.endOf('day').toDate();
-    responseDate = date.format('YYYY-MM-DD');
+    const date = institutionTime.toInstant(req.query.date || undefined);
+    if (Number.isNaN(date.getTime())) throw httpError(400, 'Data non valida');
+    rangeStart = institutionTime.startOfDay(date);
+    rangeEnd = institutionTime.endOfDay(date);
+    responseDate = institutionTime.todayIso(date);
   }
 
   const buildings = await Building.findAll({
@@ -290,12 +283,11 @@ router.get('/agenda', async (req, res) => {
 // Institute-wide occupancy & activity KPIs (no user data).
 // =====================================================
 router.get('/stats', async (req, res) => {
-  const now = dayjs();
-  const dayStart = now.startOf('day').toDate();
-  const dayEnd = now.endOf('day').toDate();
-  const weekStart = now.startOf('isoWeek').toDate();
-  const weekEnd = now.endOf('isoWeek').toDate();
-  const nowDate = now.toDate();
+  const nowDate = institutionTime.now();
+  const dayStart = institutionTime.startOfDay(nowDate);
+  const dayEnd = institutionTime.endOfDay(nowDate);
+  const weekStart = institutionTime.startOfIsoWeek(nowDate);
+  const weekEnd = institutionTime.endOfIsoWeek(nowDate);
 
   const [roomsTotal, todayBookings, weekBookings] = await Promise.all([
     // Defense-in-depth: i delete handler ora cascadano il soft-delete e la
@@ -407,8 +399,8 @@ router.get('/stats', async (req, res) => {
   // anche se il processo Node gira in UTC (container/CI/VPS managed).
   const buckets = new Array(24).fill(0);
   for (const bk of todayBookings) {
-    const sh = Math.max(0, dayjs(bk.startTime).tz(institutionTz()).hour());
-    const eh = Math.min(24, dayjs(bk.endTime).tz(institutionTz()).hour() + 1);
+    const sh = Math.max(0, institutionTime.hourOf(bk.startTime));
+    const eh = Math.min(24, institutionTime.hourOf(bk.endTime) + 1);
     for (let h = sh; h < eh; h++) buckets[h] += 1;
   }
   const bookingsByHour = buckets
@@ -422,7 +414,7 @@ router.get('/stats', async (req, res) => {
       .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0] || null;
 
   res.json({
-    timestamp: now.toISOString(),
+    timestamp: nowDate.toISOString(),
     today: {
       bookings: todayBookings.length,
       inUse: inUseRoomIds.size,
