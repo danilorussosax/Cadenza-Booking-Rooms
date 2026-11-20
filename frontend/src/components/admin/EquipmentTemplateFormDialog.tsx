@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { EquipmentTemplate, EquipmentType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome').max(200),
@@ -90,7 +91,7 @@ export function EquipmentTemplateFormDialog({ open, onOpenChange, template }: Pr
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Dotazione aggiornata' : 'Dotazione creata');
-      void qc.invalidateQueries({ queryKey: ['equipment-templates'] });
+      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
       onOpenChange(false);
     },
     onError: (err) => {

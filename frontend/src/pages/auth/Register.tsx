@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { qk } from '@/lib/queryKeys';
 
 // Le validazioni usano "chiavi" (es. 'first_name_required') che vengono
 // tradotte runtime via i18n in `auth.validation.<key>`.
@@ -59,7 +60,7 @@ export default function Register() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'active'],
+    queryKey: qk.courses.active(),
     queryFn: () => coursesApi.list({ active: true }),
     staleTime: 5 * 60 * 1000,
   });

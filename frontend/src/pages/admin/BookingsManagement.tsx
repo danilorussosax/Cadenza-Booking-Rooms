@@ -8,6 +8,7 @@ import { bookingsApi } from '@/api/bookings';
 import AdminRules from '@/pages/admin/Rules';
 import AdminBookingTypes from '@/pages/admin/BookingTypes';
 import AdminApprovals from '@/pages/admin/Approvals';
+import { qk } from '@/lib/queryKeys';
 
 type TabValue = 'rules' | 'booking-types' | 'approvals';
 const VALID_TABS: TabValue[] = ['rules', 'booking-types', 'approvals'];
@@ -42,7 +43,7 @@ export default function AdminBookingsManagement() {
   }, [requested, tab, searchParams, setSearchParams]);
 
   const pendingQuery = useQuery({
-    queryKey: ['admin', 'bookings', 'pending-count'],
+    queryKey: qk.adminBookings.pendingCountLegacy(),
     queryFn: () => bookingsApi.pendingCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,

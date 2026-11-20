@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Role, User } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const baseSchema = z.object({
   firstName: z.string().min(1, 'Inserisci il nome'),
@@ -66,7 +67,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'all'],
+    queryKey: qk.courses.allList(),
     queryFn: () => coursesApi.listAll(),
     enabled: open,
     staleTime: 60_000,
@@ -76,7 +77,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
   // per visualizzare correttamente l'eventuale tipo legacy già assegnato a
   // un utente esistente.
   const contractTypesQuery = useQuery({
-    queryKey: ['contract-types', { includeInactive: true }],
+    queryKey: qk.contractTypes.list({ includeInactive: true }),
     queryFn: () => contractTypesApi.list({ includeInactive: true }),
     enabled: open,
     staleTime: 60_000,
@@ -152,7 +153,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     },
     onSuccess: () => {
       toast.success('Indirizzo email riattivato');
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));
@@ -196,7 +197,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Utente aggiornato' : 'Utente creato');
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
       onOpenChange(false);
     },
     onError: (err) => {

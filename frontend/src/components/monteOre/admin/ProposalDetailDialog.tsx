@@ -40,6 +40,7 @@ import {
   TYPE_OPTIONS,
   resolveProposalThreshold,
 } from './shared';
+import { qk } from '@/lib/queryKeys';
 
 export function DetailDialog({
   id,
@@ -54,13 +55,13 @@ export function DetailDialog({
   const [planApprovalOpen, setPlanApprovalOpen] = useState(false);
   const [revalidateOpen, setRevalidateOpen] = useState(false);
   const detailQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', id],
+    queryKey: qk.adminMonteOre.detail(id),
     queryFn: () => monteOreAdminApi.get(id),
   });
   const proposal = detailQuery.data?.proposal;
 
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', id] });
+    void qc.invalidateQueries({ queryKey: qk.adminMonteOre.detail(id) });
     onChanged();
   };
 

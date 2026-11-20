@@ -10,6 +10,8 @@ import { institutesApi } from '@/api/institutes';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import { cn } from '@/lib/utils';
 import { httpErrorMessage } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
+import { invalidateInstituteBranding } from '@/lib/invalidation';
 
 const DEFAULT_ICON = '/logo3.png';
 
@@ -30,13 +32,13 @@ export function AppIconSection() {
   const current = useAppIcon();
 
   const iconsQuery = useQuery({
-    queryKey: ['app-icons'],
+    queryKey: qk.appIcons.all(),
     queryFn: () => appIconsApi.list(),
     staleTime: 60 * 1000,
   });
 
   const instituteQuery = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });
@@ -50,7 +52,7 @@ export function AppIconSection() {
     onSuccess: async () => {
       // La query pubblica è la stessa sorgente usata da useAppIcon ovunque
       // → invalidare la chiave aggiorna login, sidebar, ecc. in tempo reale.
-      await qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      await invalidateInstituteBranding(qc);
       toast.success(t('profile.app_icon.saved'));
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

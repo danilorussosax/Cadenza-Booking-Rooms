@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import { rulesApi } from '@/api/rules';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Hint compatto che mostra all'utente i vincoli di prenotazione del proprio
@@ -16,7 +17,7 @@ import type { Role } from '@/types';
  */
 export function BookingRuleHint({ role }: { role: Role }) {
   const query = useQuery({
-    queryKey: ['rules', role],
+    queryKey: qk.rules.forRole(role),
     queryFn: () => rulesApi.get(role),
     // Le BookingRule cambiano raramente (solo l'admin le edita): cache
     // generosa così non rifaccio la fetch ogni volta che si riapre il dialog.

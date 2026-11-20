@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BookingType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const DAYS_HEAD = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
@@ -105,19 +106,19 @@ export default function MonteOreGrid({
   const allowMove = ['approved', 'generated'].includes(proposalStatus);
 
   const calendarQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'calendar', academicYear],
+    queryKey: qk.monteOre.meCalendarYear(academicYear),
     queryFn: () => monteOreApi.getCalendar(academicYear),
     retry: false,
   });
 
   const slotsQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'slots', academicYear],
+    queryKey: qk.monteOre.meSlotsYear(academicYear),
     queryFn: () => monteOreApi.getMySlots(academicYear),
     enabled: !calendarQuery.isError,
   });
 
   const amendmentsQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'amendments', academicYear],
+    queryKey: qk.monteOre.meAmendmentsYear(academicYear),
     queryFn: () => monteOreApi.getMyAmendments(academicYear),
     enabled: !calendarQuery.isError && ['approved', 'generated'].includes(proposalStatus),
   });
@@ -138,9 +139,9 @@ export default function MonteOreGrid({
       toast.success(`Griglia rigenerata: ${data.result.created} celle`);
       // Regenerate riscrive tutti gli slot della proposta + aggiorna i
       // contatori sulla proposal. Niente impact su threshold/amendments.
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
       void qc.invalidateQueries({
-        queryKey: ['monte-ore', 'me'],
+        queryKey: qk.monteOre.me(),
         // Solo la proposal-key (4 segmenti: ['monte-ore','me',<year>]),
         // non threshold/calendar/amendments.
         predicate: (q) => q.queryKey.length === 3 && q.queryKey[2] !== 'slots',
@@ -164,24 +165,22 @@ export default function MonteOreGrid({
       // richieste API quando il docente clicca rapidamente molte celle.
       if (data.slot) {
         const updatedSlot = data.slot;
-        qc.setQueryData<{ slots: MonteOreSlot[] }>(
-          ['monte-ore', 'me', 'slots', academicYear],
-          (old) =>
-            old
-              ? {
-                  ...old,
-                  slots: old.slots.map((s) => (s.id === updatedSlot.id ? updatedSlot : s)),
-                }
-              : old,
+        qc.setQueryData<{ slots: MonteOreSlot[] }>(qk.monteOre.meSlotsYear(academicYear), (old) =>
+          old
+            ? {
+                ...old,
+                slots: old.slots.map((s) => (s.id === updatedSlot.id ? updatedSlot : s)),
+              }
+            : old,
         );
       } else {
         // Fallback: amendment senza slot aggiornato → invalida lo slots query
-        void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+        void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
       }
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', academicYear] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(academicYear) });
       // Se è stato creato un amendment, refresha la lista (light)
       if (data.amendment) {
-        void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
+        void qc.invalidateQueries({ queryKey: qk.monteOre.meAmendments() });
       }
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -197,7 +196,7 @@ export default function MonteOreGrid({
         isActive,
       }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.me() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -738,7 +737,7 @@ function NewDayDialog({
   const [notes, setNotes] = useState('');
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
     enabled: open,
@@ -757,7 +756,7 @@ function NewDayDialog({
       }),
     onSuccess: () => {
       toast.success('Richiesta inviata al coordinatore');
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'amendments'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meAmendments() });
       onClose();
       setDate('');
       setNotes('');
@@ -918,7 +917,7 @@ function SlotMoveDialog({
   const [notes, setNotes] = useState('');
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
     enabled: tab === 'room',
@@ -937,7 +936,7 @@ function SlotMoveDialog({
   const refresh = () => {
     // Amendment su slot (change_time/change_room/move_to) → cambia lo slot
     // e crea un amendment. Non tocca proposal, threshold o calendar.
-    void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+    void qc.invalidateQueries({ queryKey: qk.monteOre.me() });
   };
 
   const changeTime = useMutation({

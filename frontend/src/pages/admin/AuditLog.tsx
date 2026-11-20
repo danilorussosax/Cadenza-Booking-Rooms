@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import type { AuditLogEntry } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const PAGE_SIZE = 50;
 
@@ -39,14 +40,14 @@ export function AuditLogPanel() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const query = useQuery({
-    queryKey: ['admin', 'audit-log', page, filters],
+    queryKey: qk.admin.auditLog(page, filters),
     queryFn: () => auditLogApi.list({ ...filters, page, pageSize: PAGE_SIZE }),
     staleTime: 15_000,
     placeholderData: (prev) => prev,
   });
 
   const targetTypesQuery = useQuery({
-    queryKey: ['admin', 'audit-log', 'target-types'],
+    queryKey: qk.admin.auditLogTargetTypes(),
     queryFn: () => auditLogApi.targetTypes(),
     staleTime: 5 * 60_000,
   });

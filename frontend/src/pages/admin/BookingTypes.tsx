@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BookingTypeCatalog } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 // Mappa ICON → componente lucide-react. Chi rinomina l'icona via Save deve
 // scegliere da questo set per garantire il render. Aggiungere icone qui se
@@ -56,7 +57,7 @@ function IconByName({ name, className }: { name: string; className?: string }) {
 export default function AdminBookingTypes() {
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: ['booking-types', 'admin'],
+    queryKey: qk.bookingTypes.admin(),
     queryFn: () => bookingTypesApi.listAdmin(),
   });
 
@@ -99,7 +100,7 @@ export default function AdminBookingTypes() {
                 try {
                   await bookingTypesApi.update(t.code, payload);
                   toast.success(`Tipo "${t.label}" aggiornato`);
-                  void qc.invalidateQueries({ queryKey: ['booking-types'] });
+                  void qc.invalidateQueries({ queryKey: qk.bookingTypes.all() });
                 } catch (err) {
                   toast.error(httpErrorMessage(err));
                 }

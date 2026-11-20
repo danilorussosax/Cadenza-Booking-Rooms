@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 // matricola: obbligatoria solo per gli studenti — la validazione finale è server-side.
 // I messaggi sono "chiavi" tradotte runtime via i18n.
@@ -53,7 +54,7 @@ export default function CompleteProfile() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'active'],
+    queryKey: qk.courses.active(),
     queryFn: () => coursesApi.list({ active: true }),
     staleTime: 5 * 60 * 1000,
   });

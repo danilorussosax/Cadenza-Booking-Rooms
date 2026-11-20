@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { passwordResetApi } from '@/api/passwordReset';
 import { httpErrorMessage } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
 
@@ -45,7 +46,7 @@ export default function ResetPassword() {
   // esistente) mostriamo subito un messaggio + CTA "richiedi nuovo link",
   // senza far compilare un form inutile.
   const validate = useQuery({
-    queryKey: ['password-reset', 'validate', tokenStr],
+    queryKey: qk.passwordReset.validate(tokenStr),
     queryFn: () => passwordResetApi.validateToken(tokenStr),
     retry: false,
     enabled: !!tokenStr,

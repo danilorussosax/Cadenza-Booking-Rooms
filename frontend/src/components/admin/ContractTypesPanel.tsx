@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContractTypeFormDialog } from '@/components/admin/ContractTypeFormDialog';
 import { ImpactConfirmDialog } from '@/components/admin/ImpactConfirmDialog';
+import { qk } from '@/lib/queryKeys';
 
 export function ContractTypesPanel() {
   const qc = useQueryClient();
@@ -25,7 +26,7 @@ export function ContractTypesPanel() {
   } | null>(null);
 
   const listQuery = useQuery({
-    queryKey: ['contract-types', { includeInactive }],
+    queryKey: qk.contractTypes.list({ includeInactive }),
     queryFn: () => contractTypesApi.list({ includeInactive }),
     staleTime: 30 * 1000,
   });
@@ -36,7 +37,7 @@ export function ContractTypesPanel() {
     mutationFn: (payload: ContractTypeUpsertPayload) => contractTypesApi.create(payload),
     onSuccess: async () => {
       toast.success('Tipologia creata');
-      await qc.invalidateQueries({ queryKey: ['contract-types'] });
+      await qc.invalidateQueries({ queryKey: qk.contractTypes.all() });
       setCreating(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -47,7 +48,7 @@ export function ContractTypesPanel() {
       contractTypesApi.update(args.id, args.payload),
     onSuccess: async () => {
       toast.success('Tipologia aggiornata');
-      await qc.invalidateQueries({ queryKey: ['contract-types'] });
+      await qc.invalidateQueries({ queryKey: qk.contractTypes.all() });
       setEditing(null);
       setPendingImpact(null);
     },
@@ -84,7 +85,7 @@ export function ContractTypesPanel() {
     mutationFn: (id: number) => contractTypesApi.remove(id),
     onSuccess: async () => {
       toast.success('Tipologia rimossa');
-      await qc.invalidateQueries({ queryKey: ['contract-types'] });
+      await qc.invalidateQueries({ queryKey: qk.contractTypes.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

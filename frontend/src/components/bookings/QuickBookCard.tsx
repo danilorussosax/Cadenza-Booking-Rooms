@@ -7,6 +7,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { dayjs } from '@/lib/date';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { qk } from '@/lib/queryKeys';
 
 // =============================================================================
 // QuickBookCard — Dashboard
@@ -37,7 +38,7 @@ export function QuickBookCard() {
   const qc = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['booking-templates'],
+    queryKey: qk.bookingTemplates.all(),
     queryFn: () => bookingTemplatesApi.list(),
     staleTime: 60_000,
   });
@@ -51,8 +52,8 @@ export function QuickBookCard() {
           when: start.format('ddd D MMM HH:mm'),
         }),
       );
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
-      void qc.invalidateQueries({ queryKey: ['availability'] });
+      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
+      void qc.invalidateQueries({ queryKey: qk.availability.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

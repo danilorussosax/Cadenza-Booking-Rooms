@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const SLUG_LABELS: Record<ManualSlug, { title: string; subtitle: string; icon: typeof BookOpen }> =
   {
@@ -84,7 +85,7 @@ export default function HelpPage() {
   const needsRedirect = !isValidSlug(rawSlug) || !canSee(rawSlug, user?.role);
 
   const query = useQuery({
-    queryKey: ['docs', slug],
+    queryKey: qk.docs.bySlug(slug),
     queryFn: () => docsApi.get(slug),
     // Non fetchiamo se dobbiamo redirectare: evita una request inutile a /admin.
     enabled: !needsRedirect,

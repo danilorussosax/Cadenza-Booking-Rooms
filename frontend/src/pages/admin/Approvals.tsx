@@ -32,6 +32,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Booking } from '@/types';
+import { qk } from '@/lib/queryKeys';
+import { invalidateBookings } from '@/lib/invalidation';
 
 export default function AdminApprovals() {
   const { t } = useTranslation();
@@ -40,13 +42,13 @@ export default function AdminApprovals() {
   const [rejectReason, setRejectReason] = useState('');
 
   const query = useQuery({
-    queryKey: ['admin', 'bookings', 'pending'],
+    queryKey: qk.adminBookings.pending(),
     queryFn: () => bookingsApi.pending(),
     staleTime: 15_000,
   });
 
   const amendmentsPendingQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryKey: qk.adminMonteOre.amendmentsPendingCount(),
     queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -54,9 +56,7 @@ export default function AdminApprovals() {
   const amendmentsCount = amendmentsPendingQuery.data?.count ?? 0;
 
   const invalidateAll = () => {
-    void qc.invalidateQueries({ queryKey: ['admin', 'bookings', 'pending'] });
-    void qc.invalidateQueries({ queryKey: ['admin', 'bookings', 'pending', 'count'] });
-    void qc.invalidateQueries({ queryKey: ['bookings'] });
+    void invalidateBookings(qc);
   };
 
   const approveMutation = useMutation({

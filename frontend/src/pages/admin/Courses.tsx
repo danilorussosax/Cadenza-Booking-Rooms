@@ -39,6 +39,7 @@ import { CourseLevelsSection } from '@/components/admin/CourseLevelsSection';
 import { cn } from '@/lib/utils';
 import type { Course } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
 
 // Macro-tab in stile /admin/server-settings: card grandi con icona+label.
 type CoursesTab = 'corsi' | 'livelli';
@@ -105,12 +106,12 @@ export default function AdminCourses() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const query = useQuery({
-    queryKey: ['courses', 'all'],
+    queryKey: qk.courses.allList(),
     queryFn: () => coursesApi.listAll(),
   });
 
   const levelsQuery = useQuery({
-    queryKey: ['course-levels'],
+    queryKey: qk.courseLevels.all(),
     queryFn: () => courseLevelsApi.list(),
     staleTime: 60_000,
   });
@@ -162,7 +163,7 @@ export default function AdminCourses() {
     mutationFn: (id: number) => coursesApi.remove(id),
     onSuccess: () => {
       toast.success('Corso eliminato');
-      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: qk.courses.all() });
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -174,7 +175,7 @@ export default function AdminCourses() {
     mutationFn: () => coursesApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'corso eliminato' : 'corsi eliminati'}`);
-      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: qk.courses.all() });
       setBulkConfirm(false);
       clearSelection();
     },

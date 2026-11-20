@@ -45,6 +45,7 @@ import { WeeklyExportPrintView } from '@/components/bookings/WeeklyExportPrintVi
 import { WaitlistDashboardCard } from '@/components/bookings/WaitlistDashboardCard';
 import { QuickBookCard } from '@/components/bookings/QuickBookCard';
 import type { Booking, InstrumentLoan, LoanStatus, Room } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const LOAN_STATUS_VARIANT: Record<LoanStatus, 'success' | 'secondary' | 'muted' | 'default'> = {
   requested: 'secondary',
@@ -123,7 +124,7 @@ export default function Dashboard() {
   }, []);
 
   const upcomingQuery = useQuery({
-    queryKey: ['bookings', 'mine', 'upcoming'],
+    queryKey: qk.bookings.mineUpcoming(),
     queryFn: () =>
       bookingsApi.list({
         mine: true,
@@ -133,26 +134,26 @@ export default function Dashboard() {
   });
 
   const usageQuery = useQuery({
-    queryKey: ['bookings', 'usage', 'me'],
+    queryKey: qk.bookings.usageMe(),
     queryFn: () => bookingsApi.myUsage(),
     staleTime: 30_000,
   });
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
   });
 
   const loansQuery = useQuery({
-    queryKey: ['loans', 'mine'],
+    queryKey: qk.loans.mine(),
     queryFn: () => loansApi.mine(),
     staleTime: 30_000,
   });
 
   // Prenotazioni dell'utente in attesa di approvazione admin: empty-silent.
   const pendingApprovalsQuery = useQuery({
-    queryKey: ['bookings', 'mine', 'pending'],
+    queryKey: qk.bookings.minePending(),
     queryFn: () => bookingsApi.minePending(),
     staleTime: 30_000,
   });
@@ -170,27 +171,27 @@ export default function Dashboard() {
   // Solo per role=docente; se non c'è override torna 'institute_settings'
   // o 'default' e usiamo il flusso standard.
   const monteOreThresholdQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'threshold'],
+    queryKey: qk.monteOre.meThreshold(),
     queryFn: () => monteOreApi.getMyThreshold(),
     enabled: isDocente,
     staleTime: 60_000,
   });
   const hasMonteOreOverride = monteOreThresholdQuery.data?.source === 'user_override';
   const monteOreProposalQuery = useQuery({
-    queryKey: ['monte-ore', 'me'],
+    queryKey: qk.monteOre.me(),
     queryFn: () => monteOreApi.getMine(),
     enabled: isDocente && hasMonteOreOverride,
     staleTime: 60_000,
   });
   const adminBookingsPendingQuery = useQuery({
-    queryKey: ['admin', 'bookings', 'pending', 'count'],
+    queryKey: qk.adminBookings.pendingCount(),
     queryFn: () => bookingsApi.pendingCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,
     enabled: isAdmin,
   });
   const adminAmendmentsPendingQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryKey: qk.adminMonteOre.amendmentsPendingCount(),
     queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -203,7 +204,7 @@ export default function Dashboard() {
   // Range: 00:00 del primo giorno → 23:59 dell'ultimo giorno della finestra
   // (1 giorno per `calendarRange='single'`, 3 giorni per `calendarRange='three'`).
   const calendarBookingsQuery = useQuery({
-    queryKey: ['bookings', 'day', dayStart, calendarDaysCount],
+    queryKey: qk.bookings.day(dayStart, calendarDaysCount),
     queryFn: () =>
       bookingsApi.list({
         from: dayjs(dayStart).startOf('day').toISOString(),

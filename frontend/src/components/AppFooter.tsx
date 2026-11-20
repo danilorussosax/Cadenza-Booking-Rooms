@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { institutesApi } from '@/api/institutes';
 import { cn } from '@/lib/utils';
+import { qk } from '@/lib/queryKeys';
 
 const DEFAULT_COPYRIGHT = 'Copyright © 2026 by Danilo Russo';
 
@@ -12,7 +13,7 @@ interface Props {
 
 export function AppFooter({ className, variant = 'default' }: Props) {
   const { data } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });

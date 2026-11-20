@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AuthContext } from '@/contexts/AuthContext';
 import { gdprApi } from '@/api/gdpr';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Stato del ConsentGate (Dialog "Aggiornamento documenti legali").
@@ -26,7 +27,7 @@ export function useConsentGate(): { needsConsent: boolean; isLoading: boolean } 
   const user = auth?.user ?? null;
 
   const consentsQuery = useQuery({
-    queryKey: ['gdpr', 'consents'],
+    queryKey: qk.gdpr.consents(),
     queryFn: () => gdprApi.getConsents(),
     enabled: !!user && user.role !== 'admin',
     staleTime: 60 * 1000,

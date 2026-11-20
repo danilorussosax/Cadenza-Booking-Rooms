@@ -34,6 +34,7 @@ import {
 import type { Instrument, InstrumentFamily } from '@/types';
 import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
+import { qk } from '@/lib/queryKeys';
 
 const FAMILY_KEYS: InstrumentFamily[] = [
   'archi',
@@ -55,7 +56,7 @@ export default function Instruments() {
   const [requestTarget, setRequestTarget] = useState<Instrument | null>(null);
 
   const query = useQuery({
-    queryKey: ['instruments', { family, loanableOnly }],
+    queryKey: qk.instruments.filtered({ family, loanableOnly }),
     queryFn: () =>
       instrumentsApi.list({
         family: family === 'all' ? undefined : family,
@@ -306,8 +307,8 @@ function LoanRequestDialog({
       }),
     onSuccess: () => {
       toast.success(t('instruments.request_dialog.submitted'));
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
-      void qc.invalidateQueries({ queryKey: ['loans', 'mine'] });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.loans.mine() });
       onClose();
     },
     onError: (err) => {

@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 const SAMPLE_CSV = `Dotazione
 Pianoforte verticale
@@ -65,7 +66,7 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
     mutationFn: () => structureApi.importEquipmentTemplates(csv),
     onSuccess: ({ result }) => {
       setResult(result);
-      void qc.invalidateQueries({ queryKey: ['equipment-templates'] });
+      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
       toast.success(`Import completato · ${result.created} create, ${result.skipped} esistenti`);
     },
     onError: (err) => {

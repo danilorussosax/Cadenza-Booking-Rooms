@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { ConcertInfo, ConcertEventType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const EVENT_TYPES: ConcertEventType[] = [
   'concerto',
@@ -78,7 +79,7 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const concertQuery = useQuery({
-    queryKey: ['concert', bookingId],
+    queryKey: qk.concert.detail(bookingId),
     queryFn: async () => {
       try {
         return await bookingsApi.getConcert(bookingId);
@@ -145,9 +146,9 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
       toast.success(t('concert.saved'));
       setHasInfo(true);
       setPosterUrl(concertInfo.posterUrl ?? null);
-      void qc.invalidateQueries({ queryKey: ['concert', bookingId] });
-      void qc.invalidateQueries({ queryKey: ['public', 'concerts'] });
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
+      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
+      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
+      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));
@@ -159,8 +160,8 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     onSuccess: ({ posterUrl: url }) => {
       setPosterUrl(url);
       toast.success(t('concert.poster_uploaded'));
-      void qc.invalidateQueries({ queryKey: ['concert', bookingId] });
-      void qc.invalidateQueries({ queryKey: ['public', 'concerts'] });
+      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
+      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -170,8 +171,8 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
     onSuccess: () => {
       setPosterUrl(null);
       toast.success(t('concert.poster_removed'));
-      void qc.invalidateQueries({ queryKey: ['concert', bookingId] });
-      void qc.invalidateQueries({ queryKey: ['public', 'concerts'] });
+      void qc.invalidateQueries({ queryKey: qk.concert.detail(bookingId) });
+      void qc.invalidateQueries({ queryKey: qk.public.concertsAll() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

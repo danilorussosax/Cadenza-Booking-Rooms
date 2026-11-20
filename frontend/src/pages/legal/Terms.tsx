@@ -6,10 +6,11 @@ import { AppFooter } from '@/components/AppFooter';
 import { institutesApi } from '@/api/institutes';
 import type { PublicInstitute } from '@/types';
 import { TERMS_VERSION } from './policyVersions';
+import { qk } from '@/lib/queryKeys';
 
 export default function Terms() {
   const { data } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });

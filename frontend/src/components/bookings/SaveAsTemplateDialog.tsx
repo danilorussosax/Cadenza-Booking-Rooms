@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { BookingType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 // =====================================================
 // Sub-dialog "Salva come template"
@@ -75,7 +76,7 @@ export function SaveAsTemplateDialog({
     },
     onSuccess: (res) => {
       toast.success(t('booking.template.saved_toast', { name: res.template.name }));
-      void qc.invalidateQueries({ queryKey: ['booking-templates'] });
+      void qc.invalidateQueries({ queryKey: qk.bookingTemplates.all() });
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Institute, SubProcessor } from '@/types';
+import { invalidateInstituteProfile } from '@/lib/invalidation';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome dell’istituto'),
@@ -163,8 +164,7 @@ export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Istituto aggiornato' : 'Istituto creato');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      void invalidateInstituteProfile(qc);
       onOpenChange(false);
     },
     onError: (err) => {
@@ -345,8 +345,7 @@ function LogoUploader({ institute }: { institute: Institute }) {
     mutationFn: (file: File) => structureApi.uploadInstituteLogo(institute.id, file),
     onSuccess: () => {
       toast.success('Logo aggiornato');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      void invalidateInstituteProfile(qc);
     },
     onError: (err) => {
       setError(httpErrorMessage(err));
@@ -357,8 +356,7 @@ function LogoUploader({ institute }: { institute: Institute }) {
     mutationFn: () => structureApi.deleteInstituteLogo(institute.id),
     onSuccess: () => {
       toast.success('Logo rimosso');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      void invalidateInstituteProfile(qc);
     },
     onError: (err) => {
       setError(httpErrorMessage(err));

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Bottoni di azione su un amendment pending (Approva / Rifiuta).
@@ -79,7 +80,7 @@ export function AmendmentActions({
           amendment={amendment}
           onClose={() => setReviewOpen(false)}
           onDecided={() => {
-            void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+            void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
           }}
         />
       )}
@@ -177,7 +178,7 @@ function ApproveNewDayDialog({
   const [roomId, setRoomId] = useState<number | null>(payload.roomId ?? null);
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
   });

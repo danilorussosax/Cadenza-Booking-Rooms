@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Card "Bacheca avvisi" sulla Dashboard utente.
@@ -31,7 +32,7 @@ export function AnnouncementsCard() {
   const [allOpen, setAllOpen] = useState(false);
 
   const query = useQuery({
-    queryKey: ['announcements', 'mine'],
+    queryKey: qk.announcements.mine(),
     queryFn: () => announcementsApi.listMine(),
     staleTime: 60 * 1000,
   });

@@ -6,6 +6,7 @@ import { AppFooter } from '@/components/AppFooter';
 import { institutesApi } from '@/api/institutes';
 import type { PublicInstitute } from '@/types';
 import { PRIVACY_POLICY_VERSION } from './policyVersions';
+import { qk } from '@/lib/queryKeys';
 
 const MISSING = '[da configurare]';
 
@@ -24,7 +25,7 @@ function MailLink({ email }: { email: string | null | undefined }) {
 
 export default function PrivacyPolicy() {
   const { data } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });

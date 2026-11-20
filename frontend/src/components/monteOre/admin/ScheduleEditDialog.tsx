@@ -26,6 +26,7 @@ import {
 import { sortRoomsCrossBuilding } from '@/lib/sortRooms';
 import type { BookingType } from '@/types';
 import { DAYS_IT, TYPE_OPTIONS } from './shared';
+import { qk } from '@/lib/queryKeys';
 
 export function ScheduleEditDialog({
   open,
@@ -42,7 +43,7 @@ export function ScheduleEditDialog({
 }) {
   const isEdit = existing !== null;
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
   });

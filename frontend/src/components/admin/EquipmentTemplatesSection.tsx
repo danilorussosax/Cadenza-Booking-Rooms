@@ -16,6 +16,7 @@ import { EquipmentTemplatesCsvImportDialog } from './EquipmentTemplatesCsvImport
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { EquipmentTemplate } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   EQUIPMENT_TYPE_OPTIONS.map((o) => [o.value, o.label]),
@@ -34,7 +35,7 @@ export function EquipmentTemplatesSection() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const query = useQuery({
-    queryKey: ['equipment-templates'],
+    queryKey: qk.equipmentTemplates.all(),
     queryFn: () => structureApi.listEquipmentTemplates(),
   });
 
@@ -76,7 +77,7 @@ export function EquipmentTemplatesSection() {
     mutationFn: (id: number) => structureApi.deleteEquipmentTemplate(id),
     onSuccess: () => {
       toast.success('Dotazione eliminata');
-      void qc.invalidateQueries({ queryKey: ['equipment-templates'] });
+      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -88,7 +89,7 @@ export function EquipmentTemplatesSection() {
     mutationFn: () => structureApi.bulkDeleteEquipmentTemplates(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'dotazione eliminata' : 'dotazioni eliminate'}`);
-      void qc.invalidateQueries({ queryKey: ['equipment-templates'] });
+      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
       setBulkConfirm(false);
       clearSelection();
     },

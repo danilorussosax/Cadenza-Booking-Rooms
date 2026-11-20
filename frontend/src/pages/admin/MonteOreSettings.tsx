@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { qk } from '@/lib/queryKeys';
 
 export default function AdminMonteOreSettings() {
   const qc = useQueryClient();
@@ -43,13 +44,13 @@ export default function AdminMonteOreSettings() {
   const [downloading, setDownloading] = useState(false);
 
   const settingsQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'settings', year],
+    queryKey: qk.adminMonteOre.settingsYear(year),
     queryFn: () => monteOreAdminApi.getSettings(year),
     enabled: !!year,
   });
 
   const suspensionsQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'suspensions', year],
+    queryKey: qk.adminMonteOre.suspensionsYear(year),
     queryFn: () => monteOreAdminApi.listSuspensions(year),
     enabled: !!year,
   });
@@ -59,8 +60,8 @@ export default function AdminMonteOreSettings() {
       monteOreAdminApi.updateSettings({ ...payload, academicYear: year }),
     onSuccess: () => {
       toast.success('Impostazioni salvate');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'settings'] });
-      void qc.invalidateQueries({ queryKey: ['monte-ore'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.settings() });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -374,7 +375,7 @@ function SuspensionsCard({
     mutationFn: (id: number) => monteOreAdminApi.removeSuspension(id),
     onSuccess: () => {
       toast.success('Sospensione eliminata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.suspensions() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -500,7 +501,7 @@ function SuspensionForm({
       }),
     onSuccess: () => {
       toast.success('Sospensione creata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.suspensions() });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -519,7 +520,7 @@ function SuspensionForm({
     },
     onSuccess: () => {
       toast.success('Sospensione aggiornata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'suspensions'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.suspensions() });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

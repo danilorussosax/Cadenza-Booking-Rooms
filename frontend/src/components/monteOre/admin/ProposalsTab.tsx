@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DetailDialog } from './ProposalDetailDialog';
 import { CONTRACT_LABEL, STATUS_LABEL, STATUS_VARIANT, resolveProposalThreshold } from './shared';
+import { qk } from '@/lib/queryKeys';
 
 export function ProposalsTab({
   selectedYear,
@@ -22,7 +23,7 @@ export function ProposalsTab({
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const listQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'list', statusFilter, selectedYear],
+    queryKey: qk.adminMonteOre.list(statusFilter, selectedYear),
     queryFn: () =>
       monteOreAdminApi.list({
         ...(statusFilter === 'all' ? {} : { status: statusFilter }),
@@ -148,7 +149,7 @@ export function ProposalsTab({
           id={selectedId}
           onClose={() => setSelectedId(null)}
           onChanged={() => {
-            void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+            void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
           }}
         />
       )}

@@ -35,6 +35,7 @@ import { WeeklyRoomTimetable, type WeeklyBlock } from '@/components/bookings/Wee
 import { DailyRoomTimetable } from '@/components/bookings/DailyRoomTimetable';
 import { findBuildingBySlug, parseDisplayBuildingSlug } from '@/lib/displayUrl';
 import type { BookingType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const REFRESH_AGENDA_MS = 60_000;
 const REFRESH_STATS_MS = 30_000;
@@ -185,7 +186,7 @@ export default function Display() {
   // sul display "subito", non dopo 5 minuti. staleTime + refetchInterval
   // ridotti rispetto al pattern utente loggato (che è in `useAppIcon`).
   const instituteQuery = useQuery({
-    queryKey: ['public', 'institute'],
+    queryKey: qk.public.institute(),
     queryFn: () => publicApi.institute(),
     staleTime: 60 * 1000,
     refetchInterval: 2 * 60 * 1000,
@@ -211,13 +212,13 @@ export default function Display() {
   }, [now]);
   const weekEnd = useMemo(() => dayjs(weekStart).add(5, 'day').format('YYYY-MM-DD'), [weekStart]);
   const agendaQuery = useQuery<PublicAgenda>({
-    queryKey: ['public', 'agenda', 'week', weekStart],
+    queryKey: qk.public.agendaWeek(weekStart),
     queryFn: () => publicApi.agendaRange(weekStart, weekEnd),
     refetchInterval: REFRESH_AGENDA_MS,
   });
 
   const statsQuery = useQuery({
-    queryKey: ['public', 'stats'],
+    queryKey: qk.public.stats(),
     queryFn: () => publicApi.stats(),
     refetchInterval: REFRESH_STATS_MS,
   });
@@ -226,7 +227,7 @@ export default function Display() {
   // Il client cycla solo gli edifici con displayEnabled=true; ognuno ha il suo
   // intervalSec personalizzabile dall'admin via /admin/display.
   const displayConfigQuery = useQuery({
-    queryKey: ['public', 'display-config'],
+    queryKey: qk.public.displayConfig(),
     queryFn: () => publicApi.displayConfig(),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -290,7 +291,7 @@ export default function Display() {
   }, [rotationOrder]);
 
   const concertsQuery = useQuery({
-    queryKey: ['public', 'concerts', concertsConfig.horizonDays],
+    queryKey: qk.public.concerts(concertsConfig.horizonDays),
     queryFn: () => publicApi.concerts(concertsConfig.horizonDays),
     enabled: concertsConfig.enabled,
     refetchInterval: REFRESH_CONCERTS_MS,
@@ -317,7 +318,7 @@ export default function Display() {
   }, [rotationOrder]);
 
   const announcementsQuery = useQuery({
-    queryKey: ['public', 'announcements', announcementsConfig.pinnedOnly, announcementsConfig.cap],
+    queryKey: qk.public.announcements(announcementsConfig.pinnedOnly, announcementsConfig.cap),
     queryFn: () =>
       publicApi.announcements({
         pinned: announcementsConfig.pinnedOnly,

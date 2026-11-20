@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { dayjs } from '@/lib/date';
 import { HeatmapGrid } from '@/components/admin/HeatmapGrid';
+import { qk } from '@/lib/queryKeys';
 
 export default function AdminAnalytics() {
   const { t } = useTranslation();
@@ -42,7 +43,7 @@ export default function AdminAnalytics() {
   const [appliedRange, setAppliedRange] = useState({ from: dateFrom, to: dateTo });
 
   const query = useQuery({
-    queryKey: ['admin', 'analytics', appliedRange.from, appliedRange.to],
+    queryKey: qk.admin.analytics(appliedRange.from, appliedRange.to),
     queryFn: () => analyticsApi.get(appliedRange.from, appliedRange.to),
     staleTime: 30_000,
   });

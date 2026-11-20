@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { qk } from '@/lib/queryKeys';
+import { invalidateInstituteBranding } from '@/lib/invalidation';
 
 /**
  * Sezione admin: testo di copyright mostrato nel footer di tutta l'app
@@ -26,7 +28,7 @@ export function CopyrightSection() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const instituteQuery = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });
@@ -55,7 +57,7 @@ export function CopyrightSection() {
     },
     onSuccess: () => {
       toast.success(t('admin.appearance.copyright.saved'));
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      void invalidateInstituteBranding(qc);
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));

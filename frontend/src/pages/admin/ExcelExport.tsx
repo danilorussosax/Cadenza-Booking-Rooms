@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { qk } from '@/lib/queryKeys';
 
 function formatRelative(iso: string | null): string {
   if (!iso) return 'mai';
@@ -46,7 +47,7 @@ function formatBytes(b: number): string {
 export default function AdminExcelExport() {
   const qc = useQueryClient();
   const statusQuery = useQuery({
-    queryKey: ['admin', 'excel-export', 'status'],
+    queryKey: qk.admin.excelExportStatus(),
     queryFn: () => excelExportApi.status(),
     refetchInterval: 30_000,
   });
@@ -56,7 +57,7 @@ export default function AdminExcelExport() {
     onSuccess: (r) => {
       if (r.ok) {
         toast.success(`Export OK — ${r.rowCount} righe in ${r.durationMs} ms`);
-        void qc.invalidateQueries({ queryKey: ['admin', 'excel-export', 'status'] });
+        void qc.invalidateQueries({ queryKey: qk.admin.excelExportStatus() });
       } else {
         toast.error('Export fallito', { description: r.reason });
       }

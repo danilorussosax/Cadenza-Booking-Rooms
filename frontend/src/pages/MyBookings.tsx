@@ -16,6 +16,7 @@ import { BookingFormDialog } from '@/components/bookings/BookingFormDialog';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { CalendarSubscriptionSection } from '@/components/bookings/CalendarSubscriptionSection';
 import type { Booking } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 type Tab = 'future' | 'past' | 'cancelled';
 
@@ -30,7 +31,7 @@ export default function MyBookings() {
   const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
-    queryKey: ['bookings', 'mine', 'all'],
+    queryKey: qk.bookings.mineAll(),
     // limit alto per MyBookings: l'utente vede TUTTE le sue bookings (storico
     // completo) classificate poi client-side in future/past/cancelled. Senza
     // limit alto, le bookings recenti sparivano per utenti con storico esteso

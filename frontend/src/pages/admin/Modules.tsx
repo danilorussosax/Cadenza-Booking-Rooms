@@ -7,6 +7,8 @@ import { api, httpErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { qk } from '@/lib/queryKeys';
+import { invalidateInstituteBranding } from '@/lib/invalidation';
 
 /**
  * Pannello admin: tab "Moduli" della pagina Impostazioni Server.
@@ -52,24 +54,24 @@ export default function AdminModules() {
   // Registry dei moduli disponibili — fonte di verità per icone, label,
   // descrizioni e ordine di visualizzazione.
   const registryQuery = useQuery({
-    queryKey: ['admin', 'module-settings', 'registry'],
+    queryKey: qk.admin.moduleSettingsRegistry(),
     queryFn: () => api<{ modules: ModuleDef[] }>('/api/structure/module-settings/registry'),
     staleTime: 5 * 60 * 1000,
   });
 
   // Valori correnti dei flag (booleani indicizzati per colonna DB).
   const settingsQuery = useQuery({
-    queryKey: ['admin', 'module-settings'],
+    queryKey: qk.admin.moduleSettings(),
     queryFn: () => institutesApi.getModuleSettings(),
   });
 
   const mutation = useMutation({
     mutationFn: (body: Partial<ModuleSettings>) => institutesApi.updateModuleSettings(body),
     onSuccess: (data) => {
-      qc.setQueryData(['admin', 'module-settings'], data);
+      qc.setQueryData(qk.admin.moduleSettings(), data);
       // La sidebar legge i flag dall'institute "public": invalidalo per
       // far sparire/comparire i link senza dover ricaricare la pagina.
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
+      void invalidateInstituteBranding(qc);
       toast.success(t('admin.server_settings.modules.saved'));
     },
     onError: (err) => {

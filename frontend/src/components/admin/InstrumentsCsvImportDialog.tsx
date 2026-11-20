@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 interface ImportResult {
   rowsTotal: number;
@@ -66,8 +67,8 @@ export function InstrumentsCsvImportDialog({ open, onOpenChange }: Props) {
     mutationFn: () => instrumentsApi.importCsv(csv),
     onSuccess: ({ result }) => {
       setResult(result);
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
-      void qc.invalidateQueries({ queryKey: ['admin', 'instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
       toast.success(
         `${result.created + result.updated} strumenti · ${result.created} creati · ${result.updated} aggiornati`,
       );

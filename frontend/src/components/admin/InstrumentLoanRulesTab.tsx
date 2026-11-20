@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { Course, Instrument, InstrumentFamily } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const FAMILY_LABELS: Record<InstrumentFamily, string> = {
   archi: 'instrument_families.archi',
@@ -56,7 +57,7 @@ export function InstrumentLoanRulesTab() {
   const [editing, setEditing] = useState<Instrument | null>(null);
 
   const instrumentsQuery = useQuery({
-    queryKey: ['admin', 'instruments', 'all'],
+    queryKey: qk.adminInstruments.everything(),
     queryFn: () => instrumentsApi.list({}),
     staleTime: 30_000,
   });
@@ -65,7 +66,7 @@ export function InstrumentLoanRulesTab() {
   // codici SAD nelle chip della colonna "Corsi abilitati" (oltre che per il
   // dialog di edit). TanStack Query deduplica la query in cache.
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'all'],
+    queryKey: qk.courses.allList(),
     queryFn: () => coursesApi.listAll(),
     staleTime: 60_000,
   });
@@ -345,7 +346,7 @@ function CoursesEditDialog({
   }, [instrument]);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'all'],
+    queryKey: qk.courses.allList(),
     queryFn: () => coursesApi.listAll(),
     enabled: open,
     staleTime: 60_000,
@@ -367,8 +368,8 @@ function CoursesEditDialog({
     },
     onSuccess: () => {
       toast.success(t('admin.instrument_rules.saved'));
-      void qc.invalidateQueries({ queryKey: ['admin', 'instruments'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

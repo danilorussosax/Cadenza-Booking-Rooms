@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AmendmentsRequestsTab } from '@/components/monteOre/admin/AmendmentsRequestsTab';
 import { ProposalsTab } from '@/components/monteOre/admin/ProposalsTab';
+import { qk } from '@/lib/queryKeys';
 
 // Macro tab — stesso pattern di pages/admin/Rules.tsx (card con icona+colore).
 
@@ -74,7 +75,7 @@ export default function AdminMonteOre() {
 
   // Counter per badge "richieste in attesa" sulla tab
   const pendingCountQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'amendments', 'pending-count'],
+    queryKey: qk.adminMonteOre.amendmentsPendingCount(),
     queryFn: () => monteOreAdminApi.pendingAmendmentsCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,

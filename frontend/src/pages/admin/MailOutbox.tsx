@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { qk } from '@/lib/queryKeys';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
@@ -69,7 +70,7 @@ function fmtDate(s: string | null) {
 
 function HealthBanner() {
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'mail-outbox', 'health'],
+    queryKey: qk.admin.mailOutboxHealth(),
     queryFn: () => mailOutboxApi.health(),
     refetchInterval: REFETCH_INTERVAL_MS,
   });
@@ -168,7 +169,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
     mutationFn: () => mailOutboxApi.retry(item.id),
     onSuccess: () => {
       toast.success('Email rimessa in coda per il prossimo tick');
-      void qc.invalidateQueries({ queryKey: ['admin', 'mail-outbox'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.mailOutbox() });
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));
@@ -178,7 +179,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
     mutationFn: () => mailOutboxApi.remove(item.id),
     onSuccess: () => {
       toast.success('Email eliminata dalla coda');
-      void qc.invalidateQueries({ queryKey: ['admin', 'mail-outbox'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.mailOutbox() });
     },
     onError: (err) => {
       toast.error(httpErrorMessage(err));
@@ -228,13 +229,13 @@ export default function AdminMailOutbox() {
   const [page, setPage] = useState(1);
 
   const countsQuery = useQuery({
-    queryKey: ['admin', 'mail-outbox', 'counts'],
+    queryKey: qk.admin.mailOutboxCounts(),
     queryFn: () => mailOutboxApi.counts(),
     refetchInterval: REFETCH_INTERVAL_MS,
   });
 
   const listQuery = useQuery({
-    queryKey: ['admin', 'mail-outbox', 'list', { status, q, page }],
+    queryKey: qk.admin.mailOutboxList({ status, q, page }),
     queryFn: () =>
       mailOutboxApi.list({
         status: status === 'all' ? undefined : status,
