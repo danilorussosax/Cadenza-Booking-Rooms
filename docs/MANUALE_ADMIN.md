@@ -1161,7 +1161,7 @@ In coda alla pagina Settings c'è una tabella con tutte le sospensioni dell'anno
 | Dal · Al  | Range date                                                                       |
 | Tipo      | "Settimana intera" oppure "Parziale"                                             |
 | Categoria | `holiday` (festività deterministica) · `exam_session` · `custom` (creata a mano) |
-| Azioni    | ✎ Modifica · 🗑 Elimina (con conferma)                                           |
+| Azioni    | ✎ Modifica · 🗑 Elimina (con conferma)                                            |
 
 Da maggio 2026 le sospensioni hanno un campo **`category`** che le distingue per natura:
 

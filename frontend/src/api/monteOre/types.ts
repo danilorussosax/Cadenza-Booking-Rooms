@@ -291,12 +291,7 @@ export interface CalendarWeek {
 }
 
 export type AmendmentKind =
-  | 'toggle_off'
-  | 'toggle_on'
-  | 'change_time'
-  | 'add_new_day'
-  | 'change_room'
-  | 'move_to';
+  'toggle_off' | 'toggle_on' | 'change_time' | 'add_new_day' | 'change_room' | 'move_to';
 export type AmendmentStatus = 'pending' | 'auto_approved' | 'approved' | 'rejected';
 
 export interface AmendmentOperation {

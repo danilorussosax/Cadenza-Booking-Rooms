@@ -274,7 +274,7 @@ Tre tab:
 
 | Azione                        | Quando disponibile                                                                                                                 |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **🗑 Cancella**               | Sempre, ma se sei sotto il "cancel cutoff" (default 2 ore prima) la cancellazione conta come no-show e impatta le tue statistiche. |
+| **🗑 Cancella**                | Sempre, ma se sei sotto il "cancel cutoff" (default 2 ore prima) la cancellazione conta come no-show e impatta le tue statistiche. |
 | **✎ Modifica**                | Solo per le prenotazioni future che NON sono già state "checked-in".                                                               |
 | **📅 Aggiungi al calendario** | Scarica un file `.ics` da importare in Google Calendar, Outlook, Apple Calendar.                                                   |
 | **🔗 Copia link**             | URL diretto alla prenotazione (utile per condividerla con un collega).                                                             |

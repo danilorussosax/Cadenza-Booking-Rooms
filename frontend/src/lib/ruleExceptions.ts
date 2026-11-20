@@ -110,8 +110,7 @@ export function isPastOnlyRange(form: ExceptionFormState, todayIso: string): boo
 }
 
 export type ExceptionValidation =
-  | { ok: true; payload: UpsertExceptionPayload }
-  | { ok: false; error: string };
+  { ok: true; payload: UpsertExceptionPayload } | { ok: false; error: string };
 
 /** Valida il form e, se valido, costruisce il payload per l'API. */
 export function validateException(form: ExceptionFormState): ExceptionValidation {

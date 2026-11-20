@@ -176,12 +176,7 @@ export interface Building {
 }
 
 export type RoomType =
-  | 'studio'
-  | 'sala_prove'
-  | 'aula_concerti'
-  | 'classe'
-  | 'aula_didattica'
-  | 'altro';
+  'studio' | 'sala_prove' | 'aula_concerti' | 'classe' | 'aula_didattica' | 'altro';
 
 export interface Equipment {
   id: number;
@@ -242,11 +237,7 @@ export interface BookingTypeCatalog {
   description: string | null;
 }
 export type BookingStatus =
-  | 'confirmed'
-  | 'cancelled'
-  | 'completed'
-  | 'no_show'
-  | 'pending_approval';
+  'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'pending_approval';
 
 /**
  * Slot alternativo proposto dal backend quando una richiesta di prenotazione
@@ -307,11 +298,7 @@ export interface Booking {
  * come 'concerto'.
  */
 export type ConcertEventType =
-  | 'concerto'
-  | 'saggio'
-  | 'masterclass'
-  | 'conferenza'
-  | 'lezione_aperta';
+  'concerto' | 'saggio' | 'masterclass' | 'conferenza' | 'lezione_aperta';
 
 export interface ConcertInfo {
   id: number;
