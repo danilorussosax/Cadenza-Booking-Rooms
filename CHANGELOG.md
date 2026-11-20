@@ -10,6 +10,64 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.22.0] — 20 novembre 2026
+
+Fuso orario dell’istituto ovunque, messaggi d’errore tradotti con i numeri e un consolidamento interno dei moduli principali.
+
+**Novità e correzioni visibili**
+
+- Fuso orario: giorno, settimana e mese per le quote, le statistiche pubbliche, le analytics, i promemoria, il bot Telegram e le mail di reset password seguono il fuso dell’istituto (`Institute.timezone`, default `Europe/Rome`, sovrascrivibile con `INSTITUTION_TZ`) e non più quello del server. Una prenotazione alle 00:30 di Roma conta sul giorno giusto, la scadenza nella mail di reset non è più sfasata di 1-2 ore e l’anteprima delle ricorrenze non sbaglia più di un giorno a est di UTC.
+- Monte Ore: le prenotazioni generate dal piano non consumano le quote delle prenotazioni libere, ma occupano comunque aula e tempo del docente. Etichette passato/in corso/prossimo e pulsante «Avvia» per anno accademico. La stima delle ore in anteprima rifiuta le stesse variazioni del backend. Il generatore crea e annulla le prenotazioni senza una mail per ogni lezione.
+- Messaggi d’errore: tornano i numeri nelle frasi tradotte (es. «al massimo 162 ore») e i codici d’errore sono tradotti in tutte e 5 le lingue.
+- Cartelli QR: download di tutti i PNG delle aule in un unico file ZIP.
+- Check-in: la Dashboard usa la finestra e la tolleranza reali restituite dall’API, non più valori fissi.
+- Analytics: il tasso di no-show non conta più le prenotazioni cancellate (soft-delete).
+- Download autenticati (export, backup, PDF, CSV): con la sessione scaduta si torna al login e gli errori sono tradotti.
+- Le liste si aggiornano dopo modifiche a aule, edifici e attrezzature; l’eliminazione di un utente da admin rimuove anche la foto profilo; la prenotazione rapida da modello avvisa gli admin quando richiede approvazione.
+
+**Note di operatività e compatibilità**
+
+- API (additive): `GET /api/bookings` aggiunge `checkInConfig`; le schede Monte Ore restituiscono `proposal.workflow`. **Cambia il formato** di `trend[].weekStart` in `/api/analytics`: ora `YYYY-MM-DD` invece di un timestamp ISO.
+- Configurazione: una variabile di tuning presente ma non valida ferma l’avvio con un messaggio chiaro, invece del ripiego silenzioso. `TWO_FA_GRACE_DAYS=0` e `CHECKIN_EARLY_MINUTES=0` valgono ora 0, non il default; `JWT_EXPIRES_IN` è validata (es. `2h`). I valori di default sono invariati.
+- Schema: solo aggiunte (colonna `bookings.origin`); le migrazioni duplicate delle pre-sync richiamano gli stessi passi. Nessun intervento manuale.
+
+**Interno**
+
+- Un modulo unico per prenotare, spostare e annullare (`bookingLifecycle`), per le regole del piano Monte Ore, per il tempo istituzionale (`institutionTime`), per le autorizzazioni (`can()`), per check-in, rimozioni a cascata, contesto mail, sessione di login, prestiti strumento e immagini caricate.
+- Sei scheduler su un esecutore comune con registro unico; circa 295 errori delle route su `domainError`; registro delle chiavi di cache e oltre 40 eventi di invalidazione nel frontend; importazione Isidata, analytics e bot Telegram divisi in moduli testabili.
+- CI: il job E2E usa `ubuntu-24.04` perché Playwright non supporta ancora Ubuntu 26.04.
+
+Verifiche: 2.518 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 647 test frontend; 26 test browser; job PostgreSQL della CI verde.
+
+### English
+
+Institution time zone everywhere, translated error messages with their numbers, and an internal consolidation of the core modules.
+
+**User-visible changes and fixes**
+
+- Time zone: day, week and month for quotas, public statistics, analytics, reminders, the Telegram bot and password-reset emails now follow the institution time zone (`Institute.timezone`, default `Europe/Rome`, overridable with `INSTITUTION_TZ`) instead of the server's. A booking at 00:30 Rome time counts toward the right day, the expiry time in the reset email is no longer off by 1-2 hours, and the recurrence preview no longer shows the wrong day east of UTC.
+- Monte Ore: bookings generated from the plan no longer consume the quotas of free bookings, but still occupy the room and the teacher's time. Past/current/next labels and a "Start" button per academic year. The hours preview rejects the same amendments as the backend. The generator creates and cancels bookings without one email per lesson.
+- Error messages: numbers are back in translated sentences (e.g. "at most 162 hours") and error codes are translated in all 5 languages.
+- Room QR signs: download all room PNGs as a single ZIP file.
+- Check-in: the Dashboard uses the real window and grace period returned by the API, not fixed values.
+- Analytics: the no-show rate no longer counts soft-deleted bookings.
+- Authenticated downloads (exports, backups, PDFs, CSVs): with an expired session you are sent back to login, and errors are translated.
+- Lists refresh after changes to rooms, buildings and equipment; deleting a user as an admin also removes their profile photo; quick booking from a template notifies admins when approval is required.
+
+**Operations and compatibility notes**
+
+- API (additive): `GET /api/bookings` adds `checkInConfig`; Monte Ore plan endpoints return `proposal.workflow`. **The format changes** for `trend[].weekStart` in `/api/analytics`: now `YYYY-MM-DD` instead of an ISO timestamp.
+- Configuration: a tuning variable that is set but invalid now stops startup with a clear message, instead of silently falling back. `TWO_FA_GRACE_DAYS=0` and `CHECKIN_EARLY_MINUTES=0` now mean 0, not the default; `JWT_EXPIRES_IN` is validated (e.g. `2h`). Default values are unchanged.
+- Schema: additions only (`bookings.origin` column); the duplicated pre-sync migrations now call the same steps. No manual action required.
+
+**Internal**
+
+- One module each for booking, moving and cancelling (`bookingLifecycle`), Monte Ore plan rules, institution time (`institutionTime`), authorization (`can()`), check-in, cascading removals, mail context, login session, instrument loans and uploaded images.
+- Six schedulers on a shared runner with a single registry; about 295 route errors moved to `domainError`; a cache-key registry and over 40 invalidation events in the frontend; the Isidata import, analytics and the Telegram bot split into testable modules.
+- CI: the E2E job uses `ubuntu-24.04` because Playwright does not yet support Ubuntu 26.04.
+
+Verification: 2,518 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 647 frontend tests; 26 browser tests; PostgreSQL CI job green.
+
 ## [1.21.0] — 11 ottobre 2026
 
 Semplificazione della preparazione e gestione degli anni accademici.
