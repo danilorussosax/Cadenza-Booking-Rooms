@@ -1,31 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-
-export type Theme = 'light' | 'dark' | 'system';
-export type ResolvedTheme = 'light' | 'dark';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ThemeContext, type ResolvedTheme, type Theme } from '@/contexts/theme';
 
 const STORAGE_KEY = 'conservatory_theme';
-
-interface ThemeContextValue {
-  theme: Theme;
-  resolved: ResolvedTheme;
-  setTheme: (theme: Theme) => void;
-  toggle: () => void;
-  /** Forza un tema specifico senza scrivere in localStorage. Utile per
-   *  pagine kiosk (`/display`) che devono avere palette consistente
-   *  indipendentemente dalle preferenze OS del dispositivo. Passare `null`
-   *  per rimuovere la forzatura e tornare al tema utente/sistema. */
-  setForceTheme: (theme: ResolvedTheme | null) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function readStored(): Theme {
   if (typeof window === 'undefined') return 'system';
@@ -98,11 +74,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components -- hook colocato col provider
-export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
 }

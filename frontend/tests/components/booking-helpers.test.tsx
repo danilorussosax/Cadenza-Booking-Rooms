@@ -17,9 +17,8 @@ vi.mock('@/components/legal/useConsentGate', () => ({
 }));
 
 // useAuth: il ConsentGate chiama solo logout(); mockiamo il minimo indispensabile.
-vi.mock('@/contexts/AuthContext', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/contexts/AuthContext')>('@/contexts/AuthContext');
+vi.mock('@/contexts/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/contexts/auth')>('@/contexts/auth');
   return {
     ...actual,
     useAuth: () => ({ logout: vi.fn() }),

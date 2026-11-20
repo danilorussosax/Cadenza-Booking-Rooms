@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Mail, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { TwoFaSection } from '@/components/profile/TwoFaSection';
 import { BotBindingsSection } from '@/components/profile/BotBindingsSection';
 import { Card, CardContent } from '@/components/ui/card';

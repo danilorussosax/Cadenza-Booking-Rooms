@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   users: vi.fn(),
 }));
 
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock('@/contexts/auth', () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock('@/api/bookings', () => ({ bookingsApi: mocks }));
 vi.mock('@/api/waitlist', () => ({ waitlistApi: { join: mocks.join } }));
 vi.mock('@/api/rooms', () => ({ roomsApi: { list: mocks.rooms } }));

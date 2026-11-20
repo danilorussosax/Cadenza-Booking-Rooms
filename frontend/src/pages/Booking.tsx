@@ -4,7 +4,7 @@ import { skipToken, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { bookingsApi } from '@/api/bookings';
 import { roomsApi } from '@/api/rooms';
 import { dayjs, toLocalDateInput } from '@/lib/date';

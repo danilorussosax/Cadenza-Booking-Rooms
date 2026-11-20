@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { bookingsApi } from '@/api/bookings';
 import { waitlistApi } from '@/api/waitlist';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { httpErrorMessage, HttpError } from '@/lib/api';
 import { fromLocalInput, toLocalIsoDate } from '@/lib/date';
 import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';

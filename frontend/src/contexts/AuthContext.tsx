@@ -1,58 +1,10 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/api/auth';
+import { AuthContext, type AuthContextValue, type AuthState } from '@/contexts/auth';
 import { tokenStore, userCache } from '@/lib/api';
-import type { Role, User } from '@/types';
+import type { User } from '@/types';
 import { isAdminUser } from '@/lib/roles';
-
-interface AuthState {
-  user: User | null;
-  loading: boolean;
-}
-
-interface AuthContextValue extends AuthState {
-  isAuthenticated: boolean;
-  hasRole: (...roles: Role[]) => boolean;
-  isProfileComplete: boolean;
-  isApproved: boolean;
-  isPendingApproval: boolean;
-  /** Restituisce l'utente loggato, oppure il tempToken pre-2FA + info su dove
-   *  è stato inviato il codice email (sentTo mascherato, expiresInMinutes). */
-  loginWithCredentials: (
-    email: string,
-    password: string,
-  ) => Promise<
-    | { kind: 'ok'; user: User }
-    | { kind: 'twofa'; tempToken: string; sentTo: string; expiresInMinutes: number }
-  >;
-  /** Step 2 del login: scambia tempToken + codice TOTP/recovery con il JWT
-   *  finale e popola lo stato utente. */
-  completeTwoFaLogin: (
-    tempToken: string,
-    payload: { code?: string; recoveryCode?: string },
-  ) => Promise<User>;
-  registerAccount: (payload: Parameters<typeof authApi.register>[0]) => Promise<User>;
-  setSessionToken: (token: string) => Promise<User>;
-  refreshUser: () => Promise<User | null>;
-  updateUser: (updates: Partial<User>) => void;
-  logout: () => void;
-}
-
-// Esportato per consentire un consumo "soft" (es. CookieBanner via
-// useConsentGate): hook che vogliono operare sia dentro l'app autentica
-// sia in test/contesti senza AuthProvider possono fare useContext(AuthContext)
-// e gestire `undefined` invece di chiamare useAuth() che throwa.
-// eslint-disable-next-line react-refresh/only-export-components -- context colocato col provider
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function profileComplete(user: User | null) {
   if (!user) return false;
@@ -276,11 +228,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components -- hook colocato col provider
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

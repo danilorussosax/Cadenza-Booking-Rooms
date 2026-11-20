@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarPlus, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { dayjs } from '@/lib/date';
 import { greetingKeyForHour } from '@/lib/dashboardData';
 import { Button } from '@/components/ui/button';

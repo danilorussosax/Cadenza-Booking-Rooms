@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   UserPlus,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { User } from '@/types';
 import { httpErrorMessage, HttpError } from '@/lib/api';

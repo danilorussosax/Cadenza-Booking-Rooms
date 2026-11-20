@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
 }));
 
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1, role: 'admin' } }) }));
+vi.mock('@/contexts/auth', () => ({ useAuth: () => ({ user: { id: 1, role: 'admin' } }) }));
 vi.mock('@/api/users', () => ({ usersApi: { list: mocks.list } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 

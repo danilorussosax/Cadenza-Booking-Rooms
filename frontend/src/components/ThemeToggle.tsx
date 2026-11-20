@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/theme';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

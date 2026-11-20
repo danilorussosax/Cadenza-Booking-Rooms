@@ -26,7 +26,7 @@ vi.mock('sonner', () => ({
 // Mock dell'AuthContext: il dialog ora chiama useAuth() per scoprire il
 // ruolo (mostra il selettore "Prenota a nome di…" solo agli admin). I test
 // non devono passare per il flusso di login, quindi forniamo un docente.
-vi.mock('@/contexts/AuthContext', () => ({
+vi.mock('@/contexts/auth', () => ({
   useAuth: () => ({
     user: { id: 1, role: 'docente', firstName: 'T', lastName: 'User' },
   }),

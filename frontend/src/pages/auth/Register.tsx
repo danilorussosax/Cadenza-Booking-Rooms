@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { coursesApi } from '@/api/courses';
 import { gdprApi } from '@/api/gdpr';
 import { httpErrorMessage } from '@/lib/api';

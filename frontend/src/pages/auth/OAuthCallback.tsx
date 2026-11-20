@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LoaderCircle, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { isAdminUser } from '@/lib/roles';

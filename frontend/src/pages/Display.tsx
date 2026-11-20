@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { publicApi, type PublicAgenda } from '@/api/public';
 import { dayjs } from '@/lib/date';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/theme';
 import { useFullscreen, useIdle } from '@/hooks/useFullscreen';
 import { useDisplayScale } from '@/hooks/useDisplayScale';
 import { useAppIcon } from '@/hooks/useAppIcon';

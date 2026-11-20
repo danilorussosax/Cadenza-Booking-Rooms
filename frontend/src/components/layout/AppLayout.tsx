@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { bookingsApi } from '@/api/bookings';
 import { institutesApi } from '@/api/institutes';
 import { cn } from '@/lib/utils';

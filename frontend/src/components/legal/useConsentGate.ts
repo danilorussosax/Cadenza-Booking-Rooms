@@ -1,6 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AuthContext } from '@/contexts/AuthContext';
+import { AuthContext } from '@/contexts/auth';
 import { gdprApi } from '@/api/gdpr';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
 import { qk } from '@/lib/queryKeys';

@@ -1,5 +1,5 @@
 import { Toaster as SonnerToaster } from 'sonner';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/theme';
 
 export function Toaster() {
   const { resolved } = useTheme();
