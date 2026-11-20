@@ -292,7 +292,11 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 > ✅ **§2.10 PWA installable + offline shell** — già live (vite-plugin-pwa con Workbox, manifest, install prompt). Pre-esistente alla v1.8.0, non riconosciuta come done. Voce conservata sotto come riferimento.
 > ✅ **§2.13 Off-site backup sync via rclone** + **§2.14 PITR via WAL archiving** — implementati in **v1.10.0** (ops-only: 2 script di setup + cron + docs).
 > ✅ **§2.4 (parziale)** — **PM2 cluster mode + scheduler lock** implementato in **v1.10.0** (`lib/clusterRole.js` + `ecosystem.config.js`). Attivazione opt-in via VPS command. PgBouncer resta aperto.
-> 🎯 **Prossimi candidati**: §2.9 GDPR self-service export (~1g) e §2.11 Slot alternativi suggeriti (~2g).
+> ✅ **§2.9 GDPR self-service export** — implementato (`backend/routes/gdpr.js`, `GET /api/users/me/gdpr/export`; bottone «Scarica i miei dati (JSON)» in `/profile`). Differisce dalla proposta: file JSON unico, non ZIP.
+> ✅ **§2.11 Slot alternativi suggeriti su conflitto** — implementato (`backend/services/bookingSuggestions.js`, campo `suggestions` nella risposta di conflitto di `POST /api/bookings`, pannello `BookingSuggestionsPanel` in `BookingFormDialog`).
+> ✅ **§2.4 PgBouncer** — configurazione presente nel repository: `ecosystem.config.js` (3 istanze in cluster, `DB_PORT=6432`, `DB_PGBOUNCER=true`) e `scripts/setup-pgbouncer.sh`.
+> 🟡 **§2.5 Slow query digest** — parziale: esiste solo il ring buffer in memoria (`backend/lib/slowQueryRecorder.js`, `GET /api/admin/ops/slow-queries`); il digest settimanale via mail non c'è.
+> 🎯 **Voci ancora aperte**: §2.1, §2.2, §2.3, §2.7, §2.12 (e la parte mail di §2.5).
 
 ### 2.1 Sicurezza kiosk — device token per schermi mobili
 
@@ -318,7 +322,7 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 
 **Effort stimato**: ~0.5g · **Dipende da**: utile se 2.1 o l'IP allowlist sono attivi.
 
-### 2.4 Performance — PgBouncer + PM2 cluster mode
+### 2.4 ✅ Performance — PgBouncer + PM2 cluster mode — IMPLEMENTATA
 
 **Perché**: oggi `node` saturerebbe su 1 core sotto >150 utenti attivi simultanei (3 vCPU su 4 sono inattivi). Cluster mode raddoppia la capacità HTTP ma moltiplica le connessioni Postgres → PgBouncer diventa il ponte naturale (oggi non giustificato — v. analisi del 2026-05-15).
 
@@ -326,7 +330,7 @@ Idee emerse dall'audit infrastruttura del 2026-05-15 (tuning Postgres + restrizi
 
 **Effort stimato**: ~2g · **Dipende da**: pg-tune già applicato (`max_connections=50` lascia margine per PgBouncer).
 
-### 2.5 Observability — slow query digest settimanale
+### 2.5 🟡 Observability — slow query digest settimanale — PARZIALE (solo ring buffer in memoria)
 
 **Perché**: lo script `scripts/pg-tune-4gb.sh` ha abilitato `log_min_duration_statement=500`, quindi Postgres logga ogni query >500 ms — ma nessuno legge `/var/log/postgresql/*.log`. Il valore è sprecato.
 
@@ -389,7 +393,7 @@ Mail admin (kind=security, priority=0, idempotency per giorno+reason) solo se al
 
 **Effort effettivo**: ~½g · **Dipende da**: `backupScheduler` + `MailOutbox` esistenti.
 
-### 2.9 GDPR self-service export
+### 2.9 ✅ GDPR self-service export — IMPLEMENTATA
 
 **Perché**: l'Art. 15 GDPR (diritto di accesso) e Art. 20 (portabilità) impongono che ogni utente possa scaricare i propri dati personali. Oggi una richiesta del genere obbliga un admin a query SQL manuali — non scala e rischia di omettere tabelle.
 
@@ -404,6 +408,8 @@ Mail admin (kind=security, priority=0, idempotency per giorno+reason) solo se al
 - `README.txt` — descrizione delle categorie e riferimento Art. 15
 
 Rate-limit: 1 export ogni 24h per utente (l'export è asincrono se il dataset è grande, mail "il tuo export è pronto" con link temporaneo).
+
+**Stato implementazione**: l'endpoint è `GET /api/users/me/gdpr/export` (non `/api/users/me/export`) e restituisce un unico file JSON con profilo, prenotazioni, prestiti, consensi e le ultime 500 voci di audit delle proprie azioni (sezioni `profile`, `bookings`, `instrumentLoans`, `consents`, `auditTrail`). Non include le proposte Monte Ore, non genera uno ZIP né un `README.txt`. Il rate limit (`gdprLimiter`) è di 3 richieste ogni 24 ore per utente, l'export è sincrono (nessuna mail con link). Il diritto all'oblio (art. 17) è `POST /api/users/me/gdpr/delete-request`.
 
 **Effort stimato**: ~1g · **Dipende da**: nessuna · **Bonus**: prepara il terreno per il "diritto all'oblio" (Art. 17) — endpoint `DELETE /api/users/me` con anonimizzazione cascadable.
 
@@ -424,7 +430,7 @@ Banner discreto "Aggiungi a Home" che appare solo su mobile la seconda volta che
 
 **Effort originale stimato**: ~2g · **Effort effettivo**: 0g (già pre-esistente).
 
-### 2.11 Slot alternativi suggeriti su conflitto
+### 2.11 ✅ Slot alternativi suggeriti su conflitto — IMPLEMENTATA
 
 **Perché**: oggi quando un utente tenta una prenotazione su uno slot già occupato vede solo l'errore generico "slot non disponibile". Frustrazione massima, soprattutto su mobile dove ricominciare il flusso è oneroso.
 
@@ -435,6 +441,8 @@ Banner discreto "Aggiungi a Home" che appare solo su mobile la seconda volta che
 3. Stessa aula+orario il giorno successivo (utile per chi flessibile sul quando)
 
 UI in `BookingFormDialog`: quando il POST fallisce mostra "Alternative disponibili" con card cliccabili che pre-fillano il form (`setDefaults({roomId, start, end})`). Una sola riga di codice cliente per chip.
+
+**Stato implementazione**: la risposta di conflitto di `POST /api/bookings` include `suggestions` (massimo 5) e `conflictsWith`; le alternative sono generate da `bookingSuggestions.js` con timeout rigido e fail-soft (in caso di errore `suggestions: []`). Strategie: stessa aula spostata di 30/60/120 minuti prima o dopo, stesso edificio con capienza e tipo compatibili nello stesso orario, stessa aula +1 e +2 giorni. Ogni candidato passa dal validatore (permessi, regole). Lo studente non vede mai il nome del proprietario dello slot in conflitto.
 
 **Effort stimato**: ~2g · **Dipende da**: nessuna · **Sinergia**: aumenta conversion rate (utente non abbandona dopo il primo NO), riduce frustrazione mobile dove ricominciare il flusso è costoso.
 
@@ -479,41 +487,45 @@ UI in `BookingFormDialog`: quando il POST fallisce mostra "Alternative disponibi
 
 Endpoint: `POST /api/bookings/bulk-preview` (read-only, ritorna tutti i conflitti senza scrivere) + `POST /api/bookings/bulk-create` (transazione su array di booking pre-validati).
 
+**Stato**: non implementata. Esiste solo la prenotazione ricorrente (`POST /api/bookings/recurring`, opzione `skipConflicts`), non gli endpoint `bulk-preview` / `bulk-create` né il wizard.
+
 **Effort stimato**: ~4g · **Dipende da**: §2.11 (riusa la logica di "alternativa") · **Categoria**: UX docente power-user · **Coda**: alta priorità per ASIMUT parity (vedi §1.6).
 
 ### 2.16 Stima e priorità complessiva
 
-> Tabella aggiornata al 2026-05-15 (post v1.10.0). §2.6, §2.8, §2.10, §2.13, §2.14 ✅ done — rimosse dalla coda. §2.4 partial: PM2 cluster mode lock implementato in v1.10.0, PgBouncer ancora aperto.
+> Tabella riallineata al codice di v1.22.2. §2.4, §2.6, §2.8, §2.9, §2.10, §2.11, §2.13, §2.14 ✅ done — rimosse dalla coda. §2.5 parziale (ring buffer in memoria, senza digest via mail).
 
-| #    | Voce                                  | Effort | Categoria       | Coda                   |
-| ---- | ------------------------------------- | ------ | --------------- | ---------------------- |
-| 2.1  | Device token kiosk mobili             | ~3g    | Security        | Quando serve           |
-| 2.2  | PIN ruotabile via mail                | ~2g    | Security        | Quando serve           |
-| 2.3  | Monitor esterno + alert               | ~0.5g  | Ops resilience  | Quando serve           |
-| 2.4  | PgBouncer (PM2 cluster ✅ in v1.10.0) | ~1g    | Performance     | Se >150 utenti         |
-| 2.5  | Slow query digest settimanale         | ~1g    | Observability   | Quando serve           |
-| 2.6  | ~~Dashboard ops `/admin/ops`~~        | —      | ✅ done v1.7.0  | —                      |
-| 2.7  | QR code dinamico sul display          | ~1g    | Feature kiosk   | Quando serve           |
-| 2.8  | ~~Backup verification automatica~~    | —      | ✅ done v1.9.0  | —                      |
-| 2.9  | **GDPR self-service export** 🎯       | ~1g    | Compliance      | **Prossimo candidato** |
-| 2.10 | ~~PWA installable + offline shell~~   | —      | ✅ pre-1.8.0    | —                      |
-| 2.11 | **Slot alternativi suggeriti** 🎯     | ~2g    | UX/conversion   | **Prossimo candidato** |
-| 2.12 | Conflict-aware bulk booking           | ~4g    | UX docente      | Pre-requisito §1       |
-| 2.13 | ~~Off-site backup sync via rclone~~   | —      | ✅ done v1.10.0 | —                      |
-| 2.14 | ~~PITR via WAL archiving~~            | —      | ✅ done v1.10.0 | —                      |
+| #    | Voce                                | Effort | Categoria       | Coda             |
+| ---- | ----------------------------------- | ------ | --------------- | ---------------- |
+| 2.1  | Device token kiosk mobili           | ~3g    | Security        | Quando serve     |
+| 2.2  | PIN ruotabile via mail              | ~2g    | Security        | Quando serve     |
+| 2.3  | Monitor esterno + alert             | ~0.5g  | Ops resilience  | Quando serve     |
+| 2.4  | ~~PgBouncer + PM2 cluster~~         | —      | ✅ done         | —                |
+| 2.5  | Slow query digest settimanale (🟡)  | ~1g    | Observability   | Quando serve     |
+| 2.6  | ~~Dashboard ops `/admin/ops`~~      | —      | ✅ done v1.7.0  | —                |
+| 2.7  | QR code dinamico sul display        | ~1g    | Feature kiosk   | Quando serve     |
+| 2.8  | ~~Backup verification automatica~~  | —      | ✅ done v1.9.0  | —                |
+| 2.9  | ~~GDPR self-service export~~        | —      | ✅ done         | —                |
+| 2.10 | ~~PWA installable + offline shell~~ | —      | ✅ pre-1.8.0    | —                |
+| 2.11 | ~~Slot alternativi suggeriti~~      | —      | ✅ done         | —                |
+| 2.12 | Conflict-aware bulk booking         | ~4g    | UX docente      | Pre-requisito §1 |
+| 2.13 | ~~Off-site backup sync via rclone~~ | —      | ✅ done v1.10.0 | —                |
+| 2.14 | ~~PITR via WAL archiving~~          | —      | ✅ done v1.10.0 | —                |
 
-**Totale backlog aperto**: ~15g se eseguito interamente. Tutti scope indipendenti tranne 2.12 che dipende da 2.11.
+**Totale backlog aperto**: ~11g se eseguito interamente (§2.1 3g, §2.2 2g, §2.3 0.5g, §2.5 parte mail ~1g, §2.7 1g, §2.12 4g). §2.12 dipendeva da §2.11, ora disponibile.
 
 ---
 
 ## 3. Sprint correnti
 
-Sezione da popolare man mano che vengono aperti gli sprint operativi. Per ora rimangono validi gli sprint elencati nel README (§ 9):
+Nessuno sprint operativo è aperto oltre alle voci già in produzione. Stato delle voci elencate in precedenza nel README, verificato sul codice (v1.22.2):
 
-- Bot Telegram MVP completo; scaffolding WhatsApp Cloud / Signal / Email
-- Push notifications Web Push API
-- Embed iframe per concerti pubblici
-- Privacy granulare display kiosk
+- ✅ Bot Telegram MVP completo, scaffolding WhatsApp Cloud / Signal / Email (`backend/services/messaging/`)
+- ✅ Privacy granulare display kiosk (opzione per nascondere i nomi per edificio)
+- ⏸️ Push notifications Web Push API — **non avviato** (nessun codice né dipendenza `web-push`, nessun `PushManager` nel frontend)
+- ⏸️ Embed iframe per concerti pubblici — **non avviato** (nessuna pagina o endpoint di embed; l'unico `iframe` nel frontend è l'anteprima del template email)
+
+Altre aree sviluppate dopo la stesura di questo piano e non pianificate qui: Monte Ore e anni accademici (workflow, variazioni, calendario didattico: vedi `docs/ANNI_ACCADEMICI.md` e `docs/MANUALE_ADMIN.md` §8), refactoring in moduli profondi (vedi `docs/ARCHITECTURE.md` «Moduli profondi»).
 
 ---
 

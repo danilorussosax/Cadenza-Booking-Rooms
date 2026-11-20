@@ -1055,16 +1055,26 @@ Tutte queste righe sono comunque **modificabili e cancellabili** dall'editor Sos
 
 > **Festività rimosse vs prima del rollout**: Tutti i Santi (1 nov) e Ferragosto (15 ago) non sono più nel set automatico — fuori dal periodo di lezione, l'admin le aggiunge manualmente solo se servono.
 
+#### Stati dell'anno: bozza, pubblicato, archiviato
+
+Ogni anno accademico ha uno stato, mostrato come badge nel selettore accanto alla fase («Passato», «In corso», «Prossimo», «Futuro»):
+
+| Stato          | Significato                                                                                                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bozza**      | Preparazione riservata all'amministrazione. I docenti non possono compilare né inviare piani per questo anno; il pulsante **Pubblica anno** lo rende utilizzabile                                         |
+| **Pubblicato** | Anno operativo: i docenti compilano, l'admin approva e gestisce le variazioni                                                                                                                             |
+| **Archiviato** | Anno concluso: **Archivia anno** è disponibile solo per anni passati e toglie l'eventuale «avvio». Il calendario resta in sola lettura finché non si usa **Ripubblica anno**. Nessun dato viene eliminato |
+
+Gli anni creati prima di questa funzione risultano pubblicati. All'avvio del server vengono creati in automatico l'anno corrente e il successivo con la configurazione standard (le sei festività).
+
 #### Creazione di un nuovo AA
 
-Bottone **"Nuovo anno accademico"** accanto al selettore → apre il dialog `NewAcademicYearDialog`:
+Dal selettore scegli la voce finale **Crea nuovo anno accademico…**: si apre un dialog in due passi.
 
-| Campo                           | Note                                                                                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **AA target** (es. `2027/2028`) | Formato validato lato client (`YYYY/YYYY`, secondo anno = primo + 1)                                                               |
-| **Modalità**                    | `default` (festività deterministiche) · `from_previous` (clona AA precedente + shift di 365 giorni su date settings + sospensioni) |
+1. **Dati di partenza.** Indica l'anno (`YYYY/YYYY`, il secondo numero è il primo + 1; un anno già esistente si modifica dal calendario, non si ricrea) e l'**Origine dati**: _Configurazione standard_ oppure _Copia da un anno precedente_. In quest'ultimo caso scegli l'anno sorgente e le parti da copiare: regole (soglia ore, massimo variazioni, vincoli giornalieri), periodo lezioni e finestra di invio, sospensioni personalizzate, sessioni d'esame.
+2. **Anteprima.** Controlla le date, la soglia, il massimo di variazioni, le sospensioni previste e il numero di giorni disponibili dal lunedì al sabato (non verifica le aule). Date e soglie si possono correggere qui, ma ogni modifica richiede di **Aggiornare l'anteprima** prima di salvare.
 
-Il dialog mostra una **preview** delle date e delle festività che verranno create prima del conferma. La creazione passa per `POST /api/admin/monte-ore/academic-years`, in transazione.
+Infine **Salva bozza** oppure **Pubblica anno**. Le sei sospensioni standard (Immacolata, Natale, Pasqua, 25 aprile, 1 maggio, 2 giugno) vengono sempre ricalcolate; le altre si copiano solo se lo scegli. I piani dei docenti e le prenotazioni non vengono mai copiati. Un anno copiato conserva giorno e mese delle date (il 29 febbraio diventa 28 febbraio quando serve): il giorno della settimana può cambiare, quindi controlla ponti e sessioni. La creazione passa da `POST /api/admin/monte-ore/academic-years` (anteprima: `.../academic-years/preview`), in transazione. Dettagli e migrazione in [`ANNI_ACCADEMICI.md`](ANNI_ACCADEMICI.md).
 
 ### 8.2quater ⭐ Override AA attivo per docenti
 
@@ -1072,16 +1082,16 @@ Il dialog mostra una **preview** delle date e delle festività che verranno crea
 
 Accanto al selettore AA c'è un bottone toggle:
 
-- **"Attiva per docenti"** quando l'AA selezionato non è ancora quello attivo → al click, l'AA diventa l'unico visibile ai docenti.
-- **"Disattiva per docenti"** quando lo era già → rimuove l'override, si torna alla logica automatica della finestra di submission.
+- **"Avvia"** quando l'AA selezionato (pubblicato) non è ancora quello avviato → dopo conferma, l'AA diventa «In corso» e l'unico visibile ai docenti; i precedenti diventano «Passato», il successivo «Prossimo».
+- **"Ripristina automatico"** quando lo era già → rimuove l'override, si torna alla logica automatica del calendario e della finestra di invio.
 
-Sull'AA attivo per docenti compare un badge **"attivato per docenti"** nel selettore.
+Il pulsante compare solo per anni **pubblicati**: un anno in bozza o archiviato non può essere avviato (errore `ACADEMIC_YEAR_NOT_PUBLISHED`).
 
 **Garanzie**:
 
 - Al massimo **1 AA attivo per istituto** (UNIQUE INDEX parziale a livello DB su `monte_ore_settings.isActiveForTeachers`).
 - L'attivazione è **atomica in transazione**: disattiva tutti gli altri AA dell'istituto, attiva quello indicato (`POST /api/admin/monte-ore/academic-years/:aa/activate-for-teachers`).
-- Quando l'override è attivo, il docente vede in cima alla pagina un banner: _"Stai compilando il monte ore per AA X/X+1 (attivato dall'amministrazione)"_.
+- Quando l'override è attivo, il docente vede in cima alla pagina un banner: _"Stai compilando il monte ore per l'AA X/X+1 (attivato dall'amministrazione)"_.
 
 > **Quando usarlo**: a inizio settembre vuoi che i docenti compilino subito il 2027/2028 anche se la finestra di submission ufficiale non è ancora aperta. Oppure a fine giugno vuoi che ri-vedano il 2025/2026 in corso per chiudere le ultime variazioni, mentre tu intanto prepari il prossimo. Senza override, la priorità automatica è: AA con finestra di submission aperta > AA in corso.
 
@@ -1091,19 +1101,18 @@ URL diretto: `/admin/monte-ore/settings`.
 
 ![Tab Settings Monte Ore — soglia 324h, finestra lezioni, finestra inserimento](screenshots/monteore-settings.png)
 
-| Campo                               | Esempio                 | Note                                                                                |
-| ----------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
-| Anno accademico start / end         | 2026-09-01 / 2027-08-31 | Periodo di riferimento contrattuale                                                 |
-| Finestra lezioni start / end        | 2026-10-01 / 2027-06-30 | I docenti possono pianificare lezioni solo dentro questa finestra                   |
-| Finestra inserimento proposte       | 2026-09-15 / 2026-10-15 | Periodo in cui i docenti possono compilare/sottomettere proposte                    |
-| Soglia ore annue                    | 324                     | Default contratto AFAM. Personalizzabile (es. 270h per docenti part-time)           |
-| Max richieste variazione            | 3                       | Tetto annuale di amendments per proposta                                            |
-| Max giorni / settimana              | 4                       | Vincolo CCNL                                                                        |
-| Min giorni / settimana              | 2                       | Vincolo CCNL                                                                        |
-| Bypass durata massima               | vero                    | Se vero, le lezioni Monte Ore possono superare la durata max della regola del ruolo |
-| ⭐ Max ore consecutive in un giorno | 9 (oppure vuoto)        | v1.14: vincolo Art. 2.2 Regolamento. Vuoto = nessun limite                          |
-| ⭐ Pausa obbligatoria dopo (ore)    | 7 (oppure vuoto)        | v1.14: vincolo Art. 2.1 Regolamento. Soglia ore consecutive oltre cui scatta pausa  |
-| ⭐ Durata pausa (minuti)            | 30 (oppure vuoto)       | v1.14: durata minima della pausa che "spezza" un blocco consecutivo                 |
+| Campo                               | Esempio                 | Note                                                                               |
+| ----------------------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| Anno accademico start / end         | 2026-11-01 / 2027-10-31 | Sempre dal 1 novembre al 31 ottobre dell'anno (validato dal server)                |
+| Finestra lezioni start / end        | 2026-10-01 / 2027-06-30 | I docenti possono pianificare lezioni solo dentro questa finestra                  |
+| Finestra inserimento proposte       | 2026-09-15 / 2026-10-15 | Periodo in cui i docenti possono compilare/sottomettere proposte                   |
+| Soglia ore annue                    | 324                     | Default contratto AFAM. Personalizzabile (es. 270h per docenti part-time)          |
+| Max richieste variazione            | 3                       | Tetto annuale di amendments per proposta                                           |
+| ⭐ Max ore consecutive in un giorno | 9 (oppure vuoto)        | v1.14: vincolo Art. 2.2 Regolamento. Vuoto = nessun limite                         |
+| ⭐ Pausa obbligatoria dopo (ore)    | 7 (oppure vuoto)        | v1.14: vincolo Art. 2.1 Regolamento. Soglia ore consecutive oltre cui scatta pausa |
+| ⭐ Durata pausa (minuti)            | 30 (oppure vuoto)       | v1.14: durata minima della pausa che "spezza" un blocco consecutivo                |
+
+> I limiti di **2-4 giorni diversi a settimana** non sono un campo dei settings: si applicano a tutti i piani, salvo i docenti con l'opzione «Esente vincolo 2-4 giorni/sett.» nel form utente (§3.5) o i tipi di contratto che la prevedono. Le prenotazioni generate dal Monte Ore ignorano durata massima, anticipo e quote delle regole di prenotazione.
 
 > **Importante**: una volta che le proposte sono state approvate e generate, modificare i settings **non rigenera** automaticamente le prenotazioni. Per cambiare la finestra lezioni a metà anno servono variazioni (amendments) per ogni proposta interessata.
 
@@ -1743,7 +1752,10 @@ Lista delle aule con anteprima del cartello e i bottoni:
 
 Il cartello include la cornice con angoli arrotondati, il logo caricato e la denominazione del Conservatorio. Sotto al QR compaiono sede, aula, codice e un avviso con triangolo: il check-in va effettuato entro l’intervallo configurato dalla piattaforma (`GHOST_GRACE_MINUTES`, attualmente 15 minuti di default) dall’inizio della prenotazione. Se si cambia questo intervallo, scarica e ristampa i cartelli per aggiornare l’avviso.
 
-In header: **Rigenera tutti** — operazione di emergenza (es. dopo un incidente di sicurezza).
+In header:
+
+- **Scarica tutti (ZIP)** — un unico file `qr-aule-AAAA-MM-GG.zip` con i cartelli PNG di tutte le aule, in una cartella per sede (nome file: nome aula e, se presente, codice tra parentesi). Se un'aula non ha ancora un QR, ne viene creato uno; i QR già esistenti **non** vengono rigenerati, quindi i cartelli già affissi restano validi. Se non ci sono aule configurate il download risponde con errore «Nessuna aula configurata». Dalla singola aula resta disponibile **Scarica PNG per la stampa**.
+- **Rigenera tutti** — operazione di emergenza (es. dopo un incidente di sicurezza): invalida tutti i cartelli stampati.
 
 ### 12.7 Display Kiosk (admin)
 

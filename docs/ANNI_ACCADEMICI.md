@@ -7,7 +7,7 @@ Dal pannello **Monte Ore → Calendario didattico**, scegliere **Crea nuovo anno
 3. Controllare l’anteprima: date, regole, sospensioni, eventuali sovrapposizioni e giorni disponibili dal lunedì al sabato. Il conteggio non verifica le disponibilità delle aule. Ogni modifica alle date o alle soglie richiede di aggiornare l’anteprima.
 4. **Salva bozza** conserva una preparazione riservata all’amministrazione. **Pubblica anno** la rende utilizzabile. Le altre impostazioni, le sospensioni e gli esami si possono rifinire dalla pagina del calendario.
 
-La pubblicazione non anticipa le date della finestra di invio. **Mostra ai docenti** sceglie esplicitamente quale anno viene mostrato; **Usa selezione automatica** ripristina la scelta in base a calendario e finestra. I docenti possono preparare una bozza di piano nell’anno pubblicato; l’invio segue la finestra e le eventuali deroghe individuali già previste.
+La pubblicazione non anticipa le date della finestra di invio. **Avvia** sceglie esplicitamente quale anno viene mostrato ai docenti (diventa «In corso»); **Ripristina automatico** ripristina la scelta in base a calendario e finestra. I docenti possono preparare una bozza di piano nell’anno pubblicato; l’invio segue la finestra e le eventuali deroghe individuali già previste.
 
 Gli anni conclusi possono essere archiviati e ripubblicati. L’archiviazione rimuove la selezione esplicita per i docenti e impedisce modifiche al calendario e ai piani tramite le operazioni amministrative. Non elimina dati o prenotazioni.
 
