@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -152,8 +152,8 @@ export default function AdminMailSettings() {
         secure: values.secure,
         username: values.username?.trim() ?? null,
         // empty string non viene inviato (lascia invariato), valore valorizzato → cambia
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        password: values.password ? values.password : undefined,
+        password:
+          values.password === undefined || values.password === '' ? undefined : values.password,
         fromAddress: values.fromAddress?.trim() ?? null,
         fromName: values.fromName?.trim() ?? null,
         replyTo: values.replyTo?.trim() ?? null,
@@ -609,8 +609,7 @@ function MailTemplatesSection() {
     queryFn: () => mailTemplatesApi.list(),
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const templates = tplQuery.data?.templates ?? [];
+  const templates = useMemo(() => tplQuery.data?.templates ?? [], [tplQuery.data]);
   const vars = tplQuery.data?.availableVariables ?? [];
 
   // Selezione modello via dropdown (sostituisce il vecchio Tabs orizzontale
@@ -622,8 +621,7 @@ function MailTemplatesSection() {
     }
   }, [selectedKind, templates]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const selected = templates.find((t) => t.kind === selectedKind) ?? templates[0] ?? null;
+  const selected = templates.find((t) => t.kind === selectedKind) ?? templates.at(0) ?? null;
 
   return (
     <Card className="overflow-hidden">
@@ -667,7 +665,6 @@ function MailTemplatesSection() {
               </Select>
             </div>
 
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {selected && (
               <div className="min-w-0">
                 {/* key forza il remount dell'editor al cambio modello, così
