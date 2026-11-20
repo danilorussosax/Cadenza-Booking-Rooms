@@ -209,7 +209,7 @@ async function gatherAnalytics(range) {
   //    precedente UTC, falsando il trend.
   const trendRows = await sequelize.query(
     `SELECT
-         date_trunc('week', "startTime" AT TIME ZONE ${TZ_SQL}) AS week_start,
+         to_char(date_trunc('week', "startTime" AT TIME ZONE ${TZ_SQL}), 'YYYY-MM-DD') AS week_start,
          COUNT(*)::int AS count,
          (SUM(EXTRACT(EPOCH FROM ("endTime" - "startTime")) / 60))::float AS minutes
        FROM bookings
@@ -690,7 +690,7 @@ function drawTrend(doc, trend, yStart) {
         .font('Helvetica')
         .fontSize(6)
         .fillColor(PDF.textSubtle)
-        .text(dayjs(p.weekStart).format('DD MMM'), x - 14, innerY + innerH + 4, {
+        .text(dayjs.utc(p.weekStart).format('DD MMM'), x - 14, innerY + innerH + 4, {
           width: 28,
           align: 'center',
           lineBreak: false,

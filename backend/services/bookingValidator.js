@@ -13,6 +13,7 @@ const {
   Room,
 } = require('../models');
 const institutionTime = require('../lib/institutionTime');
+const { can, isAdmin } = require('../lib/access');
 const rules = require('./bookingRules');
 
 dayjs.extend(isSameOrAfter);
@@ -416,8 +417,8 @@ async function validateBooking({
  * Verifica se un utente può cancellare una prenotazione.
  */
 async function canCancel(user, booking) {
-  if (user.role === 'admin') return { ok: true };
-  if (booking.userId !== user.id)
+  if (isAdmin(user)) return { ok: true };
+  if (!can(user, 'booking:cancel', booking))
     return { ok: false, reason: 'Non sei il proprietario della prenotazione' };
   const rule = await BookingRule.findOne({ where: { role: user.role } });
   if (!rule) return { ok: true };

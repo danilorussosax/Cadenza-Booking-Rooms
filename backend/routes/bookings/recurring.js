@@ -49,7 +49,7 @@ function normalizeRecurrenceInput(recurrence, startTime) {
 }
 
 const { dayjs } = require('./shared');
-const { isOwnerOrAdmin } = require('../../lib/access');
+const { can } = require('../../lib/access');
 
 module.exports = function registerRecurring(router) {
   router.post(
@@ -229,7 +229,7 @@ module.exports = function registerRecurring(router) {
       const series = await BookingRecurrence.findByPk(id);
       if (!series) return res.status(404).json({ error: 'Serie non trovata' });
 
-      if (!isOwnerOrAdmin(req.user, series.userId)) {
+      if (!can(req.user, 'series:cancel', series)) {
         return res.status(403).json({ error: 'Non autorizzato' });
       }
 
@@ -282,7 +282,7 @@ module.exports = function registerRecurring(router) {
         ],
       });
       if (!series) return res.status(404).json({ error: 'Serie non trovata' });
-      if (!isOwnerOrAdmin(req.user, series.userId)) {
+      if (!can(req.user, 'series:view', series)) {
         return res.status(403).json({ error: 'Non autorizzato' });
       }
 

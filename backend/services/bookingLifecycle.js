@@ -32,7 +32,7 @@ const bookingPolicy = require('./bookingPolicy');
 const emailService = require('./emailService');
 const { withSerializableRetry } = require('../lib/serializableTx');
 const logger = require('../lib/logger');
-const { isAdmin, isOwnerOrAdmin } = require('../lib/access');
+const { isAdmin, can } = require('../lib/access');
 
 // SERIALIZABLE: valutazione conflitti + insert come una sola unita' logica.
 // (Duplicato di routes/bookings/shared.js#WRITE_ISOLATION: un servizio non
@@ -405,7 +405,7 @@ async function move({ bookingId, actor, changes = {} }) {
         const booking = await Booking.findByPk(bookingId, { transaction: t });
         if (!booking)
           throw new BookingError('Prenotazione non trovata', { status: 404, code: null });
-        if (!isOwnerOrAdmin(actor, booking.userId)) {
+        if (!can(actor, 'booking:modify', booking)) {
           throw new BookingError('Non autorizzato', { status: 403, code: null });
         }
         if (booking.status !== 'confirmed') {
