@@ -18,6 +18,7 @@ import type { EquipmentTemplate } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateEquipmentTemplates } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   EQUIPMENT_TYPE_OPTIONS.map((o) => [o.value, o.label]),
@@ -116,14 +117,7 @@ export function EquipmentTemplatesSection() {
             onClick={async () => {
               try {
                 const blob = await structureApi.downloadEquipmentTemplatesCsv();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `dotazioni-${todayLocalIso()}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                saveBlob(blob, `dotazioni-${todayLocalIso()}.csv`);
               } catch (err) {
                 toast.error(httpErrorMessage(err));
               }

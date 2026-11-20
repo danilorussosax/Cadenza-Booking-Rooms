@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { dayjs } from '@/lib/date';
 import { HeatmapGrid } from '@/components/admin/HeatmapGrid';
 import { qk } from '@/lib/queryKeys';
+import { saveBlob } from '@/lib/download';
 
 export default function AdminAnalytics() {
   const { t } = useTranslation();
@@ -70,14 +71,7 @@ export default function AdminAnalytics() {
         kind === 'csv'
           ? await analyticsApi.downloadCsv(appliedRange.from, appliedRange.to)
           : await analyticsApi.downloadPdf(appliedRange.from, appliedRange.to);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `analytics-${appliedRange.from}-${appliedRange.to}.${kind}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `analytics-${appliedRange.from}-${appliedRange.to}.${kind}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore export');
     }

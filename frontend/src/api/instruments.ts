@@ -1,4 +1,4 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 import type {
   Instrument,
   InstrumentCondition,
@@ -113,15 +113,7 @@ export const instrumentsApi = {
     }>('/api/instruments/import', { method: 'POST', body: { csv } }),
 
   async downloadCsv(): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch('/api/instruments/export', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob('/api/instruments/export');
   },
 
   uploadPhoto: (id: number, file: File) => {
@@ -170,15 +162,6 @@ export const loansApi = {
   // PDF (delivery/return) — autenticato via Bearer in fetch + blob download.
   // Restituisce il blob o lancia un Error con messaggio leggibile.
   async downloadPdf(id: number, kind: 'delivery' | 'return'): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch(`/api/loans/${id}/pdf?kind=${kind}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const status = res.status;
-      throw new Error(status === 401 ? 'Sessione scaduta' : `Errore ${status}`);
-    }
-    return res.blob();
+    return apiBlob(`/api/loans/${id}/pdf`, { query: { kind } });
   },
 };

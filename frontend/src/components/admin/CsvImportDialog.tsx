@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { invalidateStructure } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 const SAMPLE_CSV = `edificio;piano;aula;codice_edificio;indirizzo;codice_aula;capienza;tipo_aula;prenotabile;attrezzatura;tipo_attrezzatura;marca;modello;quantita
 Palazzo Storico;Piano Terra;Aula Verdi;PS;Via Roma 1;A01;25;classe;si;Pianoforte verticale;pianoforte;Yamaha;U3;1
@@ -72,12 +73,7 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
 
   const downloadTemplate = () => {
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template-struttura.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, 'template-struttura.csv');
   };
 
   return (

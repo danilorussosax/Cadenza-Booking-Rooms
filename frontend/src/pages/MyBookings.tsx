@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { bookingsApi } from '@/api/bookings';
 import { dayjs } from '@/lib/date';
-import { tokenStore } from '@/lib/api';
+import { apiBlob } from '@/lib/api';
+import { saveBlob } from '@/lib/download';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,27 +44,8 @@ export default function MyBookings() {
   const handleExportIcal = async () => {
     setExporting(true);
     try {
-      const token = tokenStore.get();
-      if (!token) throw new Error(t('my_bookings.toast.session_expired'));
-      const res = await fetch('/api/bookings/ical', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const msg =
-          res.status === 401
-            ? t('errors.session_expired')
-            : `${t('errors.generic')} (${res.status})`;
-        throw new Error(msg);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cadenza-${dayjs().format('YYYY-MM-DD')}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const blob = await apiBlob('/api/bookings/ical');
+      saveBlob(blob, `cadenza-${dayjs().format('YYYY-MM-DD')}.ics`);
       toast.success(t('my_bookings.toast.ical_downloaded'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('my_bookings.toast.export_failed'));

@@ -37,6 +37,7 @@ import { Switch } from '@/components/ui/switch';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { qk } from '@/lib/queryKeys';
 import { invalidateBackups } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 // =============================================================================
 // /admin/backups — gestione completa dei backup database + uploads.
@@ -132,14 +133,7 @@ export default function AdminBackups() {
   const handleDownload = async (file: string) => {
     try {
       const blob = await backupsApi.download(file);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, file);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Download fallito');
     }
