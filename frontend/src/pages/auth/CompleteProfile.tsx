@@ -84,8 +84,8 @@ export default function CompleteProfile() {
     try {
       const { user: updated } = await authApi.updateMe({
         role: values.role,
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        matricola: values.role === 'studente' ? values.matricola!.trim() : null,
+        // Lo schema garantisce la matricola non vuota per gli studenti.
+        matricola: values.role === 'studente' ? (values.matricola ?? '').trim() : null,
         courseId: Number(values.courseId),
       });
       updateUser(updated);
