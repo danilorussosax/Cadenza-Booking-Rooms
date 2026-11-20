@@ -2,14 +2,13 @@
 
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
-const sharp = require('sharp');
 const { body, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { Institute, Building, Room, Equipment, EquipmentTemplate, Booking } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
 const removal = require('../services/removal');
+const storage = require('../services/storage');
 const { importStructure } = require('../services/structureImporter');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
@@ -81,19 +80,16 @@ const EQUIPMENT_ALLOWED = {
 // =========================================================
 // Multer: upload del logo istituto su backend/uploads
 // =========================================================
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
 const ALLOWED_LOGO_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
 const logoUpload = multer({
   storage: multer.diskStorage({
-    destination: UPLOADS_DIR,
+    destination: storage.uploadsDir(),
     filename: (req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase() || '.png';
       cb(null, `institute-${req.params.id}-${Date.now()}${ext}`);
     },
   }),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  limits: { fileSize: storage.PROFILES.logo.maxBytes }, // 2 MB
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_LOGO_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG, WEBP o SVG)'));
@@ -116,11 +112,9 @@ const ALLOWED_ROOM_PHOTO_MIME = [
   'image/heic',
   'image/heif',
 ];
-const ROOM_PHOTO_TARGET_WIDTH = 1200;
-const ROOM_PHOTO_TARGET_HEIGHT = 675; // 16:9
 const roomPhotoUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB pre-resize
+  limits: { fileSize: storage.PROFILES.room.maxBytes }, // 8 MB pre-resize
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_ROOM_PHOTO_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG, WEBP o HEIC)'));
@@ -599,10 +593,7 @@ router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req,
 
 // Helper: rimuovi file logo precedente se gestito da noi (path /storage/…)
 function tryDeleteOldLogo(logoUrl) {
-  if (!logoUrl || !logoUrl.startsWith('/storage/')) return;
-  const file = path.basename(logoUrl);
-  const fp = path.join(UPLOADS_DIR, file);
-  fs.unlink(fp, () => {});
+  return storage.removeStored(logoUrl);
 }
 
 // Upload logo (multipart/form-data, field name "file")
@@ -616,7 +607,7 @@ router.post(
     if (!inst) throw httpError(404, 'Istituto non trovato');
     if (!req.file) throw httpError(400, 'Nessun file caricato');
 
-    tryDeleteOldLogo(inst.logoUrl);
+    await tryDeleteOldLogo(inst.logoUrl);
     const newUrl = `/storage/${req.file.filename}`;
     await inst.update({ logoUrl: newUrl });
     res.json({ institute: inst, logoUrl: newUrl });
@@ -627,7 +618,7 @@ router.post(
 router.delete('/institutes/:id/logo', authenticate, requireRole('admin'), async (req, res) => {
   const inst = await Institute.findByPk(req.params.id);
   if (!inst) throw httpError(404, 'Istituto non trovato');
-  tryDeleteOldLogo(inst.logoUrl);
+  await tryDeleteOldLogo(inst.logoUrl);
   await inst.update({ logoUrl: null });
   res.json({ institute: inst });
 });
@@ -1214,10 +1205,7 @@ router.post(
 
 // Helper: rimuovi file foto precedente se gestito da noi (path /storage/…)
 function tryDeleteOldRoomPhoto(photoUrl) {
-  if (!photoUrl || !photoUrl.startsWith('/storage/')) return;
-  const file = path.basename(photoUrl);
-  const fp = path.join(UPLOADS_DIR, file);
-  fs.unlink(fp, () => {});
+  return storage.removeStored(photoUrl);
 }
 
 // Upload foto aula (multipart/form-data, field "file")
@@ -1235,32 +1223,19 @@ router.post(
         throw domainError('VALIDATION_FAILED', 'Nessun file caricato');
       }
 
-      // Ridimensiona + converte in WEBP. `rotate()` applica l'orientazione EXIF
-      // così le foto da smartphone non risultano ruotate.
-      const processed = await sharp(req.file.buffer)
-        .rotate()
-        .resize({
-          width: ROOM_PHOTO_TARGET_WIDTH,
-          height: ROOM_PHOTO_TARGET_HEIGHT,
-          fit: 'cover',
-          position: 'attention', // ritaglia mantenendo il punto più "interessante"
-          withoutEnlargement: false,
-        })
-        .webp({ quality: 82 })
-        .toBuffer();
-
-      const filename = `room-${room.id}-${Date.now()}.webp`;
-      const fp = path.join(UPLOADS_DIR, filename);
-      await fs.promises.writeFile(fp, processed);
-
-      tryDeleteOldRoomPhoto(room.photoUrl);
-      const newUrl = `/storage/${filename}`;
+      // Ridimensiona + converte in WEBP (profilo `room`, vedi services/storage).
+      const newUrl = await storage.replaceImage(
+        room.photoUrl,
+        req.file.buffer,
+        storage.PROFILES.room,
+        { id: room.id },
+      );
       await room.update({ photoUrl: newUrl });
 
       res.json({ room, photoUrl: newUrl });
     } catch (err) {
       // Errori sharp (formato corrotto, ecc.)
-      if (err && err.message && /sharp|input|unsupported/i.test(err.message)) {
+      if (storage.isImageFormatError(err)) {
         throw domainError(
           'FILE_FORMAT_UNSUPPORTED',
           'Immagine non valida o formato non supportato',
@@ -1275,7 +1250,7 @@ router.post(
 router.delete('/rooms/:id/photo', authenticate, requireRole('admin'), async (req, res) => {
   const room = await Room.findByPk(req.params.id);
   if (!room) throw domainError('NOT_FOUND', 'Aula non trovata', { status: 404 });
-  tryDeleteOldRoomPhoto(room.photoUrl);
+  await tryDeleteOldRoomPhoto(room.photoUrl);
   await room.update({ photoUrl: null });
   res.json({ room });
 });

@@ -22,7 +22,7 @@ const institutionTz = () => require('../lib/institutionTime').getTimezone(); // 
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
-const UPLOADS_DIR = path.join(BACKEND_ROOT, 'uploads');
+const UPLOADS_DIR = require('./storage').dir;
 const BACKUP_DIR = process.env.BACKUP_DIR
   ? path.resolve(process.env.BACKUP_DIR)
   : path.join(PROJECT_ROOT, 'backups');

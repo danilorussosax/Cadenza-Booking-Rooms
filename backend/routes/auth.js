@@ -3,7 +3,6 @@
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
 const passport = require('../config/passport');
 const { OAuthDomainNotAllowedError } = require('../config/passport');
@@ -12,6 +11,7 @@ const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
 const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger');
+const storage = require('../services/storage');
 const {
   loginLimiter,
   registerLimiter,
@@ -38,9 +38,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 // =====================================================
 // Multer: upload della foto profilo su backend/uploads
 // =====================================================
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
 const ALLOWED_PHOTO_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 const ALLOWED_PHOTO_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 // Mappa MIME → extension canonica: l'estensione del file salvato deriva dal
@@ -52,7 +49,7 @@ const MIME_TO_EXT = {
 };
 const photoUpload = multer({
   storage: multer.diskStorage({
-    destination: UPLOADS_DIR,
+    destination: storage.uploadsDir(),
     filename: (req, file, cb) => {
       // Estensione decisa dal MIME (server-side), non da originalname:
       // evita upload di `evil.html` con MIME image/png che servirebbe HTML.
@@ -60,7 +57,7 @@ const photoUpload = multer({
       cb(null, `user-${req.user.id}-${Date.now()}${ext}`);
     },
   }),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  limits: { fileSize: storage.PROFILES.profile.maxBytes }, // 2 MB
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_PHOTO_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG o WEBP)'));
@@ -77,10 +74,7 @@ const photoUpload = multer({
 
 // Helper: rimuovi file foto profilo precedente se gestito da noi (path /storage/…)
 function tryDeleteOldPhoto(photoUrl) {
-  if (!photoUrl || !photoUrl.startsWith('/storage/')) return;
-  const file = path.basename(photoUrl);
-  const fp = path.join(UPLOADS_DIR, file);
-  fs.unlink(fp, () => {});
+  return storage.removeStored(photoUrl);
 }
 
 // =====================================================
@@ -409,7 +403,7 @@ router.patch(
 // =====================================================
 router.post('/me/photo', authenticate, photoUpload.single('file'), async (req, res) => {
   if (!req.file) throw httpError(400, 'Nessun file caricato');
-  tryDeleteOldPhoto(req.user.profilePhotoUrl);
+  await tryDeleteOldPhoto(req.user.profilePhotoUrl);
   const newUrl = `/storage/${req.file.filename}`;
   req.user.profilePhotoUrl = newUrl;
   await req.user.save();
@@ -420,7 +414,7 @@ router.post('/me/photo', authenticate, photoUpload.single('file'), async (req, r
 // DELETE /api/auth/me/photo  - Rimuovi foto profilo
 // =====================================================
 router.delete('/me/photo', authenticate, async (req, res) => {
-  tryDeleteOldPhoto(req.user.profilePhotoUrl);
+  await tryDeleteOldPhoto(req.user.profilePhotoUrl);
   req.user.profilePhotoUrl = null;
   await req.user.save();
   res.json({ user: req.user.toSafeJSON() });

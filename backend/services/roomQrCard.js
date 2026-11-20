@@ -5,13 +5,13 @@ const path = require('node:path');
 const QRCode = require('qrcode');
 const sharp = require('sharp');
 const logger = require('../lib/logger');
+const storage = require('./storage');
 const { thresholds } = require('../lib/checkInPolicy');
 
 const FONT_DIR = path.join(__dirname, '..', 'assets', 'fonts');
 // Il VPS può non avere font di sistema: la stampa deve essere riproducibile.
 if (!process.env.FONTCONFIG_FILE) process.env.FONTCONFIG_FILE = path.join(FONT_DIR, 'fonts.conf');
 const FONT_FILE = path.join(FONT_DIR, 'Inter.ttf');
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 const CARD_WIDTH = 1400;
 const CARD_HEIGHT = 2000;
 const QR_SIZE = 920;
@@ -43,7 +43,7 @@ async function loadInstituteLogo(logoUrl) {
   }
   const file = storageUrl.match(/^\/storage\/([A-Za-z0-9][A-Za-z0-9._-]*)$/)?.[1];
   if (!file) return null;
-  return fs.readFile(path.join(UPLOADS_DIR, file));
+  return fs.readFile(path.join(storage.uploadsDir(), file));
 }
 
 function cardDetails(room, graceMinutes) {
