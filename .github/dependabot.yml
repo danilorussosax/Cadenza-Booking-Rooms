@@ -1,0 +1,97 @@
+# Dependabot — aggiornamenti settimanali delle dipendenze.
+#
+# Cadenza ha 4 workspace npm indipendenti (ognuno con il proprio lockfile) più
+# le GitHub Actions. Policy:
+#   - ogni lunedì (Europe/Rome), una PR per directory con tutti i minor+patch;
+#   - i major arrivano sempre in PR separate (vanno valutati a mano);
+#   - le PR di sicurezza di Dependabot restano separate e immediate.
+#
+# Prefisso commit: "chore(deps): ..." / "chore(deps-dev): ..." (tipo `chore`
+# valido per commitlint.config.cjs). Per le GitHub Actions: "ci(deps): ...".
+#
+# Nota: nessun `ignore` su sequelize-cli. Le sue vulnerabilità moderate sono
+# transitive (glob/minimatch/js-beautify) e non richiedono di bloccare i major:
+# la PR di major, se arriva, si chiude a mano.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: "/backend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: "/e2e"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]

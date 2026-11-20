@@ -742,6 +742,17 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
 systemctl reload nginx
 ```
 
+### Aggiornamento dipendenze e audit di sicurezza
+
+- **Dependabot** (`.github/dependabot.yml`) apre ogni lunedì una PR per workspace
+  (root, backend, frontend, e2e) con tutti i minor+patch, più una per le GitHub
+  Actions. I major arrivano in PR separate da valutare a mano.
+- **Audit** (`.github/workflows/audit.yml`) gira ogni lunedì, a mano
+  (`gh workflow run audit.yml`) e sulle PR che toccano `package*.json`: esegue
+  `npm audit --omit=dev --audit-level=high` su backend e frontend. Fallisce solo
+  su vulnerabilità **high/critical** di produzione; le moderate compaiono nel
+  riepilogo del job ma non bloccano.
+
 ---
 
 ## 8. Troubleshooting
