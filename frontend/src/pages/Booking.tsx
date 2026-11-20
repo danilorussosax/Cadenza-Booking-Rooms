@@ -29,6 +29,7 @@ import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { BookingInfoDialog } from '@/components/bookings/BookingInfoDialog';
 import type { Booking } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { isAdminUser } from '@/lib/roles';
 
 export default function BookingPage() {
   const { user } = useAuth();
@@ -91,7 +92,7 @@ export default function BookingPage() {
     // di qualsiasi booking, owner -> cancel della propria, altri -> info
     // read-only. Le tre vie qui sono necessarie perché /booking mostra il
     // calendario completo dell'aula con TUTTE le prenotazioni (anche altrui).
-    if (user?.role === 'admin') {
+    if (isAdminUser(user)) {
       setEditTarget(b);
       return;
     }

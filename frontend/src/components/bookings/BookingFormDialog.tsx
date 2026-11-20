@@ -38,6 +38,7 @@ import { WaitlistOfferDialog } from './WaitlistOfferDialog';
 import { BookingRuleHint } from './BookingRuleHint';
 import { BookingSuggestionsPanel } from './BookingSuggestionsPanel';
 import type { Booking, BookingSuggestion, BookingType } from '@/types';
+import { isAdminUser } from '@/lib/roles';
 
 interface Props {
   open: boolean;
@@ -93,7 +94,7 @@ export function BookingFormDialog({
     waitlistMutation,
     onSubmit,
   } = useBookingSubmission({ open, booking, onOpenChange, onCreated });
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = isAdminUser(currentUser);
   const tBookingError = (key?: string) => (key ? t(`booking.form_validation.${key}`) : undefined);
 
   const initialValues = useMemo<FormValues>(() => {

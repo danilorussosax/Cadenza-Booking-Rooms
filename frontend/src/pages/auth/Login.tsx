@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { FieldError } from '@/components/ui/field-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
+import { isAdminUser } from '@/lib/roles';
 
 const schema = z.object({
   email: z.email('email_required'),
@@ -107,9 +108,9 @@ export default function Login() {
     // evita open redirect se lo state arriva da una navigazione manipolata.
     const redirectTo = rawRedirect && /^\/(?!\/)/.test(rawRedirect) ? rawRedirect : null;
     const profileComplete =
-      user.role === 'admin' ||
+      isAdminUser(user) ||
       (Boolean(user.courseId) && (user.role !== 'studente' || Boolean(user.matricola)));
-    const approved = user.role === 'admin' || user.status === 'approved';
+    const approved = isAdminUser(user) || user.status === 'approved';
     let dest = '/dashboard';
     if (!profileComplete) dest = '/complete-profile';
     else if (!approved) dest = '/pending-approval';

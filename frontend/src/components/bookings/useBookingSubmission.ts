@@ -13,6 +13,7 @@ import type { BookingFormValues as FormValues } from './bookingFormSchema';
 import { useBookingFormData } from './useBookingFormData';
 import { qk } from '@/lib/queryKeys';
 import { invalidateBookings } from '@/lib/invalidation';
+import { isAdminUser } from '@/lib/roles';
 
 interface Options {
   open: boolean;
@@ -26,7 +27,7 @@ export function useBookingSubmission({ open, booking, onOpenChange, onCreated }:
   const qc = useQueryClient();
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = isAdminUser(currentUser);
   const { roomsQuery, typesQuery, usersQuery } = useBookingFormData(open, isAdmin);
   const [recurrence, setRecurrence] = useState<RecurrenceState>(() => emptyRecurrence());
   const [serverError, setServerError] = useState<string | null>(null);

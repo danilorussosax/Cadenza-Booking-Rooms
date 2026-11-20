@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { qk } from '@/lib/queryKeys';
+import { isAdminUser } from '@/lib/roles';
 
 // Le validazioni usano "chiavi" (es. 'first_name_required') che vengono
 // tradotte runtime via i18n in `auth.validation.<key>`.
@@ -134,9 +135,9 @@ export default function Register() {
       //   - lo studente potrebbe non aver inserito la matricola (obbligatoria)
       //   - il docente verrà comunque indirizzato alla schermata di attesa approvazione
       const profileComplete =
-        user.role === 'admin' ||
+        isAdminUser(user) ||
         (Boolean(user.courseId) && (user.role !== 'studente' || Boolean(user.matricola)));
-      const approved = user.role === 'admin' || user.status === 'approved';
+      const approved = isAdminUser(user) || user.status === 'approved';
       let dest = '/complete-profile';
       if (profileComplete && approved) dest = '/dashboard';
       else if (profileComplete && !approved) dest = '/pending-approval';

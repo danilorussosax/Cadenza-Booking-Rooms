@@ -10,6 +10,7 @@ const {
   cancelOverlappingBookings,
 } = require('../services/exceptionOverlapService');
 const { domainError, httpError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 const router = express.Router();
 
@@ -40,7 +41,7 @@ router.get('/exceptions', authenticate, async (req, res) => {
       throw httpError(400, 'Ruolo non valido');
     }
     where.role = { [Op.in]: [role, 'all'] };
-  } else if (req.user.role !== 'admin') {
+  } else if (!isAdmin(req.user)) {
     throw httpError(403, 'Riservato agli admin');
   }
   if (roomId) {

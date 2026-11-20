@@ -13,6 +13,7 @@ const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const { utils: instrumentsUtils } = require('./instruments');
 const { domainError } = require('../lib/domainError');
+const { isAdmin, assertOwnerOrAdmin } = require('../lib/access');
 const { annotateStatus } = instrumentsUtils;
 
 const router = express.Router();
@@ -161,7 +162,7 @@ router.post(
     // Verifica regola di abilitazione PER STRUMENTO. Coerente con
     // Room.allowedCourseIds: array vuoto = permissivo (chiunque non admin
     // con profilo completo può richiedere). Gli admin bypassano sempre.
-    if (req.user.role !== 'admin') {
+    if (!isAdmin(req.user)) {
       const allowedCourseIds = Array.isArray(instrument.allowedCourseIds)
         ? instrument.allowedCourseIds
         : [];
@@ -206,7 +207,7 @@ router.post(
 
         // Quote prestiti per ruolo (vedi services/loanQuotaValidator.js).
         // Eseguito DENTRO la stessa tx per coerenza con la conflict check.
-        if (req.user.role !== 'admin') {
+        if (!isAdmin(req.user)) {
           const { checkLoanQuotas } = require('../services/loanQuotaValidator');
           const quotaIssues = await checkLoanQuotas({
             user: req.user,
@@ -290,9 +291,7 @@ router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) 
 router.post('/:id/return', authenticate, async (req, res) => {
   const loan = await findLoanFull(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-  if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-    throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
-  }
+  assertOwnerOrAdmin(req.user, loan.userId);
   // UPDATE atomico con WHERE status IN (active, overdue): se due richieste
   // concorrenti tentano il return, una sola restituisce affectedRows=1.
   // L'altra vede affectedRows=0 → "già restituito" senza dover ricaricare.
@@ -324,18 +323,16 @@ router.post('/:id/return', authenticate, async (req, res) => {
 router.delete('/:id', authenticate, async (req, res) => {
   const loan = await InstrumentLoan.findByPk(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-  if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-    throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
-  }
+  assertOwnerOrAdmin(req.user, loan.userId);
   // Solo admin può cancellare un prestito già attivo/restituito (per pulizia inventario);
   // l'utente può solo cancellare la propria richiesta in attesa.
-  if (req.user.role !== 'admin' && loan.status !== 'requested') {
+  if (!isAdmin(req.user) && loan.status !== 'requested') {
     throw domainError('LOAN_INVALID_STATE', 'Puoi cancellare solo richieste ancora in attesa');
   }
   const removed = await InstrumentLoan.destroy({
     where: {
       id: loan.id,
-      ...(req.user.role === 'admin' ? {} : { userId: req.user.id, status: 'requested' }),
+      ...(isAdmin(req.user) ? {} : { userId: req.user.id, status: 'requested' }),
     },
   });
   if (!removed)
@@ -351,9 +348,7 @@ router.get('/:id/pdf', authenticate, async (req, res, next) => {
   try {
     const loan = await findLoanFull(req.params.id);
     if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-    if (loan.userId !== req.user.id && req.user.role !== 'admin') {
-      throw domainError('FORBIDDEN', 'Non autorizzato', { status: 403 });
-    }
+    assertOwnerOrAdmin(req.user, loan.userId);
     const kind = req.query.kind === 'return' ? 'return' : 'delivery';
 
     const { Institute } = require('../models');

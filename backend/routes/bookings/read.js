@@ -21,6 +21,7 @@ const { authenticate, requireRole } = require('../../middleware/auth');
 const { buildIcs } = require('../../services/icalService');
 const { isCheckInRequired } = require('../../lib/checkInPolicy');
 const { dayjs, CHECKIN_EARLY_MINUTES, GHOST_GRACE_MINUTES } = require('./shared');
+const { isAdmin, isOwnerOrAdmin } = require('../../lib/access');
 
 module.exports = function registerRead(router) {
   // =====================================================
@@ -118,7 +119,7 @@ module.exports = function registerRead(router) {
 
     if (req.query.mine === 'true') {
       where.userId = req.user.id;
-    } else if (req.query.userId && req.user.role === 'admin') {
+    } else if (req.query.userId && isAdmin(req.user)) {
       const n = Number.parseInt(req.query.userId, 10);
       if (Number.isInteger(n)) where.userId = n;
     }
@@ -251,7 +252,7 @@ module.exports = function registerRead(router) {
       });
       if (!booking)
         return res.status(404).json({ error: 'Prenotazione non trovata', code: 'NOT_FOUND' });
-      if (booking.userId !== req.user.id && req.user.role !== 'admin') {
+      if (!isOwnerOrAdmin(req.user, booking.userId)) {
         return res.status(403).json({ error: 'Non autorizzato', code: 'FORBIDDEN' });
       }
       res.json({ booking });

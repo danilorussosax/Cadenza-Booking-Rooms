@@ -59,6 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { qk } from '@/lib/queryKeys';
+import { isAdminUser } from '@/lib/roles';
 
 // =====================================================
 // Personal info form
@@ -114,7 +115,7 @@ export default function Profile() {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-1.5 sm:justify-start">
                 <Badge variant="default">
-                  {user.role === 'admin' && <ShieldCheck className="mr-1 h-3 w-3" />}
+                  {isAdminUser(user) && <ShieldCheck className="mr-1 h-3 w-3" />}
                   {t(`roles.${user.role}`)}
                 </Badge>
                 <Badge variant={user.isActive ? 'success' : 'muted'}>
@@ -839,7 +840,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
               Scarica i miei dati (JSON)
             </Button>
 
-            {user.role !== 'admin' && (
+            {!isAdminUser(user) && (
               <Button
                 type="button"
                 variant="outline"
@@ -854,7 +855,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
               </Button>
             )}
           </div>
-          {user.role === 'admin' && (
+          {isAdminUser(user) && (
             <p className="text-[11px] text-muted-foreground">
               Gli account amministratore non possono auto-eliminarsi: contatta un altro
               amministratore per la cancellazione.

@@ -27,6 +27,7 @@ const { PasswordResetToken, Institute } = require('../models');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { domainError, httpError } = require('../lib/domainError');
+const { isAdmin } = require('../lib/access');
 
 const router = express.Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -441,11 +442,7 @@ router.patch(
     //   - studente con matricola + corso              → approved (auto)
     //   - docente con corso                            → pending (attende admin)
     //   - admin                                        → invariato (sempre approved)
-    if (
-      req.user.role !== 'admin' &&
-      req.user.status !== 'approved' &&
-      req.user.status !== 'rejected'
-    ) {
+    if (!isAdmin(req.user) && req.user.status !== 'approved' && req.user.status !== 'rejected') {
       if (req.user.role === 'studente') {
         if (!req.user.matricola) {
           throw domainError('MATRICOLA_REQUIRED', 'La matricola è obbligatoria per gli studenti');
