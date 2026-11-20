@@ -1,4 +1,4 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 import type { Course, CourseLevel } from '@/types';
 
 export interface UpsertCoursePayload {
@@ -50,15 +50,7 @@ export const coursesApi = {
   /** Esporta i corsi (SAD + denominazione + flag attivo) in CSV. Bearer
    *  richiesto: scarica via fetch+blob (un <a href> non manda l'header). */
   async downloadCsv(): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch('/api/courses/export.csv', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob('/api/courses/export.csv');
   },
 };
 

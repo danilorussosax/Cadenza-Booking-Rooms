@@ -1,4 +1,4 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 
 export interface BackupItem {
   file: string;
@@ -105,15 +105,7 @@ export const backupsApi = {
 
   /** Download autenticato via Bearer (Bearer non passabile via <a href>). */
   async download(file: string): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch(`/api/admin/backups/${file}/download`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob(`/api/admin/backups/${file}/download`);
   },
 
   async upload(file: File): Promise<{ file: string; sizeBytes: number; message: string }> {

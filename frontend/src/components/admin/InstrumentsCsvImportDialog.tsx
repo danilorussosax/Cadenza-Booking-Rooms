@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { invalidateInstruments } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 interface ImportResult {
   rowsTotal: number;
@@ -79,12 +80,7 @@ export function InstrumentsCsvImportDialog({ open, onOpenChange }: Props) {
 
   const downloadTemplate = () => {
     const blob = new Blob(['﻿' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template-instruments.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, 'template-instruments.csv');
   };
 
   return (

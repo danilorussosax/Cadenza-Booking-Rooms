@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { qk } from '@/lib/queryKeys';
 import { invalidateQrOverview, invalidateQrStructure } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 // Pagina admin per la gestione dei QR-code di check-in delle aule + policy
 // "check-in solo da rete d'istituto". Inserita come tab dentro
@@ -492,12 +493,7 @@ function RoomsQrTable() {
   const downloadAllMutation = useMutation({
     mutationFn: () => qrcodesApi.downloadAll(),
     onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `qr-aule-${todayLocalIso()}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `qr-aule-${todayLocalIso()}.zip`);
       void invalidateQrOverview(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

@@ -41,6 +41,7 @@ import type { Course } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateCourses } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 // Macro-tab in stile /admin/server-settings: card grandi con icona+label.
 type CoursesTab = 'corsi' | 'livelli';
@@ -247,14 +248,7 @@ export default function AdminCourses() {
               onClick={async () => {
                 try {
                   const blob = await coursesApi.downloadCsv();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `corsi-${todayLocalIso()}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
+                  saveBlob(blob, `corsi-${todayLocalIso()}.csv`);
                 } catch (err) {
                   toast.error(httpErrorMessage(err));
                 }

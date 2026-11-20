@@ -1,4 +1,5 @@
-import { api, HttpError, tokenStore } from '@/lib/api';
+import { api, apiBlob, HttpError, tokenStore } from '@/lib/api';
+import { saveBlob } from '@/lib/download';
 import type { Booking, BookingType, Role } from '@/types';
 
 /**
@@ -843,23 +844,10 @@ export const monteOreAdminApi = {
    * propaga l'header Authorization.
    */
   downloadImportTemplate: async (academicYear: string): Promise<void> => {
-    const token = tokenStore.get();
-    const url = `/api/admin/monte-ore/import-template.xlsx?academicYear=${encodeURIComponent(academicYear)}`;
-    const res = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const blob = await apiBlob('/api/admin/monte-ore/import-template.xlsx', {
+      query: { academicYear },
     });
-    if (!res.ok) {
-      throw new Error(`Download fallito (HTTP ${res.status})`);
-    }
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = `monte-ore-template-${academicYear.replace('/', '-')}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
+    saveBlob(blob, `monte-ore-template-${academicYear.replace('/', '-')}.xlsx`);
   },
 };
 

@@ -1,4 +1,5 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
+import { saveBlob } from '@/lib/download';
 
 export interface ExcelExportStatus {
   enabled: boolean;
@@ -32,24 +33,6 @@ export const excelExportApi = {
    * il token). Triggera il download del browser con il nome file dal backend.
    */
   download: async (): Promise<void> => {
-    const token = tokenStore.get();
-    const res = await fetch('/api/admin/excel-export/download', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-        error?: string;
-      };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'cadenza-prenotazioni.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    saveBlob(await apiBlob('/api/admin/excel-export/download'), 'cadenza-prenotazioni.xlsx');
   },
 };

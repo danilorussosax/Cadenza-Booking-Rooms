@@ -42,6 +42,7 @@ import type { Building, Equipment, Institute, Room } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateStructure, invalidateStructureDeleted } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 type DeleteTarget =
   | { kind: 'institute'; entity: Institute }
@@ -686,14 +687,10 @@ function InstituteCard({
               onClick={async () => {
                 try {
                   const blob = await structureApi.downloadCsv(institute.id);
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `struttura-${institute.code ?? institute.id}-${todayLocalIso()}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
+                  saveBlob(
+                    blob,
+                    `struttura-${institute.code ?? institute.id}-${todayLocalIso()}.csv`,
+                  );
                 } catch (err) {
                   toast.error(httpErrorMessage(err));
                 }

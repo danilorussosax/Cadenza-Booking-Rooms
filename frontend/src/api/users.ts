@@ -1,4 +1,4 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 import type { ContractType, Role, User, UserStatus } from '@/types';
 
 export interface MonteOreOverridePayload {
@@ -99,15 +99,7 @@ export const usersApi = {
    *  anagrafica, ruolo, matricola, codice corso, stato e flag attivo.
    *  Bearer richiesto: scarica via fetch+blob (un <a href> non manda l'header). */
   async downloadCsv(): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch('/api/users/export.csv', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob('/api/users/export.csv');
   },
 
   /** Importa utenti da CSV o XLSX. Per nuovi utenti viene generata una

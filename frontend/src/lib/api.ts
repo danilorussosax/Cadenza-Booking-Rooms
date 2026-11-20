@@ -134,6 +134,44 @@ export async function apiBlob(path: string, opts: RequestOptions = {}): Promise<
   return res.blob();
 }
 
+/**
+ * Estrae il nome file da un header Content-Disposition (`filename*=UTF-8''...`
+ * oppure `filename="..."`). Il valore viene sanificato (niente separatori di
+ * path o caratteri speciali) e troncato a 100 caratteri. Null se assente.
+ */
+export function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  let name: string | null = null;
+  const star = /filename\*\s*=\s*utf-8''([^;]+)/i.exec(header);
+  if (star?.[1]) {
+    try {
+      name = decodeURIComponent(star[1].trim());
+    } catch {
+      name = null;
+    }
+  }
+  if (!name) {
+    const plain =
+      /filename\s*=\s*"([^"]+)"/i.exec(header) ?? /filename\s*=\s*([^;]+)/i.exec(header);
+    name = plain?.[1]?.trim() ?? null;
+  }
+  if (!name) return null;
+  const clean = name.replace(/[/\\?%*:|"<>]/g, '_').slice(0, 100);
+  return clean || null;
+}
+
+/** Come `apiBlob`, ma restituisce anche il nome file da Content-Disposition (o null). */
+export async function apiDownload(
+  path: string,
+  opts: RequestOptions = {},
+): Promise<{ blob: Blob; filename: string | null }> {
+  const res = await request(path, opts);
+  return {
+    blob: await res.blob(),
+    filename: filenameFromContentDisposition(res.headers.get('content-disposition')),
+  };
+}
+
 function safeJson(text: string): unknown {
   try {
     return JSON.parse(text);

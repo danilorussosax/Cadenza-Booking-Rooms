@@ -52,6 +52,7 @@ import type {
 } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateAdminLoans, invalidateInstruments } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 type Tab = 'inventory' | 'all_loans' | 'overdue' | 'expiring' | 'rules';
 
@@ -161,14 +162,7 @@ export default function AdminInstruments() {
   const handleExport = async () => {
     try {
       const blob = await instrumentsApi.downloadCsv();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `instruments-${todayLocalIso()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `instruments-${todayLocalIso()}.csv`);
       toast.success(t('admin.instruments.exported'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('admin.instruments.export_failed'));
@@ -702,14 +696,7 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
   const downloadPdf = async (loan: InstrumentLoan, type: 'delivery' | 'return') => {
     try {
       const blob = await loansApi.downloadPdf(loan.id, type);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `prestito-${loan.id}-${type}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `prestito-${loan.id}-${type}.pdf`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'PDF');
     }

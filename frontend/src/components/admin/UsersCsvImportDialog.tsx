@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { invalidateUsers } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 // Template CSV sintetico — è il minimo per partire (4 righe esempio +
 // header). I dati sensibili (password) non sono mai in CSV: un nuovo
@@ -70,12 +71,7 @@ export function UsersCsvImportDialog({
 
   const downloadTemplate = () => {
     const blob = new Blob(['﻿' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template-utenti.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, 'template-utenti.csv');
   };
 
   const reset = () => {

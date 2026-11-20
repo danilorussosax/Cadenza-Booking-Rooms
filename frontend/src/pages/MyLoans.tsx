@@ -18,6 +18,7 @@ import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
 import { qk } from '@/lib/queryKeys';
 import { invalidateMyLoans } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 type Tab = 'active' | 'requested' | 'history';
 
@@ -81,14 +82,7 @@ export default function MyLoans() {
   const downloadPdf = async (loan: InstrumentLoan, kind: 'delivery' | 'return') => {
     try {
       const blob = await loansApi.downloadPdf(loan.id, kind);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `prestito-${loan.id}-${kind}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `prestito-${loan.id}-${kind}.pdf`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('my_loans.toast.pdf_failed'));
     }

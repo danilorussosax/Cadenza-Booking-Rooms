@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { invalidateEquipmentTemplates } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 const SAMPLE_CSV = `Dotazione
 Pianoforte verticale
@@ -76,12 +77,7 @@ export function EquipmentTemplatesCsvImportDialog({ open, onOpenChange }: Props)
 
   const downloadTemplate = () => {
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template-dotazioni.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, 'template-dotazioni.csv');
   };
 
   return (

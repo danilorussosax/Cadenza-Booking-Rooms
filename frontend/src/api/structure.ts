@@ -1,4 +1,4 @@
-import { api, tokenStore } from '@/lib/api';
+import { api, apiBlob } from '@/lib/api';
 import type {
   Building,
   Equipment,
@@ -151,15 +151,7 @@ export const structureApi = {
   // QR per il check-in: PNG via fetch+blob (Bearer auth richiesto, non
   // esprimibile via <a href>). Il chiamante salva/stampa il blob.
   async downloadRoomQr(id: number): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch(`/api/structure/rooms/${id}/qr`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob(`/api/structure/rooms/${id}/qr`);
   },
 
   uploadRoomPhoto: (id: number, file: File) => {
@@ -198,16 +190,7 @@ export const structureApi = {
    *  con import). Bearer richiesto, non passabile via <a href>: scarica il
    *  blob via fetch e lascia al chiamante l'attivazione del download. */
   async downloadCsv(instituteId: number): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch(
-      `/api/structure/export.csv?instituteId=${encodeURIComponent(instituteId)}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob('/api/structure/export.csv', { query: { instituteId } });
   },
 
   // Equipment templates (catalogo dotazioni)
@@ -245,15 +228,7 @@ export const structureApi = {
   /** Export catalogo dotazioni in CSV (round-trip con import). Bearer
    *  richiesto, non passabile via <a href>: scarica via fetch+blob. */
   async downloadEquipmentTemplatesCsv(): Promise<Blob> {
-    const token = tokenStore.get();
-    if (!token) throw new Error('Sessione scaduta');
-    const res = await fetch('/api/structure/equipment-templates/export.csv', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      throw new Error(res.status === 401 ? 'Sessione scaduta' : `Errore ${res.status}`);
-    }
-    return res.blob();
+    return apiBlob('/api/structure/equipment-templates/export.csv');
   },
 };
 

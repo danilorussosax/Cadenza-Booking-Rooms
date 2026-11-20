@@ -35,6 +35,7 @@ import {
 import type { Building, Role, Room, RoomType } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateStructure } from '@/lib/invalidation';
+import { saveBlob } from '@/lib/download';
 
 const ROLES: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Amministratori' },
@@ -541,14 +542,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
                 onClick={async () => {
                   try {
                     const blob = await structureApi.downloadRoomQr(room.id);
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `qr-room-${room.id}.png`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
+                    saveBlob(blob, `qr-room-${room.id}.png`);
                   } catch (err) {
                     toast.error(
                       err instanceof Error ? err.message : t('admin_structure_qr.qr_failed'),

@@ -74,6 +74,7 @@ import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateUsers } from '@/lib/invalidation';
 import { isAdminUser } from '@/lib/roles';
+import { saveBlob } from '@/lib/download';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
 const ROLE_LABEL_KEY: Record<Role, string> = {
@@ -304,14 +305,7 @@ export default function AdminUsers() {
               onClick={async () => {
                 try {
                   const blob = await usersApi.downloadCsv();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `utenti-${todayLocalIso()}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
+                  saveBlob(blob, `utenti-${todayLocalIso()}.csv`);
                 } catch (err) {
                   toast.error(httpErrorMessage(err));
                 }

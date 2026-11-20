@@ -1,4 +1,5 @@
-import { api, tokenStore } from '@/lib/api';
+import { apiDownload, api } from '@/lib/api';
+import { saveBlob } from '@/lib/download';
 
 export type ConsentType = 'privacy_policy' | 'terms' | 'marketing';
 
@@ -24,36 +25,9 @@ export const gdprApi = {
   // Richiede al server l'export e fa scaricare il file JSON al browser.
   // Non passa per `api()` perché serve come binary download (Blob).
   exportData: async () => {
-    const token = tokenStore.get();
-    const res = await fetch('/api/users/me/gdpr/export', {
-      method: 'GET',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) {
-      let payload: { error?: string } = {};
-      try {
-        payload = (await res.json()) as { error?: string };
-      } catch {
-        // ignore
-      }
-      throw new Error(payload.error ?? `Errore HTTP ${res.status}`);
-    }
-    const blob = await res.blob();
-    const cd = res.headers.get('content-disposition') ?? '';
-    const m = /filename="([^"]+)"/.exec(cd);
-    // Sanitizza: il valore arriva da un header di risposta — niente separatori
-    // di path o caratteri speciali nel nome usato per a.download.
-    const filename = (m ? m[1] : `dati-personali-${Date.now()}.json`)
-      .replace(/[/\\?%*:|"<>]/g, '_')
-      .slice(0, 100);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const { blob, filename: headerName } = await apiDownload('/api/users/me/gdpr/export');
+    const filename = headerName ?? `dati-personali-${Date.now()}.json`;
+    saveBlob(blob, filename);
     return { filename, size: blob.size };
   },
 
