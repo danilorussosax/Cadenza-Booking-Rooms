@@ -349,29 +349,9 @@
       "pending_amendments": "Stundenkontingent-Änderungen",
       "pending_amendments_hint": "Anfragen von Dozenten ausstehend"
     },
-    "kpi": {
-      "next_booking": "Nächste Buchung",
-      "next_booking_none": "Keine künftige Buchung",
-      "weekly_used": "Gebuchte Stunden (Woche)",
-      "weekly_remaining": "Verbleibende Stunden diese Woche",
-      "daily_remaining": "Verbleibende Stunden heute",
-      "unlimited": "Unbegrenzt"
-    },
-    "next_bookings": {
-      "title": "Nächste Buchungen",
-      "see_all": "Alle anzeigen",
-      "empty": "Sie haben keine anstehenden Buchungen. Legen Sie gleich los!",
-      "create": "Raum buchen"
-    },
     "loans": {
       "title": "Meine Ausleihen",
       "see_all": "Alle anzeigen"
-    },
-    "quick_actions": {
-      "title": "Schnellaktionen",
-      "new_booking": "Neue Buchung",
-      "view_rooms": "Räume erkunden",
-      "my_bookings": "Meine Buchungen"
     },
     "pending_approvals": {
       "title": "Buchungen warten auf Genehmigung",
@@ -570,28 +550,6 @@
       "cancelled": "Storniert",
       "completed": "Abgeschlossen",
       "no_show": "Nicht erschienen"
-    },
-    "cancel": {
-      "title": "Buchung stornieren?",
-      "description": "Der Raum wird freigegeben und andere Benutzer können ihn buchen.",
-      "reason": "Grund (optional)",
-      "reason_placeholder": "Z. B. Programmänderung",
-      "confirm": "Buchung stornieren",
-      "deadline_warning": "Die Stornierung erfordert mindestens {{hours}} Stunden Vorlaufzeit."
-    },
-    "actions": {
-      "edit": "Bearbeiten",
-      "cancel": "Stornieren",
-      "view": "Ansehen"
-    },
-    "list_item": {
-      "duration": "Dauer",
-      "starts_in": "Beginnt in {{when}}"
-    },
-    "toast": {
-      "created": "Buchung erstellt",
-      "updated": "Buchung aktualisiert",
-      "cancelled": "Buchung storniert"
     }
   },
   "rooms": {
@@ -675,24 +633,6 @@
       "saved_on": "Benachrichtigung aktiviert",
       "saved_off": "Benachrichtigung deaktiviert"
     },
-    "password": {
-      "title": "Passwort",
-      "current": "Aktuelles Passwort",
-      "new": "Neues Passwort",
-      "confirm": "Passwort bestätigen",
-      "submit": "Passwort aktualisieren",
-      "updated": "Passwort aktualisiert",
-      "oauth_only": "Dieses Konto ist nur über OAuth verbunden: Das Passwort kann hier nicht festgelegt werden."
-    },
-    "photo": {
-      "title": "Profilfoto",
-      "upload": "Foto hochladen",
-      "remove": "Foto entfernen",
-      "remove_confirm": "Profilfoto entfernen?",
-      "uploaded": "Foto aktualisiert",
-      "removed": "Foto entfernt",
-      "format_hint": "PNG, JPG oder WEBP — max. 2 MB"
-    },
     "account": {
       "title": "Konto",
       "email": "E-Mail",
@@ -702,12 +642,6 @@
       "last_login": "Letzte Anmeldung",
       "registered": "Registriert",
       "providers": "Verbundene Anbieter"
-    },
-    "copyright": {
-      "title": "Institutscopyright",
-      "description": "Copyright-Text, der im Fußbereich der Anwendung angezeigt wird.",
-      "field": "Copyright-Text",
-      "saved": "Copyright aktualisiert"
     },
     "bot_bindings": {
       "title": "Messaging-Bot",
@@ -803,10 +737,6 @@
       "modules": {
         "title": "Aktivierbare Module",
         "subtitle": "Aktivieren oder deaktivieren Sie funktionale Module. Wenn ein Modul deaktiviert ist, verschwindet der Link in der Seitenleiste und die Routen antworten mit \"nicht aktiv\" (Daten bleiben in der DB).",
-        "monte_ore_label": "Dozenten-Stundenkontingent",
-        "monte_ore_description": "Seitenleisten-Einträge \"Stundenkontingent\" (Dozentenseite) und \"Stundenkontingent verwalten\" (Adminseite). Beim Ausschalten verschwinden die Links, aber Routen und APIs bleiben funktionsfähig.",
-        "instrument_loans_label": "Instrumentenausleihe",
-        "instrument_loans_description": "Seitenleisten-Einträge \"Instrumente\" (Katalog) und \"Meine Ausleihen\" + Admin-Bereich \"Instrumenteninventar\". Beim Ausschalten verschwinden die Links, aber Routen und APIs bleiben funktionsfähig.",
         "saved": "Modul aktualisiert",
         "save_failed": "Modul konnte nicht aktualisiert werden",
         "backend_note": "Vorhandene Daten werden nie gelöscht. Bei Reaktivierung des Moduls werden die Links sofort wieder sichtbar."
@@ -882,19 +812,6 @@
         "submit_create": "Benutzer erstellen",
         "submit_update": "Änderungen speichern"
       }
-    },
-    "oauth": {
-      "google_title": "Google OAuth",
-      "microsoft_title": "Microsoft OAuth",
-      "client_id": "Client ID",
-      "client_secret": "Client Secret",
-      "callback_url": "Callback-URL",
-      "tenant": "Tenant",
-      "enable": "{{provider}} OAuth aktivieren",
-      "saved": "OAuth-Einstellungen gespeichert",
-      "restart_hint": "Starten Sie das Backend neu, um die neuen OAuth-Einstellungen anzuwenden.",
-      "secret_configured": "•••••••• (konfiguriert — leer lassen, um nicht zu ändern)",
-      "secret_placeholder": "Geben Sie das Client Secret ein"
     },
     "backups": {
       "title": "Backup und Wiederherstellung",
@@ -1125,36 +1042,6 @@
       "requires_approval": "Erfordert Genehmigung",
       "requires_approval_help": "Buchungen dieses Raums durch Nicht-Admins erfolgen mit Genehmigungspflicht. Typisch für Konzertsäle, Auditorien, Repräsentationsräume."
     },
-    "courses": {
-      "title": "Studiengänge",
-      "subtitle": "Verwalten Sie den Katalog der Studiengänge.",
-      "new_course": "Neuer Studiengang",
-      "import_csv": "CSV importieren",
-      "search_placeholder": "Suche nach Code oder Name…",
-      "table": {
-        "code": "Code",
-        "name": "Name",
-        "department": "Abteilung",
-        "levels": "Stufen",
-        "active": "Aktiv",
-        "actions": "Aktionen"
-      },
-      "no_courses": "Kein Studiengang gefunden",
-      "form": {
-        "title_new": "Neuer Studiengang",
-        "title_edit": "Studiengang bearbeiten",
-        "code": "Code",
-        "name": "Name",
-        "department": "Abteilung",
-        "description": "Beschreibung",
-        "levels": "Stufen",
-        "active": "Studiengang aktiv"
-      },
-      "saved": "Studiengang gespeichert",
-      "deleted": "Studiengang gelöscht",
-      "delete_title": "Studiengang \"{{name}}\" löschen?",
-      "delete_description": "Zugeordnete Benutzer werden vom Studiengang getrennt (Matrikelnummer bleibt erhalten). Der Vorgang ist unumkehrbar."
-    },
     "rules": {
       "tabs": {
         "by_role": "Nach Rolle",
@@ -1181,61 +1068,6 @@
         "result_ko": "Die Buchung würde abgelehnt werden",
         "disclaimer": "Individuelle Stundenkontingente (z. B. \"Sie haben diese Woche bereits 8 Std. verwendet\") werden nicht ausgewertet: Verwenden Sie für diesen Test einen echten Benutzer."
       }
-    },
-    "mail": {
-      "title": "E-Mail-Dienst",
-      "subtitle": "SMTP-Konfiguration und Vorlagen für transaktionale E-Mails.",
-      "tab_settings": "Einstellungen",
-      "tab_templates": "Vorlagen",
-      "settings": {
-        "host": "SMTP-Host",
-        "port": "Port",
-        "secure": "TLS",
-        "username": "Benutzername",
-        "password": "Passwort",
-        "from_address": "Absender",
-        "from_name": "Absendername",
-        "reply_to": "Reply-To",
-        "test_address": "Testadresse",
-        "send_test": "Test-E-Mail senden",
-        "test_sent": "Test-E-Mail gesendet",
-        "saved": "Einstellungen gespeichert",
-        "enable": "E-Mail-Versand aktivieren"
-      },
-      "templates": {
-        "subject": "Betreff",
-        "body": "Inhalt",
-        "preview": "Vorschau",
-        "reset": "Standard wiederherstellen",
-        "saved": "Vorlage aktualisiert",
-        "type": "Vorlage",
-        "variables": "Verfügbare Variablen"
-      }
-    },
-    "csv_import": {
-      "title": "Aus CSV importieren",
-      "description": "Laden Sie eine CSV-Datei mit der angegebenen Struktur hoch.",
-      "drag_drop": "Datei hierher ziehen oder zum Auswählen klicken",
-      "submit": "Importieren",
-      "imported": "{{count}} Elemente importiert",
-      "errors_count": "{{count}} Zeilen mit Fehlern",
-      "download_template": "Vorlage herunterladen"
-    },
-    "equipment_templates": {
-      "title": "Ausstattungsvorlagen",
-      "subtitle": "Wiederverwendbarer Katalog für Raumausstattungen.",
-      "new": "Neue Vorlage",
-      "type": "Typ",
-      "delete_title": "Vorlage \"{{name}}\" löschen?"
-    },
-    "course_levels": {
-      "title": "Studienstufen",
-      "subtitle": "Kategorien des Bildungswegs (z. B. Bachelor, Master, Aufbaustudium).",
-      "new": "Neue Stufe",
-      "code": "Code",
-      "name": "Name",
-      "sort_order": "Reihenfolge",
-      "saved": "Stufen gespeichert"
     },
     "display": {
       "title": "Infopoint",
@@ -1397,26 +1229,6 @@
       "errors": {
         "cap_required": "Mindestens eines von max. gleichzeitig und max. Tage/Jahr muss größer als 0 sein"
       }
-    },
-    "loan_rules": {
-      "title": "Regeln für Instrumentenausleihe",
-      "subtitle": "Für jede Instrumentenfamilie geben Sie die Studiengänge (SAD-Codes) an, die ausleihen dürfen. Die Regel gilt für Studierende und Dozenten: Admins sind immer berechtigt.",
-      "default_help": "Wenn für eine Familie kein Studiengang festgelegt ist, ist die Regel permissiv (Standard): Jeder kann die Ausleihe beantragen.",
-      "configured_badge": "Konfiguriert",
-      "default_badge": "Permissiver Standard",
-      "courses_count_one": "{{count}} berechtigter Studiengang",
-      "courses_count_other": "{{count}} berechtigte Studiengänge",
-      "no_courses_warning": "Kein berechtigter Studiengang → alle Nicht-Admin-Benutzer werden blockiert.",
-      "search_courses": "In Studiengängen suchen…",
-      "select_all": "Alle auswählen",
-      "deselect_all": "Auswahl aufheben",
-      "save": "Regel speichern",
-      "reset": "Standard wiederherstellen",
-      "reset_confirm": "Diese Familie auf den permissiven Standard zurücksetzen (jeder kann ausleihen)?",
-      "saved": "Regel gespeichert",
-      "reset_done": "Regel auf Standard zurückgesetzt",
-      "notes": "Anmerkungen (optional)",
-      "notes_placeholder": "Z. B. Nur Studierende des Klavierstudiengangs"
     },
     "instruments": {
       "title": "Instrumenteninventar",
@@ -2291,11 +2103,6 @@
       "subtitle_ios": "Öffnen Sie das Teilen-Menü von Safari und tippen Sie auf \"Zum Home-Bildschirm\".",
       "cta": "Installieren",
       "dismiss": "Nicht jetzt"
-    },
-    "update": {
-      "title": "Aktualisierung verfügbar",
-      "subtitle": "Laden Sie neu, um die neue Version anzuwenden.",
-      "reload": "Neu laden"
     }
   },
   "integrations": {
