@@ -1,12 +1,10 @@
 'use strict';
 
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
-const sharp = require('sharp');
 const { Booking, ConcertInfo } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
 const { can } = require('../../lib/access');
+const storage = require('../../services/storage');
 
 // =====================================================
 // Scheda concerto (1:1 con Booking di tipo 'concerto')
@@ -21,17 +19,11 @@ const { can } = require('../../lib/access');
 // Permessi: owner della booking oppure admin.
 // Vincolo: la booking deve avere type = 'concerto'.
 
-const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
 const ALLOWED_POSTER_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
 
-const POSTER_TARGET_WIDTH = 1200;
-
-const POSTER_TARGET_HEIGHT = 1600; // 3:4 verticale (formato locandina)
 const posterUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 12 * 1024 * 1024 },
+  limits: { fileSize: storage.PROFILES.poster.maxBytes },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_POSTER_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG, WEBP o HEIC)'));
@@ -39,12 +31,6 @@ const posterUpload = multer({
     cb(null, true);
   },
 });
-
-function tryDeleteOldPoster(posterUrl) {
-  if (!posterUrl || !posterUrl.startsWith('/storage/')) return;
-  const file = path.basename(posterUrl);
-  fs.unlink(path.join(UPLOADS_DIR, file), () => {});
-}
 
 async function loadConcertContext(bookingId, user) {
   const booking = await Booking.findByPk(bookingId, {
@@ -147,7 +133,7 @@ module.exports = function registerConcerts(router) {
       const { booking, error } = await loadConcertContext(req.params.id, req.user);
       if (error) return res.status(error.status).json({ error: error.message, code: error.code });
       if (!booking.concertInfo) return res.json({ message: 'Nessuna scheda da cancellare' });
-      tryDeleteOldPoster(booking.concertInfo.posterUrl);
+      await storage.removeStored(booking.concertInfo.posterUrl);
       await booking.concertInfo.destroy();
       res.json({ message: 'Scheda concerto cancellata' });
     } catch (err) {
@@ -171,25 +157,16 @@ module.exports = function registerConcerts(router) {
         if (!req.file?.buffer) {
           return res.status(400).json({ error: 'Nessun file caricato', code: 'VALIDATION_FAILED' });
         }
-        const processed = await sharp(req.file.buffer)
-          .rotate()
-          .resize({
-            width: POSTER_TARGET_WIDTH,
-            height: POSTER_TARGET_HEIGHT,
-            fit: 'inside',
-            withoutEnlargement: true,
-          })
-          .webp({ quality: 85 })
-          .toBuffer();
-
-        const filename = `concert-${booking.id}-${Date.now()}.webp`;
-        await fs.promises.writeFile(path.join(UPLOADS_DIR, filename), processed);
-        tryDeleteOldPoster(booking.concertInfo.posterUrl);
-        const newUrl = `/storage/${filename}`;
+        const newUrl = await storage.replaceImage(
+          booking.concertInfo.posterUrl,
+          req.file.buffer,
+          storage.PROFILES.poster,
+          { id: booking.id },
+        );
         await booking.concertInfo.update({ posterUrl: newUrl });
         res.json({ concertInfo: booking.concertInfo, posterUrl: newUrl });
       } catch (err) {
-        if (err && err.message && /sharp|input|unsupported/i.test(err.message)) {
+        if (storage.isImageFormatError(err)) {
           return res.status(400).json({
             error: 'Immagine non valida o formato non supportato',
             code: 'FILE_FORMAT_UNSUPPORTED',
@@ -205,7 +182,7 @@ module.exports = function registerConcerts(router) {
       const { booking, error } = await loadConcertContext(req.params.id, req.user);
       if (error) return res.status(error.status).json({ error: error.message, code: error.code });
       if (!booking.concertInfo) return res.json({ message: 'Nessuna locandina' });
-      tryDeleteOldPoster(booking.concertInfo.posterUrl);
+      await storage.removeStored(booking.concertInfo.posterUrl);
       await booking.concertInfo.update({ posterUrl: null });
       res.json({ concertInfo: booking.concertInfo });
     } catch (err) {

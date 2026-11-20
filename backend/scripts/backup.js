@@ -41,12 +41,11 @@ dayjs.extend(timezone);
 const TS_TZ = 'Europe/Rome';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
-const BACKEND_ROOT = path.resolve(__dirname, '..');
 
 const BACKUP_DIR = process.env.BACKUP_DIR
   ? path.resolve(process.env.BACKUP_DIR)
   : path.join(PROJECT_ROOT, 'backups');
-const UPLOADS_DIR = path.join(BACKEND_ROOT, 'uploads');
+const UPLOADS_DIR = require('../services/storage').dir;
 
 const KEEP_DAILY = Number(process.env.BACKUP_KEEP_DAILY || 30);
 const KEEP_WEEKLY = Number(process.env.BACKUP_KEEP_WEEKLY || 12);

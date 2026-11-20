@@ -1,12 +1,12 @@
 'use strict';
 
 const fs = require('node:fs/promises');
-const path = require('node:path');
+const storage = require('./storage');
 
 async function removeProfilePhoto(url) {
   if (typeof url !== 'string' || !/^\/storage\/user-[\w.-]+\.(png|jpe?g|webp)$/.test(url)) return;
   try {
-    await fs.unlink(path.join(__dirname, '..', 'uploads', path.basename(url)));
+    await fs.unlink(storage.resolveStoredPath(url));
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
   }
@@ -15,7 +15,7 @@ async function removeProfilePhoto(url) {
 // Retry durevole: i nomi conservano l'id anche dopo l'anonimizzazione dell'utente.
 async function pruneDeletedUserPhotos() {
   const { User } = require('../models');
-  const directory = path.join(__dirname, '..', 'uploads');
+  const directory = storage.uploadsDir();
   let files;
   try {
     files = await fs.readdir(directory);

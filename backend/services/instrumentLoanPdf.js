@@ -16,8 +16,8 @@
  */
 
 const PDFDocument = require('pdfkit');
-const path = require('path');
 const fs = require('fs');
+const storage = require('./storage');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
@@ -27,8 +27,6 @@ dayjs.extend(timezone);
 dayjs.locale('it');
 
 const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
-
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
 const FAMILY_LABEL = {
   archi: 'Archi',
@@ -65,11 +63,8 @@ function durationDays(fromDate, toDate) {
 
 // Risolve il path assoluto di un asset salvato in /storage/<file>
 function resolveStoragePath(url) {
-  if (!url || typeof url !== 'string') return null;
-  if (!url.startsWith('/storage/')) return null;
-  const file = path.basename(url);
-  const fp = path.join(UPLOADS_DIR, file);
-  return fs.existsSync(fp) ? fp : null;
+  const fp = storage.resolveStoredPath(url);
+  return fp && fs.existsSync(fp) ? fp : null;
 }
 
 function drawSectionTitle(doc, text) {

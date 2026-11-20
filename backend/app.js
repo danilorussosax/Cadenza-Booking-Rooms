@@ -257,7 +257,7 @@ function buildApp({ serveFrontend = true } = {}) {
         },
       }),
     );
-    const UPLOADS_DIR = path.join(__dirname, 'uploads');
+    const UPLOADS_DIR = require('./services/storage').dir;
     // Content-Disposition: attachment sui file caricati dagli utenti: i browser
     // la ignorano per le subresource (<img> continua a funzionare) ma impedisce
     // il rendering inline in navigazione diretta — un file malevolo caricato
@@ -430,8 +430,7 @@ function buildApp({ serveFrontend = true } = {}) {
     //   - su sistemi senza statfsSync (Node <18.15) skippa silenziosamente.
     try {
       const fs = require('fs');
-      const path = require('path');
-      const uploadsDir = path.join(__dirname, 'uploads');
+      const uploadsDir = require('./services/storage').dir;
       if (typeof fs.statfsSync === 'function') {
         const stats = fs.statfsSync(uploadsDir, { bigint: false });
         const total = stats.blocks * stats.bsize;

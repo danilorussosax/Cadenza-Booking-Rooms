@@ -25,8 +25,6 @@
  * cancellazione (es. anonimizzazione GDPR).
  */
 
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { Op } = require('sequelize');
 const {
   sequelize,
@@ -39,8 +37,8 @@ const {
 } = require('../models');
 const { domainError } = require('../lib/domainError');
 const logger = require('../lib/logger');
+const storage = require('./storage');
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 const POLICIES = Object.freeze(['purge', 'cancel']);
 const FK_MESSAGE = 'Eliminazione bloccata da vincoli di integrità.';
 const FK_USER_MESSAGE = "Impossibile eliminare: l'utente è ancora referenziato da altri dati.";
@@ -52,12 +50,7 @@ const FK_USER_MESSAGE = "Impossibile eliminare: l'utente è ancora referenziato 
 const defaultFiles = {
   /** foto aula / logo istituto: solo url gestiti da noi (`/storage/<file>`) */
   async removeStored(url) {
-    if (typeof url !== 'string' || !url.startsWith('/storage/')) return;
-    try {
-      await fs.unlink(path.join(UPLOADS_DIR, path.basename(url)));
-    } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
-    }
+    await storage.removeStored(url);
   },
   async removeProfilePhoto(url) {
     return require('./profilePhotoCleanup').removeProfilePhoto(url);

@@ -1,16 +1,14 @@
 'use strict';
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
-const sharp = require('sharp');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
 const institutionTime = require('../lib/institutionTime');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const storage = require('../services/storage');
 
 const router = express.Router();
 
@@ -18,15 +16,10 @@ const router = express.Router();
 // Upload foto strumento (multer in memoria + sharp resize 16:9 1200x675 webp)
 // Stessa pipeline di /api/structure/rooms/:id/photo per coerenza visiva.
 // =========================================================
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
 const ALLOWED_PHOTO_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
-const PHOTO_W = 1200;
-const PHOTO_H = 675;
 const photoUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: storage.PROFILES.instrument.maxBytes },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_PHOTO_MIME.includes(file.mimetype)) {
       return cb(new Error('Formato non supportato (usa PNG, JPG, WEBP o HEIC)'));
@@ -36,14 +29,12 @@ const photoUpload = multer({
 });
 
 function tryDeleteOldPhoto(photoUrl) {
-  if (!photoUrl || !photoUrl.startsWith('/storage/')) return;
-  const file = path.basename(photoUrl);
-  fs.unlink(path.join(UPLOADS_DIR, file), () => {});
+  return storage.removeStored(photoUrl);
 }
 
-function tryDeletePhotos(rows) {
+async function tryDeletePhotos(rows) {
   if (!rows?.length) return;
-  for (const r of rows) tryDeleteOldPhoto(r.photoUrl);
+  for (const r of rows) await tryDeleteOldPhoto(r.photoUrl);
 }
 
 // =========================================================
@@ -198,7 +189,7 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
       });
       return { deleted, removedLoans };
     });
-    tryDeletePhotos(snap);
+    await tryDeletePhotos(snap);
     res.json(result);
   } catch (err) {
     if (err.name === 'SequelizeForeignKeyConstraintError') {
@@ -367,19 +358,16 @@ router.post(
       if (!req.file?.buffer) {
         throw domainError('VALIDATION_FAILED', 'Nessun file caricato');
       }
-      const processed = await sharp(req.file.buffer)
-        .rotate()
-        .resize({ width: PHOTO_W, height: PHOTO_H, fit: 'cover', position: 'attention' })
-        .webp({ quality: 82 })
-        .toBuffer();
-      const filename = `instrument-${instrument.id}-${Date.now()}.webp`;
-      await fs.promises.writeFile(path.join(UPLOADS_DIR, filename), processed);
-      tryDeleteOldPhoto(instrument.photoUrl);
-      const newUrl = `/storage/${filename}`;
+      const newUrl = await storage.replaceImage(
+        instrument.photoUrl,
+        req.file.buffer,
+        storage.PROFILES.instrument,
+        { id: instrument.id },
+      );
       await instrument.update({ photoUrl: newUrl });
       res.json({ instrument, photoUrl: newUrl });
     } catch (err) {
-      if (err && err.message && /sharp|input|unsupported/i.test(err.message)) {
+      if (storage.isImageFormatError(err)) {
         throw domainError(
           'FILE_FORMAT_UNSUPPORTED',
           'Immagine non valida o formato non supportato',
@@ -394,7 +382,7 @@ router.post(
 router.delete('/:id/photo', authenticate, requireRole('admin'), async (req, res) => {
   const instrument = await Instrument.findByPk(req.params.id);
   if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
-  tryDeleteOldPhoto(instrument.photoUrl);
+  await tryDeleteOldPhoto(instrument.photoUrl);
   await instrument.update({ photoUrl: null });
   res.json({ instrument });
 });
