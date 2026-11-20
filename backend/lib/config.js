@@ -84,12 +84,17 @@ function asEnum(name, allowed, def) {
   return v;
 }
 
+// Booleani accettati (senza distinzione di maiuscole, spazi ai bordi ignorati):
+// 'true' | '1' → true; 'false' | '0' → false. Assente/vuoto → default; altro →
+// ConfigError. E' un superset dei formati accettati in passato dai singoli
+// moduli ('true'|'1' esatti; '1'|'true' case-insensitive; solo 'true').
 function asBool(name, def) {
-  const v = process.env[name];
-  if (v == null || v === '') return def;
+  const raw = process.env[name];
+  if (raw == null || raw === '') return def;
+  const v = raw.trim().toLowerCase();
   if (v === 'true' || v === '1') return true;
   if (v === 'false' || v === '0') return false;
-  throw new ConfigError(`${name}="${v}" deve essere 'true' o 'false'`);
+  throw new ConfigError(`${name}="${raw}" deve essere 'true'/'1' o 'false'/'0'`);
 }
 
 /**
@@ -178,6 +183,40 @@ function loadConfig() {
   const MESSAGING_OTP_SCAN_CAP = asInt('MESSAGING_OTP_SCAN_CAP', 100, { min: 1, max: 10000 });
   const MESSAGING_SESSION_TTL_MIN = asInt('MESSAGING_SESSION_TTL_MIN', 15, { min: 1, max: 1440 });
 
+  // Backup automatico (services/backupScheduler). Sono il baseline env: se la
+  // riga BackupSettings esiste, orario/abilitazione effettivi vengono dal DB.
+  const BACKUP_AUTO_ENABLED = asBool('BACKUP_AUTO_ENABLED', true);
+  const BACKUP_TICK_HOUR = asInt('BACKUP_TICK_HOUR', 2, { min: 0, max: 23 });
+  const BACKUP_TICK_MINUTE = asInt('BACKUP_TICK_MINUTE', 30, { min: 0, max: 59 });
+  const AUTO_RESTART_ENABLED = asBool('AUTO_RESTART_ENABLED', false);
+
+  // Verifica settimanale dei backup (services/backupVerifyScheduler).
+  const BACKUP_VERIFY_ENABLED = asBool('BACKUP_VERIFY_ENABLED', true);
+  const BACKUP_VERIFY_DAY = asInt('BACKUP_VERIFY_DAY', 0, { min: 0, max: 6 }); // 0 = domenica
+  const BACKUP_VERIFY_HOUR = asInt('BACKUP_VERIFY_HOUR', 3, { min: 0, max: 23 });
+  const BACKUP_VERIFY_MINUTE = asInt('BACKUP_VERIFY_MINUTE', 0, { min: 0, max: 59 });
+  const BACKUP_VERIFY_MAX_AGE_HOURS = asInt('BACKUP_VERIFY_MAX_AGE_HOURS', 36, {
+    min: 1,
+    max: 24 * 30,
+  });
+  const BACKUP_VERIFY_MIN_SQL_BYTES = asInt('BACKUP_VERIFY_MIN_SQL_BYTES', 1024, {
+    min: 1,
+    max: 10 * 1024 * 1024,
+  });
+  const BACKUP_VERIFY_TABLE_TOLERANCE = asInt('BACKUP_VERIFY_TABLE_TOLERANCE', 2, {
+    min: 0,
+    max: 100,
+  });
+
+  // Export Excel (services/excelExporter + excelExportScheduler). Il PATH resta
+  // una stringa letta dal modulo (relativa o assoluta).
+  const EXCEL_EXPORT_ENABLED = asBool('EXCEL_EXPORT_ENABLED', false);
+  const EXCEL_EXPORT_TICK_MIN = asInt('EXCEL_EXPORT_TICK_MIN', 10, { min: 1, max: 60 });
+  const EXCEL_EXPORT_LOOKAHEAD_DAYS = asInt('EXCEL_EXPORT_LOOKAHEAD_DAYS', 30, {
+    min: 1,
+    max: 365,
+  });
+
   return Object.freeze({
     NODE_ENV,
     isProd,
@@ -211,6 +250,20 @@ function loadConfig() {
     MESSAGING_RATE_ENTRY_TTL_MS,
     MESSAGING_OTP_SCAN_CAP,
     MESSAGING_SESSION_TTL_MIN,
+    BACKUP_AUTO_ENABLED,
+    BACKUP_TICK_HOUR,
+    BACKUP_TICK_MINUTE,
+    AUTO_RESTART_ENABLED,
+    BACKUP_VERIFY_ENABLED,
+    BACKUP_VERIFY_DAY,
+    BACKUP_VERIFY_HOUR,
+    BACKUP_VERIFY_MINUTE,
+    BACKUP_VERIFY_MAX_AGE_HOURS,
+    BACKUP_VERIFY_MIN_SQL_BYTES,
+    BACKUP_VERIFY_TABLE_TOLERANCE,
+    EXCEL_EXPORT_ENABLED,
+    EXCEL_EXPORT_TICK_MIN,
+    EXCEL_EXPORT_LOOKAHEAD_DAYS,
   });
 }
 
@@ -249,6 +302,20 @@ const ENV_NAMES = [
   'MESSAGING_RATE_ENTRY_TTL_MS',
   'MESSAGING_OTP_SCAN_CAP',
   'MESSAGING_SESSION_TTL_MIN',
+  'BACKUP_AUTO_ENABLED',
+  'BACKUP_TICK_HOUR',
+  'BACKUP_TICK_MINUTE',
+  'AUTO_RESTART_ENABLED',
+  'BACKUP_VERIFY_ENABLED',
+  'BACKUP_VERIFY_DAY',
+  'BACKUP_VERIFY_HOUR',
+  'BACKUP_VERIFY_MINUTE',
+  'BACKUP_VERIFY_MAX_AGE_HOURS',
+  'BACKUP_VERIFY_MIN_SQL_BYTES',
+  'BACKUP_VERIFY_TABLE_TOLERANCE',
+  'EXCEL_EXPORT_ENABLED',
+  'EXCEL_EXPORT_TICK_MIN',
+  'EXCEL_EXPORT_LOOKAHEAD_DAYS',
 ];
 
 let _config = null;

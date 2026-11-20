@@ -37,6 +37,7 @@ dayjs.extend(timezone);
 // del previsto.
 const { getTimezone } = require('../lib/institutionTime');
 const { createJob } = require('../lib/jobRunner');
+const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger').child({ scope: 'backupScheduler' });
 const {
   performBackup,
@@ -47,9 +48,6 @@ const {
   KEEP_MONTHLY,
 } = require('../scripts/backup');
 
-const DEFAULT_HOUR = 2;
-const DEFAULT_MIN = 30;
-
 let inProgress = false;
 let lastRun = null; // { status, file, sizeBytes, deleted, durationMs, finishedAt, error? }
 let cachedConfig = null; // ultima EffectiveConfig calcolata, per evitare round-trip DB ad ogni read
@@ -58,16 +56,19 @@ let cachedConfig = null; // ultima EffectiveConfig calcolata, per evitare round-
 // Effective config — fonde DB > env > default
 // ---------------------------------------------------------------------------
 
-function envBool(name, def) {
-  const v = process.env[name];
-  if (v == null) return def;
-  return v === 'true' || v === '1';
-}
-
-function envInt(name, def, min, max) {
-  const raw = Number(process.env[name]);
-  if (!Number.isFinite(raw) || raw < min || raw > max) return def;
-  return Math.floor(raw);
+/** Baseline env-only (sempre disponibile, non dipende da DB). */
+function envBaseline() {
+  const c = getConfig();
+  return {
+    autoEnabled: c.BACKUP_AUTO_ENABLED,
+    scheduledHour: c.BACKUP_TICK_HOUR,
+    scheduledMinute: c.BACKUP_TICK_MINUTE,
+    keepDaily: KEEP_DAILY,
+    keepWeekly: KEEP_WEEKLY,
+    keepMonthly: KEEP_MONTHLY,
+    autoRestartEnabled: c.AUTO_RESTART_ENABLED,
+    source: 'env',
+  };
 }
 
 /**
@@ -77,17 +78,7 @@ function envInt(name, def, min, max) {
  * @returns {Promise<EffectiveConfig>}
  */
 async function loadEffectiveConfig() {
-  // env-only baseline (sempre disponibile, non dipende da DB)
-  const baseline = {
-    autoEnabled: envBool('BACKUP_AUTO_ENABLED', true),
-    scheduledHour: envInt('BACKUP_TICK_HOUR', DEFAULT_HOUR, 0, 23),
-    scheduledMinute: envInt('BACKUP_TICK_MINUTE', DEFAULT_MIN, 0, 59),
-    keepDaily: KEEP_DAILY,
-    keepWeekly: KEEP_WEEKLY,
-    keepMonthly: KEEP_MONTHLY,
-    autoRestartEnabled: envBool('AUTO_RESTART_ENABLED', false),
-    source: 'env',
-  };
+  const baseline = envBaseline();
 
   try {
     const { sequelize, BackupSettings } = require('../models');
@@ -129,16 +120,7 @@ async function loadEffectiveConfig() {
 /** Versione sincrona: usa la cache, fallback su env+default. Mai async. */
 function getCachedConfig() {
   if (cachedConfig) return cachedConfig;
-  return {
-    autoEnabled: envBool('BACKUP_AUTO_ENABLED', true),
-    scheduledHour: envInt('BACKUP_TICK_HOUR', DEFAULT_HOUR, 0, 23),
-    scheduledMinute: envInt('BACKUP_TICK_MINUTE', DEFAULT_MIN, 0, 59),
-    keepDaily: KEEP_DAILY,
-    keepWeekly: KEEP_WEEKLY,
-    keepMonthly: KEEP_MONTHLY,
-    autoRestartEnabled: envBool('AUTO_RESTART_ENABLED', false),
-    source: 'env',
-  };
+  return envBaseline();
 }
 
 // Orario da config effettiva (DB > env > default), fuso istituzionale: entrambi
