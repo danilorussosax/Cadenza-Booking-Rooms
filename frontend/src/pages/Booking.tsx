@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { skipToken, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -61,12 +61,16 @@ export default function BookingPage() {
   }, [roomIdStr, roomsQuery.data]);
 
   // Sync URL params
-  useEffect(() => {
+  // useEffectEvent: legge `params`/`setParams` più recenti senza farli
+  // diventare dipendenze (altrimenti l'aggiornamento dell'URL rilancerebbe l'effetto).
+  const syncUrlParams = useEffectEvent(() => {
     const next = new URLSearchParams(params);
     if (roomIdStr) next.set('room', roomIdStr);
     next.set('date', date);
     setParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+  useEffect(() => {
+    syncUrlParams();
   }, [date, roomIdStr]);
 
   const roomId = roomIdStr ? Number(roomIdStr) : null;
@@ -77,8 +81,7 @@ export default function BookingPage() {
 
   const availabilityQuery = useQuery({
     queryKey: qk.availability.forRoomDate(roomId, date),
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    queryFn: () => bookingsApi.availability(roomId!, date),
+    queryFn: roomId ? () => bookingsApi.availability(roomId, date) : skipToken,
     enabled: !!roomId,
   });
 

@@ -37,7 +37,7 @@ describe('lib/api · userCache', () => {
 
   it('set + get serializza e deserializza', () => {
     userCache.set({ id: 7, role: 'admin' });
-    expect(userCache.get<{ id: number; role: string }>()).toEqual({ id: 7, role: 'admin' });
+    expect(userCache.get()).toEqual({ id: 7, role: 'admin' });
   });
 
   it('get tollera JSON corrotto restituendo null', () => {

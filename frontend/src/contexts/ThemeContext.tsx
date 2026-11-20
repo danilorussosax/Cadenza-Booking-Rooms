@@ -33,9 +33,13 @@ function readStored(): Theme {
   return v === 'light' || v === 'dark' || v === 'system' ? v : 'system';
 }
 
+// matchMedia può mancare (SSR, jsdom, browser molto vecchi): TS lo dà per sempre presente.
+function hasMatchMedia(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+}
+
 function systemPrefers(): ResolvedTheme {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (typeof window === 'undefined' || !window.matchMedia) return 'light';
+  if (!hasMatchMedia()) return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
@@ -54,8 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Watch system preference changes
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!window.matchMedia) return;
+    if (!hasMatchMedia()) return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
       setSystemTheme(e.matches ? 'dark' : 'light');

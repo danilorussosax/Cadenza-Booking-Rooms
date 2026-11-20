@@ -128,8 +128,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       reset({
         name: room?.name ?? '',
         code: room?.code ?? '',
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        floor: room?.floor ?? building.floors[0] ?? 'Piano Terra',
+        floor: room?.floor ?? building.floors.at(0) ?? 'Piano Terra',
         capacity: room?.capacity ?? 1,
         type: room?.type ?? 'studio',
         isBookable: room?.isBookable ?? true,

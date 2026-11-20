@@ -227,8 +227,7 @@ export function InstituteFormDialog({ open, onOpenChange, institute }: Props) {
             <Textarea id="i-description" rows={3} {...register('description')} />
           </div>
 
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {isEdit && institute && <LogoUploader institute={institute} />}
+          {isEdit && <LogoUploader institute={institute} />}
 
           <div className="border-t pt-4">
             <h3 className="font-display text-base font-medium">Dati legali e privacy</h3>

@@ -30,8 +30,10 @@ export function CancelBookingDialog({ booking, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const cancelMutation = useMutation({
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    mutationFn: () => bookingsApi.cancel(booking!.id, reason.trim() || undefined),
+    mutationFn: () => {
+      if (!booking) return Promise.reject(new Error('Nessuna prenotazione selezionata'));
+      return bookingsApi.cancel(booking.id, reason.trim() || undefined);
+    },
     onSuccess: () => {
       toast.success('Prenotazione annullata');
       void invalidateBookings(qc);

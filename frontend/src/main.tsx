@@ -44,8 +44,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Elemento #root non trovato');
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AppErrorBoundary>
       <MotionConfig reducedMotion="user">

@@ -28,8 +28,7 @@ export function loadConsent(): CookieConsentState | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<CookieConsentState>;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    const parsed = JSON.parse(raw) as Partial<CookieConsentState> | null;
     if (!parsed || typeof parsed !== 'object') return null;
     if (parsed.policyVersion !== PRIVACY_POLICY_VERSION) return null;
     return {

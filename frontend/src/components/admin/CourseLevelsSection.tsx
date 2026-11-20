@@ -30,8 +30,8 @@ export function CourseLevelsSection() {
     queryFn: () => courseLevelsApi.list(),
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const items = query.data?.levels ?? [];
+  const levels = query.data?.levels;
+  const items = useMemo(() => levels ?? [], [levels]);
 
   const visibleIds = useMemo(() => items.map((i) => i.id), [items]);
   const visibleSelectedCount = visibleIds.filter((id) => selected.has(id)).length;

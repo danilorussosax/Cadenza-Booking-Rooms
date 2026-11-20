@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -49,11 +49,12 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
     return Array.isArray(raw) ? (raw as QuoteEntry[]) : [];
   }, [t]);
 
-  const pickedQuote = useMemo<QuoteEntry | null>(() => {
+  // useState con initializer: quote scelta una sola volta al mount (rotazione
+  // su page-load, non su re-render quando cambia `quotes`).
+  const [pickedQuote] = useState<QuoteEntry | null>(() => {
     if (quotes.length === 0) return null;
     return quotes[Math.floor(Math.random() * quotes.length)] ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- quote stabile per il mount: vogliamo rotazione su page-load, non su re-render quando cambia `quotes`
-  }, []);
+  });
 
   const finalQuote = quote ?? pickedQuote?.text ?? '';
   const finalAttribution = attribution ?? pickedQuote?.attribution ?? '';
