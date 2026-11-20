@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import type { Course } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
+import { invalidateCourses } from '@/lib/invalidation';
 
 // Macro-tab in stile /admin/server-settings: card grandi con icona+label.
 type CoursesTab = 'corsi' | 'livelli';
@@ -163,7 +164,7 @@ export default function AdminCourses() {
     mutationFn: (id: number) => coursesApi.remove(id),
     onSuccess: () => {
       toast.success('Corso eliminato');
-      void qc.invalidateQueries({ queryKey: qk.courses.all() });
+      void invalidateCourses(qc);
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -175,7 +176,7 @@ export default function AdminCourses() {
     mutationFn: () => coursesApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'corso eliminato' : 'corsi eliminati'}`);
-      void qc.invalidateQueries({ queryKey: qk.courses.all() });
+      void invalidateCourses(qc);
       setBulkConfirm(false);
       clearSelection();
     },

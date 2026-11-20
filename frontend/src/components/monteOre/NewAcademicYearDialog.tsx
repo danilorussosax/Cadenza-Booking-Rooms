@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { qk } from '@/lib/queryKeys';
+import { invalidateMonteOre } from '@/lib/invalidation';
 
 interface Props {
   open: boolean;
@@ -81,8 +81,7 @@ function YearForm({ existingYears, suggestedYear, onClose, onCreated }: Props) {
     mutationFn: (publish: boolean) =>
       monteOreAdminApi.createAcademicYear({ ...payload, settings: preview?.settings, publish }),
     onSuccess: (data) => {
-      void qc.invalidateQueries({ queryKey: qk.monteOre.all() });
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
+      void invalidateMonteOre(qc);
       toast.success(
         data.settings.status === 'published'
           ? `AA ${year} pubblicato`

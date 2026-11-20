@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DetailDialog } from './ProposalDetailDialog';
 import { CONTRACT_LABEL, STATUS_LABEL, STATUS_VARIANT, resolveProposalThreshold } from './shared';
 import { qk } from '@/lib/queryKeys';
+import { invalidateAdminMonteOre } from '@/lib/invalidation';
 
 export function ProposalsTab({
   selectedYear,
@@ -149,7 +150,7 @@ export function ProposalsTab({
           id={selectedId}
           onClose={() => setSelectedId(null)}
           onChanged={() => {
-            void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
+            void invalidateAdminMonteOre(qc);
           }}
         />
       )}

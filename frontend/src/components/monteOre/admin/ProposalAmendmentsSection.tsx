@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
 import { qk } from '@/lib/queryKeys';
+import { invalidateProposalAmendments } from '@/lib/invalidation';
 
 export function AmendmentsSection({
   proposalId,
@@ -27,7 +28,7 @@ export function AmendmentsSection({
       monteOreAdminApi.approveAmendment(proposalId, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendmentsOf(proposalId) });
+      void invalidateProposalAmendments(qc, proposalId);
       onAfterDecision();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -38,7 +39,7 @@ export function AmendmentsSection({
       monteOreAdminApi.rejectAmendment(proposalId, aid, reason),
     onSuccess: () => {
       toast.success('Variazione rifiutata');
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendmentsOf(proposalId) });
+      void invalidateProposalAmendments(qc, proposalId);
       onAfterDecision();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

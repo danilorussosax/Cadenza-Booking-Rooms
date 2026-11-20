@@ -11,8 +11,7 @@ import { emptyRecurrence, type RecurrenceState } from '@/lib/recurrence';
 import type { Booking, BookingConflictsWith, BookingSuggestion, BookingType } from '@/types';
 import type { BookingFormValues as FormValues } from './bookingFormSchema';
 import { useBookingFormData } from './useBookingFormData';
-import { qk } from '@/lib/queryKeys';
-import { invalidateBookings } from '@/lib/invalidation';
+import { invalidateBookings, invalidateWaitlist } from '@/lib/invalidation';
 import { isAdminUser } from '@/lib/roles';
 
 interface Options {
@@ -217,7 +216,7 @@ export function useBookingSubmission({ open, booking, onOpenChange, onCreated }:
     },
     onSuccess: (res) => {
       toast.success(t('waitlist.joined', { position: res.entry.position + 1 }));
-      void qc.invalidateQueries({ queryKey: qk.waitlist.me() });
+      void invalidateWaitlist(qc);
       // Il dialog principale è già chiuso; chiudiamo anche il popup waitlist.
       setConflictPayload(null);
     },

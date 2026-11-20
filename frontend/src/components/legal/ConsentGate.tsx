@@ -19,7 +19,7 @@ import { gdprApi } from '@/api/gdpr';
 import { httpErrorMessage } from '@/lib/api';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
 import { useConsentGate } from '@/components/legal/useConsentGate';
-import { qk } from '@/lib/queryKeys';
+import { invalidateConsents } from '@/lib/invalidation';
 
 // Banner-modale globale che obbliga l'utente autenticato ad accettare la
 // versione corrente di Privacy Policy e Termini se quella registrata è
@@ -56,7 +56,7 @@ export function ConsentGate() {
         }),
       ]),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: qk.gdpr.consents() });
+      void invalidateConsents(qc);
       toast.success('Grazie, consensi registrati.');
     },
     onError: (err) => {

@@ -59,6 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { qk } from '@/lib/queryKeys';
+import { invalidateConsents } from '@/lib/invalidation';
 import { isAdminUser } from '@/lib/roles';
 
 // =====================================================
@@ -737,7 +738,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
         policyVersion: PRIVACY_POLICY_VERSION,
       }),
     onSuccess: (_, granted) => {
-      void qc.invalidateQueries({ queryKey: qk.gdpr.consents() });
+      void invalidateConsents(qc);
       toast.success(granted ? 'Consenso marketing attivato' : 'Consenso marketing revocato');
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

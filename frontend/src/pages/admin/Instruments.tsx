@@ -51,6 +51,7 @@ import type {
   LoanStatus,
 } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateAdminLoans, invalidateInstruments } from '@/lib/invalidation';
 
 type Tab = 'inventory' | 'all_loans' | 'overdue' | 'expiring' | 'rules';
 
@@ -322,8 +323,7 @@ function InventoryTab({
     mutationFn: () => instrumentsApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted, removedLoans }) => {
       toast.success(t('admin.instruments.bulk.deleted_toast', { count: deleted, removedLoans }));
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateInstruments(qc);
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -342,8 +342,7 @@ function InventoryTab({
           { count: changed },
         ),
       );
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateInstruments(qc);
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -677,8 +676,7 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.approve(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.approved'));
-      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateAdminLoans(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -687,8 +685,7 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.reject(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.rejected'));
-      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateAdminLoans(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -697,8 +694,7 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.returnLoan(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.returned'));
-      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void invalidateAdminLoans(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -896,8 +892,7 @@ function DeleteInstrumentDialog({
     mutationFn: (id: number) => instrumentsApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.deleted'));
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void invalidateInstruments(qc);
       onClose();
     },
     onError: (err) => {

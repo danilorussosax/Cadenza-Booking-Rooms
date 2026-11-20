@@ -13,6 +13,7 @@ import { CourseLevelFormDialog } from './CourseLevelFormDialog';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { CourseLevelEntity } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateCourseLevels } from '@/lib/invalidation';
 
 export function CourseLevelsSection() {
   const qc = useQueryClient();
@@ -63,7 +64,7 @@ export function CourseLevelsSection() {
     mutationFn: (id: number) => courseLevelsApi.remove(id),
     onSuccess: () => {
       toast.success('Livello eliminato');
-      void qc.invalidateQueries({ queryKey: qk.courseLevels.all() });
+      void invalidateCourseLevels(qc);
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -75,7 +76,7 @@ export function CourseLevelsSection() {
     mutationFn: () => courseLevelsApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'livello eliminato' : 'livelli eliminati'}`);
-      void qc.invalidateQueries({ queryKey: qk.courseLevels.all() });
+      void invalidateCourseLevels(qc);
       setBulkConfirm(false);
       clearSelection();
     },

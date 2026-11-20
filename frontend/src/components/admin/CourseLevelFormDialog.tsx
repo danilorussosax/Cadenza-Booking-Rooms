@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { CourseLevelEntity } from '@/types';
-import { qk } from '@/lib/queryKeys';
+import { invalidateCourseLevels } from '@/lib/invalidation';
 
 const schema = z.object({
   code: z
@@ -78,7 +78,7 @@ export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Livello aggiornato' : 'Livello creato');
-      void qc.invalidateQueries({ queryKey: qk.courseLevels.all() });
+      void invalidateCourseLevels(qc);
       onOpenChange(false);
     },
     onError: (err) => {

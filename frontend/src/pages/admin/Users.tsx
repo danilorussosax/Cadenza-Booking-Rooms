@@ -71,6 +71,7 @@ import { Esse3Logo } from '@/components/icons/Esse3Logo';
 import type { Role, User, UserStatus } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
+import { invalidateUsers } from '@/lib/invalidation';
 import { isAdminUser } from '@/lib/roles';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
@@ -146,7 +147,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.approve(id),
     onSuccess: () => {
       toast.success(t('admin.users.approved_toast'));
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -155,7 +156,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.reject(id),
     onSuccess: () => {
       toast.success(t('admin.users.rejected_toast'));
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -177,7 +178,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.users.deleted_toast'));
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -223,7 +224,7 @@ export default function AdminUsers() {
           { count: changed, skipped },
         ),
       );
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -234,7 +235,7 @@ export default function AdminUsers() {
     mutationFn: () => usersApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted, removedBookings }) => {
       toast.success(t('admin.users.bulk.deleted_toast', { count: deleted, removedBookings }));
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void invalidateUsers(qc);
       setSelected(new Set());
       setBulkAction(null);
     },

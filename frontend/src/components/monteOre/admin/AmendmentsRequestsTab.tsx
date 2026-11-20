@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
 import { qk } from '@/lib/queryKeys';
+import { invalidateAdminAmendments } from '@/lib/invalidation';
 
 export function AmendmentsRequestsTab() {
   const qc = useQueryClient();
@@ -26,7 +27,7 @@ export function AmendmentsRequestsTab() {
       monteOreAdminApi.approveAmendment(pid, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendments() });
+      void invalidateAdminAmendments(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -36,7 +37,7 @@ export function AmendmentsRequestsTab() {
       monteOreAdminApi.rejectAmendment(pid, aid, reason),
     onSuccess: () => {
       toast.success('Variazione rifiutata');
-      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendments() });
+      void invalidateAdminAmendments(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

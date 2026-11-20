@@ -17,6 +17,7 @@ import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { EquipmentTemplate } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
+import { invalidateEquipmentTemplates } from '@/lib/invalidation';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   EQUIPMENT_TYPE_OPTIONS.map((o) => [o.value, o.label]),
@@ -77,7 +78,7 @@ export function EquipmentTemplatesSection() {
     mutationFn: (id: number) => structureApi.deleteEquipmentTemplate(id),
     onSuccess: () => {
       toast.success('Dotazione eliminata');
-      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
+      void invalidateEquipmentTemplates(qc);
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -89,7 +90,7 @@ export function EquipmentTemplatesSection() {
     mutationFn: () => structureApi.bulkDeleteEquipmentTemplates(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'dotazione eliminata' : 'dotazioni eliminate'}`);
-      void qc.invalidateQueries({ queryKey: qk.equipmentTemplates.all() });
+      void invalidateEquipmentTemplates(qc);
       setBulkConfirm(false);
       clearSelection();
     },

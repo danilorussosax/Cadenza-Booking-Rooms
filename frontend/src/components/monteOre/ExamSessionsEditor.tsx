@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { qk } from '@/lib/queryKeys';
+import { invalidateExamSessions } from '@/lib/invalidation';
 
 interface Props {
   academicYear: string;
@@ -45,7 +46,7 @@ export function ExamSessionsEditor({ academicYear }: Props) {
     mutationFn: (id: number) => monteOreAdminApi.deleteExamSession(id),
     onSuccess: () => {
       toast.success('Sessione eliminata');
-      void qc.invalidateQueries({ queryKey: qk.examSessions.byYear(academicYear) });
+      void invalidateExamSessions(qc, academicYear);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -171,7 +172,7 @@ function ExamSessionDialog({ academicYear, mode, onClose }: DialogProps) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Sessione aggiornata' : 'Sessione creata');
-      void qc.invalidateQueries({ queryKey: qk.examSessions.byYear(academicYear) });
+      void invalidateExamSessions(qc, academicYear);
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

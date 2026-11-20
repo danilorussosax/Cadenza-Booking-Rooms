@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { BookingWaitlistEntry } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateWaitlist, invalidateWaitlistPromoted } from '@/lib/invalidation';
 
 /**
  * Card "Sei in coda" sulla Dashboard. Mostra le code attive dell'utente
@@ -55,8 +56,7 @@ export function WaitlistDashboardCard({ entryId }: { entryId?: number }) {
             : 'waitlist.claim_success',
         ),
       );
-      void qc.invalidateQueries({ queryKey: qk.waitlist.me() });
-      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
+      void invalidateWaitlistPromoted(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -65,7 +65,7 @@ export function WaitlistDashboardCard({ entryId }: { entryId?: number }) {
     mutationFn: (id: number) => waitlistApi.cancel(id),
     onSuccess: () => {
       toast.success(t('waitlist.cancel_success'));
-      void qc.invalidateQueries({ queryKey: qk.waitlist.me() });
+      void invalidateWaitlist(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

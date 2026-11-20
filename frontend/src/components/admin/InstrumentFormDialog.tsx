@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Instrument, InstrumentCondition, InstrumentFamily } from '@/types';
-import { qk } from '@/lib/queryKeys';
+import { invalidateInstruments } from '@/lib/invalidation';
 
 const FAMILIES: InstrumentFamily[] = [
   'archi',
@@ -154,8 +154,7 @@ export function InstrumentFormDialog({ open, onOpenChange, instrument }: Props) 
     },
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.saved'));
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void invalidateInstruments(qc);
       onOpenChange(false);
     },
     onError: (err) => {
@@ -171,8 +170,7 @@ export function InstrumentFormDialog({ open, onOpenChange, instrument }: Props) 
     onSuccess: ({ photoUrl }) => {
       setCurrentPhotoUrl(photoUrl);
       toast.success(t('admin.instruments.photo.uploaded'));
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void invalidateInstruments(qc);
     },
     onError: (err) => {
       if (err instanceof Error && err.message === 'save_first') {
@@ -191,8 +189,7 @@ export function InstrumentFormDialog({ open, onOpenChange, instrument }: Props) 
     onSuccess: () => {
       setCurrentPhotoUrl(null);
       toast.success(t('admin.instruments.photo.removed'));
-      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
-      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void invalidateInstruments(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

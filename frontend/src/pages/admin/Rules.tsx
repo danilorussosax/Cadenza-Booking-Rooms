@@ -62,6 +62,7 @@ import type {
 } from '@/types';
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
+import { invalidateRuleExceptions } from '@/lib/invalidation';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -713,7 +714,7 @@ function ExceptionsSection({
     mutationFn: (id: number) => rulesApi.deleteException(id),
     onSuccess: () => {
       toast.success('Eccezione eliminata');
-      void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
+      void invalidateRuleExceptions(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -845,7 +846,7 @@ function ExceptionsSection({
           setOverlapState(null);
         }}
         onCancelled={() => {
-          void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
+          void invalidateRuleExceptions(qc);
         }}
       />
     </div>
@@ -1002,7 +1003,7 @@ function ExceptionDialog({
     },
     onSuccess: ({ saved, overlapping }) => {
       toast.success(existing ? 'Eccezione aggiornata' : 'Eccezione creata');
-      void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
+      void invalidateRuleExceptions(qc);
       onClose();
       onSaved?.(saved, overlapping);
     },

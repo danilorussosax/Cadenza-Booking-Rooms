@@ -31,6 +31,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { qk } from '@/lib/queryKeys';
+import { invalidateQrOverview, invalidateQrStructure } from '@/lib/invalidation';
 
 // Pagina admin per la gestione dei QR-code di check-in delle aule + policy
 // "check-in solo da rete d'istituto". Inserita come tab dentro
@@ -69,8 +70,7 @@ function BuildingCheckInCard() {
           ? `Check-in attivato per ${building.name}`
           : `Check-in disattivato per ${building.name}`,
       );
-      void qc.invalidateQueries({ queryKey: qk.admin.qrBuildings() });
-      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
+      void invalidateQrStructure(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -469,7 +469,7 @@ function RoomsQrTable() {
     onSuccess: (data) => {
       toast.success('QR-code rigenerato. Stampa la nuova versione e sostituisci la copia in aula.');
       setVersions((prev) => ({ ...prev, [data.roomId]: data.qrTokenUpdatedAt }));
-      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
+      void invalidateQrOverview(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -484,7 +484,7 @@ function RoomsQrTable() {
         for (const r of overviewQuery.data?.rooms ?? []) next[r.id] = ts;
         return next;
       });
-      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
+      void invalidateQrOverview(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -498,7 +498,7 @@ function RoomsQrTable() {
       link.download = `qr-aule-${todayLocalIso()}.zip`;
       link.click();
       URL.revokeObjectURL(url);
-      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
+      void invalidateQrOverview(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

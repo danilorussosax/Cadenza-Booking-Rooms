@@ -8,6 +8,7 @@ import { dayjs } from '@/lib/date';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { qk } from '@/lib/queryKeys';
+import { invalidateBookings } from '@/lib/invalidation';
 
 // =============================================================================
 // QuickBookCard — Dashboard
@@ -52,8 +53,7 @@ export function QuickBookCard() {
           when: start.format('ddd D MMM HH:mm'),
         }),
       );
-      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
-      void qc.invalidateQueries({ queryKey: qk.availability.all() });
+      void invalidateBookings(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

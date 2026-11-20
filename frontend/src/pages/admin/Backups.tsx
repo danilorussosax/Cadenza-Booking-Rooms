@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { qk } from '@/lib/queryKeys';
+import { invalidateBackups } from '@/lib/invalidation';
 
 // =============================================================================
 // /admin/backups — gestione completa dei backup database + uploads.
@@ -78,7 +79,7 @@ export default function AdminBackups() {
     mutationFn: () => backupsApi.createNow(),
     onSuccess: (res) => {
       toast.success(t('admin.backups.toast.created', { file: res.file }));
-      void qc.invalidateQueries({ queryKey: qk.admin.backups() });
+      void invalidateBackups(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -88,7 +89,7 @@ export default function AdminBackups() {
     onSuccess: () => {
       toast.success(t('admin.backups.toast.deleted'));
       setDeleteTarget(null);
-      void qc.invalidateQueries({ queryKey: qk.admin.backups() });
+      void invalidateBackups(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -97,7 +98,7 @@ export default function AdminBackups() {
     mutationFn: (file: File) => backupsApi.upload(file),
     onSuccess: (res) => {
       toast.success(t('admin.backups.toast.uploaded', { file: res.file }));
-      void qc.invalidateQueries({ queryKey: qk.admin.backups() });
+      void invalidateBackups(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -108,7 +109,7 @@ export default function AdminBackups() {
       setRestoreTarget(null);
       setRestoreResult({ file: res.restoredFile, preSnapshot: res.preRestoreSnapshot });
       toast.success(t('admin.backups.toast.restored'));
-      void qc.invalidateQueries({ queryKey: qk.admin.backups() });
+      void invalidateBackups(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -496,7 +497,7 @@ function SchedulerConfigSection({ scheduler }: { scheduler: SchedulerStatus }) {
     onSuccess: () => {
       toast.success(t('admin.backups.scheduler.saved_toast'));
       setEditing(false);
-      void qc.invalidateQueries({ queryKey: qk.admin.backups() });
+      void invalidateBackups(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

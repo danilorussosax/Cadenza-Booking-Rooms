@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { qk } from '@/lib/queryKeys';
+import { invalidateUsersImported } from '@/lib/invalidation';
 
 /**
  * Target field canonici esposti dal backend (TARGET_FIELDS lato fieldMapping.js).
@@ -279,8 +280,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
           orphaned: data.summary.orphaned,
         }),
       );
-      void qc.invalidateQueries({ queryKey: qk.users.all() });
-      void qc.invalidateQueries({ queryKey: qk.admin.integrations() });
+      void invalidateUsersImported(qc);
       setLastApply(data);
       setStep('done');
     },

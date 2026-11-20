@@ -51,6 +51,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { BookingQuota, QuotaScopeKind, Role } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateQuotas } from '@/lib/invalidation';
 
 const ROLES: Role[] = ['admin', 'docente', 'studente'];
 const SCOPE_KINDS: QuotaScopeKind[] = ['roomType', 'equipmentType', 'room', 'building', 'global'];
@@ -122,7 +123,7 @@ export function QuotasManager() {
     mutationFn: (id: number) => quotasApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.quotas.deleted'));
-      void qc.invalidateQueries({ queryKey: qk.quotas.all() });
+      void invalidateQuotas(qc);
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -476,7 +477,7 @@ function QuotaFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.quotas.updated') : t('admin.quotas.created'));
-      void qc.invalidateQueries({ queryKey: qk.quotas.all() });
+      void invalidateQuotas(qc);
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

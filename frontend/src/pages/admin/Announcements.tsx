@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import { qk } from '@/lib/queryKeys';
+import { invalidateAnnouncements } from '@/lib/invalidation';
 
 const AUDIENCE_KINDS: AudienceKind[] = ['all', 'role', 'course', 'building'];
 const ROLES = ['studente', 'docente', 'admin'] as const;
@@ -104,7 +105,7 @@ export default function AdminAnnouncements() {
     mutationFn: (id: number) => announcementsApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.announcements.deleted'));
-      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
+      void invalidateAnnouncements(qc);
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -114,7 +115,7 @@ export default function AdminAnnouncements() {
     mutationFn: (id: number) => announcementsApi.resendEmail(id),
     onSuccess: ({ sent }) => {
       toast.success(t('admin.announcements.broadcast_sent', { count: sent ?? 0 }));
-      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
+      void invalidateAnnouncements(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -392,7 +393,7 @@ function AnnouncementFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.announcements.updated') : t('admin.announcements.created'));
-      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
+      void invalidateAnnouncements(qc);
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import type { Course, CourseLevel } from '@/types';
 import { qk } from '@/lib/queryKeys';
+import { invalidateCourses } from '@/lib/invalidation';
 
 const schema = z.object({
   code: z.string().min(1, 'Inserisci il codice').max(20, 'Massimo 20 caratteri'),
@@ -114,7 +115,7 @@ export function CourseFormDialog({ open, onOpenChange, course }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Corso aggiornato' : 'Corso creato');
-      void qc.invalidateQueries({ queryKey: qk.courses.all() });
+      void invalidateCourses(qc);
       onOpenChange(false);
     },
     onError: (err) => {
