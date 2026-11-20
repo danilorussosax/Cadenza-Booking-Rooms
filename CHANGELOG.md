@@ -10,6 +10,40 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.22.2] — 20 novembre 2026
+
+Aggiornamento di sicurezza delle dipendenze di produzione: nessuna vulnerabilità critica o alta nota.
+
+- Backend: da 19 a 5 vulnerabilità segnalate da `npm audit` (2 critiche e 9 alte risolte). Aggiornati, fra gli altri, `proxy-addr` (IP spoofing con sottoreti IPv4-mapped IPv6), `tar`, `body-parser`, `multer`, `sharp`, `undici` e `nanoid`. `nodemailer` passa dalla 8 alla 10.3.1, scelta fra le versioni già assestate che includono la correzione.
+- Frontend: da 5 a 2 vulnerabilità (2 alte risolte): `react-router` e `react-router-dom` 7.18.6 e `zod` 4.6.7.
+- Restano solo vulnerabilità moderate in strumenti che non girano nell’applicazione in esecuzione: `sequelize-cli` (migrazioni da riga di comando) e `@tailwindcss/typography` (build).
+- Corretto il `package-lock.json` del backend, che il primo aggiornamento aveva lasciato con una voce incompleta (`sharp-win32-ia32`) e faceva fallire `npm ci`.
+
+**Compatibilità**
+
+- Nessuna modifica a codice applicativo, schema o configurazione.
+- `nodemailer` 9 valida i certificati TLS quando scarica contenuti remoti (allegati con URL, OAuth2, proxy): Cadenza non usa allegati remoti, quindi non ci sono effetti.
+- Le dipendenze del server vanno reinstallate con `npm ci --omit=dev`; il deploy lo esegue in automatico quando il lockfile cambia.
+
+Verifiche: 2.737 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 656 test frontend; 26 test browser; CI verde su tutti i job, PostgreSQL ed E2E compresi; `npm audit` sul server senza vulnerabilità critiche o alte.
+
+### English
+
+Security update of the production dependencies: no known critical or high vulnerabilities remain.
+
+- Backend: from 19 to 5 vulnerabilities reported by `npm audit` (2 critical and 9 high resolved). Updated, among others, `proxy-addr` (IP spoofing through IPv4-mapped IPv6 subnets), `tar`, `body-parser`, `multer`, `sharp`, `undici` and `nanoid`. `nodemailer` moves from 8 to 10.3.1, chosen among the settled versions that include the fix.
+- Frontend: from 5 to 2 vulnerabilities (2 high resolved): `react-router` and `react-router-dom` 7.18.6 and `zod` 4.6.7.
+- Only moderate vulnerabilities remain, in tools that do not run in the live application: `sequelize-cli` (command-line migrations) and `@tailwindcss/typography` (build).
+- Fixed the backend `package-lock.json`, which the first update had left with an incomplete entry (`sharp-win32-ia32`) that made `npm ci` fail.
+
+**Compatibility**
+
+- No application code, schema or configuration changes.
+- `nodemailer` 9 validates TLS certificates when fetching remote content (URL attachments, OAuth2, proxies): Cadenza does not use remote attachments, so there is no effect.
+- Server dependencies must be reinstalled with `npm ci --omit=dev`; the deploy does this automatically when the lockfile changes.
+
+Verification: 2,737 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 656 frontend tests; 26 browser tests; CI green on all jobs, including PostgreSQL and E2E; `npm audit` on the server reports no critical or high vulnerabilities.
+
 ## [1.22.1] — 20 novembre 2026
 
 Correzioni al Monte Ore e alla creazione degli edifici, con un consolidamento interno del 2FA e degli errori di validazione.
