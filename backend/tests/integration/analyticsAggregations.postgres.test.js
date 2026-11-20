@@ -144,6 +144,36 @@ const isPostgres = sequelize.getDialect() === 'postgres';
       expect(res.body.summary.noShowRatePct).toBe(50);
     });
 
+    it('le prenotazioni cancellate logicamente (soft delete) non entrano in nessun KPI', async () => {
+      const { authHeader, user: admin } = await createAdmin();
+      const room = await createRoom();
+      const mk = (hour, extra = {}) =>
+        createBooking({
+          type: 'studio_individuale',
+          user: admin,
+          room,
+          startTime: mondayAt(hour),
+          endTime: new Date(mondayAt(hour).getTime() + 60 * 60 * 1000),
+          ...extra,
+        });
+      await mk(9);
+      const ghost = await mk(10, { status: 'cancelled', autoCancelledAt: new Date() });
+      const removed = await mk(11);
+      const removedGhost = await mk(12, { status: 'cancelled', autoCancelledAt: new Date() });
+      await removed.destroy();
+      await removedGhost.destroy();
+      expect(ghost.deletedAt ?? null).toBeNull();
+
+      const res = await request(app).get('/api/admin/analytics').set('Authorization', authHeader);
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toMatchObject({
+        confirmedBookings: 1,
+        ghostedBookings: 1,
+        totalCreated: 2,
+        noShowRatePct: 50,
+      });
+    });
+
     it('topRooms ordinato DESC per ore totali', async () => {
       const { authHeader, user: admin } = await createAdmin();
       const r1 = await createRoom({ name: 'R1' });
