@@ -352,7 +352,7 @@ Usa questa pagina quando:
 
 URL: `/monte-ore`
 
-> **Cos'è il Monte Ore**: è il **piano annuale di insegnamento**. Contrattualmente devi garantire almeno **324 ore di didattica** all'anno (se sei titolare), distribuite in **2-4 giorni a settimana**, nella finestra di lezioni stabilita dalla Direzione (di solito ott → giu). Per chi ha contratto orario, la soglia è personalizzata (tipicamente 30-200 h).
+> **Cos'è il Monte Ore**: è il **piano annuale di insegnamento**. Il numero di ore dipende dal tuo contratto: **324 ore esatte** per il titolare di cattedra, **fino a 162 ore** per il tempo definito, le **ore individuali** fissate dalla Direzione per la collaborazione e per i contratti orari. Le ore sono distribuite in **2-4 giorni a settimana** (salvo esenzione) nella finestra di lezioni stabilita dalla Direzione.
 
 ### 8.1 Quando compilare la proposta
 
@@ -368,7 +368,7 @@ Fuori dalla finestra l'invio è bloccato (a meno che la Direzione ti abbia conce
 
 Cadenza sceglie automaticamente l'AA su cui stai lavorando, secondo questa priorità:
 
-1. **Override dell'amministrazione** — se l'admin ha "attivato per docenti" un AA specifico, è quello che vedi.
+1. **Anno avviato dall'amministrazione** — se l'admin ha «avviato» un AA specifico, è quello che vedi.
 2. **Finestra di submission aperta** — tipicamente settembre/ottobre, in quel periodo la pagina ti mostra **l'AA prossimo** (es. il 20 settembre 2026 vedi `2026/2027`, non `2025/2026`).
 3. **AA in corso** — fuori finestra di submission, default sull'anno didattico in corso.
 
@@ -379,6 +379,8 @@ Quando l'AA target **non coincide** con l'anno in corso (ti capita all'inizio: s
 ```
 
 Se l'admin ha attivato esplicitamente l'AA, il banner riporta inoltre la dicitura **"attivato dall'amministrazione"**, così sai che la scelta non è quella "automatica" ma una decisione esplicita della Direzione (per esempio per anticipare/posticipare l'inserimento).
+
+Puoi compilare e inviare solo anni **pubblicati**: un anno che la Direzione sta ancora preparando (in bozza) o che ha archiviato non accetta modifiche ai piani.
 
 ### 8.2 Le due sezioni della pagina
 
@@ -412,12 +414,12 @@ Aggiungi tutte le fasce della tua settimana. Le vedi in tabella sotto:
 **Regole CCNL**:
 
 - Minimo **2 giorni diversi** della settimana, massimo **4**. Se metti 5 giorni il sistema te lo segnala come errore.
-- La somma delle ore della settimana × numero di settimane dell'anno deve essere **≥ alla tua soglia annua** (324 h se sei titolare, altrimenti la tua soglia personalizzata).
+- Il totale delle ore delle date che attivi nella griglia deve rispettare il tuo contratto: **esattamente** 324 h per il titolare di cattedra e per la collaborazione (con le ore impostate dalla Direzione), **al massimo** 162 h per il tempo definito. Per i tipi di contratto personalizzati vale la regola scelta dalla Direzione (esatta, massima o minima).
 
 Cadenza ti aiuta mostrando in alto **Totale ore proposte / Soglia annua** in tempo reale:
 
-- 🟢 Verde se sei ≥ soglia → puoi inviare
-- 🟡 Ambra se sei sotto soglia → completa prima di inviare
+- 🟢 Verde se il totale rispetta il contratto → puoi inviare
+- 🟡 Ambra se il totale non è ancora quello richiesto → correggi prima di inviare
 
 ### 8.4 La griglia annuale (Sezione B)
 
@@ -485,15 +487,15 @@ Dopo l'invio la proposta passa in stato **"In attesa di approvazione"** e arriva
 
 ### 8.7 Stati della proposta
 
-| Stato         | Cosa significa per te                                                                                       |
-| ------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Bozza**     | Stai compilando. Puoi modificare e salvare quante volte vuoi. Nessuno la vede.                              |
-| **In attesa** | L'hai inviata. Aspetti la decisione del coordinatore. NON puoi più modificare.                              |
-| **Rifiutata** | Il coordinatore ha rifiutato con un motivo. Torna in bozza, modifica, reinvia.                              |
-| **Approvata** | Tutto OK. Il coordinatore può ancora assegnare le aule. Le prenotazioni reali non sono ancora state create. |
-| **Generata**  | Il coordinatore ha cliccato "Crea prenotazioni". Adesso le trovi tutte in `/my-bookings`.                   |
+| Stato         | Cosa significa per te                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bozza**     | Stai compilando. Puoi modificare e salvare quante volte vuoi. Nessuno la vede.                                                                                    |
+| **In attesa** | L'hai inviata. Aspetti la decisione del coordinatore. NON puoi più modificare.                                                                                    |
+| **Rifiutata** | Il coordinatore ha rifiutato con un motivo. Torna in bozza, modifica, reinvia.                                                                                    |
+| **Approvata** | Stato dei piani approvati con il vecchio workflow: il piano è valido ma le prenotazioni reali non sono ancora state create. L'amministrazione lo rende operativo. |
+| **Generata**  | Il piano è operativo: le prenotazioni sono state create e le trovi in `/my-bookings`. Da qui in poi puoi cambiarlo solo con le richieste di variazione (§9).      |
 
-> **Differenza tra "approvata" e "generata"**: la prima è la firma contrattuale ("ok, il piano è valido"); la seconda è la materializzazione operativa ("ho creato 600 prenotazioni nel calendario"). Possono passare alcuni giorni tra le due.
+> **Approvazione e generazione**: con il workflow attuale, quando l'amministrazione approva un piano assegna le aule definitive e crea le prenotazioni nella stessa operazione, quindi il piano passa direttamente a **Generata**. Se per un conflitto di aule l'operazione non riesce, non viene creata nessuna prenotazione e il piano resta in attesa. Lo stato **Approvata** resta visibile solo per i piani approvati in passato senza prenotazioni.
 
 ### 8.8 "Richiesta di modifica" dal coordinatore
 
@@ -652,7 +654,7 @@ In coda alla pagina c'è un bottone rosso **"Richiedi cancellazione account"**. 
 
 ### 12.6 Esporta dati (art. 20 GDPR)
 
-Bottone **"Esporta i miei dati"** → scarichi un file ZIP con tutto quello che Cadenza ha su di te: prenotazioni, monte ore, prestiti, audit log, consensi cookie. Utile per portabilità verso un altro sistema, o per archivio personale.
+Bottone **"Scarica i miei dati (JSON)"** → scarichi un file JSON con i dati personali che Cadenza ha su di te: profilo, prenotazioni, prestiti strumenti, consensi e le tue ultime azioni registrate nell'audit (fino a 500). Il file non comprende i piani Monte Ore. Utile per portabilità verso un altro sistema, o per archivio personale. Puoi richiedere l'export al massimo 3 volte ogni 24 ore.
 
 ---
 
@@ -754,7 +756,7 @@ Non puoi: la modifica è bloccata per le prenotazioni passate o "checked-in". Lo
 No, la proposta torna in **bozza** preservando tutte le tue fasce e celle. Apporti le modifiche richieste e re-invii. Vedi il motivo del rifiuto nel banner rosso.
 
 **Ho 12 variazioni da fare in un anno ma il limite è 3. Cosa faccio?**
-Le **disattivazioni** (toggle off) NON consumano variazioni, sono sempre gratis. Solo le aggiunte/cambi orario/cambi aula/nuovi giorni consumano. Se ti servono davvero 12 modifiche strutturali, parlane con la Direzione: può sbloccare manualmente il contatore o intervenire in altro modo.
+Ogni **richiesta inviata** consuma una unità del limite annuale (anche se viene rifiutata), disattivazioni comprese; una richiesta con più modifiche, per esempio una cancellazione e il relativo recupero, conta una volta sola. Raggruppa quindi le modifiche in poche richieste (§9.2). Se ti servono comunque più richieste del limite, parlane con la Direzione: può intervenire con una rettifica amministrativa, che non consuma il tuo limite.
 
 **Posso vedere le prenotazioni dei miei colleghi?**
 Sì, sulla Dashboard e sul calendario aule vedi tutti gli slot occupati (senza il nome del docente, per privacy — solo "Occupato"). Il nome compare invece nella tua tab `/my-bookings` per le tue.

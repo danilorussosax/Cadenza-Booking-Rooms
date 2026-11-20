@@ -50,7 +50,8 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - Regole e quote configurabili per ruolo (durata min/max, anticipo, finestra oraria, quota settimanale)
 - **Eccezioni con scope per ruolo + aula** (`block` o `time_window`): override temporanei per ristrutturazioni, sessioni esami, masterclass, con anteprima sovrapposizioni storiche e batch-cancel transazionale
 - **Approval workflow** per aule speciali (sala concerti, auditorium)
-- **Anti-ghost booking**: check-in tramite QR code stampato in aula, auto-cancellazione con grace period (esonerabile per singola aula con `Room.requireCheckIn=false`)
+- **Anti-ghost booking**: check-in tramite QR code stampato in aula, auto-cancellazione con grace period (esonerabile per singola aula con `Room.requireCheckIn=false`). I cartelli PNG delle aule si scaricano uno per uno o tutti insieme in un unico ZIP, con una cartella per sede (`GET /api/structure/rooms/qr/download-all`)
+- **Slot alternativi su conflitto**: quando la prenotazione fallisce per sovrapposizione la risposta include fino a 5 alternative (stessa aula spostata di ±30/60/120 minuti, aula compatibile nello stesso edificio, stesso orario nei giorni successivi), già filtrate da permessi e regole (`backend/services/bookingSuggestions.js`)
 - **Waitlist** con claim window e auto-promote
 - **Dashboard** con toggle "1 giorno · 3 giorni" sul calendario (preferenza persistita per browser, frecce di navigazione coerenti con la modalità)
 - Vista settimanale aule × giorni con export PDF A4 landscape per edificio
@@ -60,11 +61,22 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 ### 🎻 Inventario strumenti musicali _(esclusivo)_
 
 - Catalogo completo con famiglie (archi, fiati legni/ottoni, tastiere, percussioni…)
-- Modulo prestiti completo: workflow `requested → active → returned`, con auto-overdue
+- Modulo prestiti completo: workflow `requested → active → returned`, con stati `overdue` (automatico alla scadenza) e `rejected`; transizioni atomiche in `backend/services/loanLifecycle.js`. Attivabile o disattivabile dall'admin (modulo «Prestito strumenti»)
 - PDF di consegna e restituzione firmati
 - Reminder T-2 giorni e notifiche overdue automatiche
 - Regole e quote per famiglia, corso e ruolo
 - Import/export CSV idempotente
+
+### ⏱️ Monte Ore docenti e anni accademici
+
+Il Monte Ore è il piano annuale di didattica del docente: fasce settimanali ricorrenti espanse in una griglia di date (settimana × giorno) che, una volta approvata, diventa un insieme di prenotazioni reali delle aule.
+
+- **Piano del docente**: fasce settimanali (giorno, orario, aula preferita, tipo attività) e griglia annuale in cui il docente attiva o disattiva le singole date. Il piano è confrontato con il contratto: `titolare` e `collaborazione` richiedono un monte ore esatto (324 h per il titolare di cattedra, ore individuali per la collaborazione), `tempo_definito` ha un tetto massimo (162 h), gli altri tipi di contratto sono configurabili (`hoursMode`, ore predefinite, deroga individuale). Salvo bypass, servono da 2 a 4 giorni settimanali; i vincoli giornalieri (ore massime al giorno, pausa dopo N ore) sono opzionali e configurabili per anno
+- **Workflow bozza → approvato → generato**: `draft` → `submitted` (invio entro la finestra di inserimento, anche con deroga individuale) → `approved` / `rejected` → `generated`. L'admin vede un'anteprima (conflitti, aule mancanti), assegna l'aula definitiva a ogni occorrenza e con **Approva** rivalida contratto, calendario e disponibilità e crea le prenotazioni in un'unica transazione (origine `monte_ore`, che non consuma le quote delle prenotazioni libere). Può anche respingere, riportare in bozza con motivazione o annullare la generazione (le prenotazioni vengono rilasciate). L'import Excel crea piani già inviati per conto del docente
+- **Variazioni dopo l'approvazione**: cambio orario, cambio aula, spostamento su un'altra data, disattivazione, riattivazione e nuovo giorno, anche raggruppati in un'unica richiesta. Ogni richiesta resta in attesa della decisione dell'admin, che può approvare, rifiutare o modificare e approvare (con motivazione); l'esito parte come email dalla coda esistente. Il limite annuale di richieste (`maxAmendmentsPerYear`, default 3, anche zero) è per anno accademico e conta anche le richieste rifiutate; le rettifiche amministrative non lo consumano
+- **Calendario didattico**: periodo delle lezioni, finestra di invio, sospensioni (sei festività standard ricalcolate, più chiusure personalizzate con anteprima dell'impatto sui piani esistenti) e sessioni d'esame
+- **Anni accademici**: ogni anno ha uno stato `draft` / `published` / `archived`. Un nuovo anno si prepara con anteprima, partendo dalla configurazione standard o copiando da un anno precedente (regole, periodo lezioni e finestra, sospensioni personalizzate, sessioni d'esame); si salva come bozza o si pubblica. L'admin può «avviare» un anno per renderlo quello mostrato ai docenti; solo gli anni conclusi si archiviano (e si ripubblicano). Vedi [`docs/ANNI_ACCADEMICI.md`](docs/ANNI_ACCADEMICI.md)
+- **Modulo attivabile**: da Impostazioni Server → Moduli (flag `moduleMonteOreEnabled` sull'istituto). A modulo spento le rotte `/api/monte-ore/*` e `/api/admin/monte-ore/*` rispondono 404 con codice `MODULE_DISABLED` e le voci di menu scompaiono
 
 ### 📺 Display kiosk pubblico
 
@@ -78,7 +90,7 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 ### 📢 Bacheca avvisi e comunicazione
 
 - Avvisi con audience filter: tutti / per ruolo / per corso / per edificio
-- 11 template email editabili (booking, loan, waitlist, approval, announcement)
+- 17 template email editabili (prenotazione, prestito, lista d'attesa, approvazione, avvisi, reset password e primo accesso)
 - Mail server settings con cifratura AES-256-GCM su DB
 
 ### ✉️ Sistema email robusto _(outbox pattern)_
@@ -117,9 +129,9 @@ In produzione il backend serve sia gli endpoint `/api/*` sia il bundle React bui
 - **CSP rigorosa** (`default-src 'self'`), HSTS preload, COOP/CORP, Permissions-Policy — scanner pubblici: **securityheaders.com A+**, **Mozilla Observatory A+**, **SSL Labs A**, **HSTS Preload eligible**
 - **Origin guard middleware** (v1.11.0): defense-in-depth contro CSRF per il modello JWT+Bearer di Cadenza. Tutte le richieste mutanti (`POST/PUT/PATCH/DELETE`) devono provenire da un `Origin/Referer` whitelistato (`FRONTEND_URL` + same-origin), altrimenti `403 ORIGIN_FORBIDDEN`
 - **Sentry** v10 con scrubbing PII ricorsivo + utente anonimizzato SHA-256
-- **Pacchetto GDPR-PA italiana** (Garante 06/2021): cookie banner, `UserConsent` append-only, export art. 20, delete art. 17, re-consent al cambio versione
+- **Pacchetto GDPR-PA italiana** (Garante 06/2021): cookie banner, `UserConsent` append-only, export art. 20 in autonomia dal Profilo (file JSON, max 3 richieste ogni 24 h), delete art. 17, re-consent al cambio versione
 - **EXCLUDE constraint** PostgreSQL (`bookings_no_overlap`) come rete di sicurezza anti-overlap a livello DB
-- **`paranoid: true`** (soft-delete) su 10 modelli sensibili
+- **`paranoid: true`** (soft-delete) su 17 modelli
 
 ### 🔐 Autenticazione
 
@@ -227,7 +239,7 @@ UI completamente tradotta in **italiano** (default), **inglese**, **spagnolo**, 
 | Deploy        | VPS Ubuntu 24.04 — script `install.sh` idempotente                                                                                                                          |
 | Operations    | `pg-tune-4gb.sh` (Postgres tuning idempotente per VPS piccole, `ALTER SYSTEM` reversibile) · `KIOSK_IP_ALLOWLIST.md` (restrizione nginx del kiosk) · dashboard `/admin/ops` |
 | Monitoring    | Sentry v10 (opt-in) + dashboard ops in-app                                                                                                                                  |
-| Testing       | Vitest 1.730 test backend + 258 component/lib + Playwright 12 spec E2E (golden + RBAC + GDPR + audit-loop chiusi)                                                           |
+| Testing       | Vitest (backend e frontend) + Playwright E2E                                                                                                                                |
 | CI/CD         | GitHub Actions (backend + frontend + E2E gate)                                                                                                                              |
 
 ---
@@ -448,7 +460,7 @@ I documenti commerciali e di posizionamento sono mantenuti **fuori dal repo pubb
 
 | Documento                             | Contenuto                                                                                                                              | Stato                                    |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| [`develop.md`](develop.md)            | Roadmap di sviluppo: piano gestione eventi (5 fasi · ~11 gg vs ASIMUT) + **backlog post-1.6.0** (7 voci security/ops/perf, ~12 gg)     | ✅ Versionato                            |
+| [`develop.md`](develop.md)            | Roadmap di sviluppo: piano gestione eventi (5 fasi · ~11 gg vs ASIMUT) + **backlog post-1.6.0** (voci security/ops/perf con stato)     | ✅ Versionato                            |
 | `Proposta.md`                         | Proposta tecnico-commerciale + benchmark competitivo (ASIMUT, EasyStaff/EasyRoom Zucchetti) + TCO 10 anni + piano migrazione · v2.2 IT | 📄 Fuori repo                            |
 | `Cadenza_Presentazione_Direzione.pdf` | Deck di 18 slide rivolto a Direttori / Presidenti / DSGA — feature parity, costi, compliance PA                                        | 📄 Fuori repo                            |
 | `develop-enterprise.md`               | Roadmap enterprise (LDAP/AD, SAML 2.0 IDEM-GARR, sync Esse3, RFID badge)                                                               | 🚧 In lavorazione, non ancora rilasciato |
@@ -479,7 +491,7 @@ cd frontend
 npm run test:e2e
 ```
 
-**Copertura attuale (v1.11.0)**: **1.730** test backend (98 file integration + unit, 16 skippati con motivazione) + **258** component test frontend (26 file, ~10 dei quali a11y `vitest-axe`, 2 skippati) + **12 spec** Playwright (golden path + RBAC denial + booking cancel + GDPR export + pending-user blocco + loans pagination contract + 6 spec pre-esistenti su prestiti/waitlist/a11y) — **2.000 test totali**. Soglie bloccanti: backend stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60, frontend stmts ≥60 / lines ≥60 / funcs ≥50 / branches ≥50 — tutti gli 8 assi sopra 60 % di copertura misurata aggregata. CI GitHub Actions a 4 job paralleli (backend / postgres / frontend / E2E).
+**Copertura attuale (v1.22.2)**: **163** file di test backend (integration + unit), **49** file di test frontend (component e lib, inclusi controlli a11y `vitest-axe`) e le spec Playwright in `frontend/tests/e2e/` e nel workspace `e2e/`. Soglie bloccanti backend: stmts ≥72 / lines ≥73 / funcs ≥78 / branches ≥60 (CI blocca le regressioni). CI GitHub Actions con job paralleli (gitleaks / backend / postgres / frontend) e job E2E successivo.
 
 **Suite di stabilità (v1.5.1)** — vanno oltre lo unit/integration classico:
 
@@ -498,7 +510,7 @@ Le seguenti aree sono complete e in produzione:
 
 - Core booking + waitlist + approval workflow + check-in QR anti-ghost
 - Modulo prestiti strumenti completo (5 stati, scheduler, PDF, regole/quote)
-- Bacheca avvisi audience-based + 11 mail template editabili
+- Bacheca avvisi audience-based + 17 mail template editabili
 - Display kiosk (3 card configurabili, offline-soft, audience filter, **restrizione IP nginx opzionale**)
 - 2FA email + Activity Hub admin
 - PWA installabile (Service Worker, A2HS, offline kiosk)
@@ -516,15 +528,23 @@ Le seguenti aree sono complete e in produzione:
 - **Toolkit hardening operativo** (v1.7.0): script `pg-tune-4gb.sh` idempotente per Postgres + guida nginx IP allowlist per il kiosk
 - **Smartphone UX overhaul** (v1.8.0): hero compatto, KPI 2×2, sottotitoli decorativi nascosti, header titolo a riga intera; **nuova sezione "Aule e prenotazioni"** mobile-only con disclosure gerarchica `<details>` edificio→aula; Booking/MyBookings/Profile snelliti
 - **Verifica integrità backup automatica** (v1.9.0): scheduler weekly con 7 check, widget in `/admin/ops` "Verifica integrità", mail admin solo su FAIL con idempotency per giorno+reason
+- **Monte Ore docenti e anni accademici**: piano annuale con workflow `draft → submitted → approved → generated`, generazione transazionale delle prenotazioni, variazioni sempre soggette a decisione dell'admin con limite annuale, calendario didattico con sospensioni e sessioni d'esame, anni accademici `draft` / `published` / `archived` con copia da anno precedente, modulo attivabile da Impostazioni Server
+- **Export GDPR in autonomia** (`GET /api/users/me/gdpr/export`, bottone «Scarica i miei dati» nel Profilo) e **slot alternativi suggeriti** su conflitto di prenotazione (fino a 5 alternative, `backend/services/bookingSuggestions.js`)
+- **Moduli profondi lato backend** (ciclo di vita prenotazione e prestito, tempo istituzionale, errori con codici stabili, job runner): vedi [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) «Moduli profondi»
 - **High Availability Livello 1+2 opt-in** (v1.10.0): PM2 cluster mode con scheduler lock (`backend/lib/clusterRole.js`), off-site backup multi-cloud (`scripts/setup-rclone-backups.sh`), PITR via WAL archiving (`scripts/setup-wal-archiving.sh`)
 - **Security & quality hardening** (v1.11.0): originGuard middleware (anti-CSRF cross-origin), hash-chain di integrità su `audit_log` (tamper-evidence PA, endpoint `verify-integrity`), `/api/ready` esteso a DB/SMTP/disk, paginazione admin su `/api/loans`, +5 spec Playwright (RBAC denial, booking cancel, GDPR export, pending-user, loans pagination contract)
 
 ### 🚧 Sprint correnti
 
 - **Bot Telegram MVP** completo, scaffolding WhatsApp Cloud / Signal / Email
+- **Backlog post-1.6.0** (security/ops/perf): voci consolidate in [`develop.md`](develop.md) §2, dove ogni voce riporta il proprio stato. Già implementati: dashboard ops, verifica backup, PWA, backup off-site, PITR, PM2 cluster con PgBouncer, GDPR self-service export (§2.9), slot alternativi su conflitto (§2.11). Voci aperte: device token kiosk mobili, PIN ruotabile via mail, monitor esterno con alert, slow query digest settimanale (esiste solo il ring buffer in memoria, `GET /api/admin/ops/slow-queries`), QR code dinamico sul kiosk, conflict-aware bulk booking docenti
+
+### ⏸️ Non avviato
+
+Voci discusse ma senza codice nel repository, nessuno sprint aperto (dettaglio e stato in [`develop.md`](develop.md) §3):
+
 - Push notifications Web Push API
 - Embed iframe per concerti pubblici
-- **Backlog post-1.6.0** (security/ops/perf): voci consolidate in [`develop.md`](develop.md) §2. Quick win candidati: §2.9 GDPR self-service export (~1g), §2.11 Slot alternativi suggeriti su conflitto (~2g). Voci aperte: device token kiosk mobili, PIN ruotabile via mail, monitor esterno con alert, PgBouncer, slow query digest, QR code dinamico, conflict-aware bulk booking docenti
 
 ### 🔵 Roadmap PA italiana
 
