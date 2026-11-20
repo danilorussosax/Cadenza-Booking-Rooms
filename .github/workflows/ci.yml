@@ -222,7 +222,7 @@ jobs:
 
       # Cache dei browser di Playwright per evitare il download ogni run.
       - name: Cache Playwright browsers
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
