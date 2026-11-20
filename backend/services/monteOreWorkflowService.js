@@ -877,6 +877,8 @@ async function describePlan(plan, { windowOpen = true } = {}) {
         selectDates: editable,
         submit: editable && blockers.length === 0,
         requestAmendment: rules.isAmendable(status) && !plan.proposal.requiresRevalidation,
+        // Storico variazioni consultabile anche con rivalidazione pendente.
+        viewAmendments: rules.isAmendable(status),
       },
       admin: {
         approve: rules.isApprovable(status),
@@ -884,6 +886,8 @@ async function describePlan(plan, { windowOpen = true } = {}) {
         revertToDraft: rules.isRevertible(status),
         unlock: status === STATUS.GENERATED,
         editSchedules: status !== STATUS.GENERATED,
+        reviewAmendments: rules.isAmendable(status),
+        revalidate: status === STATUS.GENERATED && Boolean(plan.proposal.requiresRevalidation),
       },
     },
   };

@@ -18,6 +18,7 @@ import {
   monteOreApi,
   type MonteOreProposal,
   type MonteOreSchedule,
+  type MonteOreTeacherActions,
   type SchedulePayload,
 } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
@@ -60,6 +61,15 @@ const TYPE_OPTIONS: { value: BookingType; label: string }[] = [
   { value: 'prova', label: 'Prova' },
   { value: 'concerto', label: 'Concerto' },
 ];
+
+/** Ripiego conservativo se il server non fornisce `workflow`: nessuna azione. */
+const NO_TEACHER_ACTIONS: MonteOreTeacherActions = {
+  editPattern: false,
+  selectDates: false,
+  submit: false,
+  requestAmendment: false,
+  viewAmendments: false,
+};
 
 function statusBadge(status: MonteOreProposal['status']) {
   const map: Record<
@@ -109,10 +119,10 @@ export default function MonteOre() {
   });
 
   const proposal = proposalQuery.data?.proposal;
-  // Modificabile direttamente dal docente: lo decide il server (fallback sullo stato).
-  const isEditable =
-    proposal?.workflow?.actions.teacher.editPattern ??
-    (proposal ? ['draft', 'rejected'].includes(proposal.status) : false);
+  // Le azioni le decide il server (`workflow` e' sempre presente in GET /me);
+  // senza risposta si negano tutte.
+  const teacherActions = proposal?.workflow?.actions.teacher ?? NO_TEACHER_ACTIONS;
+  const isEditable = teacherActions.editPattern;
   const threshold =
     proposal?.contractSnapshot && !isEditable ? proposal.contractSnapshot : thresholdQuery.data;
   const hasIndividualOverride =
@@ -122,7 +132,7 @@ export default function MonteOre() {
   // Blocchi e azioni arrivano dal server (proposal.workflow): le regole di
   // invio vivono solo nel backend (services/monteOreWorkflowService.js).
   const submitBlockers: string[] = proposal?.workflow?.blockers.map((b) => b.message) ?? [];
-  const canSubmit = proposal?.workflow ? proposal.workflow.actions.teacher.submit : false;
+  const canSubmit = teacherActions.submit;
 
   const updateMutation = useMutation({
     mutationFn: (payload: {
@@ -550,7 +560,7 @@ export default function MonteOre() {
 
       {/* Sezione B: griglia annuale (solo se calendar configurato dall'admin) */}
       <MonteOreGrid
-        proposalStatus={proposal.status}
+        actions={teacherActions}
         isPatternEmpty={proposal.schedules.length === 0}
         hoursMode={threshold?.mode}
         requestCount={proposal.requestCount}

@@ -14,7 +14,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
-import { monteOreAdminApi, type MonteOreSchedule } from '@/api/monteOre';
+import { monteOreAdminApi, type MonteOreAdminActions, type MonteOreSchedule } from '@/api/monteOre';
 import { httpErrorMessage } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,16 @@ import {
 } from './shared';
 import { qk } from '@/lib/queryKeys';
 
+const NO_ADMIN_ACTIONS: MonteOreAdminActions = {
+  approve: false,
+  reject: false,
+  revertToDraft: false,
+  unlock: false,
+  editSchedules: false,
+  reviewAmendments: false,
+  revalidate: false,
+};
+
 export function DetailDialog({
   id,
   onClose,
@@ -59,6 +69,8 @@ export function DetailDialog({
     queryFn: () => monteOreAdminApi.get(id),
   });
   const proposal = detailQuery.data?.proposal;
+  // Il server decide cosa e' consentito; senza `workflow` si nega tutto.
+  const adminActions = proposal?.workflow?.actions.admin ?? NO_ADMIN_ACTIONS;
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: qk.adminMonteOre.detail(id) });
@@ -283,7 +295,7 @@ export function DetailDialog({
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-base">Fasce orarie</CardTitle>
-                {proposal.status !== 'generated' && (
+                {adminActions.editSchedules && (
                   <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
                     <Plus className="h-4 w-4" />
                     Aggiungi
@@ -300,7 +312,7 @@ export function DetailDialog({
                         <th className="px-3 py-2">Aula</th>
                         <th className="px-3 py-2">Tipo</th>
                         <th className="px-3 py-2">Attività</th>
-                        {proposal.status !== 'generated' && (
+                        {adminActions.editSchedules && (
                           <th className="px-3 py-2 text-right">Azioni</th>
                         )}
                       </tr>
@@ -324,7 +336,7 @@ export function DetailDialog({
                               s.bookingType}
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{s.purpose ?? ''}</td>
-                          {proposal.status !== 'generated' && (
+                          {adminActions.editSchedules && (
                             <td className="px-3 py-2 text-right">
                               <Button
                                 variant="ghost"
@@ -355,11 +367,11 @@ export function DetailDialog({
             </Card>
 
             {/* Sezione amendments (solo se la proposta è approved/generated) */}
-            {['approved', 'generated'].includes(proposal.status) && (
+            {adminActions.reviewAmendments && (
               <AmendmentsSection proposalId={proposal.id} onAfterDecision={refresh} />
             )}
 
-            {proposal.requiresRevalidation && proposal.status === 'generated' && (
+            {adminActions.revalidate && (
               <Button variant="outline" onClick={() => setRevalidateOpen(true)}>
                 Rivalida piano e comunica al docente
               </Button>
@@ -381,59 +393,52 @@ export function DetailDialog({
                 Chiudi
               </Button>
               <div className="flex flex-wrap gap-2">
-                {proposal.status === 'submitted' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => setConfirmRevert(true)}
-                      title="Riporta la proposta in bozza al docente"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Richiedi modifica
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setConfirmReject(true)}
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Rifiuta
-                    </Button>
-                    <Button
-                      onClick={() => setPlanApprovalOpen(true)}
-                      disabled={detailQuery.isPending}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Verifica aule e approva
-                    </Button>
-                  </>
+                {adminActions.revertToDraft && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmRevert(true)}
+                    title="Riporta la proposta in bozza al docente"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Richiedi modifica
+                  </Button>
                 )}
-                {proposal.status === 'approved' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => setConfirmRevert(true)}
-                      title="Riporta la proposta in bozza al docente"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Richiedi modifica
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setPlanApprovalOpen(true);
-                      }}
-                      disabled={
-                        generateMutation.isPending ||
-                        proposal.schedules.length === 0 ||
-                        proposal.schedules.some((s) => !s.roomId)
-                      }
-                    >
-                      <Zap className="h-4 w-4" />
-                      Crea prenotazioni dal monte ore
-                    </Button>
-                  </>
+                {adminActions.reject && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmReject(true)}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Rifiuta
+                  </Button>
                 )}
-                {proposal.status === 'generated' && (
+                {/* Stessa azione `approve`: il passo (verifica aule vs generazione) dipende dalla fase. */}
+                {adminActions.approve && proposal.status === 'submitted' && (
+                  <Button
+                    onClick={() => setPlanApprovalOpen(true)}
+                    disabled={detailQuery.isPending}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Verifica aule e approva
+                  </Button>
+                )}
+                {adminActions.approve && proposal.status !== 'submitted' && (
+                  <Button
+                    onClick={() => {
+                      setPlanApprovalOpen(true);
+                    }}
+                    disabled={
+                      generateMutation.isPending ||
+                      proposal.schedules.length === 0 ||
+                      proposal.schedules.some((s) => !s.roomId)
+                    }
+                  >
+                    <Zap className="h-4 w-4" />
+                    Crea prenotazioni dal monte ore
+                  </Button>
+                )}
+                {adminActions.unlock && (
                   <Button
                     variant="outline"
                     onClick={() => unlockMutation.mutate()}
