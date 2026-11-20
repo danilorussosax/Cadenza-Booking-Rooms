@@ -7,7 +7,7 @@ const { body, validationResult } = require('express-validator');
 const { Instrument, InstrumentLoan } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
 const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
-const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
+const { parsePagination, parseLimit, setPaginationHeaders } = require('../lib/pagination');
 const loanLifecycle = require('../services/loanLifecycle');
 const { domainError } = require('../lib/domainError');
 const { assertCan } = require('../lib/access');
@@ -76,7 +76,7 @@ router.get('/overdue', authenticate, requireRole('admin'), async (req, res) => {
 
 // GET /api/loans/expiring?days=2 — in scadenza nei prossimi N giorni (admin)
 router.get('/expiring', authenticate, requireRole('admin'), async (req, res) => {
-  const days = Math.max(1, Math.min(30, Number(req.query.days || 2)));
+  const days = parseLimit(req.query.days, { def: 2, max: 30 });
   const today = institutionTime.todayIso();
   const limit = institutionTime.inInstitute().add(days, 'day').format('YYYY-MM-DD');
   const loans = await InstrumentLoan.findAll({

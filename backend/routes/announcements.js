@@ -15,6 +15,7 @@ const { Op } = require('sequelize');
 const { Announcement } = require('../models');
 const { authenticate, requireApproved } = require('../middleware/auth');
 const { audienceMatchesUser } = require('../services/audienceMatcher');
+const { parseLimit } = require('../lib/pagination');
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ const router = express.Router();
 // =====================================================
 router.get('/', authenticate, requireApproved, async (req, res, next) => {
   try {
-    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 50));
+    const limit = parseLimit(req.query.limit, { def: 50, max: 100 });
     const now = new Date();
 
     const all = await Announcement.findAll({

@@ -9,6 +9,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
 const importWorkflow = require('../services/integrations/importWorkflow');
 const { domainError } = require('../lib/domainError');
+const { parseLimit } = require('../lib/pagination');
 
 const router = express.Router();
 
@@ -98,7 +99,7 @@ router.get('/runs', authenticate, requireRole('admin'), async (req, res, next) =
       where.provider = String(req.query.provider);
     }
     if (req.query.configId) where.configId = Number(req.query.configId);
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+    const limit = parseLimit(req.query.limit, { def: 50, max: 200 });
     const runs = await IntegrationSyncRun.findAll({
       where,
       order: [['createdAt', 'DESC']],
