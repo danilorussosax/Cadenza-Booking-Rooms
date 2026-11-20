@@ -649,6 +649,50 @@ locale (per non regredire le versioni installate sul server) e fa healthcheck
 post-deploy. Le credenziali SSH/host sono nelle prime righe dello script, da
 personalizzare al primo uso.
 
+#### Retry, snapshot e rollback
+
+- **Retry di rete**: ogni passo `ssh`/`rsync` è ritentato 3 volte (attesa 5s poi
+  15s) solo sugli errori di connessione (ssh 255, rsync 10/12/30/35), con
+  `ConnectionAttempts`, `ConnectTimeout` e `ServerAlive*`. Se un passo fallisce
+  comunque, lo script stampa lo stato esatto in cui è rimasto il VPS e i comandi
+  per riprendere o tornare indietro.
+- **Ordine dei passi** (per ridurre lo stato misto frontend/backend): snapshot
+  del codice attuale → dist nuova in `frontend/.dist-new` (non live) → rsync del
+  codice → permessi, `npm ci`, PgBouncer, chiave → un solo comando remoto che
+  rinomina `.dist-new` in `dist` e fa `pm2 restart`. Ciò che finisce in
+  produzione è invariato.
+- **Snapshot**: prima di sovrascrivere, `backend/` e `frontend/dist` correnti
+  vengono copiati (hardlink, costo minimo) in
+  `/home/cadenza/releases/<timestamp>-<sha>/` (il nome riporta lo sha che stava
+  per essere deployato; il contenuto è il codice PRECEDENTE). Sono esclusi
+  `node_modules`, `uploads`, `data`, `backups`, `secrets`, `reports`, `.env*`.
+  Si tengono gli ultimi 3; `LAST` indica l'ultimo, `DEPLOYED_SHA` lo sha in
+  produzione. Se un deploy resta a metà, il successivo riusa lo snapshot sano
+  (file `PENDING`) invece di fotografare lo stato misto.
+- **Rollback automatico**: se l'healthcheck `/api/ready` fallisce, lo script
+  ripristina backend e dist dallo snapshot, esegue `npm ci --omit=dev` se il
+  `package-lock.json` differiva, riavvia PM2 e ripete l'healthcheck, riportando
+  l'esito. Si disattiva con `./deploy.sh --no-rollback`. Il DB non viene
+  ripristinato: le migrazioni additive già applicate restano.
+- **Rollback manuale**: `./deploy.sh --rollback` (conferma richiesta, `--yes` per
+  saltarla; `--snapshot=<nome>` per uno specifico). Prima salva lo stato
+  corrente come snapshot `pre-rollback`, quindi rilanciandolo si torna avanti.
+
+Tornare indietro a mano, senza lo script (esempio):
+
+```bash
+ssh cadenza-vps
+cat /home/cadenza/releases/LAST            # nome dello snapshot
+S=/home/cadenza/releases/$(cat /home/cadenza/releases/LAST)
+rsync -ac --exclude node_modules/ --exclude /uploads/ --exclude /data/ \
+  --exclude /secrets/ --exclude '/.env*' $S/backend/ /home/cadenza/cadenza/backend/
+rsync -a --delete $S/frontend/dist/ /home/cadenza/cadenza/frontend/dist/
+cd /home/cadenza/cadenza/backend && npm ci --omit=dev   # se il lock differiva
+pm2 restart cadenza-backend --update-env
+```
+
+Simulazione locale (nessun contatto col VPS): `scripts/test-deploy-simulation.sh`.
+
 ### Migrazioni schema dopo cambi al modello
 
 ```bash
