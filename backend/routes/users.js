@@ -442,6 +442,12 @@ router.put(
   },
 );
 
+// ValidationError di `pickAllowed` → DomainError con lo stesso body storico
+// `{ error, code, field }` (il gestore centrale fonde `extra` al primo livello).
+function validationToDomainError(err) {
+  return domainError(err.code, err.message, { status: err.status, extra: { field: err.field } });
+}
+
 // Modifica utente (admin: può cambiare ruolo, attivare/disattivare, ecc.)
 router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
@@ -511,10 +517,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     });
     res.json({ user: user.toSafeJSON() });
   } catch (err) {
-    if (err instanceof ValidationError) {
-      return res.status(err.status).json({ error: err.message, code: err.code, field: err.field });
-    }
-    next(err);
+    next(err instanceof ValidationError ? validationToDomainError(err) : err);
   }
 });
 

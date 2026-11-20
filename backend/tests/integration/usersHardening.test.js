@@ -79,6 +79,22 @@ describe('routes/users — hardening anti mass-assignment + lockout', () => {
     expect(res.body.code).toMatch(/INVALID_TYPE|VALIDATION/);
   });
 
+  it('PUT /:id: la ValidationError mantiene il body storico {error, code, field}', async () => {
+    const { user: target } = await createAuthedUser({ role: 'studente' });
+    const { authHeader: adminHeader } = await createAdmin();
+
+    const res = await request(app)
+      .put(`/api/users/${target.id}`)
+      .set('Authorization', adminHeader)
+      .send({ isActive: 'yes-please' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: 'Campo "isActive" deve essere boolean',
+      code: 'INVALID_TYPE',
+      field: 'isActive',
+    });
+  });
+
   it('PUT /:id self: blocca cambio del proprio ruolo', async () => {
     const { user: admin, authHeader } = await createAdmin();
     const res = await request(app)
