@@ -1,43 +1,19 @@
 'use strict';
 
 const express = require('express');
-const { withSerializableRetry } = require('../lib/serializableTx');
-const dayjs = require('dayjs');
 const institutionTime = require('../lib/institutionTime');
-const { Op, Transaction } = require('sequelize');
+const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
-const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
+const { Instrument, InstrumentLoan } = require('../models');
 const { authenticate, requireRole, requireApproved } = require('../middleware/auth');
-const { sendInstrumentLoanEmail } = require('../services/instrumentLoanEmail');
 const { buildInstrumentLoanPdf } = require('../services/instrumentLoanPdf');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
-const { utils: instrumentsUtils } = require('./instruments');
+const loanLifecycle = require('../services/loanLifecycle');
 const { domainError } = require('../lib/domainError');
-const { isAdmin, can, assertCan } = require('../lib/access');
-const { annotateStatus } = instrumentsUtils;
+const { assertCan } = require('../lib/access');
+const { annotateStatus, loanAdminIncludes, findLoanFull } = loanLifecycle;
 
 const router = express.Router();
-
-const userPublicAttrs = ['id', 'firstName', 'lastName', 'email', 'matricola', 'role'];
-
-// Include riusabile per i listing admin: instrument + user + approver.
-// Centralizzato qui per evitare di duplicare la lista in 4 endpoint diversi
-// (con il rischio che una modifica ne dimentichi qualcuno).
-function loanAdminIncludes() {
-  return [
-    { model: Instrument, as: 'instrument' },
-    { model: User, as: 'user', attributes: userPublicAttrs },
-    { model: User, as: 'approver', attributes: userPublicAttrs },
-  ];
-}
-
-// Costruisce un loan completo con relazioni e status calcolato
-async function findLoanFull(id) {
-  const loan = await InstrumentLoan.findByPk(id, {
-    include: loanAdminIncludes(),
-  });
-  return loan;
-}
 
 // =========================================================
 // Listing prestiti
@@ -134,113 +110,14 @@ router.post(
     if (!errs.isEmpty())
       throw domainError('VALIDATION_FAILED', 'Validazione fallita', { details: errs.array() });
     const { instrumentId, fromDate, toDate, notes } = req.body;
-
-    const start = dayjs(fromDate);
-    const end = dayjs(toDate);
-    if (!start.isValid() || !end.isValid()) {
-      throw domainError('LOAN_INVALID_DATE', 'Date non valide');
-    }
-    if (end.isBefore(start)) {
-      throw domainError(
-        'LOAN_INVALID_DATE',
-        'La data di restituzione deve essere successiva alla data di inizio',
-      );
-    }
-    if (start.isBefore(institutionTime.startOfDay())) {
-      throw domainError('LOAN_INVALID_DATE', 'Non puoi richiedere un prestito nel passato');
-    }
-
-    const instrument = await Instrument.findByPk(instrumentId);
-    if (!instrument) throw domainError('NOT_FOUND', 'Strumento non trovato', { status: 404 });
-    if (!instrument.isLoanable) {
-      throw domainError('INSTRUMENT_NOT_LOANABLE', 'Strumento non disponibile per il prestito');
-    }
-    if (instrument.condition === 'fuori_uso' || instrument.condition === 'da_riparare') {
-      throw domainError('INSTRUMENT_NOT_LOANABLE', 'Strumento non disponibile (condizione)');
-    }
-
-    // Verifica regola di abilitazione PER STRUMENTO. Coerente con
-    // Room.allowedCourseIds: array vuoto = permissivo (chiunque non admin
-    // con profilo completo può richiedere). Gli admin bypassano sempre.
-    if (!isAdmin(req.user)) {
-      const allowedCourseIds = Array.isArray(instrument.allowedCourseIds)
-        ? instrument.allowedCourseIds
-        : [];
-      if (allowedCourseIds.length > 0) {
-        if (!req.user.courseId || !allowedCourseIds.includes(req.user.courseId)) {
-          throw domainError(
-            'INSTRUMENT_NOT_ALLOWED_FOR_COURSE',
-            'Il tuo corso non è abilitato a richiedere il prestito di questo strumento',
-            { status: 403 },
-          );
-        }
-      }
-    }
-
-    // Conflict check + create in transazione SERIALIZABLE (Postgres) o
-    // default (SQLite/MySQL): senza tx due request concorrenti sullo stesso
-    // strumento nello stesso intervallo passavano entrambe la check di
-    // sovrapposizione e creavano DUE loan attivi sullo stesso item.
     try {
-      const txOpts =
-        sequelize.getDialect() === 'postgres'
-          ? { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE }
-          : {};
-      const loan = await withSerializableRetry(sequelize, txOpts, async (t) => {
-        const conflict = await InstrumentLoan.findOne({
-          where: {
-            instrumentId,
-            status: { [Op.in]: ['requested', 'active', 'overdue'] },
-            // overlap: not (existing.to < newFrom OR existing.from > newTo)
-            [Op.and]: [
-              { fromDate: { [Op.lte]: end.format('YYYY-MM-DD') } },
-              { toDate: { [Op.gte]: start.format('YYYY-MM-DD') } },
-            ],
-          },
-          transaction: t,
-        });
-        if (conflict) {
-          throw domainError('LOAN_CONFLICT', 'Lo strumento è già impegnato nel periodo richiesto', {
-            status: 409,
-          });
-        }
-
-        // Quote prestiti per ruolo (vedi services/loanQuotaValidator.js).
-        // Eseguito DENTRO la stessa tx per coerenza con la conflict check.
-        if (!isAdmin(req.user)) {
-          const { checkLoanQuotas } = require('../services/loanQuotaValidator');
-          const quotaIssues = await checkLoanQuotas({
-            user: req.user,
-            instrument,
-            fromDate: start.format('YYYY-MM-DD'),
-            toDate: end.format('YYYY-MM-DD'),
-            transaction: t,
-          });
-          if (quotaIssues.length > 0) {
-            const first = quotaIssues[0];
-            throw domainError(first.code, first.message, {
-              status: 409,
-              details: quotaIssues.map((i) => ({ message: i.message, code: i.code })),
-            });
-          }
-        }
-
-        return InstrumentLoan.create(
-          {
-            instrumentId,
-            userId: req.user.id,
-            fromDate: start.format('YYYY-MM-DD'),
-            toDate: end.format('YYYY-MM-DD'),
-            notes: notes || null,
-            status: 'requested',
-          },
-          { transaction: t },
-        );
+      const full = await loanLifecycle.request({
+        user: req.user,
+        instrumentId,
+        fromDate,
+        toDate,
+        notes,
       });
-      const full = await findLoanFull(loan.id);
-      sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_requested' }).catch(
-        () => {},
-      );
       res.status(201).json({ loan: annotateStatus(full) });
     } catch (err) {
       next(err);
@@ -253,34 +130,12 @@ router.post(
 // =========================================================
 
 router.post('/:id/approve', authenticate, requireRole('admin'), async (req, res) => {
-  // UPDATE atomico: solo se status='requested' (uno solo dei 2 admin che
-  // cliccano simultaneamente passa).
-  const [affected] = await InstrumentLoan.update(
-    { status: 'active', approvedBy: req.user.id, approvedAt: new Date() },
-    { where: { id: req.params.id, status: 'requested' } },
-  );
-  if (affected === 0) {
-    const exists = await InstrumentLoan.findByPk(req.params.id);
-    if (!exists) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-    throw domainError('LOAN_INVALID_STATE', "Stato non valido per l'approvazione");
-  }
-  const full = await findLoanFull(req.params.id);
-  sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_approved' }).catch(() => {});
+  const full = await loanLifecycle.approve({ id: req.params.id, actor: req.user });
   res.json({ loan: annotateStatus(full) });
 });
 
 router.post('/:id/reject', authenticate, requireRole('admin'), async (req, res) => {
-  const [affected] = await InstrumentLoan.update(
-    { status: 'rejected', approvedBy: req.user.id, approvedAt: new Date() },
-    { where: { id: req.params.id, status: 'requested' } },
-  );
-  if (affected === 0) {
-    const exists = await InstrumentLoan.findByPk(req.params.id);
-    if (!exists) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
-    throw domainError('LOAN_INVALID_STATE', 'Stato non valido per il rifiuto');
-  }
-  const full = await findLoanFull(req.params.id);
-  sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_rejected' }).catch(() => {});
+  const full = await loanLifecycle.reject({ id: req.params.id, actor: req.user });
   res.json({ loan: annotateStatus(full) });
 });
 
@@ -292,51 +147,18 @@ router.post('/:id/return', authenticate, async (req, res) => {
   const loan = await findLoanFull(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
   assertCan(req.user, 'loan:return', loan);
-  // UPDATE atomico con WHERE status IN (active, overdue): se due richieste
-  // concorrenti tentano il return, una sola restituisce affectedRows=1.
-  // L'altra vede affectedRows=0 → "già restituito" senza dover ricaricare.
-  const [affected] = await InstrumentLoan.update(
-    { status: 'returned', returnedAt: new Date() },
-    {
-      where: {
-        id: loan.id,
-        status: { [Op.in]: ['active', 'overdue'] },
-      },
-    },
-  );
-  if (affected === 0) {
-    // Diagnosi: ricarica per dare messaggio specifico
-    const fresh = await InstrumentLoan.findByPk(loan.id);
-    if (fresh?.status === 'returned') {
-      throw domainError('LOAN_ALREADY_RETURNED', 'Prestito già restituito');
-    }
-    throw domainError('LOAN_INVALID_STATE', 'Stato non valido per la restituzione');
-  }
-  const full = await findLoanFull(loan.id);
-  sendInstrumentLoanEmail({ user: full.user, loan: full, kind: 'loan_returned' }).catch(() => {});
+  const full = await loanLifecycle.returnLoan({ id: loan.id });
   res.json({ loan: annotateStatus(full) });
 });
 
 // =========================================================
-// Cancellazione richiesta da parte dell'utente (solo se ancora "requested")
+// Cancellazione (utente: solo richiesta ancora "requested"; admin: sempre)
 // =========================================================
 router.delete('/:id', authenticate, async (req, res) => {
   const loan = await InstrumentLoan.findByPk(req.params.id);
   if (!loan) throw domainError('NOT_FOUND', 'Prestito non trovato', { status: 404 });
   assertCan(req.user, 'loan:cancel', loan);
-  // Solo admin può cancellare un prestito già attivo/restituito (per pulizia inventario);
-  // l'utente può solo cancellare la propria richiesta in attesa.
-  if (!can(req.user, 'loan:cancel-processed') && loan.status !== 'requested') {
-    throw domainError('LOAN_INVALID_STATE', 'Puoi cancellare solo richieste ancora in attesa');
-  }
-  const removed = await InstrumentLoan.destroy({
-    where: {
-      id: loan.id,
-      ...(isAdmin(req.user) ? {} : { userId: req.user.id, status: 'requested' }),
-    },
-  });
-  if (!removed)
-    throw domainError('LOAN_INVALID_STATE', 'Lo stato del prestito è cambiato', { status: 409 });
+  await loanLifecycle.cancel({ loan, actor: req.user });
   res.json({ message: 'Prestito eliminato' });
 });
 

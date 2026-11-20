@@ -5,12 +5,11 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const sharp = require('sharp');
-const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 const { body, validationResult } = require('express-validator');
-const institutionTime = require('../lib/institutionTime');
 const { sequelize, Instrument, InstrumentLoan, User } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { annotateStatus, isOverdue } = require('../services/loanLifecycle');
 
 const router = express.Router();
 
@@ -44,25 +43,6 @@ function tryDeleteOldPhoto(photoUrl) {
 function tryDeletePhotos(rows) {
   if (!rows?.length) return;
   for (const r of rows) tryDeleteOldPhoto(r.photoUrl);
-}
-
-// =========================================================
-// Helpers di stato prestito
-// =========================================================
-function isOverdue(loan, now = institutionTime.now()) {
-  return (
-    loan.status === 'active' &&
-    dayjs(now).isAfter(institutionTime.endOfDay(institutionTime.toInstant(loan.toDate)))
-  );
-}
-
-// Status "calcolato" da restituire al client: se lo stato in DB è "active" ma
-// la data è passata, lo serializziamo come "overdue" (anche se lo scheduler
-// non ha ancora marcato in modo persistente).
-function annotateStatus(loan) {
-  const obj = loan.toJSON ? loan.toJSON() : loan;
-  if (obj.status === 'active' && isOverdue(loan)) obj.status = 'overdue';
-  return obj;
 }
 
 const userPublicAttributes = ['id', 'firstName', 'lastName', 'email', 'matricola', 'role'];
