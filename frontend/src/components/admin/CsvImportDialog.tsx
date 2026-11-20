@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { invalidateStructure } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 const SAMPLE_CSV = `edificio;piano;aula;codice_edificio;indirizzo;codice_aula;capienza;tipo_aula;prenotabile;attrezzatura;tipo_attrezzatura;marca;modello;quantita
 Palazzo Storico;Piano Terra;Aula Verdi;PS;Via Roma 1;A01;25;classe;si;Pianoforte verticale;pianoforte;Yamaha;U3;1
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [csv, setCsv] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -61,9 +63,10 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
       setResult(result);
       void invalidateStructure(qc);
       toast.success(
-        `Import completato · ${result.roomsCreated + result.roomsUpdated} aule, ${
-          result.equipmentCreated + result.equipmentUpdated
-        } strumenti`,
+        t('toasts.csv.rooms_equipment', {
+          rooms: result.roomsCreated + result.roomsUpdated,
+          equipment: result.equipmentCreated + result.equipmentUpdated,
+        }),
       );
     },
     onError: (err) => {

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { personalSchema, type PersonalValues } from './schemas';
 import type { ProfileUser, UpdateUserFn } from './types';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Personal section
@@ -34,6 +35,7 @@ export function PersonalSection({
   user: ProfileUser;
   updateUser: UpdateUserFn;
 }) {
+  const { t } = useTranslation();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
@@ -79,7 +81,7 @@ export function PersonalSection({
         courseId: values.courseId ? Number(values.courseId) : null,
       }),
     onSuccess: ({ user: updated }) => {
-      toast.success('Profilo aggiornato');
+      toast.success(t('profile.personal.saved'));
       updateUser(updated);
       reset({
         firstName: updated.firstName,

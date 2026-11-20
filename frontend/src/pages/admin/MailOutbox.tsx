@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { qk } from '@/lib/queryKeys';
 import { invalidateMailOutbox } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const REFETCH_INTERVAL_MS = 30_000;
 
@@ -165,11 +166,12 @@ function StatusPills({
 }
 
 function ItemActions({ item }: { item: MailOutboxItem }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const retryMut = useMutation({
     mutationFn: () => mailOutboxApi.retry(item.id),
     onSuccess: () => {
-      toast.success('Email rimessa in coda per il prossimo tick');
+      toast.success(t('toasts.mail.outbox_requeued'));
       void invalidateMailOutbox(qc);
     },
     onError: (err) => {
@@ -179,7 +181,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
   const delMut = useMutation({
     mutationFn: () => mailOutboxApi.remove(item.id),
     onSuccess: () => {
-      toast.success('Email eliminata dalla coda');
+      toast.success(t('toasts.mail.outbox_deleted'));
       void invalidateMailOutbox(qc);
     },
     onError: (err) => {
@@ -210,7 +212,7 @@ function ItemActions({ item }: { item: MailOutboxItem }) {
         variant="ghost"
         disabled={delMut.isPending}
         onClick={() => {
-          if (confirm(`Eliminare definitivamente l'email a ${item.to}?`)) delMut.mutate();
+          if (confirm(t('toasts.mail.outbox_delete_confirm', { to: item.to }))) delMut.mutate();
         }}
         aria-label="Elimina"
       >

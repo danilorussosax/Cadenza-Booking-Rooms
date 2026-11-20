@@ -14,8 +14,10 @@ import { ContractTypeFormDialog } from '@/components/admin/ContractTypeFormDialo
 import { ImpactConfirmDialog } from '@/components/admin/ImpactConfirmDialog';
 import { qk } from '@/lib/queryKeys';
 import { invalidateContractTypes } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 export function ContractTypesPanel() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [includeInactive, setIncludeInactive] = useState(false);
   const [editing, setEditing] = useState<ContractTypeRow | null>(null);
@@ -37,7 +39,7 @@ export function ContractTypesPanel() {
   const createMutation = useMutation({
     mutationFn: (payload: ContractTypeUpsertPayload) => contractTypesApi.create(payload),
     onSuccess: async () => {
-      toast.success('Tipologia creata');
+      toast.success(t('toasts.contract_types.created'));
       await invalidateContractTypes(qc);
       setCreating(false);
     },
@@ -48,7 +50,7 @@ export function ContractTypesPanel() {
     mutationFn: (args: { id: number; payload: ContractTypeUpsertPayload }) =>
       contractTypesApi.update(args.id, args.payload),
     onSuccess: async () => {
-      toast.success('Tipologia aggiornata');
+      toast.success(t('toasts.contract_types.updated'));
       await invalidateContractTypes(qc);
       setEditing(null);
       setPendingImpact(null);
@@ -85,7 +87,7 @@ export function ContractTypesPanel() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => contractTypesApi.remove(id),
     onSuccess: async () => {
-      toast.success('Tipologia rimossa');
+      toast.success(t('toasts.contract_types.removed'));
       await invalidateContractTypes(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -193,7 +195,7 @@ export function ContractTypesPanel() {
                           onClick={() => {
                             if (
                               confirm(
-                                `Rimuovere "${ct.label}"? L'operazione è bloccata se ci sono docenti che usano questo tipo.`,
+                                t('toasts.contract_types.remove_confirm', { label: ct.label }),
                               )
                             ) {
                               deleteMutation.mutate(ct.id);
@@ -323,7 +325,7 @@ export function ContractTypesPanel() {
                               onClick={() => {
                                 if (
                                   confirm(
-                                    `Rimuovere "${ct.label}"? L'operazione è bloccata se ci sono docenti che usano questo tipo.`,
+                                    t('toasts.contract_types.remove_confirm', { label: ct.label }),
                                   )
                                 ) {
                                   deleteMutation.mutate(ct.id);

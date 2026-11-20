@@ -16,6 +16,7 @@ import { qk } from '@/lib/queryKeys';
 
 import { ruleFormSchema, defaultsFor, toFormValues, type FormValues } from '@/lib/ruleForm';
 import { Section, NumberField, TimeField, ToggleRow } from './RuleFormFields';
+import { useTranslation } from 'react-i18next';
 
 interface RuleEditorProps {
   role: Role;
@@ -23,6 +24,7 @@ interface RuleEditorProps {
 }
 
 export function RuleEditor({ role, help }: RuleEditorProps) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export function RuleEditor({ role, help }: RuleEditorProps) {
   const mutation = useMutation({
     mutationFn: (values: FormValues) => rulesApi.upsert(role, values),
     onSuccess: ({ rule }) => {
-      toast.success('Regole aggiornate');
+      toast.success(t('toasts.rules.rules_updated'));
       qc.setQueryData(qk.rules.forRole(role), { rule });
       reset(toFormValues(rule));
     },

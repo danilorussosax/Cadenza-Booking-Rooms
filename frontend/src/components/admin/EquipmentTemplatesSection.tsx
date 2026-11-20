@@ -19,12 +19,14 @@ import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateEquipmentTemplates } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   EQUIPMENT_TYPE_OPTIONS.map((o) => [o.value, o.label]),
 );
 
 export function EquipmentTemplatesSection() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
@@ -78,7 +80,7 @@ export function EquipmentTemplatesSection() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => structureApi.deleteEquipmentTemplate(id),
     onSuccess: () => {
-      toast.success('Dotazione eliminata');
+      toast.success(t('toasts.structure.template_deleted'));
       void invalidateEquipmentTemplates(qc);
       setDeleteTarget(null);
     },
@@ -90,7 +92,7 @@ export function EquipmentTemplatesSection() {
   const bulkDeleteMutation = useMutation({
     mutationFn: () => structureApi.bulkDeleteEquipmentTemplates(Array.from(selected)),
     onSuccess: ({ deleted }) => {
-      toast.success(`${deleted} ${deleted === 1 ? 'dotazione eliminata' : 'dotazioni eliminate'}`);
+      toast.success(t('toasts.structure.templates_deleted', { count: deleted }));
       void invalidateEquipmentTemplates(qc);
       setBulkConfirm(false);
       clearSelection();

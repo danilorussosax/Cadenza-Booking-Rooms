@@ -15,6 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { BookingRuleException, Role } from '@/types';
 import { roleLabel } from '@/lib/ruleExceptions';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Dialog di follow-up dopo il salvataggio di un'eccezione kind='block':
@@ -32,14 +33,18 @@ export function OverlapDialog({
   onClose: () => void;
   onCancelled: () => void;
 }) {
+  const { t } = useTranslation();
   const cancelMutation = useMutation({
     mutationFn: (id: number) => rulesApi.cancelOverlapping(id),
     onSuccess: (res) => {
-      const moPart =
+      toast.success(
         res.monteOreSlotsSynced > 0
-          ? ` (${res.monteOreSlotsSynced} slot Monte Ore disattivati)`
-          : '';
-      toast.success(`${res.cancelled} prenotazioni cancellate${moPart}`);
+          ? t('toasts.rules.overlap_cancelled_monte_ore', {
+              count: res.cancelled,
+              slots: res.monteOreSlotsSynced,
+            })
+          : t('toasts.rules.overlap_cancelled', { count: res.cancelled }),
+      );
       onCancelled();
       onClose();
     },

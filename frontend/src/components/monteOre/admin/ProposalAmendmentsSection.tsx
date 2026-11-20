@@ -9,6 +9,7 @@ import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
 import { qk } from '@/lib/queryKeys';
 import { invalidateProposalAmendments } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 export function AmendmentsSection({
   proposalId,
@@ -17,6 +18,7 @@ export function AmendmentsSection({
   proposalId: number;
   onAfterDecision: () => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const amendmentsQuery = useQuery({
     queryKey: qk.adminMonteOre.amendmentsOf(proposalId),
@@ -27,7 +29,7 @@ export function AmendmentsSection({
     mutationFn: ({ aid, roomId }: { aid: number; roomId?: number }) =>
       monteOreAdminApi.approveAmendment(proposalId, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
-      toast.success('Variazione approvata');
+      toast.success(t('toasts.monte_ore.amendment_approved'));
       void invalidateProposalAmendments(qc, proposalId);
       onAfterDecision();
     },
@@ -38,7 +40,7 @@ export function AmendmentsSection({
     mutationFn: ({ aid, reason }: { aid: number; reason: string }) =>
       monteOreAdminApi.rejectAmendment(proposalId, aid, reason),
     onSuccess: () => {
-      toast.success('Variazione rifiutata');
+      toast.success(t('toasts.monte_ore.amendment_rejected'));
       void invalidateProposalAmendments(qc, proposalId);
       onAfterDecision();
     },

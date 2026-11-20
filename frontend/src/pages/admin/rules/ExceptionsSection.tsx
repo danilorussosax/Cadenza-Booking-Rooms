@@ -14,6 +14,7 @@ import { exceptionSummary, roleLabel } from '@/lib/ruleExceptions';
 
 import { ExceptionDialog } from './ExceptionDialog';
 import { OverlapDialog } from './OverlapDialog';
+import { useTranslation } from 'react-i18next';
 
 /**
  * `role` opzionale: se omesso, mostra TUTTE le eccezioni (admin only —
@@ -27,6 +28,7 @@ export function ExceptionsSection({
   role?: BookingRuleExceptionScope;
   roomId?: number;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<BookingRuleException | null>(null);
   const [creating, setCreating] = useState(false);
@@ -45,7 +47,7 @@ export function ExceptionsSection({
   const deleteMutation = useMutation({
     mutationFn: (id: number) => rulesApi.deleteException(id),
     onSuccess: () => {
-      toast.success('Eccezione eliminata');
+      toast.success(t('toasts.rules.exception_deleted'));
       void invalidateRuleExceptions(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -142,7 +144,9 @@ export function ExceptionsSection({
                   title="Elimina"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => {
-                    if (window.confirm(`Eliminare l'eccezione "${exc.name}"?`)) {
+                    if (
+                      window.confirm(t('toasts.rules.exception_delete_confirm', { name: exc.name }))
+                    ) {
                       deleteMutation.mutate(exc.id);
                     }
                   }}

@@ -22,6 +22,7 @@ import { qk } from '@/lib/queryKeys';
 
 import { IsidataImportCard, Esse3ImportCard } from './SsoImportCards';
 import { GoogleBadge, MicrosoftBadge } from './SsoBadges';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Tab "SSO": configurazione provider OAuth (Google/Microsoft), whitelist
@@ -48,6 +49,7 @@ interface OAuthFormState {
 }
 
 export function SsoTabContent() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [showGoogleSecret, setShowGoogleSecret] = useState(false);
   const [showMsSecret, setShowMsSecret] = useState(false);
@@ -84,7 +86,7 @@ export function SsoTabContent() {
   const mutation = useMutation({
     mutationFn: (payload: UpsertOAuthSettings) => oauthSettingsApi.update(payload),
     onSuccess: (data) => {
-      toast.success('Impostazioni OAuth salvate');
+      toast.success(t('toasts.oauth.settings_saved'));
       void qc.invalidateQueries({ queryKey: qk.admin.oauthSettings() });
       // restartRequired = false solo se ho toccato esclusivamente la whitelist.
       if (data.restartRequired) setRestartHint(true);

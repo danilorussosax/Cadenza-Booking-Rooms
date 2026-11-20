@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import type { Building } from '@/types';
 import { invalidateStructure } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function BuildingFormDialog({ open, onOpenChange, instituteId, building }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!building;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -84,7 +86,9 @@ export function BuildingFormDialog({ open, onOpenChange, instituteId, building }
         : structureApi.createBuilding(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Edificio aggiornato' : 'Edificio creato');
+      toast.success(
+        isEdit ? t('toasts.structure.building_updated') : t('toasts.structure.building_created'),
+      );
       void invalidateStructure(qc);
       onOpenChange(false);
     },

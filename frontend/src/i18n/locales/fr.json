@@ -2284,5 +2284,169 @@
     "empty_subtitle": "Aucune communication à afficher.",
     "pinned": "À la une",
     "expires": "Expire le"
+  },
+  "toasts": {
+    "csv": {
+      "created_updated": "Import terminé · {{created}} créés, {{updated}} mis à jour",
+      "created_updated_skipped": "Import terminé · {{created}} créés, {{updated}} mis à jour, {{skipped}} ignorés",
+      "rooms_equipment": "Import terminé · {{rooms}} salles, {{equipment}} instruments",
+      "created_existing": "Import terminé · {{created}} créées, {{skipped}} déjà existantes",
+      "instruments": "{{total}} instruments · {{created}} créés · {{updated}} mis à jour"
+    },
+    "structure": {
+      "building_updated": "Bâtiment mis à jour",
+      "building_created": "Bâtiment créé",
+      "room_updated": "Salle mise à jour",
+      "room_created": "Salle créée",
+      "institute_updated": "Institut mis à jour",
+      "institute_created": "Institut créé",
+      "logo_updated": "Logo mis à jour",
+      "logo_removed": "Logo supprimé",
+      "equipment_updated": "Instrument mis à jour",
+      "equipment_added": "Instrument ajouté",
+      "template_updated": "Équipement mis à jour",
+      "template_created": "Équipement créé",
+      "template_deleted": "Équipement supprimé",
+      "templates_deleted_one": "{{count}} équipement supprimé",
+      "templates_deleted_other": "{{count}} équipements supprimés",
+      "level_updated": "Niveau mis à jour",
+      "level_created": "Niveau créé",
+      "level_deleted": "Niveau supprimé",
+      "levels_deleted_one": "{{count}} niveau supprimé",
+      "levels_deleted_other": "{{count}} niveaux supprimés"
+    },
+    "courses": {
+      "course_updated": "Cursus mis à jour",
+      "course_created": "Cursus créé",
+      "course_deleted": "Cursus supprimé",
+      "courses_deleted_one": "{{count}} cursus supprimé",
+      "courses_deleted_other": "{{count}} cursus supprimés"
+    },
+    "contract_types": {
+      "created": "Type créé",
+      "updated": "Type mis à jour",
+      "removed": "Type supprimé",
+      "remove_confirm": "Supprimer « {{label}} » ? L'opération est bloquée si des enseignants utilisent ce type."
+    },
+    "users": {
+      "email_reactivated": "Adresse e-mail réactivée",
+      "user_updated": "Utilisateur mis à jour",
+      "user_created": "Utilisateur créé"
+    },
+    "mail": {
+      "template_reset": "Modèle rétabli aux valeurs par défaut",
+      "placeholder_added": "{{placeholder}} ajouté",
+      "smtp_saved": "Configuration SMTP enregistrée",
+      "test_sent": "E-mail de test envoyé à {{to}}",
+      "test_failed": "Erreur d'envoi du test",
+      "outbox_requeued": "E-mail remis en file pour le prochain cycle",
+      "outbox_deleted": "E-mail supprimé de la file d'attente",
+      "outbox_delete_confirm": "Supprimer définitivement l'e-mail à {{to}} ?"
+    },
+    "oauth": {
+      "gate_load_error": "Erreur lors du chargement des paramètres du gate",
+      "mapping_load_error": "Erreur lors du chargement du mappage",
+      "users_load_error": "Erreur lors du chargement des utilisateurs",
+      "gate_saved_restart": "Enregistré. Un redémarrage est nécessaire pour appliquer le scope OAuth.",
+      "gate_saved": "Paramètres du gate enregistrés.",
+      "gate_save_error": "Erreur lors de l'enregistrement du gate",
+      "mapping_group_required": "Chaque ligne doit avoir un groupe",
+      "mapping_saved": "Mappage enregistré — actif à la prochaine connexion",
+      "mapping_save_error": "Erreur lors de l'enregistrement du mappage",
+      "role_realigned": "Rôle réaligné pour {{email}}",
+      "realign_error": "Erreur lors du réalignement",
+      "settings_saved": "Paramètres OAuth enregistrés"
+    },
+    "bookings": {
+      "cancelled": "Réservation annulée",
+      "swapped": "Réservations échangées",
+      "swap_confirm": "Échanger la salle et l'horaire entre les deux réservations sélectionnées ?"
+    },
+    "consent": {
+      "thanks": "Merci, vos consentements ont été enregistrés."
+    },
+    "monte_ore": {
+      "year_started": "Année académique {{year}} démarrée",
+      "start_removed": "Démarrage retiré : logique automatique rétablie",
+      "year_status_updated": "Statut de l'année mis à jour",
+      "exam_session_deleted": "Session supprimée",
+      "exam_session_delete_confirm": "Supprimer la session « {{name}} » ?",
+      "exam_session_updated": "Session mise à jour",
+      "exam_session_created": "Session créée",
+      "excel_imported": "Import terminé pour {{name}} ({{count}} créneaux)",
+      "year_published": "Année académique {{year}} publiée",
+      "year_saved_draft": "Année académique {{year}} enregistrée en brouillon",
+      "amendment_approved": "Modification approuvée",
+      "amendment_rejected": "Modification refusée",
+      "proposal_rejected": "Proposition refusée",
+      "bookings_created": "Réservations créées : {{count}}",
+      "bookings_created_skipped": "Réservations créées : {{count}} ({{skipped}} ignorées)",
+      "bookings_cleared": "Réservations annulées : {{count}}",
+      "proposal_reverted": "Proposition remise en brouillon : l'enseignant a été prévenu",
+      "schedule_updated": "Créneau mis à jour",
+      "schedule_added": "Créneau ajouté",
+      "grid_confirm": "Cette modification supprime {{count}} dates sélectionnées. Confirmer ?",
+      "grid_regenerated": "Grille régénérée : {{count}} cellules",
+      "amendment_auto_applied": "Modification appliquée automatiquement",
+      "request_sent": "Demande envoyée au coordinateur",
+      "time_updated": "Horaire mis à jour",
+      "time_request_sent": "Demande de changement d'horaire envoyée au coordinateur",
+      "room_request_sent": "Demande de changement de salle envoyée au coordinateur",
+      "lesson_moved": "Cours déplacé",
+      "move_request_sent": "Demande de déplacement envoyée au coordinateur",
+      "row_deleted": "Ligne supprimée",
+      "proposal_sent": "Proposition envoyée au coordinateur",
+      "settings_saved": "Paramètres enregistrés",
+      "template_downloaded": "Modèle Excel téléchargé",
+      "suspension_deleted": "Suspension supprimée",
+      "suspension_delete_confirm": "Supprimer « {{name}} » ?",
+      "suspension_created": "Suspension créée",
+      "suspension_updated": "Suspension mise à jour"
+    },
+    "pwa": {
+      "update_available": "Mise à jour disponible",
+      "update_description": "Rechargez pour appliquer la nouvelle version.",
+      "update_reload": "Recharger"
+    },
+    "booking_types": {
+      "type_updated": "Type « {{label}} » mis à jour"
+    },
+    "export": {
+      "excel_ok": "Export OK — {{rows}} lignes en {{ms}} ms",
+      "excel_failed": "Échec de l'export",
+      "analytics_error": "Erreur d'export",
+      "backup_download_failed": "Échec du téléchargement"
+    },
+    "qr": {
+      "regenerated": "QR code régénéré. Imprimez la nouvelle version et remplacez la copie dans la salle.",
+      "all_regenerated": "{{count}} QR codes régénérés",
+      "regenerate_all_confirm": "Régénérer les QR codes de TOUTES les salles ?\nVous devrez réimprimer et remplacer chaque QR physique.",
+      "regenerate_one_confirm": "Régénérer le QR de « {{name}} » ?\nLe QR physique existant cessera de fonctionner.",
+      "checkin_enabled": "Check-in activé pour {{name}}",
+      "checkin_disabled": "Check-in désactivé pour {{name}}",
+      "checkin_settings_saved": "Paramètres de check-in enregistrés",
+      "cidr_exists": "CIDR déjà présent",
+      "own_ip_exists": "Votre IP figure déjà dans la liste"
+    },
+    "rules": {
+      "exception_updated": "Exception mise à jour",
+      "exception_created": "Exception créée",
+      "exception_deleted": "Exception supprimée",
+      "exception_delete_confirm": "Supprimer l'exception « {{name}} » ?",
+      "overlap_cancelled_one": "{{count}} réservation annulée",
+      "overlap_cancelled_other": "{{count}} réservations annulées",
+      "overlap_cancelled_monte_ore_one": "{{count}} réservation annulée ({{slots}} créneaux de quota horaire désactivés)",
+      "overlap_cancelled_monte_ore_other": "{{count}} réservations annulées ({{slots}} créneaux de quota horaire désactivés)",
+      "rules_updated": "Règles mises à jour"
+    },
+    "profile": {
+      "password_updated": "Mot de passe mis à jour",
+      "export_downloaded": "Export téléchargé : {{filename}}",
+      "marketing_on": "Consentement marketing activé",
+      "marketing_off": "Consentement marketing retiré",
+      "account_deleted": "Compte supprimé. À bientôt.",
+      "photo_updated": "Photo de profil mise à jour",
+      "photo_removed": "Photo de profil supprimée"
+    }
   }
 }

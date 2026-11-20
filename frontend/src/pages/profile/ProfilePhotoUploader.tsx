@@ -7,6 +7,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { ProfileUser, UpdateUserFn } from './types';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Profile photo uploader (avatar + carica/cambia/rimuovi)
@@ -18,6 +19,7 @@ export function ProfilePhotoUploader({
   user: ProfileUser;
   updateUser: UpdateUserFn;
 }) {
+  const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const initials = `${user.firstName[0]}${user.lastName[0]}`;
   const hasPhoto = !!user.profilePhotoUrl;
@@ -25,7 +27,7 @@ export function ProfilePhotoUploader({
   const uploadMutation = useMutation({
     mutationFn: (file: File) => authApi.uploadPhoto(file),
     onSuccess: ({ user: updated }) => {
-      toast.success('Foto profilo aggiornata');
+      toast.success(t('toasts.profile.photo_updated'));
       updateUser(updated);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -34,7 +36,7 @@ export function ProfilePhotoUploader({
   const deleteMutation = useMutation({
     mutationFn: () => authApi.deletePhoto(),
     onSuccess: ({ user: updated }) => {
-      toast.success('Foto profilo rimossa');
+      toast.success(t('toasts.profile.photo_removed'));
       updateUser(updated);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

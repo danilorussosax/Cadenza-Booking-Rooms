@@ -9,11 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { qk } from '@/lib/queryKeys';
 import { invalidateQrStructure } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Card "Check-in per edificio" (impostazione generale)
 // =====================================================
 export function BuildingCheckInCard() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const buildingsQuery = useQuery({
     queryKey: qk.admin.qrBuildings(),
@@ -26,8 +28,8 @@ export function BuildingCheckInCard() {
     onSuccess: ({ building }) => {
       toast.success(
         building.checkInDefault
-          ? `Check-in attivato per ${building.name}`
-          : `Check-in disattivato per ${building.name}`,
+          ? t('toasts.qr.checkin_enabled', { name: building.name })
+          : t('toasts.qr.checkin_disabled', { name: building.name }),
       );
       void invalidateQrStructure(qc);
     },

@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import type { ProfileUser } from './types';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Privacy & GDPR section
@@ -28,6 +29,7 @@ import type { ProfileUser } from './types';
 //     la propria email per confermare un'operazione irreversibile)
 // =====================================================
 export function PrivacySection({ user }: { user: ProfileUser }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { logout } = useAuth();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -39,7 +41,7 @@ export function PrivacySection({ user }: { user: ProfileUser }) {
 
   const exportMutation = useMutation({
     mutationFn: () => gdprApi.exportData(),
-    onSuccess: ({ filename }) => toast.success(`Export scaricato: ${filename}`),
+    onSuccess: ({ filename }) => toast.success(t('toasts.profile.export_downloaded', { filename })),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -52,7 +54,7 @@ export function PrivacySection({ user }: { user: ProfileUser }) {
       }),
     onSuccess: (_, granted) => {
       void invalidateConsents(qc);
-      toast.success(granted ? 'Consenso marketing attivato' : 'Consenso marketing revocato');
+      toast.success(granted ? t('toasts.profile.marketing_on') : t('toasts.profile.marketing_off'));
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -184,7 +186,7 @@ export function PrivacySection({ user }: { user: ProfileUser }) {
         userEmail={user.email}
         onDeleted={() => {
           setDeleteOpen(false);
-          toast.success('Account eliminato. A presto.');
+          toast.success(t('toasts.profile.account_deleted'));
           logout();
         }}
       />

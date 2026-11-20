@@ -20,6 +20,7 @@ import { httpErrorMessage } from '@/lib/api';
 import { PRIVACY_POLICY_VERSION, TERMS_VERSION } from '@/pages/legal/policyVersions';
 import { useConsentGate } from '@/components/legal/useConsentGate';
 import { invalidateConsents } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 // Banner-modale globale che obbliga l'utente autenticato ad accettare la
 // versione corrente di Privacy Policy e Termini se quella registrata è
@@ -33,6 +34,7 @@ import { invalidateConsents } from '@/lib/invalidation';
 // col `CookieBanner` (che si nasconde finche' il gate e' attivo, per
 // evitare il backdrop modale che intercetta i click sul banner).
 export function ConsentGate() {
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const qc = useQueryClient();
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
@@ -57,7 +59,7 @@ export function ConsentGate() {
       ]),
     onSuccess: () => {
       void invalidateConsents(qc);
-      toast.success('Grazie, consensi registrati.');
+      toast.success(t('toasts.consent.thanks'));
     },
     onError: (err) => {
       setServerError(httpErrorMessage(err));

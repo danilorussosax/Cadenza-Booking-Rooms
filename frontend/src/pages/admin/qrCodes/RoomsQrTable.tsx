@@ -13,11 +13,13 @@ import { qk } from '@/lib/queryKeys';
 import { invalidateQrOverview } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
 import { RoomQrRow } from './RoomQrRow';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // 2) Tabella QR-code per aula
 // =====================================================
 export function RoomsQrTable() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const overviewQuery = useQuery({
     queryKey: qk.admin.qrOverview(),
@@ -30,7 +32,7 @@ export function RoomsQrTable() {
   const regenerateMutation = useMutation({
     mutationFn: (roomId: number) => qrcodesApi.regenerate(roomId),
     onSuccess: (data) => {
-      toast.success('QR-code rigenerato. Stampa la nuova versione e sostituisci la copia in aula.');
+      toast.success(t('toasts.qr.regenerated'));
       setVersions((prev) => ({ ...prev, [data.roomId]: data.qrTokenUpdatedAt }));
       void invalidateQrOverview(qc);
     },
@@ -40,7 +42,7 @@ export function RoomsQrTable() {
   const bulkMutation = useMutation({
     mutationFn: () => qrcodesApi.bulkRegenerate(),
     onSuccess: (data) => {
-      toast.success(`Rigenerati ${data.updated} QR-code`);
+      toast.success(t('toasts.qr.all_regenerated', { count: data.updated }));
       const ts = new Date().toISOString();
       setVersions(() => {
         const next: Record<number, string> = {};
@@ -107,11 +109,7 @@ export function RoomsQrTable() {
             type="button"
             variant="outline"
             onClick={() => {
-              if (
-                window.confirm(
-                  'Rigenerare i QR-code di TUTTE le aule?\nDovrai ristampare e sostituire ogni QR fisico.',
-                )
-              ) {
+              if (window.confirm(t('toasts.qr.regenerate_all_confirm'))) {
                 bulkMutation.mutate();
               }
             }}
@@ -140,11 +138,7 @@ export function RoomsQrTable() {
                 version={versions[room.id] ?? room.qrTokenUpdatedAt}
                 isPending={regenerateMutation.isPending && regenerateMutation.variables === room.id}
                 onRegenerate={() => {
-                  if (
-                    window.confirm(
-                      `Rigenerare il QR di "${room.name}"?\nIl QR fisico esistente smetterà di funzionare.`,
-                    )
-                  ) {
+                  if (window.confirm(t('toasts.qr.regenerate_one_confirm', { name: room.name }))) {
                     regenerateMutation.mutate(room.id);
                   }
                 }}

@@ -44,6 +44,7 @@ import {
 import { mailTemplatesApi } from '@/api/mailTemplates';
 import { MailTemplateEditor } from '@/components/admin/MailTemplateEditor';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   isEnabled: z.boolean(),
@@ -89,6 +90,7 @@ function StatusBadge({ s }: { s: MailSettingsView }) {
 }
 
 export default function AdminMailSettings() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -160,7 +162,7 @@ export default function AdminMailSettings() {
         throttlePerRecipientPerHour: values.throttlePerRecipientPerHour,
       }),
     onSuccess: ({ settings }) => {
-      toast.success('Configurazione SMTP salvata');
+      toast.success(t('toasts.mail.smtp_saved'));
       qc.setQueryData<MailSettingsResponse>(qk.admin.mailSettings(), (old) => ({
         envFallback: old?.envFallback ?? { hasEnvHost: false },
         settings,
@@ -196,10 +198,10 @@ export default function AdminMailSettings() {
     onSuccess: (res) => {
       if (res.ok) {
         setLastTestError(null);
-        toast.success(`Email di test inviata a ${res.sentTo}`);
+        toast.success(t('toasts.mail.test_sent', { to: res.sentTo }));
       } else {
-        setLastTestError({ message: res.error ?? 'Errore invio test', raw: res.raw });
-        toast.error(res.error ?? 'Errore invio test');
+        setLastTestError({ message: res.error ?? t('toasts.mail.test_failed'), raw: res.raw });
+        toast.error(res.error ?? t('toasts.mail.test_failed'));
       }
     },
     onError: (err) => {

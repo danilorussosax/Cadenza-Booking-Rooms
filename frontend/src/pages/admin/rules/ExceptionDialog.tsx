@@ -42,6 +42,7 @@ import {
   validateException,
   type ExceptionFormState,
 } from '@/lib/ruleExceptions';
+import { useTranslation } from 'react-i18next';
 
 // =====================================================
 // Dialog: crea/modifica eccezione
@@ -60,6 +61,7 @@ export function ExceptionDialog({
   onClose: () => void;
   onSaved?: (saved: BookingRuleException, overlapping: OverlapBooking[]) => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [form, setForm] = useState<ExceptionFormState>(() =>
     existing ? fromException(existing) : blankException(defaultRole, defaultRoomId),
@@ -107,7 +109,9 @@ export function ExceptionDialog({
       return { saved: saved.exception, overlapping };
     },
     onSuccess: ({ saved, overlapping }) => {
-      toast.success(existing ? 'Eccezione aggiornata' : 'Eccezione creata');
+      toast.success(
+        existing ? t('toasts.rules.exception_updated') : t('toasts.rules.exception_created'),
+      );
       void invalidateRuleExceptions(qc);
       onClose();
       onSaved?.(saved, overlapping);

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import type { CourseLevelEntity } from '@/types';
 import { invalidateCourseLevels } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   code: z
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!level;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -77,7 +79,9 @@ export function CourseLevelFormDialog({ open, onOpenChange, level }: Props) {
       return isEdit ? courseLevelsApi.update(level.id, payload) : courseLevelsApi.create(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Livello aggiornato' : 'Livello creato');
+      toast.success(
+        isEdit ? t('toasts.structure.level_updated') : t('toasts.structure.level_created'),
+      );
       void invalidateCourseLevels(qc);
       onOpenChange(false);
     },

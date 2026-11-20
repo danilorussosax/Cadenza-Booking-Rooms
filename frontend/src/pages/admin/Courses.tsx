@@ -42,6 +42,7 @@ import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateCourses } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 // Macro-tab in stile /admin/server-settings: card grandi con icona+label.
 type CoursesTab = 'corsi' | 'livelli';
@@ -79,6 +80,7 @@ const COURSES_TABS: CoursesTabDef[] = [
 const COURSES_VALID_TABS = COURSES_TABS.map((t) => t.value);
 
 export default function AdminCourses() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
   const initialTab = params.get('tab');
@@ -164,7 +166,7 @@ export default function AdminCourses() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => coursesApi.remove(id),
     onSuccess: () => {
-      toast.success('Corso eliminato');
+      toast.success(t('toasts.courses.course_deleted'));
       void invalidateCourses(qc);
       setDeleteTarget(null);
     },
@@ -176,7 +178,7 @@ export default function AdminCourses() {
   const bulkDeleteMutation = useMutation({
     mutationFn: () => coursesApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
-      toast.success(`${deleted} ${deleted === 1 ? 'corso eliminato' : 'corsi eliminati'}`);
+      toast.success(t('toasts.courses.courses_deleted', { count: deleted }));
       void invalidateCourses(qc);
       setBulkConfirm(false);
       clearSelection();

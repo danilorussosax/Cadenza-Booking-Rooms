@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DAYS_IT, TYPE_OPTIONS } from './constants';
+import { useTranslation } from 'react-i18next';
 
 // ============================================================
 // Dialog di edit/aggiunta riga schedule
@@ -44,6 +45,7 @@ export function ScheduleDialog({
   existing: MonteOreSchedule | null;
   targetYear: string | undefined;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = existing !== null;
 
@@ -67,7 +69,9 @@ export function ScheduleDialog({
         ? monteOreApi.updateMySchedule(existing.id, form, targetYear)
         : monteOreApi.addMySchedule(form, targetYear),
     onSuccess: () => {
-      toast.success(isEdit ? 'Fascia aggiornata' : 'Fascia aggiunta');
+      toast.success(
+        isEdit ? t('toasts.monte_ore.schedule_updated') : t('toasts.monte_ore.schedule_added'),
+      );
       // Add/update di una schedule cambia proposal.schedules; gli slot
       // legati vanno rigenerati (regenerate-slots è esplicito), ma comunque
       // invalidiamoli per coerenza UI quando già materializzati.

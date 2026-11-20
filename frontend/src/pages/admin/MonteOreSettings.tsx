@@ -37,8 +37,10 @@ import {
 } from '@/components/ui/select';
 import { qk } from '@/lib/queryKeys';
 import { invalidateMonteOreSettings, invalidateMonteOreSuspensions } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminMonteOreSettings() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   // AA selezionato — risolto dal selettore (storage > default).
   const [year, setYear] = useState<string | undefined>(undefined);
@@ -60,7 +62,7 @@ export default function AdminMonteOreSettings() {
     mutationFn: (payload: Partial<MonteOreSettings>) =>
       monteOreAdminApi.updateSettings({ ...payload, academicYear: year }),
     onSuccess: () => {
-      toast.success('Impostazioni salvate');
+      toast.success(t('toasts.monte_ore.settings_saved'));
       void invalidateMonteOreSettings(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -79,7 +81,7 @@ export default function AdminMonteOreSettings() {
     try {
       setDownloading(true);
       await monteOreAdminApi.downloadImportTemplate(year);
-      toast.success('Template Excel scaricato');
+      toast.success(t('toasts.monte_ore.template_downloaded'));
     } catch (err) {
       toast.error(httpErrorMessage(err));
     } finally {
@@ -367,6 +369,7 @@ function SuspensionsCard({
   suspensions: MonteOreSuspension[];
   loading: boolean;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<MonteOreSuspension | null>(null);
@@ -374,7 +377,7 @@ function SuspensionsCard({
   const removeMutation = useMutation({
     mutationFn: (id: number) => monteOreAdminApi.removeSuspension(id),
     onSuccess: () => {
-      toast.success('Sospensione eliminata');
+      toast.success(t('toasts.monte_ore.suspension_deleted'));
       void invalidateMonteOreSuspensions(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -438,7 +441,12 @@ function SuspensionsCard({
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            if (confirm(`Eliminare "${s.name}"?`)) removeMutation.mutate(s.id);
+                            if (
+                              confirm(
+                                t('toasts.monte_ore.suspension_delete_confirm', { name: s.name }),
+                              )
+                            )
+                              removeMutation.mutate(s.id);
                           }}
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           title="Elimina sospensione"
@@ -475,6 +483,7 @@ function SuspensionForm({
   existing?: MonteOreSuspension;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!existing;
   const [form, setForm] = useState({
@@ -500,7 +509,7 @@ function SuspensionForm({
         applyToAllBookings: form.applyToAllBookings,
       }),
     onSuccess: () => {
-      toast.success('Sospensione creata');
+      toast.success(t('toasts.monte_ore.suspension_created'));
       void invalidateMonteOreSuspensions(qc);
       onClose();
     },
@@ -519,7 +528,7 @@ function SuspensionForm({
       });
     },
     onSuccess: () => {
-      toast.success('Sospensione aggiornata');
+      toast.success(t('toasts.monte_ore.suspension_updated'));
       void invalidateMonteOreSuspensions(qc);
       onClose();
     },

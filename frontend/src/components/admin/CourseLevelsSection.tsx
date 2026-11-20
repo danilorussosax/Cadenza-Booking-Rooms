@@ -14,8 +14,10 @@ import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { CourseLevelEntity } from '@/types';
 import { qk } from '@/lib/queryKeys';
 import { invalidateCourseLevels } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 export function CourseLevelsSection() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editTarget, setEditTarget] = useState<CourseLevelEntity | null>(null);
@@ -63,7 +65,7 @@ export function CourseLevelsSection() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => courseLevelsApi.remove(id),
     onSuccess: () => {
-      toast.success('Livello eliminato');
+      toast.success(t('toasts.structure.level_deleted'));
       void invalidateCourseLevels(qc);
       setDeleteTarget(null);
     },
@@ -75,7 +77,7 @@ export function CourseLevelsSection() {
   const bulkDeleteMutation = useMutation({
     mutationFn: () => courseLevelsApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
-      toast.success(`${deleted} ${deleted === 1 ? 'livello eliminato' : 'livelli eliminati'}`);
+      toast.success(t('toasts.structure.levels_deleted', { count: deleted }));
       void invalidateCourseLevels(qc);
       setBulkConfirm(false);
       clearSelection();

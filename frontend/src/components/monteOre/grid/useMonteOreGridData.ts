@@ -13,6 +13,7 @@ import {
 import { groupSlotsByDate } from '@/lib/monteOreGrid';
 import { activeHours } from '@/lib/monteOreProjection';
 import { qk } from '@/lib/queryKeys';
+import { useTranslation } from 'react-i18next';
 
 export interface PeriodSelection {
   from: string;
@@ -32,6 +33,7 @@ export function useMonteOreGridData(
   academicYear: string | undefined,
   actions: MonteOreTeacherActions,
 ) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [requestOpen, setRequestOpen] = useState(false);
   const [period, setPeriod] = useState<PeriodSelection>(EMPTY_PERIOD);
@@ -63,13 +65,13 @@ export function useMonteOreGridData(
       if (data.result.requiresConfirmation) {
         if (
           window.confirm(
-            `La modifica rimuove ${data.result.removedActive?.length ?? 0} date selezionate. Confermi?`,
+            t('toasts.monte_ore.grid_confirm', { count: data.result.removedActive?.length ?? 0 }),
           )
         )
           regenerateMutation.mutate(true);
         return;
       }
-      toast.success(`Griglia rigenerata: ${data.result.created} celle`);
+      toast.success(t('toasts.monte_ore.grid_regenerated', { count: data.result.created }));
       // Regenerate riscrive tutti gli slot della proposta + aggiorna i
       // contatori sulla proposal. Niente impact su threshold/amendments.
       void invalidateMonteOreRegenerated(qc);
@@ -83,8 +85,8 @@ export function useMonteOreGridData(
       if (data.amendment) {
         toast.success(
           data.amendment.status === 'auto_approved'
-            ? 'Variazione applicata automaticamente'
-            : 'Richiesta inviata al coordinatore',
+            ? t('toasts.monte_ore.amendment_auto_applied')
+            : t('toasts.monte_ore.request_sent'),
         );
       }
       // Aggiornamento "ottimistico" mirato: patcho lo slot nella cache locale

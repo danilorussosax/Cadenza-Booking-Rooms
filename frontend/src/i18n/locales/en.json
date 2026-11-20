@@ -2284,5 +2284,169 @@
     "empty_subtitle": "There are no announcements to display.",
     "pinned": "Pinned",
     "expires": "Expires"
+  },
+  "toasts": {
+    "csv": {
+      "created_updated": "Import complete · {{created}} created, {{updated}} updated",
+      "created_updated_skipped": "Import complete · {{created}} created, {{updated}} updated, {{skipped}} skipped",
+      "rooms_equipment": "Import complete · {{rooms}} rooms, {{equipment}} instruments",
+      "created_existing": "Import complete · {{created}} created, {{skipped}} already existing",
+      "instruments": "{{total}} instruments · {{created}} created · {{updated}} updated"
+    },
+    "structure": {
+      "building_updated": "Building updated",
+      "building_created": "Building created",
+      "room_updated": "Room updated",
+      "room_created": "Room created",
+      "institute_updated": "Institute updated",
+      "institute_created": "Institute created",
+      "logo_updated": "Logo updated",
+      "logo_removed": "Logo removed",
+      "equipment_updated": "Instrument updated",
+      "equipment_added": "Instrument added",
+      "template_updated": "Equipment updated",
+      "template_created": "Equipment created",
+      "template_deleted": "Equipment deleted",
+      "templates_deleted_one": "{{count}} equipment item deleted",
+      "templates_deleted_other": "{{count}} equipment items deleted",
+      "level_updated": "Level updated",
+      "level_created": "Level created",
+      "level_deleted": "Level deleted",
+      "levels_deleted_one": "{{count}} level deleted",
+      "levels_deleted_other": "{{count}} levels deleted"
+    },
+    "courses": {
+      "course_updated": "Course updated",
+      "course_created": "Course created",
+      "course_deleted": "Course deleted",
+      "courses_deleted_one": "{{count}} course deleted",
+      "courses_deleted_other": "{{count}} courses deleted"
+    },
+    "contract_types": {
+      "created": "Type created",
+      "updated": "Type updated",
+      "removed": "Type removed",
+      "remove_confirm": "Remove \"{{label}}\"? This is blocked if any teachers use this type."
+    },
+    "users": {
+      "email_reactivated": "Email address reactivated",
+      "user_updated": "User updated",
+      "user_created": "User created"
+    },
+    "mail": {
+      "template_reset": "Template restored to default values",
+      "placeholder_added": "Added {{placeholder}}",
+      "smtp_saved": "SMTP configuration saved",
+      "test_sent": "Test email sent to {{to}}",
+      "test_failed": "Test send error",
+      "outbox_requeued": "Email re-queued for the next tick",
+      "outbox_deleted": "Email removed from the queue",
+      "outbox_delete_confirm": "Permanently delete the email to {{to}}?"
+    },
+    "oauth": {
+      "gate_load_error": "Error loading gate settings",
+      "mapping_load_error": "Error loading the mapping",
+      "users_load_error": "Error loading users",
+      "gate_saved_restart": "Saved. A restart is required to apply the OAuth scope.",
+      "gate_saved": "Gate settings saved.",
+      "gate_save_error": "Error saving the gate",
+      "mapping_group_required": "Every row must have a group",
+      "mapping_saved": "Mapping saved — active at next login",
+      "mapping_save_error": "Error saving the mapping",
+      "role_realigned": "Role realigned for {{email}}",
+      "realign_error": "Error during realignment",
+      "settings_saved": "OAuth settings saved"
+    },
+    "bookings": {
+      "cancelled": "Booking cancelled",
+      "swapped": "Bookings swapped",
+      "swap_confirm": "Swap room and time between the two selected bookings?"
+    },
+    "consent": {
+      "thanks": "Thank you, your consents have been recorded."
+    },
+    "monte_ore": {
+      "year_started": "Academic year {{year}} started",
+      "start_removed": "Start removed: automatic logic restored",
+      "year_status_updated": "Year status updated",
+      "exam_session_deleted": "Session deleted",
+      "exam_session_delete_confirm": "Delete the session \"{{name}}\"?",
+      "exam_session_updated": "Session updated",
+      "exam_session_created": "Session created",
+      "excel_imported": "Import complete for {{name}} ({{count}} time slots)",
+      "year_published": "Academic year {{year}} published",
+      "year_saved_draft": "Academic year {{year}} saved as draft",
+      "amendment_approved": "Amendment approved",
+      "amendment_rejected": "Amendment rejected",
+      "proposal_rejected": "Proposal rejected",
+      "bookings_created": "Bookings created: {{count}}",
+      "bookings_created_skipped": "Bookings created: {{count}} ({{skipped}} skipped)",
+      "bookings_cleared": "Bookings cancelled: {{count}}",
+      "proposal_reverted": "Proposal returned to draft: the teacher has been notified",
+      "schedule_updated": "Time slot updated",
+      "schedule_added": "Time slot added",
+      "grid_confirm": "This change removes {{count}} selected dates. Confirm?",
+      "grid_regenerated": "Grid regenerated: {{count}} cells",
+      "amendment_auto_applied": "Amendment applied automatically",
+      "request_sent": "Request sent to the coordinator",
+      "time_updated": "Time updated",
+      "time_request_sent": "Time change request sent to the coordinator",
+      "room_request_sent": "Room change request sent to the coordinator",
+      "lesson_moved": "Lesson moved",
+      "move_request_sent": "Move request sent to the coordinator",
+      "row_deleted": "Row deleted",
+      "proposal_sent": "Proposal sent to the coordinator",
+      "settings_saved": "Settings saved",
+      "template_downloaded": "Excel template downloaded",
+      "suspension_deleted": "Suspension deleted",
+      "suspension_delete_confirm": "Delete \"{{name}}\"?",
+      "suspension_created": "Suspension created",
+      "suspension_updated": "Suspension updated"
+    },
+    "pwa": {
+      "update_available": "Update available",
+      "update_description": "Reload to apply the new version.",
+      "update_reload": "Reload"
+    },
+    "booking_types": {
+      "type_updated": "Type \"{{label}}\" updated"
+    },
+    "export": {
+      "excel_ok": "Export OK — {{rows}} rows in {{ms}} ms",
+      "excel_failed": "Export failed",
+      "analytics_error": "Export error",
+      "backup_download_failed": "Download failed"
+    },
+    "qr": {
+      "regenerated": "QR code regenerated. Print the new version and replace the copy in the room.",
+      "all_regenerated": "{{count}} QR codes regenerated",
+      "regenerate_all_confirm": "Regenerate the QR codes of ALL rooms?\nYou will need to reprint and replace every physical QR.",
+      "regenerate_one_confirm": "Regenerate the QR of \"{{name}}\"?\nThe existing physical QR will stop working.",
+      "checkin_enabled": "Check-in enabled for {{name}}",
+      "checkin_disabled": "Check-in disabled for {{name}}",
+      "checkin_settings_saved": "Check-in settings saved",
+      "cidr_exists": "CIDR already present",
+      "own_ip_exists": "Your IP is already in the list"
+    },
+    "rules": {
+      "exception_updated": "Exception updated",
+      "exception_created": "Exception created",
+      "exception_deleted": "Exception deleted",
+      "exception_delete_confirm": "Delete the exception \"{{name}}\"?",
+      "overlap_cancelled_one": "{{count}} booking cancelled",
+      "overlap_cancelled_other": "{{count}} bookings cancelled",
+      "overlap_cancelled_monte_ore_one": "{{count}} booking cancelled ({{slots}} hour budget slots deactivated)",
+      "overlap_cancelled_monte_ore_other": "{{count}} bookings cancelled ({{slots}} hour budget slots deactivated)",
+      "rules_updated": "Rules updated"
+    },
+    "profile": {
+      "password_updated": "Password updated",
+      "export_downloaded": "Export downloaded: {{filename}}",
+      "marketing_on": "Marketing consent enabled",
+      "marketing_off": "Marketing consent withdrawn",
+      "account_deleted": "Account deleted. See you soon.",
+      "photo_updated": "Profile photo updated",
+      "photo_removed": "Profile photo removed"
+    }
   }
 }

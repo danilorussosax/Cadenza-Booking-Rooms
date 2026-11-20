@@ -70,7 +70,11 @@ export function InstrumentsCsvImportDialog({ open, onOpenChange }: Props) {
       setResult(result);
       void invalidateInstruments(qc);
       toast.success(
-        `${result.created + result.updated} strumenti · ${result.created} creati · ${result.updated} aggiornati`,
+        t('toasts.csv.instruments', {
+          total: result.created + result.updated,
+          created: result.created,
+          updated: result.updated,
+        }),
       );
     },
     onError: (err) => {

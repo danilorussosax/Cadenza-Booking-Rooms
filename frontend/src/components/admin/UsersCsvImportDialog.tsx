@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { invalidateUsers } from '@/lib/invalidation';
 import { saveBlob } from '@/lib/download';
+import { useTranslation } from 'react-i18next';
 
 // Template CSV sintetico — è il minimo per partire (4 righe esempio +
 // header). I dati sensibili (password) non sono mai in CSV: un nuovo
@@ -38,6 +39,7 @@ export function UsersCsvImportDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -59,9 +61,13 @@ export function UsersCsvImportDialog({
       setResult(data);
       void invalidateUsers(qc);
       toast.success(
-        `Import completato · ${data.created} creati, ${data.updated} aggiornati${
-          data.skipped > 0 ? `, ${data.skipped} saltati` : ''
-        }`,
+        data.skipped > 0
+          ? t('toasts.csv.created_updated_skipped', {
+              created: data.created,
+              updated: data.updated,
+              skipped: data.skipped,
+            })
+          : t('toasts.csv.created_updated', { created: data.created, updated: data.updated }),
       );
     },
     onError: (err) => {

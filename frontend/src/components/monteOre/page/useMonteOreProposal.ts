@@ -5,12 +5,14 @@ import { httpErrorMessage } from '@/lib/api';
 import { invalidateMonteOreYear, invalidateMonteOreYearAndSlots } from '@/lib/invalidation';
 import { qk } from '@/lib/queryKeys';
 import { NO_TEACHER_ACTIONS } from './constants';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Stato server della pagina Monte ore docente: AA target, proposta, soglia,
  * azioni/blocchi calcolati dal server e mutazioni (aggiorna, elimina riga, invia).
  */
 export function useMonteOreProposal() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
 
   // Risolve l'AA target del docente (current vs next a finestra aperta).
@@ -73,7 +75,7 @@ export function useMonteOreProposal() {
   const removeMutation = useMutation({
     mutationFn: (id: number) => monteOreApi.removeMySchedule(id, targetYear),
     onSuccess: () => {
-      toast.success('Riga eliminata');
+      toast.success(t('toasts.monte_ore.row_deleted'));
       // La rimozione di una schedule cambia proposal.schedules e rende stantii
       // gli slot legati a quella schedule (verranno rigenerati al prossimo
       // regenerate-slots o submit).
@@ -85,7 +87,7 @@ export function useMonteOreProposal() {
   const submitMutation = useMutation({
     mutationFn: () => monteOreApi.submitMine(targetYear),
     onSuccess: () => {
-      toast.success('Proposta inviata al coordinatore');
+      toast.success(t('toasts.monte_ore.proposal_sent'));
       // Cambia solo proposal.status (e timestamp): basta proposal.
       void invalidateMonteOreYear(qc, targetYear);
     },

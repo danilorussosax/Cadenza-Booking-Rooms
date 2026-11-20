@@ -229,7 +229,9 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
       return isEdit ? structureApi.updateRoom(room.id, payload) : structureApi.createRoom(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Aula aggiornata' : 'Aula creata');
+      toast.success(
+        isEdit ? t('toasts.structure.room_updated') : t('toasts.structure.room_created'),
+      );
       void invalidateStructure(qc);
       onOpenChange(false);
     },

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import type { EquipmentTemplate, EquipmentType } from '@/types';
 import { invalidateEquipmentTemplates } from '@/lib/invalidation';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome').max(200),
@@ -57,6 +58,7 @@ interface Props {
 }
 
 export function EquipmentTemplateFormDialog({ open, onOpenChange, template }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const isEdit = !!template;
   const [serverError, setServerError] = useState<string | null>(null);
@@ -90,7 +92,9 @@ export function EquipmentTemplateFormDialog({ open, onOpenChange, template }: Pr
         : structureApi.createEquipmentTemplate(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Dotazione aggiornata' : 'Dotazione creata');
+      toast.success(
+        isEdit ? t('toasts.structure.template_updated') : t('toasts.structure.template_created'),
+      );
       void invalidateEquipmentTemplates(qc);
       onOpenChange(false);
     },
