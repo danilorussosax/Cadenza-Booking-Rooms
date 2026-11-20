@@ -9,7 +9,6 @@ const { OAuthDomainNotAllowedError } = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
-const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger');
 const storage = require('../services/storage');
 const {
@@ -23,8 +22,7 @@ const {
 const twoFa = require('../services/twoFa');
 const authSecurity = require('../services/authSecurity');
 const authSession = require('../services/authSession');
-const emailService = require('../services/emailService');
-const { sendSecurityEmail } = emailService;
+const twoFaFlow = require('../services/twoFaFlow');
 const { PasswordResetToken } = require('../models');
 const { sendPasswordResetEmail } = require('../services/auth/sendPasswordReset');
 const dayjs = require('dayjs');
@@ -191,54 +189,6 @@ router.post(
 // =====================================================
 // POST /api/auth/login  - Login locale
 // =====================================================
-// Helper: genera challenge 2FA, salva in DB, manda email all'utente.
-// Restituisce { ok, sentTo, expiresInMinutes } o { ok: false, error }.
-async function issueAndSendTwoFaCode(user, purpose) {
-  const issuer = getConfig().TWO_FA_ISSUER;
-  const { code, record } = await twoFa.createChallenge(purpose);
-  const saved = await authSecurity.mutateUser(
-    user.id,
-    user.tokenVersion,
-    async (fresh, transaction) => {
-      await fresh.update({ twoFaChallenge: record }, { transaction });
-      return { status: 200 };
-    },
-  );
-  if (saved.status !== 200) return { ok: false, error: saved.body.error };
-  const subject = `${issuer} · Codice di accesso`;
-  const expires = twoFa.TWO_FA_TTL_MIN;
-  const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif;background:#f7f9fc;margin:0;padding:24px;">
-    <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:28px;">
-      <h1 style="font-size:18px;color:#3762aa;margin:0 0 12px;">Codice di verifica · ${issuer}</h1>
-      <p style="color:#1a2234;font-size:14px;margin:0 0 16px;">Ciao ${escapeHtml(user.firstName || '')},</p>
-      <p style="color:#1a2234;font-size:14px;margin:0 0 16px;">Inserisci questo codice per ${
-        purpose === 'enroll' ? 'attivare la verifica in due passaggi' : "completare l'accesso"
-      }. Il codice scade tra <b>${expires} minuti</b> e può essere usato una sola volta.</p>
-      <div style="margin:20px 0;text-align:center;">
-        <span style="display:inline-block;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:34px;letter-spacing:10px;font-weight:700;color:#1a2234;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:14px 22px;">${code}</span>
-      </div>
-      <p style="color:#6b7a90;font-size:12px;margin:0 0 8px;">Se non hai richiesto tu questo codice, ignora questa email — qualcuno potrebbe aver provato ad accedere al tuo account. Considera anche di cambiare la password.</p>
-      <p style="color:#9aa5b4;font-size:11px;margin-top:24px;text-transform:uppercase;letter-spacing:0.06em;text-align:center;">${issuer} · email automatica</p>
-    </div>
-  </body></html>`;
-  const result = await sendSecurityEmail({ to: user.email, subject, html });
-  if (!result.ok) return { ok: false, error: result.error };
-  return {
-    ok: true,
-    sentTo: twoFa.maskEmail(user.email),
-    expiresInMinutes: expires,
-  };
-}
-
-// Escape HTML inline (replicato qui per non esporre la versione di emailService).
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 router.post('/login', loginLimiter, (req, res, next) => {
   // Pre-check lockout PRIMA di passport.authenticate per non sprecare bcrypt
   // su account lockati (DoS amplification). Lookup per email (case-insensitive).
@@ -269,7 +219,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
       // generiamo subito una challenge e mandiamo il codice via email.
       // Restituiamo tempToken (5min) + maschera email + scadenza.
       if (result.outcome === 'needs2fa') {
-        const send = await issueAndSendTwoFaCode(result.user, 'login');
+        const send = await twoFaFlow.issueAndSend(result.user, 'login');
         if (!send.ok) {
           // SMTP down: NON emettiamo tempToken. Senza di esso l'attaccante
           // non ha materiale di sessione su cui iterare /verify o /resend.
@@ -560,7 +510,7 @@ router.post('/logout', authenticate, async (req, res) => {
 // stesso budget di 5 tentativi/15min/utente già usato su /2fa/resend.
 router.post('/2fa/setup', authenticate, tfaResendLimiter, async (req, res, next) => {
   try {
-    const send = await issueAndSendTwoFaCode(req.user, 'enroll');
+    const send = await twoFaFlow.issueAndSend(req.user, 'enroll');
     if (!send.ok) {
       return res.status(503).json({
         error: 'Impossibile inviare il codice via email. Verifica la configurazione SMTP.',
@@ -582,29 +532,13 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
     let user;
     let purpose;
     if (tempToken) {
-      let payload;
-      try {
-        payload = twoFa.verifyPre2faToken(tempToken);
-      } catch {
-        throw domainError('TWO_FA_BAD_TEMP_TOKEN', 'Token temporaneo non valido o scaduto', {
-          status: 401,
-        });
-      }
-      user = await User.findByPk(payload.id);
-      if (
-        !user ||
-        !user.isActive ||
-        user.tokenVersion !== payload.tokenVersion ||
-        !user.twoFaEnabled
-      ) {
-        throw domainError('TWO_FA_INVALID_STATE', 'Stato 2FA inconsistente');
-      }
+      user = await twoFaFlow.resolveResendUser(tempToken);
       purpose = 'login';
     } else {
       // Fallback: resend in enrollment richiede Bearer.
       return authenticate(req, res, async () => {
         try {
-          const send = await issueAndSendTwoFaCode(req.user, 'enroll');
+          const send = await twoFaFlow.issueAndSend(req.user, 'enroll');
           if (!send.ok)
             return res
               .status(503)
@@ -615,7 +549,7 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
         }
       });
     }
-    const send = await issueAndSendTwoFaCode(user, purpose);
+    const send = await twoFaFlow.issueAndSend(user, purpose);
     if (!send.ok)
       return res.status(503).json({ error: 'Invio email fallito', code: 'TWO_FA_SEND_FAILED' });
     res.json({ sentTo: send.sentTo, expiresInMinutes: send.expiresInMinutes });
@@ -630,14 +564,7 @@ router.post('/2fa/resend', tfaResendLimiter, async (req, res, next) => {
 router.post('/2fa/verify', tfaVerifyLimiter, async (req, res, next) => {
   try {
     if (req.body?.tempToken) {
-      let payload;
-      try {
-        payload = twoFa.verifyPre2faToken(req.body.tempToken);
-      } catch {
-        throw domainError('TWO_FA_BAD_TEMP_TOKEN', 'Token temporaneo non valido o scaduto', {
-          status: 401,
-        });
-      }
+      const payload = twoFaFlow.parseTempToken(req.body.tempToken);
       const result = await authSecurity.verifyLogin(payload, req.body);
       return res.status(result.status).json(result.body);
     }
