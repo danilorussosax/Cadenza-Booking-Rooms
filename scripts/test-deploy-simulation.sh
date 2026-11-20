@@ -444,5 +444,39 @@ check "EXIT trap: 'Stato del VPS: ... VPS NON modificato'" has "$OUT" "VPS NON m
 check "nessun processo residuo"                  bash -c "! pgrep -f 'sleep 7311' && ! pgrep -f '$BIN/ssh'"
 reset_budgets
 
+# ======================================= (l)(m) confronto versioni moduli ====
+# Il passo 3 blocca il deploy se il lock locale risolve un modulo a una versione
+# PIÙ VECCHIA di quella già sul server. Le dipendenze incorporate (inBundle) in un
+# altro pacchetto non sono "risolte" da npm: non devono dare falsi allarmi.
+commit_with_frontend_lock() {   # <tag> <json del package-lock del frontend>
+  CN=$((CN + 1))
+  ( cd "$REPO" || exit 1
+    echo "$1" > backend/routes/api.js
+    echo "$1" > frontend/VERSION
+    printf '%s\n' "$2" > frontend/package-lock.json
+    export GIT_AUTHOR_DATE="@$((1700000000 + CN * 100)) +0000" GIT_COMMITTER_DATE="@$((1700000000 + CN * 100)) +0000"
+    git add -A >/dev/null && git commit -q -m "v $1" )
+}
+LOCK_REG_OLD='{"lockfileVersion":3,"packages":{"":{},"node_modules/bar":{"version":"1.0.0"},"node_modules/bar/node_modules/foo":{"version":"0.9.0"}}}'
+LOCK_BUNDLED_OLD='{"lockfileVersion":3,"packages":{"":{},"node_modules/bar":{"version":"1.0.0"},"node_modules/bar/node_modules/foo":{"version":"0.9.0","inBundle":true}}}'
+
+section "(m) modulo normale più vecchio del server (frontend): il deploy è BLOCCATO, VPS invariato"
+BEFORE_API="$(cat "$VPS/backend/routes/api.js")"
+commit_with_frontend_lock v12 "$LOCK_REG_OLD"
+reset_budgets; run_deploy --yes
+check "exit != 0"                                test "$RC" -ne 0
+check "segnala 'moduli risolti più moderni'"     has "$OUT" "moduli risolti più moderni"
+check "nomina il modulo (foo) del frontend"      has "$OUT" "frontend: foo"
+check "VPS NON modificato"                       has "$OUT" "VPS NON modificato"
+check "codice sul VPS invariato"                 test "$(cat "$VPS/backend/routes/api.js")" = "$BEFORE_API"
+
+section "(l) modulo solo incorporato (inBundle) più vecchio del server: NON blocca"
+commit_with_frontend_lock v13 "$LOCK_BUNDLED_OLD"
+reset_budgets; run_deploy --yes
+check "exit 0"                                   test "$RC" -eq 0
+check "nessun 'moduli risolti più moderni'"      hasnt "$OUT" "moduli risolti più moderni"
+check "deploy completato (api.js = v13)"         test "$(cat "$VPS/backend/routes/api.js")" = v13
+reset_budgets
+
 printf '\n\033[1mRisultato: %d PASS, %d FAIL\033[0m\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

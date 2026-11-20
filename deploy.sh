@@ -744,6 +744,11 @@ for sub in backend frontend; do
       if (lock.packages) {
         for (const [path, info] of Object.entries(lock.packages)) {
           if (!path || !info || !info.version) continue;          // root del workspace ha path ""
+          // Dipendenze incorporate (bundleDependencies) nel tarball di un altro pacchetto,
+          // es. @napi-rs/wasm-runtime dentro @tailwindcss/oxide-wasm32-wasi: la versione la
+          // decide il pacchetto che le contiene, non npm. Non vanno confrontate come moduli
+          // "risolti" (altrimenti un aggiornamento del pacchetto padre darebbe un falso allarme).
+          if (info.inBundle) continue;
           const idx = path.lastIndexOf("node_modules/");
           if (idx < 0) continue;
           const name = path.slice(idx + "node_modules/".length);
