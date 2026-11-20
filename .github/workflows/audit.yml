@@ -1,0 +1,101 @@
+name: Audit dipendenze
+
+# Controllo vulnerabilità sulle dipendenze di PRODUZIONE (backend e frontend).
+# Fallisce solo su severità high/critical: le moderate (oggi sequelize-cli e
+# @tailwindcss/typography, solo tooling/build) vengono riportate nel riepilogo
+# ma non bloccano, perché `npm audit fix` propone declassamenti insensati.
+
+on:
+  schedule:
+    # Lunedì 05:00 UTC (06:00/07:00 in Italia): prima dell'orario di lavoro.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**/package.json"
+      - "**/package-lock.json"
+      - ".github/workflows/audit.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: "Audit · ${{ matrix.workspace }} (solo produzione, high/critical)"
+    # Fisso a 24.04 come il job E2E in ci.yml (ubuntu-latest è ora 26.04).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ${{ matrix.workspace }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Riepilogo vulnerabilità (tutte le severità)
+        # Solo informativo: non fa mai fallire il job. `npm audit` richiede il
+        # registry npm; se il report JSON non contiene `metadata` (errore di
+        # rete) si riprova fino a 3 volte, poi lo si segnala nel riepilogo.
+        run: |
+          out="$RUNNER_TEMP/audit.json"
+          ok=0
+          for attempt in 1 2 3; do
+            npm audit --omit=dev --json > "$out" 2>/dev/null || true
+            if jq -e '.metadata.vulnerabilities' "$out" >/dev/null 2>&1; then
+              ok=1
+              break
+            fi
+            echo "::warning::Registro npm non raggiungibile (tentativo $attempt/3), riprovo..."
+            sleep $((attempt * 10))
+          done
+          {
+            echo "### Audit npm · ${{ matrix.workspace }} (dipendenze di produzione)"
+            echo
+            if [ "$ok" = 1 ]; then
+              echo "| Severità | Conteggio |"
+              echo "| --- | ---: |"
+              jq -r '.metadata.vulnerabilities | to_entries[] | select(.key != "total") | "| \(.key) | \(.value) |"' "$out"
+              echo "| **totale** | **$(jq -r '.metadata.vulnerabilities.total' "$out")** |"
+              echo
+              echo "Il job fallisce solo per **high** e **critical**."
+            else
+              echo "Impossibile ottenere il report dal registro npm dopo 3 tentativi."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: npm audit (fallisce su high/critical)
+        run: |
+          err="$RUNNER_TEMP/audit.err"
+          for attempt in 1 2 3; do
+            code=0
+            npm audit --omit=dev --audit-level=high 2>"$err" || code=$?
+            cat "$err" >&2
+            # Errore di rete/registro (ENOTFOUND, ETIMEDOUT, 5xx...): transitorio.
+            if [ "$code" -ne 0 ] && grep -qiE "audit endpoint returned|ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ERR_SOCKET|\b50[234]\b" "$err"; then
+              echo "::warning::Errore transitorio del registro npm (tentativo $attempt/3), riprovo..."
+              sleep $((attempt * 10))
+              continue
+            fi
+            if [ "$code" -ne 0 ]; then
+              echo "::error::Vulnerabilità high/critical nelle dipendenze di produzione di ${{ matrix.workspace }}."
+            fi
+            exit "$code"
+          done
+          echo "::error::Registro npm non raggiungibile dopo 3 tentativi."
+          exit 1
