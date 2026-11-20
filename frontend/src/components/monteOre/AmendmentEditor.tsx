@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 const kinds: AmendmentKind[] = [
   'change_time',
@@ -45,7 +46,7 @@ function OperationsEditor({
 }) {
   const { t } = useTranslation();
   const rooms = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
   });
   const update = (index: number, value: AmendmentOperation) =>
@@ -209,8 +210,8 @@ export function AmendmentEditor({
         ? monteOreAdminApi.revalidate(adminPlanId, { operations, reason: notes })
         : monteOreApi.requestAmendment({ academicYear, operations, notes, requestKey }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.me() });
       toast.success(t('monteWorkflow.sent'));
       onClose();
     },
@@ -260,7 +261,7 @@ export function AmendmentReview({
 }) {
   const { t } = useTranslation();
   const plan = useQuery({
-    queryKey: ['admin', 'monte-ore', amendment.proposalId],
+    queryKey: qk.adminMonteOre.detail(amendment.proposalId),
     queryFn: () => monteOreAdminApi.get(amendment.proposalId),
   });
   const initial: AmendmentOperation[] = amendment.operations ?? [

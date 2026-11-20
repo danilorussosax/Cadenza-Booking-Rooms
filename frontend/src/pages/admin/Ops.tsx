@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { httpErrorMessage } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 
 // Polling 10s. Il backend ha già memoization 5s → al massimo una query reale
 // ogni 10s anche con più admin connessi insieme.
@@ -564,7 +565,7 @@ function Row({ label, value }: { label: React.ReactNode; value: React.ReactNode 
 export default function AdminOps() {
   const { t } = useTranslation();
   const query = useQuery({
-    queryKey: ['admin', 'ops', 'snapshot'],
+    queryKey: qk.admin.opsSnapshot(),
     queryFn: () => opsApi.snapshot(),
     refetchInterval: REFETCH_INTERVAL_MS,
     refetchOnWindowFocus: true,
@@ -640,14 +641,14 @@ function SlowQueriesCard() {
   const { t } = useTranslation();
 
   const aggregateQuery = useQuery({
-    queryKey: ['admin', 'ops', 'slow-queries', 'aggregate', 'route'],
+    queryKey: qk.admin.opsSlowQueriesAggregateRoute(),
     queryFn: () => opsApi.slowQueriesAggregate({ by: 'route', since: '24h', limit: 10 }),
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
   });
 
   const recentQuery = useQuery({
-    queryKey: ['admin', 'ops', 'slow-queries', 'recent'],
+    queryKey: qk.admin.opsSlowQueriesRecent(),
     queryFn: () => opsApi.slowQueries({ limit: 10, since: '24h' }),
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,

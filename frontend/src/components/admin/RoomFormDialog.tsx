@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Building, Role, Room, RoomType } from '@/types';
+import { qk } from '@/lib/queryKeys';
+import { invalidateStructure } from '@/lib/invalidation';
 
 const ROLES: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Amministratori' },
@@ -90,7 +92,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'all'],
+    queryKey: qk.courses.allList(),
     queryFn: () => coursesApi.listAll(),
     enabled: open,
     staleTime: 60_000,
@@ -177,11 +179,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
     onSuccess: ({ photoUrl }) => {
       setCurrentPhotoUrl(photoUrl);
       toast.success(t('admin.structure.room_photo_uploaded'));
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      // Display kiosk legge da /api/public/agenda → forziamo il refresh per
-      // far apparire subito codice/foto aggiornati senza attendere il poll 60s.
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
     },
     onError: (err) => {
       if (err instanceof Error && err.message === 'save_first') {
@@ -200,9 +198,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
     onSuccess: () => {
       setCurrentPhotoUrl(null);
       toast.success(t('admin.structure.room_photo_removed'));
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -234,11 +230,7 @@ export function RoomFormDialog({ open, onOpenChange, building, room }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Aula aggiornata' : 'Aula creata');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      // Cambio di code/name/floor si riflette anche sul Display kiosk
-      // (legge da /api/public/agenda) e sulla home pubblica → invalidiamo.
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
       onOpenChange(false);
     },
     onError: (err) => {

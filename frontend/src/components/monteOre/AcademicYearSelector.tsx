@@ -29,6 +29,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { NewAcademicYearDialog } from './NewAcademicYearDialog';
+import { qk } from '@/lib/queryKeys';
+import { invalidateMonteOre } from '@/lib/invalidation';
 
 const LS_KEY = 'monteOre.admin.selectedYear';
 
@@ -96,7 +98,7 @@ interface Props {
 export function AdminAcademicYearSelector({ value, onChange }: Props) {
   const queryClient = useQueryClient();
   const yearsQuery = useQuery({
-    queryKey: ['monte-ore', 'academic-years', 'admin'],
+    queryKey: qk.monteOre.academicYearsAdmin(),
     queryFn: () => monteOreApi.listAcademicYears('admin'),
     staleTime: 60_000,
   });
@@ -112,7 +114,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     mutationFn: ({ year, active }: { year: string; active: boolean }) =>
       monteOreAdminApi.activateAcademicYearForTeachers(year, active),
     onSuccess: (res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: ['monte-ore'] });
+      void queryClient.invalidateQueries({ queryKey: qk.monteOre.all() });
       if (vars.active) {
         toast.success(`AA ${vars.year} avviato`);
       } else {
@@ -126,8 +128,7 @@ export function AdminAcademicYearSelector({ value, onChange }: Props) {
     mutationFn: ({ year, status }: { year: string; status: 'published' | 'archived' }) =>
       monteOreAdminApi.setAcademicYearStatus(year, status),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['monte-ore'] });
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+      void invalidateMonteOre(queryClient);
       toast.success('Stato anno aggiornato');
     },
     onError: (err: Error) => toast.error(err.message),

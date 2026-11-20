@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { qk } from '@/lib/queryKeys';
 
 export function CalendarSubscriptionSection() {
   const qc = useQueryClient();
@@ -21,7 +22,7 @@ export function CalendarSubscriptionSection() {
   const [revealed, setRevealed] = useState(true);
 
   const tokenQuery = useQuery({
-    queryKey: ['auth', 'ical-token'],
+    queryKey: qk.auth.icalToken(),
     queryFn: () => authApi.getIcalToken(),
     staleTime: Infinity,
     retry: 1,
@@ -31,7 +32,7 @@ export function CalendarSubscriptionSection() {
     mutationFn: () => authApi.regenerateIcalToken(),
     onSuccess: ({ token }) => {
       toast.success(t('calendar_subscription.regenerated'));
-      qc.setQueryData(['auth', 'ical-token'], { token, hasToken: true });
+      qc.setQueryData(qk.auth.icalToken(), { token, hasToken: true });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

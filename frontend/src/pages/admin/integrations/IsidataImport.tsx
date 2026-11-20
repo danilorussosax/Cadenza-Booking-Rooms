@@ -47,6 +47,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Target field canonici esposti dal backend (TARGET_FIELDS lato fieldMapping.js).
@@ -278,8 +279,8 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
           orphaned: data.summary.orphaned,
         }),
       );
-      void qc.invalidateQueries({ queryKey: ['users'] });
-      void qc.invalidateQueries({ queryKey: ['admin', 'integrations'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
+      void qc.invalidateQueries({ queryKey: qk.admin.integrations() });
       setLastApply(data);
       setStep('done');
     },
@@ -309,7 +310,7 @@ export function IsidataImportContent({ source = 'isidata' }: { source?: Integrat
   });
 
   const runsQuery = useQuery({
-    queryKey: ['admin', 'integrations', 'runs', source],
+    queryKey: qk.admin.integrationsRuns(source),
     queryFn: () => integrationsApi.runs({ provider: source, limit: 20 }),
   });
 
@@ -1225,7 +1226,7 @@ function CompareRunDialog({ runId, onClose }: { runId: number | null; onClose: (
   const tk = buildProviderTk(t, 'isidata');
   const open = runId !== null;
   const query = useQuery({
-    queryKey: ['admin', 'integrations', 'compare', runId],
+    queryKey: qk.admin.integrationsCompare(runId),
     queryFn: () => {
       if (runId === null) throw new Error('runId required');
       return integrationsApi.comparePrevious(runId);

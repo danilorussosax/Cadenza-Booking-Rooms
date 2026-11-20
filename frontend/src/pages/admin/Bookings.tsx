@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { Booking } from '@/types';
+import { qk } from '@/lib/queryKeys';
+import { invalidateBookings } from '@/lib/invalidation';
 
 // Esportazione SOLO content (senza header h1): usato come tab dentro
 // /admin/audit-log. Il default export resta un wrapper con header per
@@ -32,7 +34,7 @@ export function AdminBookingsContent() {
   const [reason, setReason] = useState('');
 
   const query = useQuery({
-    queryKey: ['admin', 'bookings', 'confirmed-future'],
+    queryKey: qk.adminBookings.confirmedFuture(),
     queryFn: () =>
       bookingsApi.list({
         from: new Date().toISOString(),
@@ -85,8 +87,7 @@ export function AdminBookingsContent() {
     mutationFn: () => bookingsApi.bulkCancel(Array.from(selected), reason.trim() || undefined),
     onSuccess: ({ cancelled, skipped }) => {
       toast.success(t('admin.bookings.toast.cancelled', { count: cancelled, skipped }));
-      void qc.invalidateQueries({ queryKey: ['admin', 'bookings'] });
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
+      void invalidateBookings(qc);
       setSelected(new Set());
       setConfirmOpen(false);
       setReason('');
@@ -104,8 +105,7 @@ export function AdminBookingsContent() {
     },
     onSuccess: () => {
       toast.success('Prenotazioni scambiate');
-      void qc.invalidateQueries({ queryKey: ['admin', 'bookings'] });
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
+      void invalidateBookings(qc);
       setSelected(new Set());
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

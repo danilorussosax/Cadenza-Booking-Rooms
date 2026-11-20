@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import type { Role } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Card "Simula prenotazione" — riusa il validator backend con un fake user
@@ -40,13 +41,13 @@ export function RulesPreview({ defaultRole }: { defaultRole: Role }) {
   const [timeTo, setTimeTo] = useState<string>('11:00');
 
   const structureQuery = useQuery({
-    queryKey: ['structure', 'institutes', 'full'],
+    queryKey: qk.structure.institutesFull(),
     queryFn: () => institutesApi.listFull(),
     staleTime: 5 * 60 * 1000,
   });
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'active'],
+    queryKey: qk.courses.active(),
     queryFn: () => coursesApi.list({ active: true }),
     staleTime: 5 * 60 * 1000,
   });

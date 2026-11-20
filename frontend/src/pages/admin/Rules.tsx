@@ -61,6 +61,7 @@ import type {
   Role,
 } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -280,7 +281,7 @@ function ExceptionsTopLevel() {
   ];
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'list', 'all'],
+    queryKey: qk.rooms.listAll(),
     queryFn: () => roomsApi.list(),
     staleTime: 5 * 60 * 1000,
   });
@@ -357,7 +358,7 @@ function RuleEditor({ role, help }: RuleEditorProps) {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ['rules', role],
+    queryKey: qk.rules.forRole(role),
     queryFn: () => rulesApi.get(role),
   });
 
@@ -387,7 +388,7 @@ function RuleEditor({ role, help }: RuleEditorProps) {
     mutationFn: (values: FormValues) => rulesApi.upsert(role, values),
     onSuccess: ({ rule }) => {
       toast.success('Regole aggiornate');
-      qc.setQueryData(['rules', role], { rule });
+      qc.setQueryData(qk.rules.forRole(role), { rule });
       reset(toFormValues(rule));
     },
     onError: (err) => {
@@ -704,7 +705,7 @@ function ExceptionsSection({
   } | null>(null);
 
   const query = useQuery({
-    queryKey: ['rules', 'exceptions', role ?? 'every', roomId ?? 'every'],
+    queryKey: qk.rules.exceptionsFor(role ?? 'every', roomId ?? 'every'),
     queryFn: () => rulesApi.listExceptions({ role, roomId }),
   });
 
@@ -712,7 +713,7 @@ function ExceptionsSection({
     mutationFn: (id: number) => rulesApi.deleteException(id),
     onSuccess: () => {
       toast.success('Eccezione eliminata');
-      void qc.invalidateQueries({ queryKey: ['rules', 'exceptions'] });
+      void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -844,7 +845,7 @@ function ExceptionsSection({
           setOverlapState(null);
         }}
         onCancelled={() => {
-          void qc.invalidateQueries({ queryKey: ['rules', 'exceptions'] });
+          void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
         }}
       />
     </div>
@@ -961,7 +962,7 @@ function ExceptionDialog({
 
   // Lista aule per il select "Aula" — caricata solo quando il dialog è aperto.
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'list', 'all'],
+    queryKey: qk.rooms.listAll(),
     queryFn: () => roomsApi.list(),
     enabled: open,
     staleTime: 5 * 60 * 1000,
@@ -1001,7 +1002,7 @@ function ExceptionDialog({
     },
     onSuccess: ({ saved, overlapping }) => {
       toast.success(existing ? 'Eccezione aggiornata' : 'Eccezione creata');
-      void qc.invalidateQueries({ queryKey: ['rules', 'exceptions'] });
+      void qc.invalidateQueries({ queryKey: qk.rules.exceptions() });
       onClose();
       onSaved?.(saved, overlapping);
     },

@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const ROLES: Role[] = ['admin', 'docente', 'studente'];
 const SCOPE_KINDS: LoanQuotaScopeKind[] = ['family', 'instrument', 'global'];
@@ -94,7 +95,7 @@ export function LoanQuotasManager() {
   const [filterActiveOnly, setFilterActiveOnly] = useState(false);
 
   const query = useQuery({
-    queryKey: ['loan-quotas'],
+    queryKey: qk.loanQuotas.all(),
     queryFn: () => loanQuotasApi.list(),
     staleTime: 30_000,
   });
@@ -103,7 +104,7 @@ export function LoanQuotasManager() {
     mutationFn: (id: number) => loanQuotasApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.loan_quotas.deleted'));
-      void qc.invalidateQueries({ queryKey: ['loan-quotas'] });
+      void qc.invalidateQueries({ queryKey: qk.loanQuotas.all() });
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -331,7 +332,7 @@ function LoanScopeValueLabel({ quota }: { quota: InstrumentLoanQuota }) {
   // risoluzione id→nome. Niente n+1 al rendering: una sola query.
   const enabled = quota.scopeKind === 'instrument';
   const instrumentsQuery = useQuery({
-    queryKey: ['instruments', 'all-for-quota'],
+    queryKey: qk.instruments.allForQuota(),
     queryFn: () => instrumentsApi.list({}),
     staleTime: 5 * 60 * 1000,
     enabled,
@@ -378,7 +379,7 @@ function LoanQuotaFormDialog({
   // Carichiamo gli strumenti solo quando il dialog è aperto e lo scope è
   // 'instrument' — evita query inutili.
   const instrumentsQuery = useQuery({
-    queryKey: ['instruments', 'for-loan-quota-dialog'],
+    queryKey: qk.instruments.forLoanQuotaDialog(),
     queryFn: () => instrumentsApi.list({}),
     staleTime: 5 * 60 * 1000,
     enabled: open,
@@ -414,7 +415,7 @@ function LoanQuotaFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.loan_quotas.updated') : t('admin.loan_quotas.created'));
-      void qc.invalidateQueries({ queryKey: ['loan-quotas'] });
+      void qc.invalidateQueries({ queryKey: qk.loanQuotas.all() });
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

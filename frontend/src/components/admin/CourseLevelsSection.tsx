@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CourseLevelFormDialog } from './CourseLevelFormDialog';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import type { CourseLevelEntity } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 export function CourseLevelsSection() {
   const qc = useQueryClient();
@@ -24,7 +25,7 @@ export function CourseLevelsSection() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const query = useQuery({
-    queryKey: ['course-levels'],
+    queryKey: qk.courseLevels.all(),
     queryFn: () => courseLevelsApi.list(),
   });
 
@@ -62,7 +63,7 @@ export function CourseLevelsSection() {
     mutationFn: (id: number) => courseLevelsApi.remove(id),
     onSuccess: () => {
       toast.success('Livello eliminato');
-      void qc.invalidateQueries({ queryKey: ['course-levels'] });
+      void qc.invalidateQueries({ queryKey: qk.courseLevels.all() });
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -74,7 +75,7 @@ export function CourseLevelsSection() {
     mutationFn: () => courseLevelsApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted }) => {
       toast.success(`${deleted} ${deleted === 1 ? 'livello eliminato' : 'livelli eliminati'}`);
-      void qc.invalidateQueries({ queryKey: ['course-levels'] });
+      void qc.invalidateQueries({ queryKey: qk.courseLevels.all() });
       setBulkConfirm(false);
       clearSelection();
     },

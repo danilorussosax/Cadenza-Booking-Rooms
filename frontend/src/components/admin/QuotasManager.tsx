@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { BookingQuota, QuotaScopeKind, Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const ROLES: Role[] = ['admin', 'docente', 'studente'];
 const SCOPE_KINDS: QuotaScopeKind[] = ['roomType', 'equipmentType', 'room', 'building', 'global'];
@@ -112,7 +113,7 @@ export function QuotasManager() {
   const [filterActiveOnly, setFilterActiveOnly] = useState(false);
 
   const query = useQuery({
-    queryKey: ['quotas'],
+    queryKey: qk.quotas.all(),
     queryFn: () => quotasApi.list(),
     staleTime: 30_000,
   });
@@ -121,7 +122,7 @@ export function QuotasManager() {
     mutationFn: (id: number) => quotasApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.quotas.deleted'));
-      void qc.invalidateQueries({ queryKey: ['quotas'] });
+      void qc.invalidateQueries({ queryKey: qk.quotas.all() });
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -349,7 +350,7 @@ function ScopeValueLabel({ quota }: { quota: BookingQuota }) {
   // Per room/building serve il nome — query lazy una sola volta.
   const needsResolve = quota.scopeKind === 'room' || quota.scopeKind === 'building';
   const structureQuery = useQuery({
-    queryKey: ['structure', 'institutes', 'full'],
+    queryKey: qk.structure.institutesFull(),
     queryFn: () => institutesApi.listFull(),
     staleTime: 5 * 60 * 1000,
     enabled: needsResolve,
@@ -434,7 +435,7 @@ function QuotaFormDialog({
   // lo scope richiede un picker dinamico (room/building).
   const needsStructure = open && (scopeKind === 'room' || scopeKind === 'building');
   const structureQuery = useQuery({
-    queryKey: ['structure', 'institutes', 'full'],
+    queryKey: qk.structure.institutesFull(),
     queryFn: () => institutesApi.listFull(),
     staleTime: 5 * 60 * 1000,
     enabled: needsStructure,
@@ -475,7 +476,7 @@ function QuotaFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.quotas.updated') : t('admin.quotas.created'));
-      void qc.invalidateQueries({ queryKey: ['quotas'] });
+      void qc.invalidateQueries({ queryKey: qk.quotas.all() });
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

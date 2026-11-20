@@ -8,6 +8,7 @@ import { dayjs } from '@/lib/date';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Pagina "Bacheca avvisi" — elenco completo per l'utente loggato.
@@ -16,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function AnnouncementsPage() {
   const { t } = useTranslation();
   const query = useQuery({
-    queryKey: ['announcements', 'mine'],
+    queryKey: qk.announcements.mine(),
     queryFn: () => announcementsApi.listMine(),
     staleTime: 60 * 1000,
   });

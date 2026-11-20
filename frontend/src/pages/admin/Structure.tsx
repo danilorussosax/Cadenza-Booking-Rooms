@@ -40,6 +40,8 @@ import { CsvImportDialog } from '@/components/admin/CsvImportDialog';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
 import type { Building, Equipment, Institute, Room } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
+import { invalidateStructure, invalidateStructureDeleted } from '@/lib/invalidation';
 
 type DeleteTarget =
   | { kind: 'institute'; entity: Institute }
@@ -87,7 +89,7 @@ export default function AdminStructure() {
   const qc = useQueryClient();
   const { t } = useTranslation();
   const query = useQuery({
-    queryKey: ['institutes', 'full'],
+    queryKey: qk.institutes.full(),
     queryFn: () => institutesApi.listFull(),
   });
 
@@ -186,9 +188,7 @@ export default function AdminStructure() {
           { count: deleted },
         ),
       );
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
       setBulkConfirm(false);
       clearSelection();
     },
@@ -207,9 +207,7 @@ export default function AdminStructure() {
           removedBookings,
         }),
       );
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
       setBulkBuildingsConfirm(false);
       clearBuildingSelection();
     },
@@ -243,12 +241,7 @@ export default function AdminStructure() {
     },
     onSuccess: () => {
       toast.success(t('admin.structure.delete_completed'));
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      void qc.invalidateQueries({ queryKey: ['institute', 'public'] });
-      // Eliminazione di room/building/institute si riflette ovunque le aule
-      // sono elencate (Dashboard, Booking) e sul Display kiosk.
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructureDeleted(qc);
       setDeleteTarget(null);
     },
     onError: (err) => {

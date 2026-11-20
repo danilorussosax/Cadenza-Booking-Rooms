@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { qk } from '@/lib/queryKeys';
 
 // =============================================================================
 // /profile · Bot messaging
@@ -45,7 +46,7 @@ export function BotBindingsSection() {
   );
 
   const listQuery = useQuery({
-    queryKey: ['users', 'me', 'bot-bindings'],
+    queryKey: qk.users.botBindings(),
     queryFn: () => botBindingsApi.list(),
     staleTime: 30_000,
   });
@@ -63,7 +64,7 @@ export function BotBindingsSection() {
     mutationFn: (id: number) => botBindingsApi.revoke(id),
     onSuccess: () => {
       toast.success(t('profile.bot_bindings.toast.revoked'));
-      void qc.invalidateQueries({ queryKey: ['users', 'me', 'bot-bindings'] });
+      void qc.invalidateQueries({ queryKey: qk.users.botBindings() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

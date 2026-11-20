@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { qk } from '@/lib/queryKeys';
 
 // Pagina admin per la gestione dei QR-code di check-in delle aule + policy
 // "check-in solo da rete d'istituto". Inserita come tab dentro
@@ -55,7 +56,7 @@ export default function AdminQrCodes() {
 function BuildingCheckInCard() {
   const qc = useQueryClient();
   const buildingsQuery = useQuery({
-    queryKey: ['admin', 'qr', 'buildings'],
+    queryKey: qk.admin.qrBuildings(),
     queryFn: () => qrcodesApi.listBuildingCheckIn(),
   });
 
@@ -68,8 +69,8 @@ function BuildingCheckInCard() {
           ? `Check-in attivato per ${building.name}`
           : `Check-in disattivato per ${building.name}`,
       );
-      void qc.invalidateQueries({ queryKey: ['admin', 'qr', 'buildings'] });
-      void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.qrBuildings() });
+      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -178,7 +179,7 @@ function BuildingCheckInRow({
 function CheckInSecurityCard() {
   const qc = useQueryClient();
   const settingsQuery = useQuery({
-    queryKey: ['admin', 'checkin-settings'],
+    queryKey: qk.admin.checkinSettings(),
     queryFn: () => qrcodesApi.getCheckInSettings(),
   });
 
@@ -203,7 +204,7 @@ function CheckInSecurityCard() {
       }),
     onSuccess: (data) => {
       toast.success('Impostazioni check-in salvate');
-      void qc.invalidateQueries({ queryKey: ['admin', 'checkin-settings'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.checkinSettings() });
       if (data.warnings.length > 0) {
         for (const w of data.warnings) toast.warning(w);
       }
@@ -456,7 +457,7 @@ function CheckInSecurityCard() {
 function RoomsQrTable() {
   const qc = useQueryClient();
   const overviewQuery = useQuery({
-    queryKey: ['admin', 'qr-overview'],
+    queryKey: qk.admin.qrOverview(),
     queryFn: () => qrcodesApi.overview(),
   });
 
@@ -468,7 +469,7 @@ function RoomsQrTable() {
     onSuccess: (data) => {
       toast.success('QR-code rigenerato. Stampa la nuova versione e sostituisci la copia in aula.');
       setVersions((prev) => ({ ...prev, [data.roomId]: data.qrTokenUpdatedAt }));
-      void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -483,7 +484,7 @@ function RoomsQrTable() {
         for (const r of overviewQuery.data?.rooms ?? []) next[r.id] = ts;
         return next;
       });
-      void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -497,7 +498,7 @@ function RoomsQrTable() {
       link.download = `qr-aule-${todayLocalIso()}.zip`;
       link.click();
       URL.revokeObjectURL(url);
-      void qc.invalidateQueries({ queryKey: ['admin', 'qr-overview'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.qrOverview() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -610,7 +611,7 @@ function RoomQrRow({
   onRegenerate: () => void;
 }) {
   const imageQuery = useQuery({
-    queryKey: ['admin', 'room-qr', room.id, version],
+    queryKey: qk.admin.roomQr(room.id, version),
     queryFn: () => qrcodesApi.image(room.id, version),
     // Logo, sede e intervallo possono cambiare anche con lo stesso token QR.
     staleTime: 0,

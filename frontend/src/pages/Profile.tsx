@@ -58,6 +58,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { qk } from '@/lib/queryKeys';
 
 // =====================================================
 // Personal info form
@@ -244,7 +245,7 @@ function PersonalSection({
   const [serverError, setServerError] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'active'],
+    queryKey: qk.courses.active(),
     queryFn: () => coursesApi.list({ active: true }),
     staleTime: 5 * 60 * 1000,
   });
@@ -717,7 +718,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const consentsQuery = useQuery({
-    queryKey: ['gdpr', 'consents'],
+    queryKey: qk.gdpr.consents(),
     queryFn: () => gdprApi.getConsents(),
   });
 
@@ -735,7 +736,7 @@ function PrivacySection({ user }: { user: NonNullable<ReturnType<typeof useAuth>
         policyVersion: PRIVACY_POLICY_VERSION,
       }),
     onSuccess: (_, granted) => {
-      void qc.invalidateQueries({ queryKey: ['gdpr', 'consents'] });
+      void qc.invalidateQueries({ queryKey: qk.gdpr.consents() });
       toast.success(granted ? 'Consenso marketing attivato' : 'Consenso marketing revocato');
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

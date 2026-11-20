@@ -50,6 +50,7 @@ import type { BookingType } from '@/types';
 import MonteOreGrid from '@/components/monteOre/MonteOreGrid';
 import { ModuleDisabledCard } from '@/components/ModuleDisabledCard';
 import { isModuleDisabledError } from '@/lib/moduleFlags';
+import { qk } from '@/lib/queryKeys';
 
 const DAYS_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
 const TYPE_OPTIONS: { value: BookingType; label: string }[] = [
@@ -84,7 +85,7 @@ export default function MonteOre() {
   // `?year={target}` per evitare race su rollover anno (1 nov, finestra
   // submission aperta, ecc.).
   const targetYearQuery = useQuery({
-    queryKey: ['monte-ore', 'academic-year', 'me'],
+    queryKey: qk.monteOre.academicYearMe(),
     queryFn: () => monteOreApi.getAcademicYearForTeacher(),
   });
   const targetItem = targetYearQuery.data?.items[0];
@@ -92,7 +93,7 @@ export default function MonteOre() {
   const targetYear = yearUnavailable ? undefined : targetItem?.academicYear;
 
   const proposalQuery = useQuery({
-    queryKey: ['monte-ore', 'me', targetYear],
+    queryKey: qk.monteOre.meYear(targetYear),
     queryFn: () => monteOreApi.getMine(targetYear),
     enabled: !!targetYear,
   });
@@ -101,7 +102,7 @@ export default function MonteOre() {
   // Il banner viene mostrato solo se l'admin ha impostato un override (source
   // === 'user_override') o se il bypass del vincolo 2-4 giorni è attivo.
   const thresholdQuery = useQuery({
-    queryKey: ['monte-ore', 'me', 'threshold', targetYear],
+    queryKey: qk.monteOre.meThresholdYear(targetYear),
     queryFn: () => monteOreApi.getMyThreshold(targetYear),
     enabled: !!targetYear,
   });
@@ -132,7 +133,7 @@ export default function MonteOre() {
     onSuccess: () => {
       // Aggiorno solo la proposal (campi notes/hours/range); threshold e
       // slots non sono toccati da questa mutation.
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -144,8 +145,8 @@ export default function MonteOre() {
       // La rimozione di una schedule cambia proposal.schedules e rende stantii
       // gli slot legati a quella schedule (verranno rigenerati al prossimo
       // regenerate-slots o submit).
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -155,7 +156,7 @@ export default function MonteOre() {
     onSuccess: () => {
       toast.success('Proposta inviata al coordinatore');
       // Cambia solo proposal.status (e timestamp): basta proposal.
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -595,7 +596,7 @@ function ScheduleDialog({
   const isEdit = existing !== null;
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
   });
@@ -634,8 +635,8 @@ function ScheduleDialog({
       // Add/update di una schedule cambia proposal.schedules; gli slot
       // legati vanno rigenerati (regenerate-slots è esplicito), ma comunque
       // invalidiamoli per coerenza UI quando già materializzati.
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', targetYear] });
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'me', 'slots'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meYear(targetYear) });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.meSlots() });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

@@ -41,6 +41,7 @@ import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { ConsentGate } from '@/components/legal/ConsentGate';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { Role } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 interface NavItem {
   to: string;
@@ -206,7 +207,7 @@ export function AppLayout() {
   }, [userMenuOpen]);
 
   const { data: instituteData } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });
@@ -503,7 +504,7 @@ function SidebarNav({
  */
 function AdminNavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   const pendingQuery = useQuery({
-    queryKey: ['admin', 'bookings', 'pending', 'count'],
+    queryKey: qk.adminBookings.pendingCount(),
     queryFn: () => bookingsApi.pendingCount(),
     refetchInterval: 60_000,
     staleTime: 30_000,

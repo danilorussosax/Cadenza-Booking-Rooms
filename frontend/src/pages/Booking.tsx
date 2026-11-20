@@ -28,6 +28,7 @@ import { BookingFormDialog } from '@/components/bookings/BookingFormDialog';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { BookingInfoDialog } from '@/components/bookings/BookingInfoDialog';
 import type { Booking } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 export default function BookingPage() {
   const { user } = useAuth();
@@ -46,7 +47,7 @@ export default function BookingPage() {
   const [infoTarget, setInfoTarget] = useState<Booking | null>(null);
 
   const roomsQuery = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
     staleTime: 60_000,
   });
@@ -74,7 +75,7 @@ export default function BookingPage() {
   );
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', roomId, date],
+    queryKey: qk.availability.forRoomDate(roomId, date),
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     queryFn: () => bookingsApi.availability(roomId!, date),
     enabled: !!roomId,

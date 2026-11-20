@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
+import { qk } from '@/lib/queryKeys';
 
 export function AmendmentsSection({
   proposalId,
@@ -17,7 +18,7 @@ export function AmendmentsSection({
 }) {
   const qc = useQueryClient();
   const amendmentsQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'amendments', proposalId],
+    queryKey: qk.adminMonteOre.amendmentsOf(proposalId),
     queryFn: () => monteOreAdminApi.listProposalAmendments(proposalId),
   });
 
@@ -26,7 +27,7 @@ export function AmendmentsSection({
       monteOreAdminApi.approveAmendment(proposalId, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments', proposalId] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendmentsOf(proposalId) });
       onAfterDecision();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -37,7 +38,7 @@ export function AmendmentsSection({
       monteOreAdminApi.rejectAmendment(proposalId, aid, reason),
     onSuccess: () => {
       toast.success('Variazione rifiutata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments', proposalId] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendmentsOf(proposalId) });
       onAfterDecision();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

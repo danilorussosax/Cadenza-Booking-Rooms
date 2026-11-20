@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Building } from '@/types';
+import { invalidateStructure } from '@/lib/invalidation';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
@@ -84,11 +85,7 @@ export function BuildingFormDialog({ open, onOpenChange, instituteId, building }
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Edificio aggiornato' : 'Edificio creato');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      // Nome/floors edificio sono visibili sul Display kiosk e nei selettori
-      // di sede della Dashboard: invalidiamo le viste a cascata.
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
       onOpenChange(false);
     },
     onError: (err) => {

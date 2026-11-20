@@ -56,6 +56,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+import { qk } from '@/lib/queryKeys';
 
 const AUDIENCE_KINDS: AudienceKind[] = ['all', 'role', 'course', 'building'];
 const ROLES = ['studente', 'docente', 'admin'] as const;
@@ -94,7 +95,7 @@ export default function AdminAnnouncements() {
   const [confirmDelete, setConfirmDelete] = useState<Announcement | null>(null);
 
   const query = useQuery({
-    queryKey: ['announcements', 'admin'],
+    queryKey: qk.announcements.admin(),
     queryFn: () => announcementsApi.listAll(),
     staleTime: 30_000,
   });
@@ -103,7 +104,7 @@ export default function AdminAnnouncements() {
     mutationFn: (id: number) => announcementsApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.announcements.deleted'));
-      void qc.invalidateQueries({ queryKey: ['announcements'] });
+      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
       setConfirmDelete(null);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -113,7 +114,7 @@ export default function AdminAnnouncements() {
     mutationFn: (id: number) => announcementsApi.resendEmail(id),
     onSuccess: ({ sent }) => {
       toast.success(t('admin.announcements.broadcast_sent', { count: sent ?? 0 }));
-      void qc.invalidateQueries({ queryKey: ['announcements'] });
+      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -326,13 +327,13 @@ function AnnouncementFormDialog({
   const isEdit = !!announcement;
 
   const coursesQuery = useQuery({
-    queryKey: ['courses', 'active'],
+    queryKey: qk.courses.active(),
     queryFn: () => coursesApi.list({ active: true }),
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
   const structureQuery = useQuery({
-    queryKey: ['structure', 'institutes', 'full'],
+    queryKey: qk.structure.institutesFull(),
     queryFn: () => institutesApi.listFull(),
     staleTime: 5 * 60 * 1000,
     enabled: open,
@@ -391,7 +392,7 @@ function AnnouncementFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? t('admin.announcements.updated') : t('admin.announcements.created'));
-      void qc.invalidateQueries({ queryKey: ['announcements'] });
+      void qc.invalidateQueries({ queryKey: qk.announcements.all() });
       onOpenChange(false);
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

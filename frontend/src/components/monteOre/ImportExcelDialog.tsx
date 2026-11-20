@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { qk } from '@/lib/queryKeys';
 
 /** Limite hard-coded sul backend: 5 MB. Mostriamo errore client prima di
  * spedire payload inutilmente grandi. */
@@ -136,10 +137,10 @@ export function ImportExcelDialog({ open, onClose, academicYear }: Props) {
       toast.success(
         `Import completato per ${data.user.fullName} (${data.summary.schedulesCreated} fasce)`,
       );
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'proposals'] });
-      void qc.invalidateQueries({ queryKey: ['monte-ore', 'academic-years'] });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.proposals() });
+      void qc.invalidateQueries({ queryKey: qk.monteOre.academicYears() });
       // I queryKey usati realmente dalla pagina admin (vedi MonteOre.tsx):
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.all() });
     },
     onError: (err) => {
       setError(err);

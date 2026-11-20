@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Booking } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 type Phase = 'tooEarly' | 'open' | 'tooLate' | 'done';
 
@@ -61,7 +62,7 @@ export default function CheckInRoom() {
   }, []);
 
   const query = useQuery({
-    queryKey: ['bookings', 'checkin-candidates', roomId],
+    queryKey: qk.bookings.checkinCandidates(roomId),
     queryFn: () => bookingsApi.checkinCandidates(roomId),
     enabled: Number.isFinite(roomId) && roomId > 0,
     refetchInterval: 30_000,
@@ -79,8 +80,8 @@ export default function CheckInRoom() {
     mutationFn: (bookingId: number) => bookingsApi.checkin(bookingId, qrToken),
     onSuccess: () => {
       toast.success(t('check_in.checkin_success'));
-      void qc.invalidateQueries({ queryKey: ['bookings', 'checkin-candidates', roomId] });
-      void qc.invalidateQueries({ queryKey: ['bookings'] });
+      void qc.invalidateQueries({ queryKey: qk.bookings.checkinCandidates(roomId) });
+      void qc.invalidateQueries({ queryKey: qk.bookings.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

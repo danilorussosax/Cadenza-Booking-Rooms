@@ -70,6 +70,7 @@ import { IsidataLogo } from '@/components/icons/IsidataLogo';
 import { Esse3Logo } from '@/components/icons/Esse3Logo';
 import type { Role, User, UserStatus } from '@/types';
 import { todayLocalIso } from '@/lib/date';
+import { qk } from '@/lib/queryKeys';
 
 // I label di Role/Status sono ora chiavi i18n; risolvile con t() nel render.
 const ROLE_LABEL_KEY: Record<Role, string> = {
@@ -131,7 +132,7 @@ export default function AdminUsers() {
   >(null);
 
   const query = useQuery({
-    queryKey: ['users', { role: roleFilter, active: activeFilter, status: statusFilter }],
+    queryKey: qk.users.list({ role: roleFilter, active: activeFilter, status: statusFilter }),
     queryFn: () =>
       usersApi.list({
         role: roleFilter === 'all' ? undefined : (roleFilter as Role),
@@ -144,7 +145,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.approve(id),
     onSuccess: () => {
       toast.success(t('admin.users.approved_toast'));
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -153,7 +154,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.reject(id),
     onSuccess: () => {
       toast.success(t('admin.users.rejected_toast'));
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -175,7 +176,7 @@ export default function AdminUsers() {
     mutationFn: (id: number) => usersApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.users.deleted_toast'));
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
       setDeleteTarget(null);
     },
     onError: (err) => {
@@ -221,7 +222,7 @@ export default function AdminUsers() {
           { count: changed, skipped },
         ),
       );
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -232,7 +233,7 @@ export default function AdminUsers() {
     mutationFn: () => usersApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted, removedBookings }) => {
       toast.success(t('admin.users.bulk.deleted_toast', { count: deleted, removedBookings }));
-      void qc.invalidateQueries({ queryKey: ['users'] });
+      void qc.invalidateQueries({ queryKey: qk.users.all() });
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -761,7 +762,7 @@ function SsoTabContent() {
   const [restartHint, setRestartHint] = useState(false);
 
   const query = useQuery({
-    queryKey: ['admin', 'oauth-settings'],
+    queryKey: qk.admin.oauthSettings(),
     queryFn: () => oauthSettingsApi.get(),
   });
 
@@ -792,7 +793,7 @@ function SsoTabContent() {
     mutationFn: (payload: UpsertOAuthSettings) => oauthSettingsApi.update(payload),
     onSuccess: (data) => {
       toast.success('Impostazioni OAuth salvate');
-      void qc.invalidateQueries({ queryKey: ['admin', 'oauth-settings'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.oauthSettings() });
       // restartRequired = false solo se ho toccato esclusivamente la whitelist.
       if (data.restartRequired) setRestartHint(true);
     },

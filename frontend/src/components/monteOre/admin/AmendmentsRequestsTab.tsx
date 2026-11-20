@@ -10,12 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AmendmentActions } from './AmendmentActions';
 import { AMENDMENT_KIND_LABEL } from './shared';
+import { qk } from '@/lib/queryKeys';
 
 export function AmendmentsRequestsTab() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
   const listQuery = useQuery({
-    queryKey: ['admin', 'monte-ore', 'amendments', 'list', statusFilter],
+    queryKey: qk.adminMonteOre.amendmentsList(statusFilter),
     queryFn: () =>
       monteOreAdminApi.listAmendments(statusFilter === 'all' ? {} : { status: statusFilter }),
   });
@@ -25,7 +26,7 @@ export function AmendmentsRequestsTab() {
       monteOreAdminApi.approveAmendment(pid, aid, roomId ? { roomId } : {}),
     onSuccess: () => {
       toast.success('Variazione approvata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendments() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -35,7 +36,7 @@ export function AmendmentsRequestsTab() {
       monteOreAdminApi.rejectAmendment(pid, aid, reason),
     onSuccess: () => {
       toast.success('Variazione rifiutata');
-      void qc.invalidateQueries({ queryKey: ['admin', 'monte-ore', 'amendments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminMonteOre.amendments() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

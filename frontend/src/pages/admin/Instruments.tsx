@@ -50,6 +50,7 @@ import type {
   InstrumentLoan,
   LoanStatus,
 } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 type Tab = 'inventory' | 'all_loans' | 'overdue' | 'expiring' | 'rules';
 
@@ -309,7 +310,7 @@ function InventoryTab({
   >(null);
 
   const query = useQuery({
-    queryKey: ['admin', 'instruments', { family, loanable }],
+    queryKey: qk.adminInstruments.filtered({ family, loanable }),
     queryFn: () =>
       instrumentsApi.list({
         family: family === 'all' ? undefined : (family as InstrumentFamily),
@@ -321,8 +322,8 @@ function InventoryTab({
     mutationFn: () => instrumentsApi.bulkDelete(Array.from(selected)),
     onSuccess: ({ deleted, removedLoans }) => {
       toast.success(t('admin.instruments.bulk.deleted_toast', { count: deleted, removedLoans }));
-      void qc.invalidateQueries({ queryKey: ['admin', 'instruments'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -341,8 +342,8 @@ function InventoryTab({
           { count: changed },
         ),
       );
-      void qc.invalidateQueries({ queryKey: ['admin', 'instruments'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
       setSelected(new Set());
       setBulkAction(null);
     },
@@ -663,7 +664,7 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const query = useQuery({
-    queryKey: ['admin', 'loans', kind],
+    queryKey: qk.adminLoans.kind(kind),
     queryFn: () =>
       kind === 'overdue'
         ? loansApi.overdue()
@@ -676,8 +677,8 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.approve(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.approved'));
-      void qc.invalidateQueries({ queryKey: ['admin', 'loans'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -686,8 +687,8 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.reject(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.rejected'));
-      void qc.invalidateQueries({ queryKey: ['admin', 'loans'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -696,8 +697,8 @@ function LoansTab({ kind }: { kind: 'all' | 'overdue' | 'expiring' }) {
     mutationFn: (id: number) => loansApi.returnLoan(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.returned'));
-      void qc.invalidateQueries({ queryKey: ['admin', 'loans'] });
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.adminLoans.all() });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -895,8 +896,8 @@ function DeleteInstrumentDialog({
     mutationFn: (id: number) => instrumentsApi.remove(id),
     onSuccess: () => {
       toast.success(t('admin.instruments.toast.deleted'));
-      void qc.invalidateQueries({ queryKey: ['instruments'] });
-      void qc.invalidateQueries({ queryKey: ['admin', 'instruments'] });
+      void qc.invalidateQueries({ queryKey: qk.instruments.all() });
+      void qc.invalidateQueries({ queryKey: qk.adminInstruments.all() });
       onClose();
     },
     onError: (err) => {

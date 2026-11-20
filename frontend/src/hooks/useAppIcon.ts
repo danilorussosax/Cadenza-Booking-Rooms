@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { institutesApi } from '@/api/institutes';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * Restituisce l'URL dell'icona app correntemente in uso.
@@ -31,7 +32,7 @@ const DEFAULT_ICON = '/logo3.png';
 
 export function useAppIcon(): string {
   const { data } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });

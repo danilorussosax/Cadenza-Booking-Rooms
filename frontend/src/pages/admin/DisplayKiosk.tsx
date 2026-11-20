@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import type { Building } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 interface RowState {
   buildingId: number;
@@ -92,7 +93,7 @@ export default function AdminDisplayKiosk() {
   const qc = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['institutes', 'full'],
+    queryKey: qk.institutes.full(),
     queryFn: () => institutesApi.listFull(),
   });
 
@@ -280,7 +281,7 @@ export default function AdminDisplayKiosk() {
     },
     onSuccess: () => {
       toast.success(t('admin.display.saved'));
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
+      void qc.invalidateQueries({ queryKey: qk.institutes.all() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });

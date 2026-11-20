@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { invalidateStructure } from '@/lib/invalidation';
 
 const SAMPLE_CSV = `edificio;piano;aula;codice_edificio;indirizzo;codice_aula;capienza;tipo_aula;prenotabile;attrezzatura;tipo_attrezzatura;marca;modello;quantita
 Palazzo Storico;Piano Terra;Aula Verdi;PS;Via Roma 1;A01;25;classe;si;Pianoforte verticale;pianoforte;Yamaha;U3;1
@@ -57,11 +58,7 @@ export function CsvImportDialog({ open, onOpenChange, instituteId, instituteName
     mutationFn: () => structureApi.import({ instituteId, csv }),
     onSuccess: ({ result }) => {
       setResult(result);
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
-      // Import CSV può creare/aggiornare aule in massa: invalidiamo tutte le
-      // viste che mostrano codici aula (Dashboard, Display kiosk, ecc.).
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['public'] });
+      void invalidateStructure(qc);
       toast.success(
         `Import completato · ${result.roomsCreated + result.roomsUpdated} aule, ${
           result.equipmentCreated + result.equipmentUpdated

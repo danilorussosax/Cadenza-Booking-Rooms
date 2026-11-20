@@ -8,6 +8,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { AppFooter } from '@/components/AppFooter';
 import { useAppIcon } from '@/hooks/useAppIcon';
 import type { ReactNode } from 'react';
+import { qk } from '@/lib/queryKeys';
 
 interface QuoteEntry {
   text: string;
@@ -31,7 +32,7 @@ export function AuthLayout({ children, quote, attribution, formBgImage }: Props)
   const { t } = useTranslation();
   const appIcon = useAppIcon();
   const { data } = useQuery({
-    queryKey: ['institute', 'public'],
+    queryKey: qk.institute.public(),
     queryFn: () => institutesApi.public(),
     staleTime: 5 * 60 * 1000,
   });

@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Course, CourseLevel } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 const schema = z.object({
   code: z.string().min(1, 'Inserisci il codice').max(20, 'Massimo 20 caratteri'),
@@ -49,7 +50,7 @@ export function CourseFormDialog({ open, onOpenChange, course }: Props) {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const levelsQuery = useQuery({
-    queryKey: ['course-levels'],
+    queryKey: qk.courseLevels.all(),
     queryFn: () => courseLevelsApi.list(),
     enabled: open,
     staleTime: 60_000,
@@ -113,7 +114,7 @@ export function CourseFormDialog({ open, onOpenChange, course }: Props) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Corso aggiornato' : 'Corso creato');
-      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: qk.courses.all() });
       onOpenChange(false);
     },
     onError: (err) => {

@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/sheet';
 import { toLocalDateTimeInput, fromLocalInput } from '@/lib/date';
 import type { Building, EquipmentType, Room, RoomType } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 interface AdvancedFilters {
   equipmentType: EquipmentType[];
@@ -97,14 +98,14 @@ export default function Rooms() {
   const useSearchEndpoint = hasAdvancedFilters || hasBuildingFilter;
 
   const fullQuery = useQuery({
-    queryKey: ['institutes', 'full'],
+    queryKey: qk.institutes.full(),
     queryFn: () => institutesApi.listFull(),
     staleTime: 60_000,
     enabled: !useSearchEndpoint,
   });
 
   const searchQuery = useQuery({
-    queryKey: ['rooms', 'search', filters, buildingId],
+    queryKey: qk.rooms.search(filters, buildingId),
     queryFn: () =>
       roomsApi.search({
         equipmentType: filters.equipmentType.length ? filters.equipmentType : undefined,

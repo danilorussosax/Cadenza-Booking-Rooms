@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Equipment, EquipmentType } from '@/types';
+import { qk } from '@/lib/queryKeys';
+import { invalidateEquipment } from '@/lib/invalidation';
 
 const schema = z.object({
   name: z.string().min(1, 'Inserisci il nome'),
@@ -68,7 +70,7 @@ export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: P
   const [serverError, setServerError] = useState<string | null>(null);
 
   const templatesQuery = useQuery({
-    queryKey: ['equipment-templates'],
+    queryKey: qk.equipmentTemplates.all(),
     queryFn: () => structureApi.listEquipmentTemplates(),
     enabled: open && !isEdit,
     staleTime: 60_000,
@@ -127,7 +129,7 @@ export function EquipmentFormDialog({ open, onOpenChange, roomId, equipment }: P
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Strumento aggiornato' : 'Strumento aggiunto');
-      void qc.invalidateQueries({ queryKey: ['institutes'] });
+      void invalidateEquipment(qc);
       onOpenChange(false);
     },
     onError: (err) => {

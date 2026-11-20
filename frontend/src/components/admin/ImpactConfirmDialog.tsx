@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { contractTypesApi } from '@/api/contractTypes';
 import type { ContractTypeRow } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 interface Props {
   contractType: ContractTypeRow;
@@ -39,7 +40,7 @@ export function ImpactConfirmDialog({
   confirming,
 }: Props) {
   const impactQuery = useQuery({
-    queryKey: ['contract-types', contractType.id, 'impact'],
+    queryKey: qk.contractTypes.impact(contractType.id),
     queryFn: () => contractTypesApi.impact(contractType.id),
     staleTime: 0,
   });

@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { qk } from '@/lib/queryKeys';
 
 // =============================================================================
 // /admin/messaging — configurazione dei 4 canali bot.
@@ -151,7 +152,7 @@ const CHANNELS: ChannelDef[] = [
 export default function AdminMessagingSettings() {
   const { t } = useTranslation();
   const query = useQuery({
-    queryKey: ['admin', 'messaging-settings'],
+    queryKey: qk.admin.messagingSettings(),
     queryFn: () => messagingSettingsApi.list(),
   });
   const byChannel = new Map(query.data?.settings.map((r) => [r.channel, r]) ?? []);
@@ -227,7 +228,7 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
       setCreds(initialCreds(res));
       setSettings(initialSettings(res));
       setDirty(false);
-      void qc.invalidateQueries({ queryKey: ['admin', 'messaging-settings'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.messagingSettings() });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -265,7 +266,7 @@ function ChannelCard({ def, row }: { def: ChannelDef; row: ChannelSettingsRow })
       setDirty(false);
       // Rinfresca lo stato webhook reale così il pannello passaggi si aggiorna.
       webhookInfoMutation.mutate();
-      void qc.invalidateQueries({ queryKey: ['admin', 'messaging-settings'] });
+      void qc.invalidateQueries({ queryKey: qk.admin.messagingSettings() });
       const warn = res.warnings?.length ? ` · ${res.warnings.length} warning` : '';
       toast.success(
         t('admin.messaging.telegram.auto.toast_ok', { username: res.bot?.username ?? '' }) + warn,

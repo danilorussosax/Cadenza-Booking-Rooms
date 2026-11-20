@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 export default function PlanApproval({
   proposalId,
@@ -26,11 +27,11 @@ export default function PlanApproval({
   const { t } = useTranslation();
   const [assignments, setAssignments] = useState<Partial<Record<number, number>>>({});
   const preview = useQuery({
-    queryKey: ['admin', 'monte-ore', proposalId, 'preview'],
+    queryKey: qk.adminMonteOre.preview(proposalId),
     queryFn: () => monteOreAdminApi.preview(proposalId),
   });
   const rooms = useQuery({
-    queryKey: ['rooms', 'bookable'],
+    queryKey: qk.rooms.bookable(),
     queryFn: () => roomsApi.list({ bookable: true }),
   });
   const changes = Object.entries(assignments).map(([id, roomId]) => ({

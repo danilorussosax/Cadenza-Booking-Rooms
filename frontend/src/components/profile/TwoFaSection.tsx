@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { User } from '@/types';
+import { qk } from '@/lib/queryKeys';
 
 // =============================================================================
 // Sezione "Sicurezza · Verifica in due passaggi (codice via email)" del profilo.
@@ -64,7 +65,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
   );
 
   const statusQuery = useQuery({
-    queryKey: ['auth', '2fa', 'status'],
+    queryKey: qk.auth.twoFaStatus(),
     queryFn: () => authApi.twoFaStatus(),
     staleTime: 30_000,
   });
@@ -96,7 +97,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSetupSent(null);
       setConfirmCode('');
       updateUser({ twoFaEnabled: true });
-      void qc.invalidateQueries({ queryKey: ['auth', '2fa', 'status'] });
+      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
       toast.success(t('profile.twofa.toast.enabled'));
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
@@ -110,7 +111,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSecureCode('');
       setSecureSent(null);
       toast.success(t('profile.twofa.toast.recovery_regenerated'));
-      void qc.invalidateQueries({ queryKey: ['auth', '2fa', 'status'] });
+      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
     },
     onError: (err) => {
       setSecureError(httpErrorMessage(err));
@@ -125,7 +126,7 @@ export function TwoFaSection({ user, updateUser }: Props) {
       setSecureSent(null);
       setRecoveryCodes(null);
       updateUser({ twoFaEnabled: false });
-      void qc.invalidateQueries({ queryKey: ['auth', '2fa', 'status'] });
+      void qc.invalidateQueries({ queryKey: qk.auth.twoFaStatus() });
       toast.success(t('profile.twofa.toast.disabled'));
     },
     onError: (err) => {

@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { qk } from '@/lib/queryKeys';
 
 interface Props {
   academicYear: string;
@@ -35,7 +36,7 @@ export function ExamSessionsEditor({ academicYear }: Props) {
   const [editor, setEditor] = useState<EditorMode>(null);
 
   const listQuery = useQuery({
-    queryKey: ['examSessions', academicYear],
+    queryKey: qk.examSessions.byYear(academicYear),
     queryFn: () => monteOreAdminApi.listExamSessions(academicYear),
     enabled: !!academicYear,
   });
@@ -44,7 +45,7 @@ export function ExamSessionsEditor({ academicYear }: Props) {
     mutationFn: (id: number) => monteOreAdminApi.deleteExamSession(id),
     onSuccess: () => {
       toast.success('Sessione eliminata');
-      void qc.invalidateQueries({ queryKey: ['examSessions', academicYear] });
+      void qc.invalidateQueries({ queryKey: qk.examSessions.byYear(academicYear) });
     },
     onError: (err) => toast.error(httpErrorMessage(err)),
   });
@@ -170,7 +171,7 @@ function ExamSessionDialog({ academicYear, mode, onClose }: DialogProps) {
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Sessione aggiornata' : 'Sessione creata');
-      void qc.invalidateQueries({ queryKey: ['examSessions', academicYear] });
+      void qc.invalidateQueries({ queryKey: qk.examSessions.byYear(academicYear) });
       onClose();
     },
     onError: (err) => toast.error(httpErrorMessage(err)),

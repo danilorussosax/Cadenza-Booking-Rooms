@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { mailTemplatesApi } from '@/api/mailTemplates';
 import { MailTemplateEditor } from '@/components/admin/MailTemplateEditor';
+import { qk } from '@/lib/queryKeys';
 
 const schema = z.object({
   isEnabled: z.boolean(),
@@ -95,7 +96,7 @@ export default function AdminMailSettings() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ['admin', 'mail-settings'],
+    queryKey: qk.admin.mailSettings(),
     queryFn: () => mailSettingsApi.get(),
   });
   const settings = query.data?.settings ?? null;
@@ -160,7 +161,7 @@ export default function AdminMailSettings() {
       }),
     onSuccess: ({ settings }) => {
       toast.success('Configurazione SMTP salvata');
-      qc.setQueryData<MailSettingsResponse>(['admin', 'mail-settings'], (old) => ({
+      qc.setQueryData<MailSettingsResponse>(qk.admin.mailSettings(), (old) => ({
         envFallback: old?.envFallback ?? { hasEnvHost: false },
         settings,
       }));
@@ -184,7 +185,7 @@ export default function AdminMailSettings() {
   // Lista template per il dropdown "Tipo email da testare". Usa la stessa
   // query già montata da MailTemplatesSection (TanStack dedupa).
   const testTemplatesQuery = useQuery({
-    queryKey: ['admin', 'mail-templates'],
+    queryKey: qk.admin.mailTemplates(),
     queryFn: () => mailTemplatesApi.list(),
   });
   const testTemplates = testTemplatesQuery.data?.templates ?? [];
@@ -604,7 +605,7 @@ export default function AdminMailSettings() {
 // =====================================================
 function MailTemplatesSection() {
   const tplQuery = useQuery({
-    queryKey: ['admin', 'mail-templates'],
+    queryKey: qk.admin.mailTemplates(),
     queryFn: () => mailTemplatesApi.list(),
   });
 

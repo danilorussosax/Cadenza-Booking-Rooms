@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { qk } from '@/lib/queryKeys';
 
 const SAMPLE_CSV = `SAD;Denominazione
 DCPL34;Pianoforte
@@ -65,7 +66,7 @@ export function CoursesCsvImportDialog({ open, onOpenChange }: Props) {
     mutationFn: () => coursesApi.importCsv(csv),
     onSuccess: ({ result }) => {
       setResult(result);
-      void qc.invalidateQueries({ queryKey: ['courses'] });
+      void qc.invalidateQueries({ queryKey: qk.courses.all() });
       toast.success(`Import completato · ${result.created} creati, ${result.updated} aggiornati`);
     },
     onError: (err) => {
