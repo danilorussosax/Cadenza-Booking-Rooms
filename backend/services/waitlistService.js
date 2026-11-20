@@ -16,11 +16,12 @@
 const dayjs = require('dayjs');
 const { Op, Transaction } = require('sequelize');
 const { withSerializableRetry } = require('../lib/serializableTx');
+const { getConfig } = require('../lib/config');
 const { sequelize, BookingWaitlist, Booking, Room, Building, User } = require('../models');
 const { sendBookingEmail, emailEnabled } = require('./emailService');
 const logger = require('../lib/logger');
 
-const CLAIM_WINDOW_MINUTES = Math.max(5, Number(process.env.WAITLIST_CLAIM_MINUTES) || 30);
+const CLAIM_WINDOW_MINUTES = getConfig().WAITLIST_CLAIM_MINUTES;
 
 /**
  * Notifica il prossimo in coda per un dato slot. Idempotente: se nessuno

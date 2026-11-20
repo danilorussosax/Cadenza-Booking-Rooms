@@ -5,7 +5,8 @@
 // .env e il backend cadeva su default sqlite invece del Postgres configurato.
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 // Validazione config centralizzata (P2-4): legge tutte le env critiche e fa
-// exit(1) con messaggio chiaro se una è invalida. Sostituisce il pattern
+// exit(1) con messaggio chiaro se una è invalida (incluse le chiavi di tuning:
+// BCRYPT_COST, LOCKOUT_*, GDPR_*, MESSAGING_*, ...). Sostituisce il pattern
 // "Number(process.env.X) || default" sparso in 30+ file.
 require('./lib/config').validateConfig();
 if (require('fs').existsSync(require('path').join(__dirname, 'data', 'restore-maintenance.lock'))) {

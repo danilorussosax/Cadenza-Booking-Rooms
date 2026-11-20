@@ -26,6 +26,7 @@
 
 const { sequelize, MessagingSettings, BotBinding, AuditLog, User } = require('../../models');
 const { decrypt } = require('../../lib/crypto');
+const { getConfig } = require('../../lib/config');
 const adapters = require('./adapters');
 const intent = require('./intent');
 const stateMachine = require('./state');
@@ -37,7 +38,7 @@ const { Op } = require('sequelize');
 // in `consumeBindingOtp`. In condizioni normali ci sono pochi pending OTP
 // (TTL 10min, 1 per utente). Il cap protegge da scenari degenerate (es.
 // migrazione che lascia migliaia di challenge orfane).
-const OTP_CANDIDATES_CAP = Number(process.env.MESSAGING_OTP_SCAN_CAP) || 100;
+const OTP_CANDIDATES_CAP = getConfig().MESSAGING_OTP_SCAN_CAP;
 
 // =============================================================================
 // Mutex applicativo per (channel, externalId): serializza i webhook concorrenti

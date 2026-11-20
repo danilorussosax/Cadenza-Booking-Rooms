@@ -19,6 +19,7 @@
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../lib/logger');
+const { getConfig } = require('../lib/config');
 const PgRateLimitStore = require('../lib/pgRateLimitStore');
 function sharedStore(prefix) {
   return process.env.DB_DIALECT === 'postgres' ? { store: new PgRateLimitStore(prefix) } : {};
@@ -86,7 +87,7 @@ const apiDefaultLimiter = rateLimit({
   ...baseOptions,
   ...sharedStore('apiDefaultLimiter'),
   windowMs: 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_API_PER_MIN) || 300,
+  limit: getConfig().RATE_LIMIT_API_PER_MIN,
   handler: buildHandler({ logHint: 'api_default' }),
 });
 
