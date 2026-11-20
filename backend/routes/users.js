@@ -7,7 +7,7 @@ const { stringify: csvStringify } = require('csv-stringify/sync');
 const { sequelize, User, Course, ContractType } = require('../models');
 const { contractFields, flagChangedPlans } = require('../services/teacherContractService');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { pickAllowed, ValidationError } = require('../lib/sanitize');
+const { pickAllowed } = require('../lib/sanitize');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
 const removal = require('../services/removal');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
@@ -442,12 +442,6 @@ router.put(
   },
 );
 
-// ValidationError di `pickAllowed` → DomainError con lo stesso body storico
-// `{ error, code, field }` (il gestore centrale fonde `extra` al primo livello).
-function validationToDomainError(err) {
-  return domainError(err.code, err.message, { status: err.status, extra: { field: err.field } });
-}
-
 // Modifica utente (admin: può cambiare ruolo, attivare/disattivare, ecc.)
 router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
@@ -517,7 +511,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res, next) =>
     });
     res.json({ user: user.toSafeJSON() });
   } catch (err) {
-    next(err instanceof ValidationError ? validationToDomainError(err) : err);
+    next(err);
   }
 });
 
