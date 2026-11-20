@@ -8,15 +8,17 @@
 // condivisi. Per single-server è sufficiente. Migrazione futura: Redis.
 // =============================================================================
 
-const PER_MIN = Number(process.env.MESSAGING_RATE_PER_MIN) || 30;
-const PER_DAY = Number(process.env.MESSAGING_RATE_PER_DAY) || 200;
-const COOLDOWN_MS = Number(process.env.MESSAGING_COOLDOWN_MS) || 60 * 60 * 1000;
+const { getConfig } = require('../../lib/config');
+
+const PER_MIN = getConfig().MESSAGING_RATE_PER_MIN;
+const PER_DAY = getConfig().MESSAGING_RATE_PER_DAY;
+const COOLDOWN_MS = getConfig().MESSAGING_COOLDOWN_MS;
 // Sweep ogni 30 min delle entry obsolete: entry inattiva da >24h e senza
 // cooldown attivo viene scartata. Per bot pubblici Telegram il numero di
 // chat-id univoci che scrivono una volta tende a +∞ — senza purga la Map
 // cresce all'infinito (memory leak).
-const SWEEP_INTERVAL_MS = Number(process.env.MESSAGING_RATE_SWEEP_MS) || 30 * 60 * 1000;
-const ENTRY_TTL_MS = Number(process.env.MESSAGING_RATE_ENTRY_TTL_MS) || 24 * 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = getConfig().MESSAGING_RATE_SWEEP_MS;
+const ENTRY_TTL_MS = getConfig().MESSAGING_RATE_ENTRY_TTL_MS;
 
 const store = new Map(); // key → { minWindowStart, minCount, dayWindowStart, dayCount, cooldownUntil }
 

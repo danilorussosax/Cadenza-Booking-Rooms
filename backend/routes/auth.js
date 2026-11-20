@@ -10,6 +10,7 @@ const { OAuthDomainNotAllowedError } = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const { User, Course } = require('../models');
 const { authenticate, signToken } = require('../middleware/auth');
+const { getConfig } = require('../lib/config');
 const logger = require('../lib/logger');
 const {
   loginLimiter,
@@ -199,7 +200,7 @@ router.post(
 // Helper: genera challenge 2FA, salva in DB, manda email all'utente.
 // Restituisce { ok, sentTo, expiresInMinutes } o { ok: false, error }.
 async function issueAndSendTwoFaCode(user, purpose) {
-  const issuer = process.env.TWO_FA_ISSUER || 'Cadenza';
+  const issuer = getConfig().TWO_FA_ISSUER;
   const { code, record } = await twoFa.createChallenge(purpose);
   const saved = await authSecurity.mutateUser(
     user.id,

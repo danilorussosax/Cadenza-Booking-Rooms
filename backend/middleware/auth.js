@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const sentry = require('../lib/sentry');
 const { getJwtSecret } = require('../lib/secrets');
+const { getConfig } = require('../lib/config');
 const { isAdmin } = require('../lib/access');
 
 const JWT_SECRET = getJwtSecret();
@@ -123,10 +124,9 @@ function requireApproved(req, res, next) {
   next();
 }
 
-// Default 2h: compromesso UX/sicurezza per single-page app senza refresh
-// token. Sovrascrivibile via env JWT_EXPIRES_IN (es. "30m", "1d").
-const DEFAULT_JWT_EXPIRES_IN = '2h';
-
+// Durata JWT: default 2h (compromesso UX/sicurezza per single-page app senza
+// refresh token), sovrascrivibile via env JWT_EXPIRES_IN (es. "30m", "1d");
+// validata in lib/config.js.
 function signToken(user) {
   return jwt.sign(
     {
@@ -138,7 +138,7 @@ function signToken(user) {
       tokenVersion: user.tokenVersion ?? 0,
     },
     JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN },
+    { expiresIn: getConfig().JWT_EXPIRES_IN },
   );
 }
 
@@ -155,8 +155,8 @@ function signToken(user) {
  * permettere all'UI di mostrare un avviso. Ritorna `true` se ha bloccato,
  * `false` se ha lasciato passare.
  */
-const TWO_FA_GRACE_DAYS = Number(process.env.TWO_FA_GRACE_DAYS) || 7;
 function enforceAdminTwoFa(user, res) {
+  const { TWO_FA_GRACE_DAYS } = getConfig();
   if (user.twoFaEnabled) return false;
   if (user.twoFaActivatedAt) {
     res.status(403).json({

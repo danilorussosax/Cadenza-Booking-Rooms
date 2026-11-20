@@ -19,6 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { getConfig } = require('../lib/config');
 const crypto = require('crypto');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
@@ -33,9 +34,6 @@ const { AuditLog, MailOutbox } = require('../models');
 const { createJob } = require('../lib/jobRunner');
 const logger = require('../lib/logger').child({ scope: 'retentionScheduler' });
 
-const DEFAULT_AUDIT_RETENTION_DAYS = 730; // 24 mesi
-const DEFAULT_PRE_RESTORE_RETENTION_DAYS = 7;
-const DEFAULT_MAIL_OUTBOX_RETENTION_DAYS = 30; // mail consegnate sopra i 30gg
 const TICK_HOUR = 3; // 03:00 locali
 
 const BACKEND_ROOT = path.resolve(__dirname, '..');
@@ -53,12 +51,11 @@ const job = createJob({
 });
 
 function getAuditRetentionDays() {
-  const raw = Number(process.env.GDPR_AUDIT_LOG_RETENTION_DAYS);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_AUDIT_RETENTION_DAYS;
-  // Limite minimo 30 giorni: una retention più aggressiva sarebbe
+  // Default 730 giorni (24 mesi). Minimo 30 giorni imposto da lib/config.js
+  // (errore all'avvio se inferiore): una retention più aggressiva sarebbe
   // probabilmente un errore di configurazione che farebbe perdere
   // tracciabilità di indagini su incidenti recenti.
-  return Math.max(30, Math.floor(raw));
+  return getConfig().GDPR_AUDIT_LOG_RETENTION_DAYS;
 }
 
 /**
@@ -233,10 +230,7 @@ async function pruneAuditLog() {
  * restore — se non vengono mai pulite riempiono il volume.
  */
 async function prunePreRestoreSnapshots() {
-  const days = Math.max(
-    1,
-    Number(process.env.PRE_RESTORE_RETENTION_DAYS) || DEFAULT_PRE_RESTORE_RETENTION_DAYS,
-  );
+  const days = getConfig().PRE_RESTORE_RETENTION_DAYS;
   const cutoff = dayjs().subtract(days, 'day').valueOf();
   // P2-6: la dir centralizzata `data/snapshots/` raccoglie sia gli snapshot
   // db-* sia uploads-*. Per backward-compat con installazioni precedenti
@@ -323,11 +317,7 @@ function estimateDirSize(dir) {
  * ispezionati da un admin (e cancellati manualmente dalla UI).
  */
 async function pruneMailOutbox() {
-  const raw = Number(process.env.MAIL_OUTBOX_RETENTION_DAYS);
-  const days =
-    Number.isFinite(raw) && raw > 0
-      ? Math.max(1, Math.floor(raw))
-      : DEFAULT_MAIL_OUTBOX_RETENTION_DAYS;
+  const days = getConfig().MAIL_OUTBOX_RETENTION_DAYS;
   const cutoff = dayjs().subtract(days, 'day').toDate();
   try {
     const removed = await MailOutbox.destroy({

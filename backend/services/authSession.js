@@ -19,9 +19,10 @@
 const { User } = require('../models');
 const { signToken } = require('../middleware/auth');
 const logger = require('../lib/logger');
+const { getConfig } = require('../lib/config');
 
-const LOCKOUT_MAX_FAILED = Math.max(1, Number(process.env.LOCKOUT_MAX_FAILED) || 10);
-const LOCKOUT_DURATION_MIN = Math.max(1, Number(process.env.LOCKOUT_DURATION_MIN) || 30);
+const LOCKOUT_MAX_FAILED = getConfig().LOCKOUT_MAX_FAILED;
+const LOCKOUT_DURATION_MIN = getConfig().LOCKOUT_DURATION_MIN;
 
 /** Pre-check PRIMA di bcrypt: non sprecare hash su account lockati. */
 async function checkLockout(email) {

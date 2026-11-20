@@ -2,11 +2,12 @@
 
 const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { getConfig } = require('../lib/config');
 
 // Cost factor per bcrypt. 12 è il default di sicurezza nel 2026
 // (resistenza a brute-force GPU vs latenza di login ~250ms su hardware tipico).
-// Sovrascrivibile via env per test (es. BCRYPT_COST=4 nei test unit).
-const BCRYPT_COST = Math.max(4, Math.min(15, Number(process.env.BCRYPT_COST) || 12));
+// Sovrascrivibile via env BCRYPT_COST (4-15, validato in lib/config.js; default 4 in test).
+const BCRYPT_COST = getConfig().BCRYPT_COST;
 
 module.exports = (sequelize) => {
   const User = sequelize.define(

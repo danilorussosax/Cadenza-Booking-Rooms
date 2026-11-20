@@ -14,8 +14,9 @@
 // =============================================================================
 
 const { ChatSession } = require('../../models');
+const { getConfig } = require('../../lib/config');
 
-const SESSION_TTL_MIN = Number(process.env.MESSAGING_SESSION_TTL_MIN) || 15;
+const SESSION_TTL_MIN = getConfig().MESSAGING_SESSION_TTL_MIN;
 
 async function loadOrCreate({ channel, externalId, userId }) {
   // `paranoid: false` è cruciale: ChatSession ha l'index UNIQUE su

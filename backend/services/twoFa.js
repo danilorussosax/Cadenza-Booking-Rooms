@@ -33,12 +33,13 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../lib/secrets');
+const { getConfig } = require('../lib/config');
 
 const PRE2FA_TTL = '5m';
 const RECOVERY_CODE_COUNT = 10;
 const RECOVERY_CODE_BYTES = 10; // ~80 bit
-const TWO_FA_TTL_MIN = Number(process.env.TWO_FA_TTL_MIN) || 10;
-const TWO_FA_MAX_ATTEMPTS = Number(process.env.TWO_FA_MAX_ATTEMPTS) || 5;
+const TWO_FA_TTL_MIN = getConfig().TWO_FA_TTL_MIN;
+const TWO_FA_MAX_ATTEMPTS = getConfig().TWO_FA_MAX_ATTEMPTS;
 const CODE_BCRYPT_COST = 8;
 
 /** Genera un codice OTP di 6 cifre (zero-padded). */
