@@ -267,13 +267,12 @@ export default function AdminAnalytics() {
             </div>
             {query.isLoading ? (
               <Skeleton className="h-64 w-full" />
-            ) : (data?.topRooms.length ?? 0) === 0 ? (
+            ) : !data || data.topRooms.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t('admin.analytics.no_data')}
               </p>
             ) : (
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              <TopRoomsChart data={data!.topRooms} />
+              <TopRoomsChart data={data.topRooms} />
             )}
           </CardContent>
         </Card>
@@ -290,13 +289,12 @@ export default function AdminAnalytics() {
             </p>
             {query.isLoading ? (
               <Skeleton className="h-64 w-full" />
-            ) : (data?.topUsers.length ?? 0) === 0 ? (
+            ) : !data || data.topUsers.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t('admin.analytics.no_data')}
               </p>
             ) : (
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              <TopUsersList data={data!.topUsers} />
+              <TopUsersList data={data.topUsers} />
             )}
           </CardContent>
         </Card>
@@ -376,8 +374,9 @@ function TopRoomsChart({
             <YAxis dataKey="label" type="category" width={80} fontSize={10} />
             <Tooltip
               formatter={(value) => [`${Number(value)} h`, 'Ore']}
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-              labelFormatter={(_, p) => p[0]?.payload?.fullLabel ?? ''}
+              labelFormatter={(_, p) =>
+                (p[0]?.payload as { fullLabel?: string } | undefined)?.fullLabel ?? ''
+              }
             />
             <Bar dataKey="hours" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
           </BarChart>
