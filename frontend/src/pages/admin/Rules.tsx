@@ -63,6 +63,17 @@ import type {
 import { todayLocalIso } from '@/lib/date';
 import { qk } from '@/lib/queryKeys';
 import { invalidateRuleExceptions } from '@/lib/invalidation';
+import {
+  DAYS_LABELS,
+  blankException,
+  exceptionSummary,
+  fromException,
+  isPastOnlyRange,
+  roleLabel,
+  toggleDay,
+  validateException,
+  type ExceptionFormState,
+} from '@/lib/ruleExceptions';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -681,7 +692,6 @@ function toFormValues(rule: BookingRule): FormValues {
 // =====================================================
 // Eccezioni alla regola del ruolo
 // =====================================================
-const DAYS_LABELS = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
 /**
  * `role` opzionale: se omesso, mostra TUTTE le eccezioni (admin only —
@@ -853,93 +863,9 @@ function ExceptionsSection({
   );
 }
 
-function exceptionSummary(exc: BookingRuleException): string {
-  const parts: string[] = [];
-  if (exc.roomId != null) {
-    parts.push(`Solo aula: ${exc.room?.name ?? `#${exc.roomId}`}`);
-  }
-  if (exc.dateFrom && exc.dateTo) {
-    parts.push(
-      exc.dateFrom === exc.dateTo ? `Il ${exc.dateFrom}` : `Dal ${exc.dateFrom} al ${exc.dateTo}`,
-    );
-  } else if (exc.dateFrom) {
-    parts.push(`Dal ${exc.dateFrom}`);
-  } else if (exc.dateTo) {
-    parts.push(`Fino al ${exc.dateTo}`);
-  }
-  if (exc.daysOfWeek && exc.daysOfWeek.length > 0) {
-    parts.push(exc.daysOfWeek.map((d) => DAYS_LABELS[d]).join(', '));
-  }
-  if (exc.startTime || exc.endTime) {
-    parts.push(`${exc.startTime ?? '00:00'}–${exc.endTime ?? '23:59'}`);
-  }
-  if (parts.length === 0) parts.push('Sempre attiva');
-  return parts.join(' · ');
-}
-
-function roleLabel(r: Role): string {
-  return r === 'admin' ? 'Admin' : r === 'docente' ? 'Docenti' : 'Studenti';
-}
-
 // =====================================================
 // Dialog: crea/modifica eccezione
 // =====================================================
-interface ExceptionFormState {
-  role: BookingRuleExceptionScope;
-  /** 'all' (tutte le aule) oppure id stringa dell'aula scoped */
-  roomScope: string;
-  name: string;
-  kind: BookingRuleExceptionKind;
-  daysOfWeek: number[];
-  dateFrom: string;
-  dateTo: string;
-  singleDate: boolean;
-  startTime: string;
-  endTime: string;
-  maxHoursInWindow: string;
-  isActive: boolean;
-  notes: string;
-}
-
-function blankException(
-  defaultRole: BookingRuleExceptionScope,
-  defaultRoomId?: number,
-): ExceptionFormState {
-  return {
-    role: defaultRole,
-    roomScope: defaultRoomId ? String(defaultRoomId) : 'all',
-    name: '',
-    kind: 'block',
-    daysOfWeek: [],
-    dateFrom: '',
-    dateTo: '',
-    singleDate: false,
-    startTime: '',
-    endTime: '',
-    maxHoursInWindow: '1',
-    isActive: true,
-    notes: '',
-  };
-}
-
-function fromException(exc: BookingRuleException): ExceptionFormState {
-  return {
-    role: exc.role,
-    roomScope: exc.roomId != null ? String(exc.roomId) : 'all',
-    name: exc.name,
-    kind: exc.kind,
-    daysOfWeek: exc.daysOfWeek ?? [],
-    dateFrom: exc.dateFrom ?? '',
-    dateTo: exc.dateTo ?? '',
-    singleDate: !!(exc.dateFrom && exc.dateTo && exc.dateFrom === exc.dateTo),
-    startTime: exc.startTime ?? '',
-    endTime: exc.endTime ?? '',
-    maxHoursInWindow: exc.maxHoursInWindow != null ? String(exc.maxHoursInWindow) : '1',
-    isActive: exc.isActive,
-    notes: exc.notes ?? '',
-  };
-}
-
 function ExceptionDialog({
   open,
   existing,
@@ -1013,63 +939,22 @@ function ExceptionDialog({
   });
 
   const dayToggle = (d: number) => {
-    setForm((f) => ({
-      ...f,
-      daysOfWeek: f.daysOfWeek.includes(d)
-        ? f.daysOfWeek.filter((x) => x !== d)
-        : [...f.daysOfWeek, d].sort(),
-    }));
+    setForm((f) => ({ ...f, daysOfWeek: toggleDay(f.daysOfWeek, d) }));
   };
 
   // Avviso "range tutto nel passato": un block con dateTo < oggi non
   // intercetterà mai prenotazioni future. Lo segnaliamo inline (non
   // bloccante: l'admin potrebbe avere un motivo storico/audit).
-  const isPastOnlyRange = (() => {
-    if (form.kind !== 'block') return false;
-    const today = todayLocalIso();
-    const effectiveDateTo = form.singleDate ? form.dateFrom : form.dateTo;
-    return !!effectiveDateTo && effectiveDateTo < today;
-  })();
+  const pastOnlyRange = isPastOnlyRange(form, todayLocalIso());
 
   const submit = () => {
     setError(null);
-    if (!form.name.trim()) {
-      setError('Nome obbligatorio');
+    const result = validateException(form);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    if (form.kind === 'time_window') {
-      const h = Number(form.maxHoursInWindow);
-      if (!Number.isFinite(h) || h <= 0) {
-        setError('Ore massime nella finestra: valore positivo richiesto');
-        return;
-      }
-    }
-    if (form.startTime && form.endTime && form.startTime >= form.endTime) {
-      setError("L'orario di fine deve essere successivo a quello di inizio");
-      return;
-    }
-
-    const dateFrom = form.dateFrom || null;
-    const dateTo = form.singleDate ? form.dateFrom || null : form.dateTo || null;
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      setError('La data di inizio deve precedere quella di fine');
-      return;
-    }
-
-    const payload: UpsertExceptionPayload = {
-      role: form.role,
-      name: form.name.trim(),
-      kind: form.kind,
-      daysOfWeek: form.daysOfWeek.length > 0 ? form.daysOfWeek : null,
-      dateFrom,
-      dateTo,
-      startTime: form.startTime || null,
-      endTime: form.endTime || null,
-      maxHoursInWindow: form.kind === 'time_window' ? Number(form.maxHoursInWindow) : null,
-      isActive: form.isActive,
-      notes: form.notes.trim() || null,
-      roomId: form.roomScope === 'all' ? null : Number(form.roomScope),
-    };
+    const payload = result.payload;
     mutation.mutate(payload);
   };
 
@@ -1256,7 +1141,7 @@ function ExceptionDialog({
                 />
               )}
             </div>
-            {isPastOnlyRange && (
+            {pastOnlyRange && (
               <Alert variant="destructive" className="text-xs">
                 <AlertDescription>
                   Il periodo selezionato è già passato: questa eccezione non bloccherà nessuna

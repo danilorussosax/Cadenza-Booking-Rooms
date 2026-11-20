@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { parseAllowedDomains } from '@/lib/emailDomains';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -806,18 +807,7 @@ function SsoTabContent() {
   // virgole/spazi/case verranno comunque ripuliti lato server. Calcolato prima
   // dell'early return per rispettare le regole degli hook (no chiamate condizionali).
   const rawDomainsInput = form?.allowedEmailDomains ?? '';
-  const normalizedDomains = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          rawDomainsInput
-            .split(/[,\s;]+/)
-            .map((s) => s.trim().toLowerCase().replace(/^@/, ''))
-            .filter(Boolean),
-        ),
-      ),
-    [rawDomainsInput],
-  );
+  const normalizedDomains = useMemo(() => parseAllowedDomains(rawDomainsInput), [rawDomainsInput]);
 
   if (query.isError) {
     return (
