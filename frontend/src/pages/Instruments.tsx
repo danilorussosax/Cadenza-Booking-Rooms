@@ -298,14 +298,15 @@ function LoanRequestDialog({
   const [serverError, setServerError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      loansApi.request({
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        instrumentId: instrument!.id,
+    mutationFn: () => {
+      if (!instrument) return Promise.reject(new Error('Nessuno strumento selezionato'));
+      return loansApi.request({
+        instrumentId: instrument.id,
         fromDate,
         toDate,
         notes: notes.trim() || null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success(t('instruments.request_dialog.submitted'));
       void invalidateMyLoans(qc);

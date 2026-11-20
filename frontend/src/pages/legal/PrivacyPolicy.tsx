@@ -31,9 +31,10 @@ export default function PrivacyPolicy() {
   });
   const inst: PublicInstitute | null = data?.institute ?? null;
 
-  const denomination =
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    fmt(inst?.legalName) !== MISSING ? inst!.legalName! : (inst?.name ?? MISSING);
+  const legalName = fmt(inst?.legalName);
+  const denomination = legalName !== MISSING ? legalName : (inst?.name ?? MISSING);
+  const vatNumber = fmt(inst?.vatNumber);
+  const fiscalCode = fmt(inst?.fiscalCode);
   const fullAddress = [inst?.address, inst?.city, inst?.country]
     .filter((s): s is string => !!s && s.trim().length > 0)
     .join(', ');
@@ -63,10 +64,8 @@ export default function PrivacyPolicy() {
           <p>
             Il titolare del trattamento è <strong>{denomination}</strong>
             {fullAddress && <>, con sede in {fullAddress}</>}
-            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-            {fmt(inst?.vatNumber) !== MISSING && <>, P.IVA {inst!.vatNumber}</>}
-            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-            {fmt(inst?.fiscalCode) !== MISSING && <>, C.F. {inst!.fiscalCode}</>}.
+            {vatNumber !== MISSING && <>, P.IVA {vatNumber}</>}
+            {fiscalCode !== MISSING && <>, C.F. {fiscalCode}</>}.
           </p>
           {fmt(inst?.contactEmail) !== MISSING && (
             <p>

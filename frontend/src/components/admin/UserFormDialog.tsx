@@ -261,8 +261,7 @@ export function UserFormDialog({ open, onOpenChange, user }: Props) {
             </Alert>
           )}
 
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {isEdit && user?.emailBouncedAt && (
+          {isEdit && user.emailBouncedAt && (
             <Alert variant="warning">
               <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-2">

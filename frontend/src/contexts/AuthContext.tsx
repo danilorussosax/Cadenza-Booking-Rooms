@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, [queryClient]);
   const [state, setState] = useState<AuthState>(() => ({
-    user: tokenStore.get() ? userCache.get<User>() : null,
+    user: tokenStore.get() ? (userCache.get() as User | null) : null,
     loading: Boolean(tokenStore.get()),
   }));
 
@@ -250,11 +250,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isProfileComplete: profileComplete(state.user),
       isApproved: isUserApproved(state.user),
       isPendingApproval:
-        Boolean(state.user) &&
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        state.user!.role !== 'admin' &&
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        state.user!.status === 'pending' &&
+        state.user !== null &&
+        state.user.role !== 'admin' &&
+        state.user.status === 'pending' &&
         profileComplete(state.user),
       hasRole: (...roles) => Boolean(state.user && roles.includes(state.user.role)),
       loginWithCredentials,

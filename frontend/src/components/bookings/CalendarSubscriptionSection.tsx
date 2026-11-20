@@ -52,13 +52,13 @@ export function CalendarSubscriptionSection() {
   // in non-secure-context su browser moderni.
   const copy = async (value: string, label: string) => {
     try {
-      if (
-        typeof navigator !== 'undefined' &&
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- navigator.clipboard è undefined in non-secure-context, TS non lo modella
-        navigator.clipboard &&
-        window.isSecureContext
-      ) {
-        await navigator.clipboard.writeText(value);
+      // navigator.clipboard è undefined in non-secure-context, TS non lo modella.
+      const clipboard =
+        typeof navigator === 'undefined'
+          ? undefined
+          : (navigator.clipboard as Clipboard | undefined);
+      if (clipboard && window.isSecureContext) {
+        await clipboard.writeText(value);
       } else {
         const ta = document.createElement('textarea');
         ta.value = value;

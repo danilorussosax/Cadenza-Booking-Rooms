@@ -68,8 +68,8 @@ export default function CheckInRoom() {
     refetchInterval: 30_000,
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const bookings = query.data?.bookings ?? [];
+  const fetchedBookings = query.data?.bookings;
+  const bookings = useMemo(() => fetchedBookings ?? [], [fetchedBookings]);
   const config = query.data?.config ?? { earlyMinutes: 5, graceMinutes: 15 };
   const roomCheckInDisabled = query.data?.roomCheckInDisabled === true;
   const room = bookings[0]?.room;

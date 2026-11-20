@@ -24,12 +24,11 @@ export const tokenStore = {
 
 export const userCache = {
   clear: () => localStorage.removeItem(USER_KEY),
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  get: <T>() => {
+  get: (): unknown => {
     const raw = localStorage.getItem(USER_KEY);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as T;
+      return JSON.parse(raw) as unknown;
     } catch {
       return null;
     }
@@ -92,8 +91,7 @@ async function request(path: string, opts: RequestOptions): Promise<Response> {
   if (!res.ok) {
     const text = await res.text();
     const data = text ? safeJson(text) : null;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const payload: ApiError = (data as ApiError) ?? { error: `Errore HTTP ${res.status}` };
+    const payload: ApiError = (data as ApiError | null) ?? { error: `Errore HTTP ${res.status}` };
     const credentialFailure =
       payload.code === 'WRONG_PASSWORD' || payload.code?.startsWith('TWO_FA_');
     if (

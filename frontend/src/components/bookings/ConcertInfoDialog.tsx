@@ -71,6 +71,12 @@ interface Props {
  * in quel caso la form parte vuota e il PUT crea la riga al primo salvataggio.
  * L'upload locandina è disponibile solo dopo che la scheda è stata salvata.
  */
+/** Stringa vuota (anche dopo trim) o assente diventa null, non ''. */
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+}
+
 export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -138,10 +144,8 @@ export function ConcertInfoDialog({ open, onOpenChange, bookingId }: Props) {
         performers: values.performers?.trim() ?? '',
         program: values.program?.trim() ?? '',
         eventType: values.eventType,
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- stringa vuota (anche dopo trim) deve diventare null, non ''
-        description: values.description?.trim() || null,
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- idem: '' → null
-        language: values.language?.trim() || null,
+        description: blankToNull(values.description),
+        language: blankToNull(values.language),
       }),
     onSuccess: ({ concertInfo }) => {
       toast.success(t('concert.saved'));

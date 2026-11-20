@@ -168,9 +168,10 @@ export function WeeklyRoomTimetable({
         const left = (blockStart.diff(dayStart, 'minute') / totalMinutes) * 100;
         const width = (blockEnd.diff(blockStart, 'minute') / totalMinutes) * 100;
         const key = `${b.roomId}:${i}`;
-        if (!map.has(key)) map.set(key, []);
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        map.get(key)!.push({ block: b, left, width });
+        const entry = { block: b, left, width };
+        const list = map.get(key);
+        if (list) list.push(entry);
+        else map.set(key, [entry]);
       }
     }
     return map;
@@ -181,10 +182,9 @@ export function WeeklyRoomTimetable({
   const nowPct = useMemo(() => {
     if (!showNowIndicator || todayDayIdx < 0) return null;
     const dayStart = days[todayDayIdx].startOf('day').add(startHour, 'hour');
-    const minutes = today.diff(dayStart, 'minute');
+    const minutes = dayjs().diff(dayStart, 'minute');
     if (minutes < 0 || minutes > totalMinutes) return null;
     return (minutes / totalMinutes) * 100;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showNowIndicator, todayDayIdx, days, startHour, totalMinutes]);
 
   if (rooms.length === 0) {

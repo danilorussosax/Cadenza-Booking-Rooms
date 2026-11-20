@@ -54,12 +54,12 @@ export function groupRoomsByFloor<T extends Pick<Room, 'name' | 'floor'>>(
   // grazie al sort): la prima volta che incontriamo un nuovo `floor`,
   // creiamo una sezione e ci accodiamo le aule successive.
   const sections: { floor: string; rooms: T[] }[] = [];
-  let current: { floor: string; rooms: T[] } | null = null;
   for (const r of sorted) {
-    // L'optional-chain qui (`current?.floor !== …`) farebbe perdere il type
-    // narrowing nel push() sotto, quindi manteniamo la forma esplicita.
-    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
-    if (!current || current.floor !== r.floor) {
+    const last = sections.at(-1);
+    let current: { floor: string; rooms: T[] };
+    if (last?.floor === r.floor) {
+      current = last;
+    } else {
       current = { floor: r.floor, rooms: [] };
       sections.push(current);
     }
