@@ -35,7 +35,7 @@ const { Booking, User, Room, Building, InstrumentLoan, Instrument } = require('.
 const emailService = require('./emailService');
 const instrumentLoanEmail = require('./instrumentLoanEmail');
 const { cancel } = require('./bookingLifecycle');
-const { isCheckInRequired } = require('../lib/checkInPolicy');
+const { isGhost, ghostCutoff } = require('../lib/checkInPolicy');
 const logger = require('../lib/logger').child({ scope: 'reminderScheduler' });
 const { createJob } = require('../lib/jobRunner');
 
@@ -167,15 +167,14 @@ async function tickLoans() {
 //
 // Trova prenotazioni:
 //   - status='confirmed', checkedInAt=null, autoCancelledAt=null
-//   - startTime + GHOST_GRACE_MINUTES < now
+//   - startTime + grace < now (vedi lib/checkInPolicy.isGhost)
 //
 // Le marca: status='cancelled', cancelReason='auto: ghost booking',
 // autoCancelledAt=now. Se l'invio email è attivo manda kind='ghost_cancellation'.
-const GHOST_GRACE_MINUTES = Math.max(1, Number(process.env.GHOST_GRACE_MINUTES) || 15);
-
 async function tickGhostCancel() {
   try {
-    const cutoff = dayjs().subtract(GHOST_GRACE_MINUTES, 'minute').toDate();
+    const now = new Date();
+    const cutoff = ghostCutoff(now);
     // Carichiamo TUTTE le booking confermate scadute e poi filtriamo in JS
     // via isCheckInRequired(room): la cascata Room.requireCheckIn → Building.
     // checkInDefault non è esprimibile con un singolo WHERE su una colonna,
@@ -199,7 +198,7 @@ async function tickGhostCancel() {
         },
       ],
     });
-    const due = candidates.filter((bk) => isCheckInRequired(bk.room));
+    const due = candidates.filter((bk) => isGhost(bk, now));
     if (due.length === 0) return;
 
     const emailOn = await emailService.emailEnabled();

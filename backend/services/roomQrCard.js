@@ -5,6 +5,7 @@ const path = require('node:path');
 const QRCode = require('qrcode');
 const sharp = require('sharp');
 const logger = require('../lib/logger');
+const { thresholds } = require('../lib/checkInPolicy');
 
 const FONT_DIR = path.join(__dirname, '..', 'assets', 'fonts');
 // Il VPS può non avere font di sistema: la stampa deve essere riproducibile.
@@ -89,11 +90,7 @@ async function textLayer(
   };
 }
 
-async function buildRoomQrCard({
-  url,
-  room,
-  graceMinutes = Math.max(1, Number(process.env.GHOST_GRACE_MINUTES) || 15),
-}) {
+async function buildRoomQrCard({ url, room, graceMinutes = thresholds().graceMinutes }) {
   const details = cardDetails(room, graceMinutes);
   const frame =
     Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}">
