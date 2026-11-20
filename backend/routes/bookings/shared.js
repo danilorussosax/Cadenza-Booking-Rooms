@@ -23,12 +23,11 @@ const WRITE_ISOLATION = Transaction.ISOLATION_LEVELS.SERIALIZABLE;
 // Check-in (anti ghost-booking) — costanti e config
 // =====================================================
 //
-// Configurabile via env:
+// Soglie lette UNA volta da lib/config.js (via lib/checkInPolicy):
 //   CHECKIN_EARLY_MINUTES     (default 5)  → quanto prima si può fare check-in
 //   GHOST_GRACE_MINUTES       (default 15) → quanto dopo l'inizio scatta l'auto-cancel
-const CHECKIN_EARLY_MINUTES = Math.max(0, Number(process.env.CHECKIN_EARLY_MINUTES) || 5);
-
-const GHOST_GRACE_MINUTES = Math.max(1, Number(process.env.GHOST_GRACE_MINUTES) || 15);
+const { earlyMinutes: CHECKIN_EARLY_MINUTES, graceMinutes: GHOST_GRACE_MINUTES } =
+  require('../../lib/checkInPolicy').thresholds();
 
 async function fetchBookingFull(id) {
   return Booking.findByPk(id, {

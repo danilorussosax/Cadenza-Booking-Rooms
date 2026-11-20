@@ -28,7 +28,12 @@ import { loansApi } from '@/api/instruments';
 import { monteOreAdminApi, monteOreApi } from '@/api/monteOre';
 import { roomsApi } from '@/api/rooms';
 import { dayjs, formatDate, formatTime } from '@/lib/date';
-import { isCheckInRequired } from '@/lib/checkInPolicy';
+import {
+  CHECKIN_HEADSUP_MINUTES,
+  DEFAULT_CHECKIN_CONFIG,
+  isCheckInRequired,
+  windowFor,
+} from '@/lib/checkInPolicy';
 import { sortRoomsForBuilding } from '@/lib/sortRooms';
 import { bookingsToBlocks } from '@/lib/weeklyBlocks';
 import { Badge } from '@/components/ui/badge';
@@ -469,23 +474,22 @@ export default function Dashboard() {
     });
   }, [buildings, calendarBookingsQuery.data, dayStart]);
 
-  // Booking imminenti che richiedono check-in:
-  // confermate, senza checkedInAt, con startTime nei prossimi 30 min OR già
-  // iniziate da meno di GHOST_GRACE_MINUTES (default 15 backend).
-  // La finestra è approssimata lato client per evitare un'altra chiamata API:
-  // basta che sia "abbastanza vicina" da meritare la card.
+  // Booking imminenti che richiedono check-in: confermate, senza checkedInAt,
+  // con finestra di check-in non ancora chiusa (soglie dall'API, vedi
+  // lib/checkInPolicy) e inizio entro CHECKIN_HEADSUP_MINUTES.
   const checkinNeeded = useMemo(() => {
     const all = upcomingQuery.data?.bookings ?? [];
-    const earliest = dayjs().subtract(15, 'minute');
-    const latest = dayjs().add(30, 'minute');
+    const cfg = upcomingQuery.data?.checkInConfig ?? DEFAULT_CHECKIN_CONFIG;
+    const now = Date.now();
+    const latest = now + CHECKIN_HEADSUP_MINUTES * 60_000;
     return all.filter(
       (b) =>
         b.status === 'confirmed' &&
         !!b.room &&
         isCheckInRequired(b.room) &&
         !b.checkedInAt &&
-        dayjs(b.startTime).isAfter(earliest) &&
-        dayjs(b.startTime).isBefore(latest),
+        windowFor(b, cfg).closesAt.getTime() > now &&
+        new Date(b.startTime).getTime() < latest,
     );
   }, [upcomingQuery.data]);
 

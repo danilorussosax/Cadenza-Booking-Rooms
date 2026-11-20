@@ -3,7 +3,7 @@
 const { Booking, Room, Building, Institute } = require('../../models');
 const { authenticate } = require('../../middleware/auth');
 const { extractClientIp, isIpInCidrList, normalizeIp } = require('../../lib/network');
-const { isCheckInRequired } = require('../../lib/checkInPolicy');
+const { isCheckInRequired, windowFor, phaseFor } = require('../../lib/checkInPolicy');
 const { dayjs, CHECKIN_EARLY_MINUTES, GHOST_GRACE_MINUTES } = require('./shared');
 
 module.exports = function registerCheckIn(router) {
@@ -89,18 +89,17 @@ module.exports = function registerCheckIn(router) {
     }
 
     const now = dayjs();
-    const start = dayjs(booking.startTime);
-    const minTime = start.subtract(CHECKIN_EARLY_MINUTES, 'minute');
-    const maxTime = start.add(GHOST_GRACE_MINUTES, 'minute');
+    const { opensAt: minTime, closesAt: maxTime } = windowFor(booking);
+    const phase = phaseFor(booking, now);
 
-    if (now.isBefore(minTime)) {
+    if (phase === 'too_early') {
       return res.status(400).json({
         error: `Il check-in apre ${CHECKIN_EARLY_MINUTES} minuti prima dell'inizio`,
         code: 'CHECKIN_TOO_EARLY',
         opensAt: minTime.toISOString(),
       });
     }
-    if (now.isAfter(maxTime)) {
+    if (phase === 'too_late') {
       return res.status(400).json({
         error: `Il check-in si chiude ${GHOST_GRACE_MINUTES} minuti dopo l'inizio`,
         code: 'CHECKIN_TOO_LATE',

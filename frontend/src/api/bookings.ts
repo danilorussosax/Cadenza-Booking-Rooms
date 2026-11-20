@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import type { CheckInConfig } from '@/lib/checkInPolicy';
 import type {
   Booking,
   BookingStatus,
@@ -45,7 +46,9 @@ export interface UpdateBookingPayload {
 
 export const bookingsApi = {
   list: (params: BookingsListParams = {}) =>
-    api<{ bookings: Booking[] }>('/api/bookings', { query: { ...params } }),
+    api<{ bookings: Booking[]; checkInConfig?: CheckInConfig }>('/api/bookings', {
+      query: { ...params },
+    }),
 
   get: (id: number) => api<{ booking: Booking }>(`/api/bookings/${id}`),
 

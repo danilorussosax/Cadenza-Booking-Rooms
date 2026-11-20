@@ -12,7 +12,7 @@
  * NB: questo modulo NON sostituisce TUTTE le letture `process.env` esistenti
  * (sono ~30 sparse) — un big bang refactor è fuori scope. Centralizziamo solo
  * le configurazioni più critiche / a rischio config drift. Le env "tunable"
- * (es. RATE_LIMIT_*, TWO_FA_*, GHOST_GRACE_MINUTES) restano locali ai
+ * (es. RATE_LIMIT_*, TWO_FA_*) restano locali ai
  * loro modulo perché sono override di tuning, non config primarie.
  *
  * Convenzione: tutte le env critiche restano accessibili anche via
@@ -112,7 +112,7 @@ function loadConfig() {
     max: 3650,
   });
 
-  // Check-in / ghost cancel
+  // Check-in / ghost cancel — consumati SOLO tramite lib/checkInPolicy.
   const CHECKIN_EARLY_MINUTES = asInt('CHECKIN_EARLY_MINUTES', 5, { min: 0, max: 60 });
   const GHOST_GRACE_MINUTES = asInt('GHOST_GRACE_MINUTES', 15, { min: 1, max: 120 });
 

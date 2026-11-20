@@ -19,8 +19,8 @@ const {
 } = require('../../models');
 const { authenticate, requireRole } = require('../../middleware/auth');
 const { buildIcs } = require('../../services/icalService');
-const { isCheckInRequired } = require('../../lib/checkInPolicy');
-const { dayjs, CHECKIN_EARLY_MINUTES, GHOST_GRACE_MINUTES } = require('./shared');
+const { isCheckInRequired, candidateRange } = require('../../lib/checkInPolicy');
+const { CHECKIN_EARLY_MINUTES, GHOST_GRACE_MINUTES } = require('./shared');
 const { isAdmin, can } = require('../../lib/access');
 
 module.exports = function registerRead(router) {
@@ -153,7 +153,12 @@ module.exports = function registerRead(router) {
       distinct: true,
     });
     setPaginationHeaders(res, count, limit, offset);
-    res.json({ bookings: rows });
+    // `checkInConfig`: soglie di check-in (additivo, retrocompatibile) cosi' il
+    // client non deve stimarle con costanti proprie.
+    res.json({
+      bookings: rows,
+      checkInConfig: { earlyMinutes: CHECKIN_EARLY_MINUTES, graceMinutes: GHOST_GRACE_MINUTES },
+    });
   });
 
   // GET /api/bookings/checkin-candidates?roomId=...
@@ -183,9 +188,7 @@ module.exports = function registerRead(router) {
       });
     }
 
-    const now = dayjs();
-    const windowStart = now.subtract(GHOST_GRACE_MINUTES, 'minute').toDate();
-    const windowEnd = now.add(24, 'hour').toDate();
+    const { from: windowStart, to: windowEnd } = candidateRange();
 
     const bookings = await Booking.findAll({
       where: {
