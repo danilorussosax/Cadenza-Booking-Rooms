@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 
-interface FullscreenDocument extends Document {
+// Le API standard sono marcate opzionali: su browser/TV vecchi possono mancare.
+interface FullscreenDocument extends Omit<Document, 'exitFullscreen'> {
+  exitFullscreen?: () => Promise<void>;
   webkitFullscreenElement?: Element | null;
   msFullscreenElement?: Element | null;
   webkitExitFullscreen?: () => Promise<void>;
   msExitFullscreen?: () => Promise<void>;
 }
 
-interface FullscreenElement extends HTMLElement {
+interface FullscreenElement extends Omit<HTMLElement, 'requestFullscreen'> {
+  requestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
   webkitRequestFullscreen?: () => Promise<void>;
   msRequestFullscreen?: () => Promise<void>;
 }
@@ -37,7 +40,6 @@ export function useFullscreen(target?: HTMLElement | null) {
   const enter = useCallback(async () => {
     const el = (target ?? document.documentElement) as FullscreenElement;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
       else if (el.msRequestFullscreen) await el.msRequestFullscreen();
@@ -49,7 +51,6 @@ export function useFullscreen(target?: HTMLElement | null) {
   const exit = useCallback(async () => {
     const d = document as FullscreenDocument;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (d.exitFullscreen) await d.exitFullscreen();
       else if (d.webkitExitFullscreen) await d.webkitExitFullscreen();
       else if (d.msExitFullscreen) await d.msExitFullscreen();
