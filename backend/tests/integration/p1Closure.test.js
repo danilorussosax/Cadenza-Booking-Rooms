@@ -170,7 +170,7 @@ describe('P1-4: integrations cleanup + path traversal', () => {
     // readTempFile è private (non esportata); verifichiamo via codice sorgente
     // che usi path.basename() per neutralizzare i traversali.
     const src = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'routes', 'integrations.js'),
+      path.join(__dirname, '..', '..', 'services', 'integrations', 'importWorkflow.js'),
       'utf-8',
     );
     // Pattern atteso: combinazione di basename + path.relative
