@@ -4,11 +4,12 @@ const express = require('express');
 const multer = require('multer');
 const { Op } = require('sequelize');
 const { stringify: csvStringify } = require('csv-stringify/sync');
-const { sequelize, User, Course, Booking, MonteOreProposal, ContractType } = require('../models');
+const { sequelize, User, Course, ContractType } = require('../models');
 const { contractFields, flagChangedPlans } = require('../services/teacherContractService');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { parsePagination, setPaginationHeaders } = require('../lib/pagination');
+const removal = require('../services/removal');
 const csvImporter = require('../services/integrations/isidata/csvImporter');
 const { importUsersFromFile } = require('../services/users/csvImport');
 const {
@@ -530,35 +531,13 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
     if (!lockout.ok) {
       throw domainError(lockout.code, lockout.error, { status: 409 });
     }
-    const result = await sequelize.transaction(async (t) => {
-      const removedBookings = await Booking.destroy({
-        where: { userId: user.id },
-        transaction: t,
-      });
-      // User è paranoid (soft-delete): la CASCADE dell'FK non scatta.
-      // Eliminiamo esplicitamente le proposte Monte Ore per evitare che
-      // restino orfane nella pagina "Gestione Monte ore" dopo la cancellazione.
-      // Schedules/slots/amendments seguono via CASCADE (tabelle non paranoid).
-      const removedMonteOreProposals = await MonteOreProposal.destroy({
-        where: { userId: user.id },
-        transaction: t,
-      });
-      await user.destroy({ transaction: t });
-      return { removedBookings, removedMonteOreProposals };
-    });
+    const result = await removal.removeUser(user.id, { bookings: 'purge' });
     res.json({
       message: 'Utente eliminato',
       removedBookings: result.removedBookings,
       removedMonteOreProposals: result.removedMonteOreProposals,
     });
   } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw domainError(
-        'FK_CONSTRAINT',
-        "Impossibile eliminare: l'utente è ancora referenziato da altri dati.",
-        { status: 409 },
-      );
-    }
     next(err);
   }
 });
@@ -610,28 +589,11 @@ router.post('/bulk-delete', authenticate, requireRole('admin'), async (req, res,
         );
       }
     }
-    const result = await sequelize.transaction(async (t) => {
-      const removedBookings = await Booking.destroy({
-        where: { userId: { [Op.in]: ids } },
-        transaction: t,
-      });
-      // Vedi nota in DELETE /:id: User paranoid → la CASCADE FK non scatta,
-      // serve eliminare a mano le proposte Monte Ore.
-      const removedMonteOreProposals = await MonteOreProposal.destroy({
-        where: { userId: { [Op.in]: ids } },
-        transaction: t,
-      });
-      const deleted = await User.destroy({
-        where: { id: { [Op.in]: ids } },
-        transaction: t,
-      });
-      return { deleted, removedBookings, removedMonteOreProposals };
+    const { deleted, removedBookings, removedMonteOreProposals } = await removal.removeUsers(ids, {
+      bookings: 'purge',
     });
-    res.json(result);
+    res.json({ deleted, removedBookings, removedMonteOreProposals });
   } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-    }
     next(err);
   }
 });
