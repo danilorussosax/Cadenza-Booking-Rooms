@@ -25,7 +25,6 @@
 const express = require('express');
 const crypto = require('crypto');
 const {
-  sequelize,
   User,
   Booking,
   InstrumentLoan,
@@ -34,12 +33,11 @@ const {
   Room,
   Building,
   Instrument,
-  MonteOreProposal,
 } = require('../models');
 const { authenticate, requireApproved } = require('../middleware/auth');
 const { gdprLimiter } = require('../middleware/rateLimit');
 const logger = require('../lib/logger');
-const { cancelMany } = require('../services/bookingLifecycle');
+const removal = require('../services/removal');
 const { domainError } = require('../lib/domainError');
 const { isAdmin } = require('../lib/access');
 
@@ -204,73 +202,38 @@ router.post('/delete-request', authenticate, gdprLimiter, async (req, res, next)
       );
     }
 
-    const photoUrl = req.user.profilePhotoUrl;
-    const result = await sequelize.transaction(async (t) => {
-      const user = await User.findByPk(userId, { transaction: t });
-      if (!user) {
-        throw domainError('USER_NOT_FOUND', 'Utente non trovato', { status: 404 });
-      }
-
-      // Genera un identificatore anonimo stabile e univoco (rispetta UNIQUE su email).
-      // Il dominio .invalid è riservato (RFC 2606) e non risolverà mai → safety.
-      const anonSuffix = crypto.randomBytes(6).toString('hex');
-      const anonEmail = `deleted_${userId}_${anonSuffix}@anonymized.invalid`;
-
-      await user.update(
-        {
-          email: anonEmail,
-          firstName: 'Utente',
-          lastName: 'anonimizzato',
-          passwordHash: null,
-          matricola: null,
-          googleId: null,
-          microsoftId: null,
-          profilePhotoUrl: null,
-          icalTokenHash: null,
-          isActive: false,
-          emailNotifications: false,
-          notifyOnConfirmation: false,
-          notifyOnReminder: false,
-          notifyOnCancellation: false,
-        },
-        { transaction: t },
-      );
-
-      // Cancella le prenotazioni FUTURE (nessuno deve presentarsi): le passate
-      // restano per integrità storica e fini probatori (regolamento prestiti,
-      // contestazioni). Sono già "anonime" perché user.firstName/lastName lo sono.
-      const now = new Date();
-      const futureBookings = await Booking.findAll({
-        where: {
-          userId,
-          startTime: { [require('sequelize').Op.gt]: now },
-          status: ['confirmed', 'pending_approval'],
-        },
-        transaction: t,
-      });
-      // Annullo + promozione lista d'attesa (dopo il commit) via ciclo di vita.
-      const cancelledFuture = (await cancelMany({ bookings: futureBookings, transaction: t }))
-        .length;
-
-      // User è paranoid: la CASCADE FK non scatta. Eliminiamo a mano le
-      // proposte Monte Ore (con schedules/slots/amendments via CASCADE).
-      // Coerente con il diritto all'oblio: i piani didattici dell'utente
-      // anonimizzato non devono restare nella pagina "Gestione Monte ore".
-      const removedMonteOreProposals = await MonteOreProposal.destroy({
-        where: { userId },
-        transaction: t,
-      });
-
-      // Soft-delete dell'utente (paranoid → deletedAt valorizzato).
-      await user.destroy({ transaction: t });
-
-      return {
-        cancelledFutureBookings: cancelledFuture,
-        removedMonteOreProposals,
-      };
+    const removed = await removal.removeUser(userId, {
+      bookings: 'cancel',
+      // Anonimizzazione nella stessa transazione della cancellazione.
+      prepare: async (user, t) => {
+        // Identificatore anonimo stabile e univoco (rispetta UNIQUE su email).
+        // Il dominio .invalid e' riservato (RFC 2606) e non risolvera' mai.
+        const anonSuffix = crypto.randomBytes(6).toString('hex');
+        await user.update(
+          {
+            email: `deleted_${userId}_${anonSuffix}@anonymized.invalid`,
+            firstName: 'Utente',
+            lastName: 'anonimizzato',
+            passwordHash: null,
+            matricola: null,
+            googleId: null,
+            microsoftId: null,
+            profilePhotoUrl: null,
+            icalTokenHash: null,
+            isActive: false,
+            emailNotifications: false,
+            notifyOnConfirmation: false,
+            notifyOnReminder: false,
+            notifyOnCancellation: false,
+          },
+          { transaction: t },
+        );
+      },
     });
-
-    await require('../services/profilePhotoCleanup').removeProfilePhoto(photoUrl);
+    const result = {
+      cancelledFutureBookings: removed.cancelledBookings,
+      removedMonteOreProposals: removed.removedMonteOreProposals,
+    };
 
     await writeGdprAudit({
       req,

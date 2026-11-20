@@ -7,16 +7,9 @@ const multer = require('multer');
 const sharp = require('sharp');
 const { body, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
-const {
-  sequelize,
-  Institute,
-  Building,
-  Room,
-  Equipment,
-  EquipmentTemplate,
-  Booking,
-} = require('../models');
+const { Institute, Building, Room, Equipment, EquipmentTemplate, Booking } = require('../models');
 const { authenticate, requireRole } = require('../middleware/auth');
+const removal = require('../services/removal');
 const { importStructure } = require('../services/structureImporter');
 const { pickAllowed, ValidationError } = require('../lib/sanitize');
 const { isCheckInRequired } = require('../lib/checkInPolicy');
@@ -594,67 +587,14 @@ router.put('/module-settings', authenticate, requireRole('admin'), async (req, r
   res.json(out);
 });
 
-router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const inst = await Institute.findByPk(req.params.id);
-    if (!inst) throw httpError(404, 'Istituto non trovato');
-    let photoSnapshot = [];
-    let logoUrl = null;
-    const result = await sequelize.transaction(async (t) => {
-      logoUrl = inst.logoUrl;
-      // Trova tutte le rooms collegate (via buildings) per cancellarne le booking
-      // e tenere traccia delle photoUrl da rimuovere dal disco dopo il commit.
-      const buildings = await Building.findAll({
-        where: { instituteId: inst.id },
-        attributes: ['id'],
-        transaction: t,
-      });
-      const buildingIds = buildings.map((b) => b.id);
-      let removedBookings = 0;
-      if (buildingIds.length > 0) {
-        const rooms = await Room.findAll({
-          where: { buildingId: { [Op.in]: buildingIds } },
-          attributes: ['id', 'photoUrl'],
-          transaction: t,
-        });
-        photoSnapshot = rooms;
-        const roomIds = rooms.map((r) => r.id);
-        if (roomIds.length > 0) {
-          removedBookings = await Booking.destroy({
-            where: { roomId: { [Op.in]: roomIds } },
-            transaction: t,
-          });
-        }
-        // Cascade del soft-delete: paranoid Sequelize non propaga ai figli,
-        // quindi se non destroy() esplicitamente Room/Building i record
-        // restano alive con `deletedAt IS NULL`. Risultato: le query che
-        // non joinano via Building (es. /public/stats roomsTotal) contano
-        // aule "orfane" non visibili dall'albero Structure.
-        await Room.destroy({
-          where: { buildingId: { [Op.in]: buildingIds } },
-          transaction: t,
-        });
-        await Building.destroy({
-          where: { instituteId: inst.id },
-          transaction: t,
-        });
-      }
-      await inst.destroy({ transaction: t });
-      return removedBookings;
-    });
-    // Pulizia file su disco DOPO il commit (idempotente, errori ignorati)
-    tryDeleteRoomPhotos(photoSnapshot);
-    tryDeleteOldLogo(logoUrl);
-    res.json({
-      message: 'Istituto eliminato (cascade su edifici/aule/attrezzature/prenotazioni)',
-      removedBookings: result,
-    });
-  } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-    }
-    next(err);
-  }
+router.delete('/institutes/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const inst = await Institute.findByPk(req.params.id);
+  if (!inst) throw httpError(404, 'Istituto non trovato');
+  const { removedBookings } = await removal.removeInstitute(inst.id, { bookings: 'purge' });
+  res.json({
+    message: 'Istituto eliminato (cascade su edifici/aule/attrezzature/prenotazioni)',
+    removedBookings,
+  });
 });
 
 // Helper: rimuovi file logo precedente se gestito da noi (path /storage/…)
@@ -834,48 +774,14 @@ router.post(
 );
 
 // Bulk delete edifici (admin) — REGISTRATO PRIMA di /:id per vincere il route match.
-// In transazione: rimuove le booking delle aule degli edifici, poi le aule, poi gli edifici.
-router.post(
-  '/buildings/bulk-delete',
-  authenticate,
-  requireRole('admin'),
-  async (req, res, next) => {
-    try {
-      const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-      if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
-      const rooms = await Room.findAll({
-        where: { buildingId: { [Op.in]: ids } },
-        attributes: ['id', 'photoUrl'],
-      });
-      const roomIds = rooms.map((r) => r.id);
-      const result = await sequelize.transaction(async (t) => {
-        let removedBookings = 0;
-        if (roomIds.length > 0) {
-          removedBookings = await Booking.destroy({
-            where: { roomId: { [Op.in]: roomIds } },
-            transaction: t,
-          });
-        }
-        const removedRooms = await Room.destroy({
-          where: { buildingId: { [Op.in]: ids } },
-          transaction: t,
-        });
-        const deleted = await Building.destroy({
-          where: { id: { [Op.in]: ids } },
-          transaction: t,
-        });
-        return { deleted, removedRooms, removedBookings };
-      });
-      tryDeleteRoomPhotos(rooms);
-      res.json(result);
-    } catch (err) {
-      if (err.name === 'SequelizeForeignKeyConstraintError') {
-        throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-      }
-      next(err);
-    }
-  },
-);
+router.post('/buildings/bulk-delete', authenticate, requireRole('admin'), async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+  if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
+  const { deleted, removedRooms, removedBookings } = await removal.removeBuildings(ids, {
+    bookings: 'purge',
+  });
+  res.json({ deleted, removedRooms, removedBookings });
+});
 
 router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
@@ -891,43 +797,11 @@ router.put('/buildings/:id', authenticate, requireRole('admin'), async (req, res
   }
 });
 
-router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const b = await Building.findByPk(req.params.id);
-    if (!b) throw httpError(404, 'Edificio non trovato');
-    let photoSnapshot = [];
-    const result = await sequelize.transaction(async (t) => {
-      const rooms = await Room.findAll({
-        where: { buildingId: b.id },
-        attributes: ['id', 'photoUrl'],
-        transaction: t,
-      });
-      photoSnapshot = rooms;
-      const roomIds = rooms.map((r) => r.id);
-      let removedBookings = 0;
-      if (roomIds.length > 0) {
-        removedBookings = await Booking.destroy({
-          where: { roomId: { [Op.in]: roomIds } },
-          transaction: t,
-        });
-        // Cascade del soft-delete: senza questo le aule restano `deletedAt
-        // IS NULL` e gonfiano i counter che non joinano via Building.
-        await Room.destroy({
-          where: { buildingId: b.id },
-          transaction: t,
-        });
-      }
-      await b.destroy({ transaction: t });
-      return removedBookings;
-    });
-    tryDeleteRoomPhotos(photoSnapshot);
-    res.json({ message: 'Edificio eliminato', removedBookings: result });
-  } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-    }
-    next(err);
-  }
+router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const b = await Building.findByPk(req.params.id);
+  if (!b) throw httpError(404, 'Edificio non trovato');
+  const { removedBookings } = await removal.removeBuildings([b.id], { bookings: 'purge' });
+  res.json({ message: 'Edificio eliminato', removedBookings });
 });
 
 // =========================================================
@@ -935,36 +809,11 @@ router.delete('/buildings/:id', authenticate, requireRole('admin'), async (req, 
 // =========================================================
 
 // Bulk delete (admin) — registered BEFORE :id to win the route match.
-// In transazione: rimuove prima le prenotazioni delle aule selezionate, poi le aule.
-router.post('/rooms/bulk-delete', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
-    // Snapshot delle photoUrl prima di cancellare le righe — i file su disco
-    // verranno rimossi dopo il commit per evitare file orfani in /uploads.
-    const snap = await Room.findAll({
-      where: { id: { [Op.in]: ids } },
-      attributes: ['id', 'photoUrl'],
-    });
-    const result = await sequelize.transaction(async (t) => {
-      const removedBookings = await Booking.destroy({
-        where: { roomId: { [Op.in]: ids } },
-        transaction: t,
-      });
-      const deleted = await Room.destroy({
-        where: { id: { [Op.in]: ids } },
-        transaction: t,
-      });
-      return { deleted, removedBookings };
-    });
-    tryDeleteRoomPhotos(snap);
-    res.json(result);
-  } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-    }
-    next(err);
-  }
+router.post('/rooms/bulk-delete', authenticate, requireRole('admin'), async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+  if (ids.length === 0) throw httpError(400, 'Nessun id fornito');
+  const { deleted, removedBookings } = await removal.removeRooms(ids, { bookings: 'purge' });
+  res.json({ deleted, removedBookings });
 });
 
 router.get('/rooms', authenticate, async (req, res) => {
@@ -1371,16 +1220,6 @@ function tryDeleteOldRoomPhoto(photoUrl) {
   fs.unlink(fp, () => {});
 }
 
-/**
- * Per ognuna delle aule passate (oggetti con .photoUrl), tenta di
- * cancellare il file fisico associato. Idempotente: errori ignorati.
- * Usato dai percorsi di DELETE/cascade per evitare file orfani in /uploads.
- */
-function tryDeleteRoomPhotos(rooms) {
-  if (!rooms?.length) return;
-  for (const r of rooms) tryDeleteOldRoomPhoto(r.photoUrl);
-}
-
 // Upload foto aula (multipart/form-data, field "file")
 // Le immagini vengono ridimensionate a 1200x675 (16:9) WEBP.
 router.post(
@@ -1441,27 +1280,11 @@ router.delete('/rooms/:id/photo', authenticate, requireRole('admin'), async (req
   res.json({ room });
 });
 
-router.delete('/rooms/:id', authenticate, requireRole('admin'), async (req, res, next) => {
-  try {
-    const r = await Room.findByPk(req.params.id);
-    if (!r) throw httpError(404, 'Aula non trovata');
-    const photoUrl = r.photoUrl;
-    const result = await sequelize.transaction(async (t) => {
-      const removedBookings = await Booking.destroy({
-        where: { roomId: r.id },
-        transaction: t,
-      });
-      await r.destroy({ transaction: t });
-      return removedBookings;
-    });
-    tryDeleteOldRoomPhoto(photoUrl);
-    res.json({ message: 'Aula eliminata', removedBookings: result });
-  } catch (err) {
-    if (err.name === 'SequelizeForeignKeyConstraintError') {
-      throw httpError(409, 'Eliminazione bloccata da vincoli di integrità.');
-    }
-    next(err);
-  }
+router.delete('/rooms/:id', authenticate, requireRole('admin'), async (req, res) => {
+  const r = await Room.findByPk(req.params.id);
+  if (!r) throw httpError(404, 'Aula non trovata');
+  const { removedBookings } = await removal.removeRooms([r.id], { bookings: 'purge' });
+  res.json({ message: 'Aula eliminata', removedBookings });
 });
 
 // =========================================================
