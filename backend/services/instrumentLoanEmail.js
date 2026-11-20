@@ -25,13 +25,7 @@ dayjs.extend(timezone);
 // Email user-facing: ora italiana indipendente dal TZ del processo.
 const institutionTime = require('../lib/institutionTime');
 dayjs.locale('it');
-const { render, renderText } = require('./templateRenderer');
-const { getTemplate, buildBookingContext: _unused } = require('./emailService');
-
-// Riusa il loadConfig di emailService via accesso side-effect
-// (loadConfig è privato; getTemplate/sendTestEmail attivano la cache).
-// Per non duplicare logica, accediamo al transporter via emailService:
-const emailService = require('./emailService');
+const mailContext = require('./mailContext');
 
 const KIND_PREF_FIELD = {
   // I prestiti non hanno un toggle granulare dedicato per ora:
@@ -49,13 +43,8 @@ function durationLabel(fromDate, toDate) {
   return `${days} giorni`;
 }
 
+/** Variabili specifiche del prestito; institute/now/copyright li aggiunge mailContext. */
 async function buildLoanContext({ user, loan }) {
-  const { Institute } = require('../models');
-  const inst = await Institute.findOne({
-    attributes: ['name', 'copyright'],
-    order: [['id', 'ASC']],
-  }).catch(() => null);
-
   const instrument = loan.instrument || {};
   const start = dayjs(loan.fromDate);
   const end = dayjs(loan.toDate);
@@ -88,12 +77,6 @@ async function buildLoanContext({ user, loan }) {
       notes: loan.notes || '',
       status: loan.status || '',
     },
-    institute: {
-      name: inst?.name || 'Cadenza',
-      copyright:
-        inst?.copyright || 'Cadenza · Per disattivare le notifiche email vai sul tuo profilo.',
-    },
-    now: { dateTime: institutionTime.inInstitute().format('DD MMM YYYY · HH:mm') },
   };
 }
 
@@ -102,16 +85,10 @@ async function sendInstrumentLoanEmail({ user, loan, kind }) {
   // Eventuale futuro: KIND_PREF_FIELD per toggle granulari sui prestiti.
   if (KIND_PREF_FIELD[kind] && user[KIND_PREF_FIELD[kind]] === false) return;
 
-  const tpl = await getTemplate(kind);
-  if (!tpl) return;
-
-  const ctx = await buildLoanContext({ user, loan });
+  const vars = await buildLoanContext({ user, loan });
   const idempotencyKey = loan?.id ? `loan:${loan.id}:${kind}` : null;
-  await emailService.enqueueMail({
-    kind,
+  await mailContext.renderAndQueue(kind, vars, {
     to: user.email,
-    subject: renderText(tpl.subject, ctx),
-    html: render(tpl.bodyHtml, ctx),
     priority: 5,
     idempotencyKey,
   });

@@ -16,15 +16,7 @@
  * mantenere dimensione bundle.
  */
 
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-// L'email mostra date/orari all'utente: ora italiana indipendentemente
-// dal TZ del processo (container/UTC). Allinea pattern di emailService.
-const institutionTz = () => require('../lib/institutionTime').getTimezone(); // lettura pigra: il fuso può essere configurato dopo il caricamento
+const mailContext = require('./mailContext');
 const { Op } = require('sequelize');
 const { User, Announcement, Institute } = require('../models');
 const { audienceMatchesUserWhere } = require('./audienceMatcher');
@@ -67,26 +59,31 @@ async function sendAnnouncementBroadcast(announcementId) {
     return { sent: 0, skipped: 'no_recipients' };
   }
 
-  const tpl = await svc.getTemplate('announcement_published');
-  if (!tpl) {
-    await ann.update({ emailSentAt: new Date() });
-    return { sent: 0, skipped: 'template_missing' };
-  }
+  const inst = await Institute.findOne({
+    attributes: ['name', 'copyright'],
+    order: [['id', 'ASC']],
+  }).catch(() => null);
 
   // Bulk enqueue nell'outbox: il worker rispetta il pool SMTP e processa
   // con priority=9 (più bassa di transactional). Idempotency key per
   // (announcement, user) evita doppi invii in caso di re-publish.
   let queued = 0;
   for (const user of recipients) {
-    const ctx = await buildAnnouncementContext({ user, announcement: ann });
-    const r = await svc.enqueueMail({
-      kind: 'announcement',
-      to: user.email,
-      subject: svc.renderText(tpl.subject, ctx),
-      html: svc.render(tpl.bodyHtml, ctx),
-      priority: 9,
-      idempotencyKey: `announcement:${ann.id}:user:${user.id}`,
-    });
+    const r = await mailContext.renderAndQueue(
+      'announcement_published',
+      announcementVars({ user, announcement: ann }),
+      {
+        to: user.email,
+        institute: inst,
+        footerHint: 'avvisi',
+        priority: 9,
+        idempotencyKey: `announcement:${ann.id}:user:${user.id}`,
+      },
+    );
+    if (r.code === 'TEMPLATE_MISSING') {
+      await ann.update({ emailSentAt: new Date() });
+      return { sent: 0, skipped: 'template_missing' };
+    }
     if (r.queued) queued += 1;
   }
 
@@ -94,12 +91,7 @@ async function sendAnnouncementBroadcast(announcementId) {
   return { sent: queued, recipients: recipients.length };
 }
 
-async function buildAnnouncementContext({ user, announcement }) {
-  const inst = await Institute.findOne({
-    attributes: ['name', 'copyright'],
-    order: [['id', 'ASC']],
-  }).catch(() => null);
-
+function announcementVars({ user, announcement }) {
   return {
     user: {
       firstName: user.firstName,
@@ -109,19 +101,11 @@ async function buildAnnouncementContext({ user, announcement }) {
     announcement: {
       title: announcement.title,
       body: announcement.body,
-      publishedAtLong: dayjs(announcement.publishedAt)
-        .tz(institutionTz())
-        .format('dddd D MMMM YYYY'),
+      publishedAtLong: mailContext.formatAt(announcement.publishedAt, 'dddd D MMMM YYYY'),
       expiresAtLong: announcement.expiresAt
-        ? dayjs(announcement.expiresAt).tz(institutionTz()).format('dddd D MMMM YYYY')
+        ? mailContext.formatAt(announcement.expiresAt, 'dddd D MMMM YYYY')
         : '',
     },
-    institute: {
-      name: inst?.name || 'Cadenza',
-      copyright:
-        inst?.copyright || 'Cadenza · Per disattivare le notifiche avvisi vai sul tuo profilo.',
-    },
-    now: { dateTime: dayjs().tz(institutionTz()).format('DD MMM YYYY · HH:mm') },
   };
 }
 
