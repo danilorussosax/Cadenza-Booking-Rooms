@@ -10,6 +10,38 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.22.1] — 20 novembre 2026
+
+Correzioni al Monte Ore e alla creazione degli edifici, con un consolidamento interno del 2FA e degli errori di validazione.
+
+- Monte Ore: con un piano da rivalidare la griglia non offre più spostamenti, richieste di variazione, nuovi giorni e pannello budget che il server avrebbe rifiutato (`REVALIDATION_REQUIRED`); le celle non sono cliccabili e lo storico delle variazioni resta visibile. Le azioni della griglia e del dialogo admin arrivano dal server (`workflow.actions`) e non più da liste di stati nel frontend.
+- Strutture: la creazione di un edificio con un istituto inesistente risponde 409 (`FK_VIOLATION`) invece di un errore 500 generico.
+- Interno: emissione del codice 2FA e verifica del token temporaneo in un unico modulo (`twoFaFlow`) con il mailer iniettabile nei test; `ValidationError` estende `DomainError` e otto gestioni manuali sono sparite dalle route di strutture, tipi di prenotazione e utenti. Risposte, codici e messaggi dei flussi di login e 2FA sono invariati.
+
+**Compatibilità**
+
+- API additiva: `workflow.actions` aggiunge `teacher.viewAmendments`, `admin.reviewAmendments` e `admin.revalidate`.
+- Se il server non invia `workflow`, il docente non vede nessuna azione sul piano (prima il frontend applicava un ripiego basato sullo stato). Il server lo invia sempre quando esiste un piano.
+- Nessuna modifica allo schema e alla configurazione.
+
+Verifiche: 2.737 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 656 test frontend; 26 test browser.
+
+### English
+
+Fixes to Monte Ore and building creation, with an internal consolidation of 2FA and validation errors.
+
+- Monte Ore: when a plan needs revalidation the grid no longer offers moves, amendment requests, new days or the budget panel that the server would reject (`REVALIDATION_REQUIRED`); cells are not clickable and the amendment history stays visible. Grid and admin dialog actions now come from the server (`workflow.actions`) instead of status lists in the frontend.
+- Structure: creating a building with a non-existent institute now returns 409 (`FK_VIOLATION`) instead of a generic 500 error.
+- Internal: 2FA code issuing and temporary-token verification live in a single module (`twoFaFlow`) with an injectable mailer for tests; `ValidationError` extends `DomainError` and eight manual handlers are gone from the structure, booking-type and user routes. Responses, codes and messages of the login and 2FA flows are unchanged.
+
+**Compatibility**
+
+- Additive API: `workflow.actions` adds `teacher.viewAmendments`, `admin.reviewAmendments` and `admin.revalidate`.
+- If the server sends no `workflow`, teachers see no actions on the plan (the frontend used to fall back on status lists). The server always sends it when a plan exists.
+- No schema or configuration changes.
+
+Verification: 2,737 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 656 frontend tests; 26 browser tests.
+
 ## [1.22.0] — 20 novembre 2026
 
 Fuso orario dell’istituto ovunque, messaggi d’errore tradotti con i numeri e un consolidamento interno dei moduli principali.
