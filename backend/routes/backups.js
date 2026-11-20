@@ -10,6 +10,7 @@ const { performBackup, listBackups, deleteBackup, BACKUP_DIR } = require('../scr
 const backupScheduler = require('../services/backupScheduler');
 const logger = require('../lib/logger').child({ scope: 'backups.route' });
 const { domainError, httpError } = require('../lib/domainError');
+const { getConfig } = require('../lib/config');
 
 const router = express.Router();
 
@@ -257,7 +258,7 @@ router.post('/:filename/restore', authenticate, requireRole('admin'), async (req
 // =====================================================
 
 router.post('/restart', authenticate, requireRole('admin'), (_req, res) => {
-  if (process.env.AUTO_RESTART_ENABLED !== 'true') {
+  if (!getConfig().AUTO_RESTART_ENABLED) {
     return res.status(503).json({
       error:
         'Riavvio automatico disabilitato. Imposta AUTO_RESTART_ENABLED=true e usa systemd/pm2.',
