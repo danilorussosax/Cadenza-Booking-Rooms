@@ -67,11 +67,25 @@ export function initSentry() {
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE ?? undefined,
     tracesSampleRate: 0.1,
-    // sendDefaultPii=false: scrubbing custom su beforeBreadcrumb/beforeSend
-    sendDefaultPii: false,
+    // Sentry 11 ha rimosso sendDefaultPii e i default di dataCollection raccolgono TUTTO:
+    // li azzeriamo esplicitamente per mantenere la semantica di sendDefaultPii=false
+    // (GDPR, dati di studenti/docenti); urlQueryParams false perché le query possono
+    // contenere token/email (reset password, magic link). Scrubbing extra in beforeSend.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: false, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
     attachStacktrace: true,
-    // Sentry Logs (v9.41.0+) per logs strutturati lato browser
-    enableLogs: true,
+    // Sentry 11: enableLogs rimosso, i log strutturati (Sentry.logger) sono sempre abilitati.
     // Distributed tracing browser → backend: il header sentry-trace viene
     // propagato sulle fetch verso questi target, collegando le span FE/BE.
     tracePropagationTargets: [

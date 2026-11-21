@@ -62,7 +62,21 @@ describe('lib/sentry · init + scrubbing PII (con DSN mockato)', () => {
     const cfg = sentryMock.init.mock.calls[0]![0];
     expect(cfg.dsn).toMatch(/sentry/);
     expect(cfg.release).toBe('1.2.3');
-    expect(cfg.sendDefaultPii).toBe(false);
+    expect(cfg).not.toHaveProperty('sendDefaultPii');
+    // Sentry 11: i default di dataCollection raccolgono tutto, quindi devono essere ristretti.
+    expect(cfg.dataCollection).toEqual({
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: false, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    });
     expect(cfg.attachStacktrace).toBe(true);
     expect(cfg.tracesSampleRate).toBeGreaterThan(0);
     expect(typeof cfg.beforeBreadcrumb).toBe('function');
