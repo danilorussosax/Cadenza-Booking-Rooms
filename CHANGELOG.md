@@ -10,6 +10,66 @@ Le versioni seguono [Semantic Versioning](https://semver.org/lang/it/):
 - **MINOR**: nuove feature backward-compatible
 - **PATCH**: bug fix e ottimizzazioni interne
 
+## [1.23.0] — 21 novembre 2026
+
+Messaggi dell’interfaccia tradotti in 5 lingue, deploy con ritentativi e rollback, e un codice molto più modulare.
+
+**Novità e correzioni visibili**
+
+- Lingue: i messaggi di conferma e di errore (toast) e le finestre di conferma, finora in italiano in tutte le lingue, sono tradotti in italiano, inglese, spagnolo, tedesco e francese (87 chiamate in circa 55 file, 130 chiavi per lingua). Il testo italiano è identico a prima. Le traduzioni sono state scritte da un assistente e vanno riviste da un madrelingua prima di un uso fuori dall’Italia.
+- Display: con la configurazione vuota o non ancora caricata la rotazione delle slide non avanzava mai; ora parte. Con la configurazione caricata il comportamento è invariato.
+- Manuali e README allineati al codice, con correzioni di errori veri: l’export GDPR in autonomia è un file JSON (non uno ZIP) e non include il Monte Ore; ogni richiesta di variazione inviata consuma una unità del limite annuale; per titolari e collaborazioni le ore sono esatte (324), per il tempo definito sono un massimo; il requisito di Node è `^20.19.0 || ^22.13.0 || >=24.0.0`, non 18.
+
+**Deploy e CI**
+
+- `deploy.sh`: ritentativi automatici sugli errori di rete, tetto di tempo per ogni tentativo (`NET_TIMEOUT` 300 s, `NET_TIMEOUT_LONG` 900 s), snapshot del codice precedente sul server (ultimi 3, senza `.env`, `node_modules`, `uploads` e backup), rollback automatico se `/api/ready` fallisce e `./deploy.sh --rollback` manuale. Se un passo fallisce, lo script dice in che stato è rimasto il server. Il confronto delle versioni dei moduli ignora le dipendenze incorporate in un altro pacchetto (falso allarme). Simulazione locale con 126 controlli: `bash scripts/test-deploy-simulation.sh`.
+- Dependabot ogni lunedì, con pausa di 14 giorni sulle versioni nuove (30 per le major), e un controllo settimanale di `npm audit` che fallisce solo su vulnerabilità alte o critiche di produzione.
+- Actions aggiornate: `checkout@v7`, `setup-node@v7`, `cache@v6`, `gitleaks-action@v3` (runtime Node 24).
+
+**Note di operatività e compatibilità**
+
+- Nessuna modifica a schema, API o configurazione.
+- Dipendenze: 57 dipendenze dirette aggiornate (tra cui `dotenv` 18, `typescript-eslint`, `eslint`, `prettier`, `@tanstack/react-query`), scegliendo per ciascuna una versione pubblicata da almeno 20-21 giorni. `nodemailer` resta alla 10.3.1. `npm audit` di produzione senza vulnerabilità critiche o alte.
+- `dotenv` 18 scrive righe informative («injected env…») sul canale degli errori di PM2: non sono errori.
+- Chi esegue gli E2E in locale deve installare il Chromium di Playwright 1.64 con `npx playwright install chromium`.
+
+**Interno**
+
+- Frontend: 16 file con più di 700 righe spezzati in sottocomponenti, hook e funzioni pure (per esempio `Rules.tsx` da 1341 a 119 righe e `MonteOreGrid.tsx` da 1167 a 262); le soppressioni di tipi e lint passano da 53 a 1, con motivazione; contesto e hook di autenticazione e tema separati dai provider; test che impedisce di reintrodurre toast con testo letterale.
+- Backend: `routes/structure.js` da 1421 a 23 righe, in 11 sotto-router per risorsa; un test dimostra che le 48 route sono identiche a prima.
+
+Verifiche: 2.738 test backend superati sia in Europe/Rome sia in UTC, con soglie di copertura rispettate; 773 test frontend; 26 test browser; CI verde su tutti i job, PostgreSQL ed E2E compresi.
+
+### English
+
+Interface messages translated into 5 languages, deploys with retries and rollback, and a much more modular codebase.
+
+**User-visible changes and fixes**
+
+- Languages: confirmation and error messages (toasts) and confirm dialogs, which used to appear in Italian in every language, are now translated into Italian, English, Spanish, German and French (87 calls in about 55 files, 130 keys per language). The Italian text is identical to before. The translations were written by an assistant and should be reviewed by a native speaker before use outside Italy.
+- Display: with an empty or not-yet-loaded configuration the slide rotation never advanced; it now starts. With a loaded configuration nothing changes.
+- Manuals and READMEs aligned with the code, fixing real errors: the self-service GDPR export is a JSON file (not a ZIP) and does not include Monte Ore; each amendment request sent consumes one unit of the yearly limit; for permanent staff and collaboration contracts the hours are exact (324), for part-time contracts they are a maximum; the Node requirement is `^20.19.0 || ^22.13.0 || >=24.0.0`, not 18.
+
+**Deploy and CI**
+
+- `deploy.sh`: automatic retries on network errors, a time cap on every attempt (`NET_TIMEOUT` 300 s, `NET_TIMEOUT_LONG` 900 s), a snapshot of the previous code on the server (last 3, excluding `.env`, `node_modules`, `uploads` and backups), automatic rollback if `/api/ready` fails, and a manual `./deploy.sh --rollback`. If a step fails, the script reports the exact state the server was left in. The module-version comparison ignores dependencies bundled inside another package (false alarm). Local simulation with 126 checks: `bash scripts/test-deploy-simulation.sh`.
+- Dependabot every Monday, with a 14-day pause on new versions (30 for majors), and a weekly `npm audit` check that fails only on high or critical production vulnerabilities.
+- Actions updated: `checkout@v7`, `setup-node@v7`, `cache@v6`, `gitleaks-action@v3` (Node 24 runtime).
+
+**Operations and compatibility notes**
+
+- No schema, API or configuration changes.
+- Dependencies: 57 direct dependencies updated (including `dotenv` 18, `typescript-eslint`, `eslint`, `prettier`, `@tanstack/react-query`), choosing for each a version published at least 20-21 days ago. `nodemailer` stays at 10.3.1. Production `npm audit` reports no critical or high vulnerabilities.
+- `dotenv` 18 writes informational lines ("injected env…") to PM2's error stream: they are not errors.
+- Anyone running the E2E tests locally must install Playwright 1.64's Chromium with `npx playwright install chromium`.
+
+**Internal**
+
+- Frontend: 16 files over 700 lines split into subcomponents, hooks and pure functions (for example `Rules.tsx` from 1341 to 119 lines and `MonteOreGrid.tsx` from 1167 to 262); type and lint suppressions go from 53 to 1, with a justification; authentication and theme contexts and hooks separated from their providers; a test that prevents reintroducing literal-text toasts.
+- Backend: `routes/structure.js` from 1421 to 23 lines, in 11 per-resource sub-routers; a test proves the 48 routes are identical to before.
+
+Verification: 2,738 backend tests passing in both Europe/Rome and UTC with coverage thresholds met; 773 frontend tests; 26 browser tests; CI green on every job, PostgreSQL and E2E included.
+
 ## [1.22.2] — 20 novembre 2026
 
 Aggiornamento di sicurezza delle dipendenze di produzione: nessuna vulnerabilità critica o alta nota.
