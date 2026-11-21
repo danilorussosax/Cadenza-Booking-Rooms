@@ -36,7 +36,7 @@
 // Telegram rifiuta http e localhost.
 // =============================================================================
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '.env') });
 
 const crypto = require('crypto');
 const { sequelize, MessagingSettings } = require('../models');

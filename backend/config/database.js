@@ -7,7 +7,7 @@ const { Sequelize } = require('sequelize');
 // CWD del processo (server.js, vitest, sequelize-cli, scripts diag) e
 // silenziosamente cade sui default Sequelize quando la CWD non è `backend/`.
 // Idempotente: dotenv non sovrascrive var già caricate da server.js.
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '.env') });
 
 const dialect = process.env.DB_DIALECT || 'sqlite';
 const isProd = process.env.NODE_ENV === 'production';

@@ -10,7 +10,7 @@
  * Uso: node scripts/create-db.js
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '.env') });
 const { Client } = require('pg');
 
 async function main() {

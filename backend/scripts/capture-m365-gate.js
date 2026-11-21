@@ -17,7 +17,7 @@
 /* global document */
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '.env') });
 const puppeteer = require('puppeteer');
 
 const BASE = process.env.AULABOOK_URL || 'http://localhost:3000';

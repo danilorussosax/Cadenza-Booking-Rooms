@@ -35,7 +35,7 @@
 // Backup del DB consigliato PRIMA di eseguire la migrazione reale.
 // =============================================================================
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '.env') });
 
 const { Op } = require('sequelize');
 const models = require('../models');

@@ -12,7 +12,7 @@
  * Ambiente: rispetta NODE_ENV (development | test | production).
  */
 
-require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
+require('dotenv').config({ quiet: true, path: require('path').resolve(__dirname, '..', '.env') });
 
 const dialect = process.env.DB_DIALECT || 'sqlite';
 

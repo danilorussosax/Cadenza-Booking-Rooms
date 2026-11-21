@@ -3,7 +3,7 @@
 // Path esplicito: `dotenv.config()` senza argomenti dipende da `process.cwd()`,
 // quindi `node server.js` da una CWD diversa da `backend/` non trovava il
 // .env e il backend cadeva su default sqlite invece del Postgres configurato.
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '.env') });
 // Validazione config centralizzata (P2-4): legge tutte le env critiche e fa
 // exit(1) con messaggio chiaro se una è invalida (incluse le chiavi di tuning:
 // BCRYPT_COST, LOCKOUT_*, GDPR_*, MESSAGING_*, ...). Sostituisce il pattern
